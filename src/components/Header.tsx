@@ -67,7 +67,7 @@ const Header = () => {
               className="flex items-center gap-1 hover:underline"
             >
               <Phone className="h-3 w-3" />
-              <span className="hidden md:inline">+1 (234) 567-890</span>
+              <span className="hidden md:inline">0785760108</span>
             </a>
           </div>
         </div>
@@ -251,7 +251,7 @@ const Header = () => {
 
           <div className="ml-auto flex items-center gap-1 text-sm text-muted-foreground py-3">
             <Phone className="h-3.5 w-3.5" />
-            Call Us: +1 (234) 567-890
+            Call Us: 0785760108
           </div>
         </div>
       </nav>
