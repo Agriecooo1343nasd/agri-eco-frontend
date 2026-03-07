@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
 type PricingContextType = {
-  currency: string;
+  currency: string; 
   formatPrice: (amount: number) => string;
   setCurrency: (currency: string) => void;
 };
@@ -16,7 +16,7 @@ export const PricingProvider = ({ children }: { children: ReactNode }) => {
   const formatPrice = (amount: number) => {
     if (currency === "RWF") {
       // Convert USD-like prices (e.g. 4.99) to RWF (e.g. 6000)
-      // Standard conversion factor for demo purposes
+      // Standard conversion factor for demo purposesv
       const rwfAmount = Math.round(amount * 1250);
       return (
         new Intl.NumberFormat("en-RW", {

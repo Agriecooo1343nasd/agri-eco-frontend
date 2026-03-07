@@ -1,3 +1,5 @@
+"use client";
+
 import { Truck, Leaf, CreditCard, Headphones } from "lucide-react";
 import { usePricing } from "@/context/PricingContext";
 
