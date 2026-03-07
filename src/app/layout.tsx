@@ -3,6 +3,7 @@ import { Merriweather, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
+import { PricingProvider } from "@/context/PricingContext";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -35,12 +36,14 @@ export default function RootLayout({
         className={`${merriweather.variable} ${nunitoSans.variable} antialiased font-body transition-colors duration-300`}
       >
         <AuthProvider>
-          <CartProvider>
-            <TooltipProvider>
-              {children}
-              <Toaster position="top-center" richColors />
-            </TooltipProvider>
-          </CartProvider>
+          <PricingProvider>
+            <CartProvider>
+              <TooltipProvider>
+                {children}
+                <Toaster position="top-center" richColors />
+              </TooltipProvider>
+            </CartProvider>
+          </PricingProvider>
         </AuthProvider>
       </body>
     </html>

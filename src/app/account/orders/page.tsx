@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { usePricing } from "@/context/PricingContext";
 import { Button } from "@/components/ui/button";
 
 // Mock Data
@@ -79,6 +80,7 @@ type SortConfig = {
 };
 
 const OrdersPage = () => {
+  const { formatPrice } = usePricing();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
@@ -357,7 +359,7 @@ const OrdersPage = () => {
                       </span>
                     </td>
                     <td className="px-8 py-6 font-black text-primary text-base">
-                      ${order.total.toFixed(2)}
+                      {formatPrice(order.total)}
                     </td>
                     <td className="px-8 py-6 text-right">
                       <Link

@@ -1,6 +1,8 @@
 import { ArrowRight } from "lucide-react";
+import { usePricing } from "@/context/PricingContext";
 
 const PromoBanner = () => {
+  const { formatPrice } = usePricing();
   const farmBanner = "/assets/farm-banner.jpg";
 
   return (
@@ -29,7 +31,8 @@ const PromoBanner = () => {
                 <span className="font-bold bg-card/20 px-2 py-0.5 rounded">
                   AGRIECO15
                 </span>{" "}
-                at checkout. Valid for new customers on orders above $50.
+                at checkout. Valid for new customers on orders above{" "}
+                {formatPrice(50)}.
               </p>
               <a
                 href="#"

@@ -4,10 +4,12 @@ import { ShoppingBag, ShoppingCart, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { usePricing } from "@/context/PricingContext";
 
 const AccountDashboard = () => {
   const { user } = useAuth();
   const { cartCount } = useCart();
+  const { formatPrice } = usePricing();
 
   const stats = [
     {
@@ -38,19 +40,19 @@ const AccountDashboard = () => {
       id: "#AE-2045",
       date: "Jan 12, 2024",
       status: "Delivered",
-      total: "$45.00",
+      total: 45.0,
     },
     {
       id: "#AE-2012",
       date: "Dec 30, 2023",
       status: "Delivered",
-      total: "$28.50",
+      total: 28.5,
     },
     {
       id: "#AE-1988",
       date: "Dec 15, 2023",
       status: "Processing",
-      total: "$120.00",
+      total: 120.0,
     },
   ];
 
@@ -154,7 +156,7 @@ const AccountDashboard = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 font-black text-primary">
-                        {order.total}
+                        {formatPrice(order.total)}
                       </td>
                     </tr>
                   ))}

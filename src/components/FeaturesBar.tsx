@@ -1,17 +1,27 @@
 import { Truck, Leaf, CreditCard, Headphones } from "lucide-react";
-
-const features = [
-  { icon: Truck, title: "Free Shipping", desc: "On orders over $50" },
-  { icon: Leaf, title: "100% Organic", desc: "Certified organic products" },
-  {
-    icon: CreditCard,
-    title: "Secure Payment",
-    desc: "Safe & encrypted checkout",
-  },
-  { icon: Headphones, title: "24/7 Support", desc: "Dedicated customer care" },
-];
+import { usePricing } from "@/context/PricingContext";
 
 const FeaturesBar = () => {
+  const { formatPrice } = usePricing();
+
+  const features = [
+    {
+      icon: Truck,
+      title: "Free Shipping",
+      desc: `On orders over ${formatPrice(50)}`,
+    },
+    { icon: Leaf, title: "100% Organic", desc: "Certified organic products" },
+    {
+      icon: CreditCard,
+      title: "Secure Payment",
+      desc: "Safe & encrypted checkout",
+    },
+    {
+      icon: Headphones,
+      title: "24/7 Support",
+      desc: "Dedicated customer care",
+    },
+  ];
   return (
     <section className="bg-accent/50 border-y border-border">
       <div className="container py-8">

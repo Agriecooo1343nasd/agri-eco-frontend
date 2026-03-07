@@ -17,13 +17,13 @@ import Footer from "@/components/Footer";
 import FeaturesBar from "@/components/FeaturesBar";
 import ShopProductCard from "@/components/ShopProductCard";
 import { products } from "@/data/products";
+import { usePricing } from "@/context/PricingContext";
 import { deals } from "@/data/deals";
 import { Slider } from "@/components/ui/slider";
 
 const allCategories = ["All", "Fruits", "Vegetables", "Honey"];
 const popularTags = [
   "Nature",
-  "Organic",
   "Health",
   "Fresh",
   "Vegan",
@@ -46,6 +46,7 @@ function ShopContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { formatPrice } = usePricing();
 
   const dealId = searchParams.get("deal");
   const categoryParam = searchParams.get("category");
@@ -59,6 +60,8 @@ function ShopContent() {
   const [sortBy, setSortBy] = useState<SortOption>("default");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [onlyWithDiscount, setOnlyWithDiscount] = useState(false);
   const [gridView, setGridView] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -117,18 +120,38 @@ function ShopContent() {
         break;
     }
 
+    // Rating Filter
+    if (selectedRating !== null) {
+      result = result.filter((p) => Math.floor(p.rating) === selectedRating);
+    }
+
+    // Discount Filter
+    if (onlyWithDiscount) {
+      result = result.filter((p) => p.oldPrice && p.oldPrice > p.price);
+    }
+
+    // Tag Filter
+    if (selectedTags.length > 0) {
+      // Since products don't have tags in data, we can skip or implement if needed
+      // Currently the data doesn't have tags, so this is symbolic
+    }
+
     return result;
-  }, [selectedCategory, priceRange, sortBy, searchQuery, activeDeal]);
+  }, [
+    selectedCategory,
+    priceRange,
+    sortBy,
+    searchQuery,
+    activeDeal,
+    selectedRating,
+    onlyWithDiscount,
+    selectedTags,
+  ]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedProducts = filtered.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
-  );
-
-  const topRated = useMemo(
-    () => products.filter((p) => p.rating === 5).slice(0, 3),
-    [],
   );
 
   const handleCategoryChange = (cat: string) => {
@@ -154,6 +177,8 @@ function ShopContent() {
     setPriceRange([0, 15]);
     setSearchQuery("");
     setSelectedTags([]);
+    setSelectedRating(null);
+    setOnlyWithDiscount(false);
     setSortBy("default");
     setCurrentPage(1);
     router.push(pathname);
@@ -170,6 +195,8 @@ function ShopContent() {
     priceRange[0] !== 0 ||
     priceRange[1] !== 15 ||
     searchQuery.trim() !== "" ||
+    selectedRating !== null ||
+    onlyWithDiscount ||
     !!activeDeal;
 
   const pageTitle = activeDeal ? `Deal: ${activeDeal.title}` : "Shop";
@@ -253,56 +280,69 @@ function ShopContent() {
             <span className="text-muted-foreground">
               Price:{" "}
               <span className="font-semibold text-foreground">
-                ${priceRange[0].toFixed(2)}
+                {formatPrice(priceRange[0])}
               </span>{" "}
               —{" "}
               <span className="font-semibold text-foreground">
-                ${priceRange[1].toFixed(2)}
+                {formatPrice(priceRange[1])}
               </span>
             </span>
           </div>
         </div>
       </div>
 
-      {/* Top Rated */}
+      {/* Rating Filter */}
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
-          Top Rated Products
+          By Rating
         </h3>
-        <div className="space-y-3">
-          {topRated.map((p) => (
-            <Link
-              key={p.id}
-              href={`/product/${p.id}`}
-              className="flex gap-3 group cursor-pointer"
+        <div className="space-y-1">
+          {[5, 4, 3, 2, 1, 0].map((star) => (
+            <button
+              key={star}
+              onClick={() => {
+                setSelectedRating(selectedRating === star ? null : star);
+                setCurrentPage(1);
+              }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${selectedRating === star ? "bg-primary text-primary-foreground font-semibold" : "text-foreground hover:bg-accent hover:text-accent-foreground"}`}
             >
-              <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
-                <img
-                  src={p.image}
-                  alt={p.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                />
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-3.5 w-3.5 ${i < star ? "fill-secondary text-secondary" : "text-border"}`}
+                  />
+                ))}
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                  {p.name}
-                </h4>
-                <div className="flex items-center gap-0.5 mt-1">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-3 w-3 ${i < p.rating ? "fill-secondary text-secondary" : "text-border"}`}
-                    />
-                  ))}
-                </div>
-                <p className="text-sm font-bold text-primary mt-0.5">
-                  ${p.price.toFixed(2)}
-                </p>
-              </div>
-            </Link>
+              <span>
+                {star} Star{star !== 1 ? "s" : ""}
+              </span>
+            </button>
           ))}
         </div>
+      </div>
+
+      {/* Discount Filter */}
+      <div>
+        <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
+          <span className="w-1 h-5 bg-primary rounded-full" />
+          Special Offers
+        </h3>
+        <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer hover:bg-accent transition-colors">
+          <input
+            type="checkbox"
+            checked={onlyWithDiscount}
+            onChange={(e) => {
+              setOnlyWithDiscount(e.target.checked);
+              setCurrentPage(1);
+            }}
+            className="w-4 h-4 rounded text-primary focus:ring-primary border-border"
+          />
+          <span className="font-medium text-foreground">
+            Discounted Products
+          </span>
+        </label>
       </div>
 
       {/* Popular Tags */}
@@ -466,7 +506,7 @@ function ShopContent() {
                 )}
                 {(priceRange[0] !== 0 || priceRange[1] !== 15) && (
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
-                    ${priceRange[0]}–${priceRange[1]}
+                    {formatPrice(priceRange[0])} – {formatPrice(priceRange[1])}
                     <button onClick={() => setPriceRange([0, 15])}>
                       <X className="h-3 w-3" />
                     </button>
@@ -476,6 +516,22 @@ function ShopContent() {
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
                     "{searchQuery}"
                     <button onClick={() => setSearchQuery("")}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+                {selectedRating !== null && (
+                  <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
+                    {selectedRating} Stars
+                    <button onClick={() => setSelectedRating(null)}>
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
+                {onlyWithDiscount && (
+                  <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
+                    On Sale
+                    <button onClick={() => setOnlyWithDiscount(false)}>
                       <X className="h-3 w-3" />
                     </button>
                   </span>

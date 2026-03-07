@@ -2,6 +2,7 @@
 
 import { Heart, ShoppingCart, Star, Eye } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { usePricing } from "@/context/PricingContext";
 import type { Product } from "@/components/ProductCard";
 import Link from "next/link";
 
@@ -17,8 +18,11 @@ const badgeStyles: Record<string, string> = {
 };
 
 const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
-  const { addToCart, addToWishlist, isInWishlist } = useCart();
+  const { addToCart, removeFromCart, addToWishlist, isInWishlist, isInCart } =
+    useCart();
+  const { formatPrice } = usePricing();
   const wishlisted = isInWishlist(product.id);
+  const inCart = isInCart(product.id);
   const discount = product.oldPrice
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
     : 0;
@@ -35,7 +39,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
               loading="lazy"
             />
           </Link>
-          {product.badge && (
+          {product.badge && product.badge !== "organic" && (
             <span
               className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
             >
@@ -93,11 +97,11 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
           </div>
           <div className="flex items-center gap-2 mt-2">
             <span className="font-bold text-foreground text-lg">
-              ${product.price.toFixed(2)}
+              {formatPrice(product.price)}
             </span>
             {product.oldPrice && (
               <span className="text-price-old line-through text-sm">
-                ${product.oldPrice.toFixed(2)}
+                {formatPrice(product.oldPrice)}
               </span>
             )}
             <span className="text-xs text-muted-foreground">
@@ -108,11 +112,17 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             Fresh, organic and hand-picked for quality. Farm to table goodness.
           </p>
           <button
-            onClick={() => addToCart(product)}
-            className="mt-3 w-fit flex items-center gap-2 bg-primary text-primary-foreground py-2.5 px-6 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
+            onClick={() =>
+              inCart ? removeFromCart(product.id) : addToCart(product)
+            }
+            className={`mt-3 w-fit flex items-center gap-2 py-2.5 px-6 rounded-lg text-sm font-semibold transition-colors ${
+              inCart
+                ? "bg-accent text-accent-foreground hover:bg-accent/80"
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
+            }`}
           >
             <ShoppingCart className="h-4 w-4" />
-            Add to Cart
+            {inCart ? "Added to Cart" : "Add to Cart"}
           </button>
         </div>
       </div>
@@ -130,7 +140,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             loading="lazy"
           />
         </Link>
-        {product.badge && (
+        {product.badge && product.badge !== "organic" && (
           <span
             className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
           >
@@ -186,11 +196,11 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
         </div>
         <div className="flex items-center gap-2 mt-2">
           <span className="font-bold text-foreground text-lg">
-            ${product.price.toFixed(2)}
+            {formatPrice(product.price)}
           </span>
           {product.oldPrice && (
             <span className="text-price-old line-through text-sm">
-              ${product.oldPrice.toFixed(2)}
+              {formatPrice(product.oldPrice)}
             </span>
           )}
           <span className="text-[11px] text-muted-foreground">
@@ -198,11 +208,17 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
           </span>
         </div>
         <button
-          onClick={() => addToCart(product)}
-          className="mt-3 w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
+          onClick={() =>
+            inCart ? removeFromCart(product.id) : addToCart(product)
+          }
+          className={`mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+            inCart
+              ? "bg-accent text-accent-foreground hover:bg-accent/80"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
+          }`}
         >
           <ShoppingCart className="h-4 w-4" />
-          Add to Cart
+          {inCart ? "Added to Cart" : "Add to Cart"}
         </button>
       </div>
     </div>

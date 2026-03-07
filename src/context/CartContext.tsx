@@ -88,7 +88,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     (sum, i) => sum + i.product.price * i.quantity,
     0,
   );
-  const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+  const cartCount = cartItems.length;
 
   const addToWishlist = useCallback((product: Product) => {
     setWishlistItems((prev) => {

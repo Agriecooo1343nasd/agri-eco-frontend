@@ -13,9 +13,11 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FeaturesBar from "@/components/FeaturesBar";
 import { useCart } from "@/context/CartContext";
+import { usePricing } from "@/context/PricingContext";
 
 const WishlistPage = () => {
   const { wishlistItems, removeFromWishlist, moveToCart, isInCart } = useCart();
+  const { formatPrice } = usePricing();
 
   return (
     <div className="min-h-screen bg-background">
@@ -119,11 +121,11 @@ const WishlistPage = () => {
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         <span className="font-bold text-foreground text-lg">
-                          ${product.price.toFixed(2)}
+                          {formatPrice(product.price)}
                         </span>
                         {product.oldPrice && (
                           <span className="text-price-old line-through text-sm">
-                            ${product.oldPrice.toFixed(2)}
+                            {formatPrice(product.oldPrice)}
                           </span>
                         )}
                       </div>

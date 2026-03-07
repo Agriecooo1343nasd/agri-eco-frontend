@@ -8,15 +8,37 @@ import {
   Trash2,
   ShoppingCart,
   ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FeaturesBar from "@/components/FeaturesBar";
 import { useCart } from "@/context/CartContext";
+import { usePricing } from "@/context/PricingContext";
 
 const CartPage = () => {
-  const { cartItems, removeFromCart, updateQuantity, clearCart, cartTotal } =
-    useCart();
+  const {
+    cartItems,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    cartTotal,
+    wishlistItems,
+    moveToCart,
+    removeFromWishlist,
+  } = useCart();
+  const { formatPrice } = usePricing();
 
   const shipping = cartTotal > 50 ? 0 : 5.99;
   const grandTotal = cartTotal + shipping;
@@ -105,14 +127,13 @@ const CartPage = () => {
                         </div>
                       </div>
 
-                      {/* Price */}
                       <div className="text-center">
                         <span className="font-bold text-foreground">
-                          ${product.price.toFixed(2)}
+                          {formatPrice(product.price)}
                         </span>
                         {hasDiscount && (
                           <span className="block text-price-old line-through text-xs">
-                            ${product.oldPrice!.toFixed(2)}
+                            {formatPrice(product.oldPrice!)}
                           </span>
                         )}
                         <span className="text-[11px] text-muted-foreground">
@@ -149,7 +170,7 @@ const CartPage = () => {
                       {/* Subtotal */}
                       <div className="text-center">
                         <span className="font-bold text-primary text-lg">
-                          ${subtotal.toFixed(2)}
+                          {formatPrice(subtotal)}
                         </span>
                       </div>
 
@@ -174,13 +195,38 @@ const CartPage = () => {
                 >
                   ← Continue Shopping
                 </Link>
-                <button
-                  onClick={clearCart}
-                  className="flex items-center gap-2 border border-destructive/30 px-5 py-2.5 rounded-xl text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Clear Cart
-                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="flex items-center gap-2 border border-destructive/30 px-5 py-2.5 rounded-xl text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors">
+                      <Trash2 className="h-4 w-4" />
+                      Clear Cart
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <div className="flex items-center gap-2 text-destructive mb-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        <AlertDialogTitle>
+                          Empty Shopping Cart?
+                        </AlertDialogTitle>
+                      </div>
+                      <AlertDialogDescription>
+                        Are you sure you want to remove all items from your
+                        cart? This action cannot be undone and you will have to
+                        add your items again.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep My Items</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={clearCart}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                      >
+                        Yes, Clear Cart
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
 
@@ -196,28 +242,28 @@ const CartPage = () => {
                       Subtotal ({cartItems.length} items)
                     </span>
                     <span className="font-semibold text-foreground">
-                      ${cartTotal.toFixed(2)}
+                      {formatPrice(cartTotal)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
                     <span className="font-semibold text-foreground">
                       {shipping === 0 ? (
-                        <span className="text-primary">Free</span>
+                        <span className="text-primary font-bold">Free</span>
                       ) : (
-                        `$${shipping.toFixed(2)}`
+                        formatPrice(shipping)
                       )}
                     </span>
                   </div>
                   {shipping > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Free shipping on orders over $50
+                      Free shipping on orders over {formatPrice(50)}
                     </p>
                   )}
                   <div className="border-t border-border pt-3 flex justify-between">
                     <span className="font-bold text-foreground">Total</span>
                     <span className="font-bold text-primary text-xl">
-                      ${grandTotal.toFixed(2)}
+                      {formatPrice(grandTotal)}
                     </span>
                   </div>
                 </div>
@@ -229,6 +275,78 @@ const CartPage = () => {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wishlist Section */}
+        {wishlistItems.length > 0 && (
+          <div className="mt-16 border-t border-border pt-12">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold font-heading text-foreground">
+                  From Your Wishlist
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Items you've saved for later. Ready to add them to your order?
+                </p>
+              </div>
+              <Link
+                href="/wishlist"
+                className="text-primary font-bold hover:underline text-sm flex items-center gap-1"
+              >
+                View Full Wishlist <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {wishlistItems.map((product) => (
+                <div
+                  key={product.id}
+                  className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-all duration-300"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-muted">
+                    <Link href={`/product/${product.id}`}>
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </Link>
+                    <button
+                      onClick={() => removeFromWishlist(product.id)}
+                      className="absolute top-2 right-2 p-1.5 bg-card/80 backdrop-blur-sm rounded-full text-muted-foreground hover:text-destructive transition-colors"
+                      title="Remove from wishlist"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                      {product.category}
+                    </p>
+                    <Link
+                      href={`/product/${product.id}`}
+                      className="hover:text-primary transition-colors"
+                    >
+                      <h3 className="font-semibold text-foreground text-sm mt-1 line-clamp-1">
+                        {product.name}
+                      </h3>
+                    </Link>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="font-bold text-primary">
+                        {formatPrice(product.price)}
+                      </span>
+                      <button
+                        onClick={() => moveToCart(product.id)}
+                        className="flex items-center gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                      >
+                        <Plus className="h-3 w-3" /> Add to Cart
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
