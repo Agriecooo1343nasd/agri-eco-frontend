@@ -10,6 +10,10 @@ import {
   Settings,
   LogOut,
   Leaf,
+  MapPin,
+  Calendar,
+  GraduationCap,
+  Handshake,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -31,6 +35,10 @@ import {
 const mainItems = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/admin/products", icon: Package },
+  { title: "Tours", url: "/admin/tours", icon: MapPin },
+  { title: "Bookings", url: "/admin/bookings", icon: Calendar },
+  { title: "Education", url: "/admin/education", icon: GraduationCap },
+  { title: "Partners", url: "/admin/partners", icon: Handshake },
   { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
   { title: "Discounts", url: "/admin/discounts", icon: Tag },
   { title: "Categories", url: "/admin/categories", icon: FolderTree },

@@ -75,19 +75,23 @@ const Footer = () => {
             </h4>
             <ul className="space-y-2">
               {[
-                "About Us",
-                "Shop",
-                "Hot Deals",
-                "My Account",
-                "Wishlist",
-                "Cart",
+                { label: "About Us", href: "/about" },
+                { label: "Shop", href: "/shop" },
+                { label: "Tours", href: "/tours" },
+                { label: "Beekeeping", href: "/beekeeping" },
+                { label: "Education", href: "/education" },
+                { label: "Community", href: "/community" },
+                { label: "Hot Deals", href: "/deals" },
+                { label: "My Account", href: "/account" },
+                { label: "Wishlist", href: "/wishlist" },
+                { label: "Cart", href: "/cart" },
               ].map((link) => (
-                <li key={link}>
+                <li key={link.label}>
                   <Link
-                    href="#"
+                    href={link.href}
                     className="text-sm text-card/60 hover:text-primary transition-colors"
                   >
-                    {link}
+                    {link.label}
                   </Link>
                 </li>
               ))}

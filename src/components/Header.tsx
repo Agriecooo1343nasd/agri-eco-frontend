@@ -12,9 +12,10 @@ import {
   Phone,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
 
 const categories = [
   "Fruits",
@@ -30,9 +31,12 @@ const categories = [
 const navLinks = [
   { label: "Home", href: "/" },
   { label: "Shop", href: "/shop" },
-  { label: "Hot Deals", href: "/deals" },
+  { label: "Tours", href: "/tours" },
+  { label: "Beekeeping", href: "/beekeeping" },
+  { label: "Education", href: "/education" },
+  { label: "Community", href: "/community" },
   { label: "About", href: "/about" },
-  { label: "Contact Us", href: "/contact" },
+  { label: "Hot Deals", href: "/deals" },
 ];
 
 const Header = () => {
@@ -43,6 +47,7 @@ const Header = () => {
   const { cartCount, wishlistItems } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleUserClick = () => {
     if (isAuthenticated) {
@@ -50,6 +55,12 @@ const Header = () => {
     } else {
       router.push("/login");
     }
+  };
+
+  const isActive = (href: string) => {
+    if (href === "/" && pathname === "/") return true;
+    if (href !== "/" && pathname.startsWith(href)) return true;
+    return false;
   };
 
   return (
@@ -242,7 +253,12 @@ const Header = () => {
               <Link
                 key={link.label}
                 href={link.href}
-                className="px-5 py-3 text-sm font-medium text-foreground hover:text-primary transition-colors"
+                className={cn(
+                  "px-5 py-3 text-sm font-medium transition-colors hover:text-primary",
+                  isActive(link.href)
+                    ? "text-primary font-bold underline decoration-primary underline-offset-8"
+                    : "text-foreground",
+                )}
               >
                 {link.label}
               </Link>
@@ -264,7 +280,12 @@ const Header = () => {
               <Link
                 key={link.label}
                 href={link.href}
-                className="block px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors"
+                className={cn(
+                  "block px-4 py-3 text-sm font-medium transition-colors hover:bg-accent",
+                  isActive(link.href)
+                    ? "text-primary bg-primary/5 border-l-4 border-primary font-bold"
+                    : "text-foreground",
+                )}
                 onClick={() => setMenuOpen(false)}
               >
                 {link.label}

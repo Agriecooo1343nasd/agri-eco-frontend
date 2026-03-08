@@ -34,6 +34,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${merriweather.variable} ${nunitoSans.variable} antialiased font-body transition-colors duration-300`}
+        suppressHydrationWarning
       >
         <AuthProvider>
           <PricingProvider>

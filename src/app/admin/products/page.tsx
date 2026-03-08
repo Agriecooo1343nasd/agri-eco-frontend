@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -15,7 +14,6 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,12 +47,13 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { products as baseProducts } from "@/data/products";
-import { usePricing } from "@/context/PricingContext";
 import { toast } from "sonner";
+import { usePricing } from "@/context/PricingContext";
+import Link from "next/link";
 
 /* ---- Extended product type for admin ---- */
 interface AdminProduct {
-  id: number;
+  id: string;
   name: string;
   image: string;
   category: string;
@@ -113,7 +112,7 @@ const allProducts: AdminProduct[] = [
   ...adminProducts,
   ...adminProducts.map((p) => ({
     ...p,
-    id: p.id + 100,
+    id: p.id + "-bulk",
     name: p.name + " (Bulk)",
     stock: p.stock + 50,
     sold: p.sold + 20,
@@ -131,8 +130,7 @@ const statusStyles: Record<string, string> = {
   Inactive: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-export default function Products() {
-  const router = useRouter();
+export default function AdminProductsPage() {
   const { formatPrice } = usePricing();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -212,16 +210,8 @@ export default function Products() {
   }
 
   function handleAction(action: string, product: AdminProduct) {
-    if (action === "Update") {
-      router.push(`/admin/products/${product.id}/update`);
-      return;
-    }
-    if (action === "View") {
-      router.push(`/admin/products/${product.id}/view`);
-      return;
-    }
-    toast.info(`${action} Product`, {
-      description: `${action} "${product.name}" — this is a demo action.`,
+    toast.success(`${action} Product`, {
+      description: `Action initiated for "${product.name}".`,
     });
   }
 
@@ -247,39 +237,39 @@ export default function Products() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-xs">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
-            Products
+            Product Inventory
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Manage your product catalog ({sorted.length} products)
+          <p className="text-muted-foreground text-sm mt-1 font-medium">
+            Manage your commodity catalog ({sorted.length} total products)
           </p>
         </div>
         <Link href="/admin/products/create">
-          <Button className="gap-2 shrink-0 rounded-xl h-11 font-bold shadow-lg shadow-primary/20">
+          <Button className="gap-2 shrink-0 text-xs font-bold h-10 px-6">
             <Plus className="h-4 w-4" />
-            Add Product
+            Add New Product
           </Button>
         </Link>
       </div>
 
       {/* Filters bar */}
-      <Card>
+      <Card className="border-border shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search products..."
+                placeholder="Search products by name or category..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="pl-9"
+                className="pl-9 text-xs h-9 bg-muted/20 border-border"
               />
             </div>
             <div className="flex gap-3 flex-wrap">
@@ -290,15 +280,23 @@ export default function Products() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="w-[140px]">
-                  <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectTrigger className="w-[130px] h-9 text-xs font-bold">
+                  <Filter className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Draft">Draft</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
+                  <SelectItem value="all" className="text-xs">
+                    All Status
+                  </SelectItem>
+                  <SelectItem value="Active" className="text-xs">
+                    Active
+                  </SelectItem>
+                  <SelectItem value="Draft" className="text-xs">
+                    Draft
+                  </SelectItem>
+                  <SelectItem value="Inactive" className="text-xs">
+                    Inactive
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -308,13 +306,15 @@ export default function Products() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-[140px] h-9 text-xs font-bold">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all" className="text-xs">
+                    All Categories
+                  </SelectItem>
                   {categories.map((c) => (
-                    <SelectItem key={c} value={c}>
+                    <SelectItem key={c} value={c} className="text-xs">
                       {c}
                     </SelectItem>
                   ))}
@@ -326,61 +326,69 @@ export default function Products() {
       </Card>
 
       {/* Table */}
-      <Card>
+      <Card className="border-border shadow-lg">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[80px]">Image</TableHead>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="w-[70px] text-[10px] font-bold uppercase tracking-wider text-center">
+                  Preview
+                </TableHead>
                 <TableHead
-                  className="cursor-pointer select-none"
+                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
                   onClick={() => toggleSort("name")}
                 >
                   <div className="flex items-center">
-                    Product Name
+                    Label & Unit
                     <SortIndicator column="name" />
                   </div>
                 </TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">
+                  Classification
+                </TableHead>
                 <TableHead
-                  className="cursor-pointer select-none"
+                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
                   onClick={() => toggleSort("price")}
                 >
                   <div className="flex items-center">
-                    Price
+                    Current Price
                     <SortIndicator column="price" />
                   </div>
                 </TableHead>
-                <TableHead>Discount</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">
+                  Offer
+                </TableHead>
                 <TableHead
-                  className="cursor-pointer select-none"
+                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
                   onClick={() => toggleSort("stock")}
                 >
                   <div className="flex items-center">
-                    Stock
+                    Stock Level
                     <SortIndicator column="stock" />
                   </div>
                 </TableHead>
                 <TableHead
-                  className="cursor-pointer select-none"
+                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
                   onClick={() => toggleSort("sold")}
                 >
                   <div className="flex items-center">
-                    Sold
+                    Total Revenue
                     <SortIndicator column="sold" />
                   </div>
                 </TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">
+                  Status
+                </TableHead>
                 <TableHead
-                  className="cursor-pointer select-none"
+                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
                   onClick={() => toggleSort("createdAt")}
                 >
                   <div className="flex items-center">
-                    Created
+                    Modified
                     <SortIndicator column="createdAt" />
                   </div>
                 </TableHead>
-                <TableHead className="w-[60px] text-right">Actions</TableHead>
+                <TableHead className="w-[60px] text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -388,9 +396,9 @@ export default function Products() {
                 <TableRow>
                   <TableCell
                     colSpan={10}
-                    className="text-center py-12 text-muted-foreground"
+                    className="text-center py-12 text-muted-foreground font-bold"
                   >
-                    No products found.
+                    No matching products in your inventory.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -404,36 +412,44 @@ export default function Products() {
                     : null;
 
                   return (
-                    <TableRow key={product.id} className="group">
-                      <TableCell>
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-12 h-12 rounded-lg object-cover border border-border"
-                        />
+                    <TableRow
+                      key={product.id}
+                      className="group hover:bg-muted/30 transition-colors"
+                    >
+                      <TableCell className="text-center">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-border mx-auto shadow-sm">
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                          />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium text-foreground text-sm">
+                          <p className="font-bold text-foreground text-[11px] mb-0.5">
                             {product.name}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            per {product.unit}
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter opacity-70">
+                            Base / {product.unit}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-bold py-0 px-2 bg-muted/30 border-muted-foreground/20"
+                        >
                           {product.category}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-semibold text-foreground">
+                          <span className="font-bold text-foreground text-[11px]">
                             {formatPrice(product.price)}
                           </span>
                           {product.oldPrice && (
-                            <span className="text-xs text-muted-foreground line-through">
+                            <span className="text-[10px] text-muted-foreground line-through font-bold opacity-60">
                               {formatPrice(product.oldPrice)}
                             </span>
                           )}
@@ -441,43 +457,47 @@ export default function Products() {
                       </TableCell>
                       <TableCell>
                         {discount ? (
-                          <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
+                          <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-[9px] font-bold py-0 px-2 shadow-none">
                             -{discount}%
                           </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground font-bold opacity-30">
                             —
                           </span>
                         )}
                       </TableCell>
                       <TableCell>
                         <span
-                          className={`text-sm font-medium ${
+                          className={`text-[11px] font-bold ${
                             product.stock < 50
                               ? "text-destructive"
                               : product.stock < 100
-                                ? "text-yellow-600"
-                                : "text-foreground"
+                                ? "text-amber-600"
+                                : "text-primary"
                           }`}
                         >
-                          {product.stock}
+                          {product.stock} units
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm text-foreground">
-                          {product.sold}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-bold text-foreground">
+                            {product.sold} sales
+                          </span>
+                          <span className="text-[9px] text-muted-foreground font-bold">
+                            {formatPrice(product.sold * product.price)} earn
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant="outline"
-                          className={`text-xs ${statusStyles[product.status]}`}
+                          className={`${statusStyles[product.status]} border text-[10px] font-bold py-0 px-2 shadow-none`}
                         >
                           {product.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        <span className="text-[10px] text-muted-foreground font-bold whitespace-nowrap opacity-80">
                           {new Date(product.createdAt).toLocaleDateString(
                             "en-US",
                             {
@@ -494,30 +514,30 @@ export default function Products() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-8 w-8 hover:bg-muted"
                             >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="text-xs">
+                            <Link href={`/product/${product.id}`}>
+                              <DropdownMenuItem className="gap-2 text-xs py-2 cursor-pointer">
+                                <Eye className="h-3.5 w-3.5" />
+                                Public Preview
+                              </DropdownMenuItem>
+                            </Link>
+                            <Link href={`/admin/products/${product.id}/edit`}>
+                              <DropdownMenuItem className="gap-2 text-xs py-2 cursor-pointer">
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit Listing
+                              </DropdownMenuItem>
+                            </Link>
                             <DropdownMenuItem
-                              onClick={() => handleAction("View", product)}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Product
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleAction("Update", product)}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Update Product
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
+                              className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
                               onClick={() => handleAction("Delete", product)}
                             >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Product
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remove Item
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -533,13 +553,18 @@ export default function Products() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
-            {Math.min(currentPage * ITEMS_PER_PAGE, sorted.length)} of{" "}
-            {sorted.length} products
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+          <p className="text-sm text-muted-foreground font-medium">
+            Showing{" "}
+            <span className="text-foreground font-bold">
+              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
+              {Math.min(currentPage * ITEMS_PER_PAGE, sorted.length)}
+            </span>{" "}
+            of{" "}
+            <span className="text-foreground font-bold">{sorted.length}</span>{" "}
+            entries
           </p>
-          <Pagination>
+          <Pagination className="justify-center sm:justify-end">
             <PaginationContent>
               <PaginationItem>
                 <PaginationPrevious
@@ -547,9 +572,11 @@ export default function Products() {
                   className={
                     currentPage === 1
                       ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
+                      : "cursor-pointer font-bold text-[11px]"
                   }
-                />
+                >
+                  Prev
+                </PaginationPrevious>
               </PaginationItem>
               {getPageRange().map((p, i) =>
                 p === "ellipsis" ? (
@@ -561,7 +588,7 @@ export default function Products() {
                     <PaginationLink
                       isActive={currentPage === p}
                       onClick={() => setPage(p)}
-                      className="cursor-pointer"
+                      className="cursor-pointer font-bold text-xs"
                     >
                       {p}
                     </PaginationLink>
@@ -574,9 +601,11 @@ export default function Products() {
                   className={
                     currentPage === totalPages
                       ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
+                      : "cursor-pointer font-bold text-[11px]"
                   }
-                />
+                >
+                  Next
+                </PaginationNext>
               </PaginationItem>
             </PaginationContent>
           </Pagination>

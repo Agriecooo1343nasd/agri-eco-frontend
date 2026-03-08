@@ -37,169 +37,208 @@ import {
   Cell,
 } from "recharts";
 import { Progress } from "@/components/ui/progress";
-import { usePricing } from "@/context/PricingContext";
 
 /* ---- Mock data ---- */
+const stats = [
+  {
+    title: "Total Revenue",
+    value: "24,780,000 RWF",
+    change: "+12.5%",
+    up: true,
+    icon: DollarSign,
+    color: "bg-primary/10 text-primary",
+  },
+  {
+    title: "Total Bookings",
+    value: "1,248",
+    change: "+8.2%",
+    up: true,
+    icon: ShoppingCart,
+    color: "bg-secondary/20 text-secondary-foreground",
+  },
+  {
+    title: "Active Members",
+    value: "3,642",
+    change: "+5.1%",
+    up: true,
+    icon: Users,
+    color: "bg-accent text-accent-foreground",
+  },
+  {
+    title: "Engagement Rate",
+    value: "3.24%",
+    change: "-0.4%",
+    up: false,
+    icon: TrendingUp,
+    color: "bg-destructive/10 text-destructive",
+  },
+];
+
 const revenueData = [
-  { month: "Jan", revenue: 3200, orders: 180 },
-  { month: "Feb", revenue: 4100, orders: 220 },
-  { month: "Mar", revenue: 3800, orders: 200 },
-  { month: "Apr", revenue: 5200, orders: 310 },
-  { month: "May", revenue: 4900, orders: 280 },
-  { month: "Jun", revenue: 6100, orders: 360 },
-  { month: "Jul", revenue: 5800, orders: 340 },
+  { month: "Jan", revenue: 3200000, bookings: 180 },
+  { month: "Feb", revenue: 4100000, bookings: 220 },
+  { month: "Mar", revenue: 3800000, bookings: 200 },
+  { month: "Apr", revenue: 5200000, bookings: 310 },
+  { month: "May", revenue: 4900000, bookings: 280 },
+  { month: "Jun", revenue: 6100000, bookings: 360 },
+  { month: "Jul", revenue: 5800000, bookings: 340 },
 ];
 
 const revenueConfig: ChartConfig = {
-  revenue: { label: "Revenue", color: "var(--chart-1)" },
-  orders: { label: "Orders", color: "var(--chart-2)" },
+  revenue: { label: "Revenue", color: "hsl(var(--primary))" },
+  bookings: { label: "Bookings", color: "hsl(var(--secondary))" },
 };
 
 const categoryData = [
-  { name: "Fruits", value: 35, color: "var(--chart-1)" },
-  { name: "Vegetables", value: 30, color: "var(--chart-2)" },
-  { name: "Dairy", value: 15, color: "var(--chart-3)" },
-  { name: "Honey", value: 12, color: "var(--chart-4)" },
-  { name: "Others", value: 8, color: "var(--chart-5)" },
+  { name: "Tours", value: 45, color: "hsl(142, 64%, 32%)" },
+  { name: "Education", value: 25, color: "hsl(45, 100%, 51%)" },
+  { name: "Beekeeping", value: 20, color: "hsl(142, 40%, 60%)" },
+  { name: "Community", value: 10, color: "hsl(30, 80%, 55%)" },
 ];
 
 const categoryConfig: ChartConfig = {
-  Fruits: { label: "Fruits", color: "var(--chart-1)" },
-  Vegetables: { label: "Vegetables", color: "var(--chart-2)" },
-  Dairy: { label: "Dairy", color: "var(--chart-3)" },
-  Honey: { label: "Honey", color: "var(--chart-4)" },
-  Others: { label: "Others", color: "var(--chart-5)" },
+  Tours: { label: "Tours", color: "hsl(142, 64%, 32%)" },
+  Education: { label: "Education", color: "hsl(45, 100%, 51%)" },
+  Beekeeping: { label: "Beekeeping", color: "hsl(142, 40%, 60%)" },
+  Community: { label: "Community", color: "hsl(30, 80%, 55%)" },
 };
 
-const recentOrders = [
+const recentBookings = [
   {
-    id: "#ORD-2401",
+    id: "#BK-2401",
     customer: "Alice M.",
-    total: 67.5,
-    status: "Delivered",
-    items: 5,
+    total: "15,000 RWF",
+    status: "Confirmed",
+    items: "Farm Tour",
   },
   {
-    id: "#ORD-2400",
+    id: "#BK-2400",
     customer: "Bob K.",
-    total: 124.0,
-    status: "Processing",
-    items: 8,
-  },
-  {
-    id: "#ORD-2399",
-    customer: "Clara N.",
-    total: 42.3,
-    status: "Shipped",
-    items: 3,
-  },
-  {
-    id: "#ORD-2398",
-    customer: "David O.",
-    total: 89.9,
+    total: "24,000 RWF",
     status: "Pending",
-    items: 6,
+    items: "Beekeeping",
   },
   {
-    id: "#ORD-2397",
+    id: "#BK-2399",
+    customer: "Clara N.",
+    total: "42,000 RWF",
+    status: "Completed",
+    items: "Wax Workshop",
+  },
+  {
+    id: "#BK-2398",
+    customer: "David O.",
+    total: "8,000 RWF",
+    status: "Waitlisted",
+    items: "Education",
+  },
+  {
+    id: "#BK-2397",
     customer: "Eva P.",
-    total: 156.2,
-    status: "Delivered",
-    items: 10,
+    total: "15,000 RWF",
+    status: "Confirmed",
+    items: "Farm Tour",
   },
 ];
 
-const topProducts = [
-  { name: "Organic Strawberries", sold: 342, revenue: 2732, progress: 90 },
-  { name: "Fresh Organic Apples", sold: 287, revenue: 1432, progress: 75 },
-  { name: "Raw Organic Honey", sold: 198, revenue: 2572, progress: 65 },
-  { name: "Baby Spinach Leaves", sold: 176, revenue: 702, progress: 58 },
-  { name: "Farm Fresh Carrots", sold: 154, revenue: 461, progress: 50 },
+const topExperiences = [
+  {
+    name: "Beekeeping Discovery",
+    sold: 342,
+    revenue: "8,550,000 RWF",
+    progress: 90,
+  },
+  {
+    name: "Educational Farm Tour",
+    sold: 287,
+    revenue: "1,435,000 RWF",
+    progress: 75,
+  },
+  {
+    name: "Beeswax Workshop",
+    sold: 198,
+    revenue: "5,940,000 RWF",
+    progress: 65,
+  },
+  {
+    name: "Traditional Crafting",
+    sold: 176,
+    revenue: "880,000 RWF",
+    progress: 58,
+  },
+  {
+    name: "Sustainable Farming 101",
+    sold: 154,
+    revenue: "3,080,000 RWF",
+    progress: 50,
+  },
 ];
 
 const statusColor: Record<string, string> = {
-  Delivered: "bg-primary/10 text-primary border-primary/20",
-  Processing: "bg-secondary/20 text-secondary-foreground border-secondary/30",
-  Shipped: "bg-accent text-accent-foreground border-accent-foreground/20",
-  Pending: "bg-muted text-muted-foreground border-border",
+  Confirmed: "bg-primary/10 text-primary border-primary/20",
+  Pending: "bg-amber-100 text-amber-700 border-amber-200",
+  Completed: "bg-accent text-accent-foreground border-accent-foreground/20",
+  Waitlisted: "bg-muted text-muted-foreground border-border",
 };
 
-export default function Dashboard() {
-  const { formatPrice } = usePricing();
-
-  const stats = [
-    {
-      title: "Total Revenue",
-      value: formatPrice(24780),
-      change: "+12.5%",
-      up: true,
-      icon: DollarSign,
-      color: "bg-primary/10 text-primary",
-    },
-    {
-      title: "Total Orders",
-      value: "1,248",
-      change: "+8.2%",
-      up: true,
-      icon: ShoppingCart,
-      color: "bg-secondary/20 text-secondary-foreground",
-    },
-    {
-      title: "Active Members",
-      value: "3,642",
-      change: "+5.1%",
-      up: true,
-      icon: Users,
-      color: "bg-accent text-accent-foreground",
-    },
-    {
-      title: "Conversion Rate",
-      value: "3.24%",
-      change: "-0.4%",
-      up: false,
-      icon: TrendingUp,
-      color: "bg-destructive/10 text-destructive",
-    },
-  ];
-
+export default function AdminDashboardPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-xs">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Welcome back! Here's what's happening with your store.
-        </p>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
+            Admin Dashboard
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1 font-medium">
+            Welcome back! Here's an overview of your agritourism operations.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Badge
+            variant="outline"
+            className="text-[10px] font-bold py-1 px-3 bg-card border-border uppercase tracking-widest"
+          >
+            Last updated: 5 mins ago
+          </Badge>
+        </div>
       </div>
 
       {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.title} className="hover:shadow-md transition-shadow">
+          <Card
+            key={stat.title}
+            className="hover:shadow-md transition-all hover:-translate-y-0.5 border-border shadow-sm"
+          >
             <CardContent className="p-5">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold text-foreground">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    {stat.title}
+                  </p>
+                  <p className="text-xl font-bold text-foreground font-heading">
                     {stat.value}
                   </p>
-                  <div className="flex items-center gap-1 text-xs">
+                  <div className="flex items-center gap-1 text-[10px] font-bold">
                     {stat.up ? (
-                      <ArrowUpRight className="h-3 w-3 text-primary" />
+                      <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
                     ) : (
-                      <ArrowDownRight className="h-3 w-3 text-destructive" />
+                      <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
                     )}
                     <span
                       className={stat.up ? "text-primary" : "text-destructive"}
                     >
                       {stat.change}
                     </span>
-                    <span className="text-muted-foreground">vs last month</span>
+                    <span className="text-muted-foreground/60">
+                      vs last month
+                    </span>
                   </div>
                 </div>
-                <div className={`p-3 rounded-xl ${stat.color}`}>
+                <div
+                  className={`p-3 rounded-xl border border-current/10 ${stat.color} shadow-sm`}
+                >
                   <stat.icon className="h-5 w-5" />
                 </div>
               </div>
@@ -211,33 +250,35 @@ export default function Dashboard() {
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue Chart */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-heading">
+            <CardTitle className="text-lg font-heading font-bold text-foreground">
               Revenue Overview
             </CardTitle>
-            <CardDescription>Monthly revenue and order trends</CardDescription>
+            <CardDescription className="text-xs font-medium">
+              Monthly revenue and booking trends across all sectors
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={revenueConfig} className="h-[300px] w-full">
               <AreaChart data={revenueData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  className="stroke-border"
+                  className="stroke-border/50"
                 />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" />
+                <XAxis dataKey="month" className="text-[10px] font-bold" />
+                <YAxis className="text-[10px] font-bold" />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop
                       offset="5%"
-                      stopColor="var(--color-revenue)"
-                      stopOpacity={0.3}
+                      stopColor="hsl(var(--primary))"
+                      stopOpacity={0.4}
                     />
                     <stop
                       offset="95%"
-                      stopColor="var(--color-revenue)"
+                      stopColor="hsl(var(--primary))"
                       stopOpacity={0}
                     />
                   </linearGradient>
@@ -245,15 +286,15 @@ export default function Dashboard() {
                 <Area
                   type="monotone"
                   dataKey="revenue"
-                  stroke="var(--color-revenue)"
+                  stroke="hsl(var(--primary))"
                   fill="url(#revGrad)"
-                  strokeWidth={2}
+                  strokeWidth={3}
                 />
                 <Bar
-                  dataKey="orders"
-                  fill="var(--color-orders)"
+                  dataKey="bookings"
+                  fill="hsl(var(--secondary))"
                   radius={[4, 4, 0, 0]}
-                  barSize={20}
+                  barSize={25}
                 />
               </AreaChart>
             </ChartContainer>
@@ -261,17 +302,19 @@ export default function Dashboard() {
         </Card>
 
         {/* Categories Pie */}
-        <Card>
+        <Card className="border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-heading">
-              Sales by Category
+            <CardTitle className="text-lg font-heading font-bold text-foreground">
+              Sales by Sector
             </CardTitle>
-            <CardDescription>Product category breakdown</CardDescription>
+            <CardDescription className="text-xs font-medium">
+              Breakdown of bookings by experience category
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer
               config={categoryConfig}
-              className="h-[260px] w-full"
+              className="h-[240px] w-full"
             >
               <PieChart>
                 <ChartTooltip content={<ChartTooltipContent />} />
@@ -281,9 +324,9 @@ export default function Dashboard() {
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
-                  strokeWidth={2}
+                  innerRadius={55}
+                  outerRadius={85}
+                  strokeWidth={4}
                   stroke="hsl(var(--card))"
                 >
                   {categoryData.map((entry, i) => (
@@ -292,14 +335,14 @@ export default function Dashboard() {
                 </Pie>
               </PieChart>
             </ChartContainer>
-            <div className="flex flex-wrap gap-3 mt-2 justify-center">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 justify-center">
               {categoryData.map((c) => (
                 <div
                   key={c.name}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-tight"
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-current/20 shadow-sm"
                     style={{ backgroundColor: c.color }}
                   />
                   {c.name} ({c.value}%)
@@ -313,43 +356,49 @@ export default function Dashboard() {
       {/* Bottom row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Recent orders */}
-        <Card>
+        <Card className="border-border shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-heading">
-                Recent Orders
+              <CardTitle className="text-lg font-heading font-bold text-foreground">
+                Recent Bookings
               </CardTitle>
-              <CardDescription>Latest 5 orders</CardDescription>
+              <CardDescription className="text-xs font-medium">
+                Latest experience reservations
+              </CardDescription>
             </div>
-            <Eye className="h-4 w-4 text-muted-foreground" />
+            <div className="bg-primary/5 p-2 rounded-lg">
+              <Package className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentOrders.map((order) => (
+              {recentBookings.map((order) => (
                 <div
                   key={order.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-transparent hover:border-primary/20 hover:bg-muted/50 transition-all cursor-pointer group"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center">
-                      <Package className="h-4 w-4 text-accent-foreground" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-card border border-border rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                      <span className="text-[10px] font-bold text-primary">
+                        BK
+                      </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {order.id}
+                      <p className="text-sm font-bold text-foreground leading-tight">
+                        {order.customer}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.customer} · {order.items} items
+                      <p className="text-[10px] text-muted-foreground font-semibold mt-0.5">
+                        {order.items} · {order.id}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-foreground">
-                      {formatPrice(order.total)}
+                    <p className="text-sm font-bold text-foreground">
+                      {order.total}
                     </p>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${statusColor[order.status]}`}
+                      className={`text-[9px] font-bold uppercase py-0 px-2 mt-1 shadow-none ${statusColor[order.status]}`}
                     >
                       {order.status}
                     </Badge>
@@ -357,28 +406,43 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+            <Button
+              variant="ghost"
+              className="w-full mt-4 text-[11px] font-bold uppercase tracking-widest h-9 text-muted-foreground hover:text-primary"
+            >
+              View All Bookings <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
           </CardContent>
         </Card>
 
         {/* Top products */}
-        <Card>
+        <Card className="border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-heading">Top Products</CardTitle>
-            <CardDescription>Best selling products this month</CardDescription>
+            <CardTitle className="text-lg font-heading font-bold text-foreground">
+              Top Experiences
+            </CardTitle>
+            <CardDescription className="text-xs font-medium">
+              Best performing agritourism services this period
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {topProducts.map((p) => (
-                <div key={p.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-foreground">
-                      {p.name}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {p.sold} sold · {formatPrice(p.revenue)}
+            <div className="space-y-5">
+              {topExperiences.map((p) => (
+                <div key={p.name} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold text-foreground">
+                        {p.name}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tight">
+                        {p.revenue}
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold text-primary bg-primary/5 py-0.5 px-2 rounded-lg">
+                      {p.sold} booked
                     </span>
                   </div>
-                  <Progress value={p.progress} className="h-2" />
+                  <Progress value={p.progress} className="h-1.5 bg-muted" />
                 </div>
               ))}
             </div>
