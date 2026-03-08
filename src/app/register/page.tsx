@@ -77,8 +77,12 @@ const RegisterPage = () => {
       <div className="container py-12 md:py-20 max-w-md mx-auto">
         <div className="bg-card border border-border rounded-2xl p-8">
           <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🌿</span>
+            <div className="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/10">
+              <img
+                src="/assets/logo/logo.png"
+                alt="Agri-Eco Logo"
+                className="h-10 w-auto object-contain"
+              />
             </div>
             <h1 className="text-2xl font-bold font-heading text-foreground">
               Create Account

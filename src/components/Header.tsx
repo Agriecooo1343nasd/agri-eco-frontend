@@ -89,19 +89,11 @@ const Header = () => {
         <div className="container flex items-center justify-between py-3 gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-primary-foreground text-lg font-bold font-heading">
-                🌿
-              </span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-primary font-heading leading-tight">
-                Agri-Eco
-              </h1>
-              <p className="text-[10px] text-muted-foreground leading-none">
-                Organic & Fresh
-              </p>
-            </div>
+            <img
+              src="/assets/logo/logo.png"
+              alt="Agri-Eco Logo"
+              className="h-14 w-auto object-contain"
+            />
           </Link>
 
           {/* Search bar */}

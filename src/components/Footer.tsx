@@ -43,13 +43,12 @@ const Footer = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* About */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-sm">
-                🌿
-              </div>
-              <span className="font-bold text-card font-heading text-lg">
-                Agri-Eco
-              </span>
+            <div className="mb-4">
+              <img
+                src="/assets/logo/logo.png"
+                alt="Agri-Eco Logo"
+                className="h-14 w-auto object-contain"
+              />
             </div>
             <p className="text-sm text-card/60 leading-relaxed">
               Your trusted source for 100% organic, farm-fresh agricultural
