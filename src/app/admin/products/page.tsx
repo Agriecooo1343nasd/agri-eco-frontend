@@ -68,7 +68,7 @@ interface AdminProduct {
 
 /* ---- Generate admin product list from base products ---- */
 const adminProducts: AdminProduct[] = baseProducts.map((p, i) => ({
-  id: p.id,
+  id: p.id.toString(),
   name: p.name,
   image: p.image,
   category: p.category,

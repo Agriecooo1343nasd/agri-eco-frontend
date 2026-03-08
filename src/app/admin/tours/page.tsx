@@ -15,6 +15,7 @@ import {
   Calendar,
   Filter,
   MapPin,
+  Clock,
 } from "lucide-react";
 import { tours as allTours, type Tour } from "@/data/tours";
 import { Badge } from "@/components/ui/badge";

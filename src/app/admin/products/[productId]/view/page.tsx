@@ -93,13 +93,13 @@ export default function ViewProduct({
               batchNumber: `B-${productId}-001`,
               mfgDate: "2024-01-15",
               expiryDate: "2024-12-15",
-              qty: Math.floor(product.stock * 0.4),
+              qty: Math.floor((product.stock ?? 0) * 0.4),
             },
             {
               batchNumber: `B-${productId}-002`,
               mfgDate: "2024-02-20",
               expiryDate: "2025-01-20",
-              qty: Math.floor(product.stock * 0.6),
+              qty: Math.floor((product.stock ?? 0) * 0.6),
             },
           ],
         }));
