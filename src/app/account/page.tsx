@@ -1,6 +1,14 @@
 "use client";
 
-import { ShoppingBag, ShoppingCart, MapPin } from "lucide-react";
+import {
+  ShoppingBag,
+  ShoppingCart,
+  MapPin,
+  GraduationCap,
+  Award,
+  Map,
+  MessageSquare,
+} from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -32,6 +40,30 @@ const AccountDashboard = () => {
       sub: "Direct delivery",
       icon: MapPin,
       color: "bg-amber-50 text-amber-600",
+    },
+    {
+      label: "My Enrollments",
+      value: "03",
+      sub: "1 in progress",
+      icon: GraduationCap,
+      color: "bg-purple-50 text-purple-600",
+      href: "/account/enrollments",
+    },
+    {
+      label: "My Certificates",
+      value: "02",
+      sub: "View all",
+      icon: Award,
+      color: "bg-indigo-50 text-indigo-600",
+      href: "/account/certificates",
+    },
+    {
+      label: "My Tours",
+      value: "03",
+      sub: "1 upcoming",
+      icon: Map,
+      color: "bg-teal-50 text-teal-600",
+      href: "/account/bookings",
     },
   ];
 
@@ -79,32 +111,42 @@ const AccountDashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat, i) => (
-          <div
-            key={i}
-            className="bg-white p-6 rounded-3xl border border-border shadow-sm hover:shadow-md transition-shadow group"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div
-                className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center`}
-              >
-                <stat.icon className="h-6 w-6" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {stats.map((stat, i) => {
+          const StatContent = (
+            <div
+              className="bg-white p-6 rounded-3xl border border-border shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+              key={i}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div
+                  className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center`}
+                >
+                  <stat.icon className="h-6 w-6" />
+                </div>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  {stat.label}
+                </span>
               </div>
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                {stat.label}
-              </span>
+              <div>
+                <h4 className="text-2xl font-black text-foreground">
+                  {stat.value}
+                </h4>
+                <p className="text-xs text-muted-foreground font-medium mt-1">
+                  {stat.sub}
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-2xl font-black text-foreground">
-                {stat.value}
-              </h4>
-              <p className="text-xs text-muted-foreground font-medium mt-1">
-                {stat.sub}
-              </p>
-            </div>
-          </div>
-        ))}
+          );
+
+          return stat.href ? (
+            <Link href={stat.href} key={i}>
+              {StatContent}
+            </Link>
+          ) : (
+            StatContent
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -166,34 +208,77 @@ const AccountDashboard = () => {
           </div>
         </div>
 
-        {/* Default Address Card */}
+        {/* Quick Links Card */}
         <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden h-fit">
-          <div className="p-6 border-b border-border flex items-center justify-between">
+          <div className="p-6 border-b border-border">
             <h3 className="text-lg font-bold text-foreground font-heading">
-              Primary Address
+              Quick Access
             </h3>
-            <Link
-              href="/account/addresses"
-              className="text-xs font-bold text-primary hover:underline"
-            >
-              Edit
-            </Link>
           </div>
-          <div className="p-8 flex items-start gap-6">
-            <div className="w-16 h-16 bg-muted/50 rounded-2xl flex items-center justify-center shrink-0 border border-border">
-              <MapPin className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h4 className="font-bold text-foreground text-lg mb-2">
-                Shipping Address
-              </h4>
-              <p className="text-muted-foreground leading-relaxed font-medium">
-                John Doe <br />
-                KN 123 St, Muhima <br />
-                Kigali City, Rwanda <br />
-                Phone: +250 788 000 000
-              </p>
-            </div>
+          <div className="p-6 space-y-3">
+            <Link
+              href="/account/profile"
+              className="block p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    Edit Profile
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Update your personal information
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/account/enrollments"
+              className="block p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    Continue Learning
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Check your course progress
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/account/certificates"
+              className="block p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    View Certificates
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Download or share your certificates
+                  </p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/account/requests"
+              className="block p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
+                    View Requests
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    School visits and custom orders
+                  </p>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </div>

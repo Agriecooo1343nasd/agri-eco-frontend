@@ -30,12 +30,36 @@ export default function AccountLayout({
     if (paths.includes("orders")) {
       breadcrumbs.push({ label: "My Orders", href: "/account/orders" });
       if (paths.length > 2) {
-        // We are in order details
         breadcrumbs.push({
           label: `#${paths[2].toUpperCase()}`,
           href: pathname,
         });
       }
+    } else if (paths.includes("profile")) {
+      breadcrumbs.push({
+        label: "My Profile",
+        href: "/account/profile",
+      });
+    } else if (paths.includes("enrollments")) {
+      breadcrumbs.push({
+        label: "My Enrollments",
+        href: "/account/enrollments",
+      });
+    } else if (paths.includes("certificates")) {
+      breadcrumbs.push({
+        label: "My Certificates",
+        href: "/account/certificates",
+      });
+    } else if (paths.includes("bookings")) {
+      breadcrumbs.push({
+        label: "My Tours",
+        href: "/account/bookings",
+      });
+    } else if (paths.includes("requests")) {
+      breadcrumbs.push({
+        label: "My Requests",
+        href: "/account/requests",
+      });
     } else if (paths.includes("addresses")) {
       breadcrumbs.push({
         label: "Saved Addresses",

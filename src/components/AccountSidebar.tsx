@@ -7,6 +7,10 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  GraduationCap,
+  Award,
+  Map,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,10 +20,40 @@ import { cn } from "@/lib/utils";
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: User, href: "/account" },
   {
+    id: "profile",
+    label: "My Profile",
+    icon: User,
+    href: "/account/profile",
+  },
+  {
     id: "orders",
     label: "My Orders",
     icon: ShoppingBag,
     href: "/account/orders",
+  },
+  {
+    id: "bookings",
+    label: "My Tours",
+    icon: Map,
+    href: "/account/bookings",
+  },
+  {
+    id: "enrollments",
+    label: "My Enrollments",
+    icon: GraduationCap,
+    href: "/account/enrollments",
+  },
+  {
+    id: "certificates",
+    label: "My Certificates",
+    icon: Award,
+    href: "/account/certificates",
+  },
+  {
+    id: "requests",
+    label: "My Requests",
+    icon: MessageSquare,
+    href: "/account/requests",
   },
   {
     id: "addresses",
@@ -68,13 +102,17 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       <nav className="p-4 py-6">
         <ul className="space-y-1">
           {menuItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.id === "orders" && pathname.startsWith("/account/orders"));
+            let isActive = false;
 
-            // Special case for dashboard to avoid matching all sub-routes if we just check startsWith
-            const isDashboardActive =
-              item.id === "dashboard" ? pathname === "/account" : isActive;
+            if (item.id === "dashboard") {
+              isActive = pathname === "/account";
+            } else {
+              // Check for exact route match or sub-routes
+              isActive =
+                pathname === item.href || pathname.startsWith(item.href + "/");
+            }
+
+            const isDashboardActive = isActive;
 
             return (
               <li key={item.id}>
