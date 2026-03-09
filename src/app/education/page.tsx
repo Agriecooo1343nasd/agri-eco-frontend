@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { trainingPrograms, learningResources, quizzes } from "@/data/education";
@@ -51,16 +52,16 @@ const statusColors: Record<string, string> = {
   completed: "bg-muted text-muted-foreground border-border",
 };
 
-const typeIcons: Record<string, string> = {
-  article: "📄",
-  video: "🎬",
-  guide: "📖",
-  worksheet: "📝",
-};
-
 export default function EducationPage() {
   const { formatPrice } = usePricing();
   const [schoolDialogOpen, setSchoolDialogOpen] = useState(false);
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+  const [selectedProgram, setSelectedProgram] = useState<
+    (typeof trainingPrograms)[0] | null
+  >(null);
+  const [paymentMethod, setPaymentMethod] = useState<"momo" | "card">("momo");
+  const [enrolling, setEnrolling] = useState(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<(typeof quizzes)[0] | null>(
     null,
@@ -70,7 +71,6 @@ export default function EducationPage() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
-  const [resourceFilter, setResourceFilter] = useState("all");
 
   const startQuiz = (quiz: (typeof quizzes)[0]) => {
     setActiveQuiz(quiz);
@@ -80,6 +80,40 @@ export default function EducationPage() {
     setScore(0);
     setQuizFinished(false);
     setQuizDialogOpen(true);
+  };
+
+  const handleEnrollClick = (program: (typeof trainingPrograms)[0]) => {
+    setSelectedProgram(program);
+    setEnrollDialogOpen(true);
+  };
+
+  const handleNotifyClick = (program: (typeof trainingPrograms)[0]) => {
+    setSelectedProgram(program);
+    setNotifyDialogOpen(true);
+  };
+
+  const handleEnroll = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnrolling(true);
+    setTimeout(() => {
+      setEnrolling(false);
+      setEnrollDialogOpen(false);
+      toast.success("Enrollment Successful!", {
+        description: selectedProgram
+          ? `You're now enrolled in "${selectedProgram.title}". Check your email for details.`
+          : "You're now enrolled. Check your email for details.",
+      });
+    }, 1500);
+  };
+
+  const handleNotify = (e: React.FormEvent) => {
+    e.preventDefault();
+    setNotifyDialogOpen(false);
+    toast.success("Notification Set!", {
+      description: selectedProgram
+        ? `We'll notify you when "${selectedProgram.title}" opens for enrollment.`
+        : "We'll notify you when programs open for enrollment.",
+    });
   };
 
   const submitAnswer = () => {
@@ -99,11 +133,6 @@ export default function EducationPage() {
     setSelectedAnswer(null);
     setShowExplanation(false);
   };
-
-  const filteredResources =
-    resourceFilter === "all"
-      ? learningResources
-      : learningResources.filter((r) => r.type === resourceFilter);
 
   const educationalImg = "/assets/tours/educational.jpg";
 
@@ -156,31 +185,18 @@ export default function EducationPage() {
         <section className="py-12">
           <div className="container">
             <Tabs defaultValue="training" className="space-y-8">
-              <TabsList className="grid w-full max-w-lg mx-auto grid-cols-4 h-auto p-1 bg-card border border-border">
+              <TabsList className="grid w-full max-w-sm mx-auto grid-cols-2 h-auto p-1">
                 <TabsTrigger
                   value="training"
-                  className="gap-1 text-[10px] sm:text-xs py-2"
+                  className="gap-1 text-xs sm:text-sm py-2"
                 >
                   <GraduationCap className="h-3.5 w-3.5 hidden sm:block" />
                   Training
                 </TabsTrigger>
-                <TabsTrigger
-                  value="resources"
-                  className="gap-1 text-[10px] sm:text-xs py-2"
-                >
-                  <BookOpen className="h-3.5 w-3.5 hidden sm:block" />
-                  Resources
-                </TabsTrigger>
-                <TabsTrigger
-                  value="quizzes"
-                  className="gap-1 text-[10px] sm:text-xs py-2"
-                >
-                  <Brain className="h-3.5 w-3.5 hidden sm:block" />
-                  Quizzes
-                </TabsTrigger>
+
                 <TabsTrigger
                   value="schools"
-                  className="gap-1 text-[10px] sm:text-xs py-2"
+                  className="gap-1 text-xs sm:text-sm py-2"
                 >
                   <School className="h-3.5 w-3.5 hidden sm:block" />
                   Schools
@@ -292,158 +308,53 @@ export default function EducationPage() {
                               </span>
                             )}
                           </div>
-                          <Button
-                            size="sm"
-                            className="text-xs"
-                            disabled={
-                              p.status === "full" || p.status === "completed"
-                            }
-                          >
-                            {p.status === "full"
-                              ? "Full"
-                              : p.status === "upcoming"
-                                ? "Notify Me"
-                                : "Enroll Now"}
-                          </Button>
+                          <div className="flex gap-2">
+                            <Link href={`/education/program/${p.id}`}>
+                              <Button
+                                size="sm"
+                                className="text-xs"
+                                variant="outline"
+                              >
+                                View Details
+                              </Button>
+                            </Link>
+                            {p.status === "open" && (
+                              <Button
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => handleEnrollClick(p)}
+                              >
+                                Enroll Now
+                              </Button>
+                            )}
+                            {p.status === "full" && (
+                              <Button
+                                size="sm"
+                                className="text-xs"
+                                variant="secondary"
+                                onClick={() => handleNotifyClick(p)}
+                              >
+                                Join Waitlist
+                              </Button>
+                            )}
+                            {p.status === "upcoming" && (
+                              <Button
+                                size="sm"
+                                className="text-xs"
+                                variant="outline"
+                                onClick={() => handleNotifyClick(p)}
+                              >
+                                Notify Me
+                              </Button>
+                            )}
+                            {p.status === "completed" && (
+                              <Button size="sm" className="text-xs" disabled>
+                                Completed
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-
-              {/* Learning Resources */}
-              <TabsContent value="resources" className="space-y-6">
-                <div className="text-center mb-4">
-                  <h2 className="section-heading text-xl">
-                    Learning Resources
-                  </h2>
-                  <p className="section-subheading text-muted-foreground text-sm">
-                    Articles, videos, guides, and worksheets on sustainable
-                    agriculture
-                  </p>
-                </div>
-                <div className="flex justify-center gap-2 flex-wrap mb-6">
-                  {["all", "article", "video", "guide", "worksheet"].map(
-                    (f) => (
-                      <button
-                        key={f}
-                        onClick={() => setResourceFilter(f)}
-                        className={`px-4 py-1.5 rounded-full text-xs capitalize transition-colors ${resourceFilter === f ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground hover:bg-accent"}`}
-                      >
-                        {f === "all" ? "All Types" : f + "s"}
-                      </button>
-                    ),
-                  )}
-                </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredResources.map((r) => (
-                    <div
-                      key={r.id}
-                      className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-shadow"
-                    >
-                      <div className="relative aspect-video overflow-hidden">
-                        <img
-                          src={r.image}
-                          alt={r.title}
-                          className="w-full h-full object-cover transition-transform hover:scale-105"
-                        />
-                        <span className="absolute top-3 left-3 bg-card/90 backdrop-blur-sm text-foreground text-[10px] font-bold px-2 py-1 rounded-lg">
-                          {typeIcons[r.type]} {r.type}
-                        </span>
-                        {r.duration && (
-                          <span className="absolute bottom-3 right-3 bg-foreground/70 text-card text-[10px] px-2 py-1 rounded-lg">
-                            {r.duration}
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-5">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge
-                            variant="outline"
-                            className="capitalize text-[10px] py-0 px-2"
-                          >
-                            {r.category.replace("-", " ")}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="capitalize text-[10px] py-0 px-2"
-                          >
-                            {r.difficulty}
-                          </Badge>
-                        </div>
-                        <h3 className="font-bold font-heading text-foreground mb-2 text-sm">
-                          {r.title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
-                          {r.description}
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full gap-2 text-xs"
-                        >
-                          {r.type === "video" ? (
-                            <>
-                              <Play className="h-3.5 w-3.5" />
-                              Watch
-                            </>
-                          ) : r.downloadUrl ? (
-                            <>
-                              <Download className="h-3.5 w-3.5" />
-                              Download
-                            </>
-                          ) : (
-                            <>
-                              <FileText className="h-3.5 w-3.5" />
-                              Read
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </TabsContent>
-
-              {/* Quizzes */}
-              <TabsContent value="quizzes" className="space-y-6">
-                <div className="text-center mb-8">
-                  <h2 className="section-heading text-xl">
-                    Test Your Knowledge
-                  </h2>
-                  <p className="section-subheading text-muted-foreground text-sm">
-                    Take a quiz to reinforce what you've learned
-                  </p>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                  {quizzes.map((q) => (
-                    <div
-                      key={q.id}
-                      className="bg-card border border-border rounded-2xl p-6 text-center hover:shadow-lg transition-shadow"
-                    >
-                      <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Brain className="h-7 w-7 text-primary" />
-                      </div>
-                      <h3 className="font-bold font-heading text-foreground text-lg mb-1">
-                        {q.title}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-                        {q.description}
-                      </p>
-                      <div className="flex justify-center gap-3 text-[10px] text-muted-foreground mb-5 font-semibold">
-                        <span>{q.questionCount} questions</span>
-                        <span>•</span>
-                        <span>{q.duration}</span>
-                        <span>•</span>
-                        <span className="capitalize">{q.difficulty}</span>
-                      </div>
-                      <Button
-                        className="w-full gap-2 text-xs"
-                        onClick={() => startQuiz(q)}
-                      >
-                        Start Quiz <ArrowRight className="h-4 w-4" />
-                      </Button>
                     </div>
                   ))}
                 </div>
@@ -792,6 +703,190 @@ export default function EducationPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Enrollment Dialog */}
+      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading">
+              Enroll in Program
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {selectedProgram
+                ? `Complete your enrollment for ${formatPrice(selectedProgram.price)}.`
+                : "Fill in your details to enroll."}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEnroll} className="space-y-4 pt-2">
+            <div>
+              <Label className="text-[11px] mb-1 block">Full Name *</Label>
+              <Input
+                required
+                placeholder="Your full name"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] mb-1 block">Email *</Label>
+              <Input
+                type="email"
+                required
+                placeholder="you@example.com"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] mb-1 block">Phone *</Label>
+              <Input
+                required
+                placeholder="+250 7XX XXX XXX"
+                className="h-9 text-xs"
+              />
+            </div>
+            {selectedProgram && selectedProgram.price > 0 && (
+              <div className="space-y-3">
+                <Label className="text-[11px]">Payment Method</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("momo")}
+                    className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-medium transition-colors h-10 ${
+                      paymentMethod === "momo"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border text-foreground hover:bg-accent"
+                    }`}
+                  >
+                    Mobile Money
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("card")}
+                    className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-medium transition-colors h-10 ${
+                      paymentMethod === "card"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border text-foreground hover:bg-accent"
+                    }`}
+                  >
+                    Card
+                  </button>
+                </div>
+                {paymentMethod === "momo" && (
+                  <div>
+                    <Label className="text-[11px] mb-1 block">
+                      MOMO Number *
+                    </Label>
+                    <Input
+                      required
+                      placeholder="07X XXX XXXX"
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                )}
+                {paymentMethod === "card" && (
+                  <>
+                    <div>
+                      <Label className="text-[11px] mb-1 block">
+                        Card Number *
+                      </Label>
+                      <Input
+                        required
+                        placeholder="4242 4242 4242 4242"
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-[11px] mb-1 block">
+                          Expiry *
+                        </Label>
+                        <Input
+                          required
+                          placeholder="MM/YY"
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[11px] mb-1 block">CVV *</Label>
+                        <Input
+                          required
+                          placeholder="123"
+                          type="password"
+                          className="h-9 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="bg-accent/50 border border-border rounded-lg p-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Program Fee</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedProgram && formatPrice(selectedProgram.price)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full text-xs h-10"
+              disabled={enrolling}
+            >
+              {enrolling
+                ? "Processing..."
+                : selectedProgram && selectedProgram.price > 0
+                  ? `Pay ${formatPrice(selectedProgram.price)}`
+                  : "Complete Enrollment"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notify/Waitlist Dialog */}
+      <Dialog open={notifyDialogOpen} onOpenChange={setNotifyDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading">
+              {selectedProgram?.status === "full"
+                ? "Join Waitlist"
+                : "Get Notified"}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {selectedProgram?.status === "full"
+                ? "We'll contact you when a spot opens up."
+                : "We'll notify you when enrollment opens."}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleNotify} className="space-y-4 pt-2">
+            <div>
+              <Label className="text-[11px] mb-1 block">Full Name *</Label>
+              <Input
+                required
+                placeholder="Your full name"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] mb-1 block">Email *</Label>
+              <Input
+                type="email"
+                required
+                placeholder="you@example.com"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] mb-1 block">Phone (optional)</Label>
+              <Input placeholder="+250 7XX XXX XXX" className="h-9 text-xs" />
+            </div>
+            <Button type="submit" className="w-full text-xs h-10">
+              {selectedProgram?.status === "full"
+                ? "Join Waitlist"
+                : "Notify Me"}
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
