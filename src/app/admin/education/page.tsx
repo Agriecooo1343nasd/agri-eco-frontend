@@ -114,39 +114,33 @@ export default function AdminEducationPage() {
             label: "Active Programs",
             value: activePrograms,
             icon: GraduationCap,
-            color: "text-primary",
-            bg: "bg-primary/5",
           },
           {
             label: "Total Enrolled",
             value: totalEnrolled,
             icon: Users,
-            color: "text-blue-600",
-            bg: "bg-blue-50",
           },
           {
             label: "Pending Visits",
             value: pendingVisits,
             icon: Clock,
-            color: "text-amber-600",
-            bg: "bg-amber-50",
           },
           {
             label: "Total Students",
             value: totalStudents,
             icon: School,
-            color: "text-emerald-600",
-            bg: "bg-emerald-50",
           },
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
+            className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group"
           >
             <div
-              className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center mb-3 border border-current/10`}
+              className={`w-9 h-9 bg-muted/30 rounded-lg flex items-center justify-center mb-3 border border-border group-hover:bg-primary group-hover:text-white transition-all`}
             >
-              <s.icon className={`h-5 w-5 ${s.color}`} />
+              <s.icon
+                className={`h-5 w-5 text-muted-foreground group-hover:text-white transition-colors`}
+              />
             </div>
             <p className="text-2xl font-bold font-heading text-foreground mb-0.5">
               {s.value}

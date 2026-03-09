@@ -215,57 +215,42 @@ export default function Discounts() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-[24px] border-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                <CheckCircle2 className="h-6 w-6" />
+        {[
+          {
+            label: "Active Deals",
+            value: discounts.filter((d) => d.status === "Active").length,
+            icon: CheckCircle2,
+          },
+          {
+            label: "Scheduled",
+            value: discounts.filter((d) => d.status === "Scheduled").length,
+            icon: Clock,
+          },
+          {
+            label: "Expired",
+            value: discounts.filter((d) => d.status === "Expired").length,
+            icon: AlertCircle,
+          },
+        ].map((stat, i) => (
+          <Card
+            key={i}
+            className="rounded-[32px] border-border shadow-soft group hover:scale-[1.02] transition-all cursor-default overflow-hidden"
+          >
+            <CardContent className="p-8 flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-all">
+                <stat.icon className="h-6 w-6" />
               </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Active Deals
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                  {stat.label}
                 </p>
-                <p className="text-2xl font-black">
-                  {discounts.filter((d) => d.status === "Active").length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[24px] border-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
-                <Clock className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Scheduled
-                </p>
-                <p className="text-2xl font-black">
-                  {discounts.filter((d) => d.status === "Scheduled").length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[24px] border-border">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600">
-                <AlertCircle className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Expired
-                </p>
-                <p className="text-2xl font-black">
-                  {discounts.filter((d) => d.status === "Expired").length}
+                <p className="text-2xl font-black text-foreground">
+                  {stat.value}
                 </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Search + Filter */}

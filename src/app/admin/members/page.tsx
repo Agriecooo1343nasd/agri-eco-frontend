@@ -163,49 +163,42 @@ export default function AdminMembers() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-[32px] border-border">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-              <Users className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                Total Team
-              </p>
-              <p className="text-2xl font-black">{members.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[32px] border-border">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-              <CheckCircle2 className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                Joined
-              </p>
-              <p className="text-2xl font-black">
-                {members.filter((m) => m.status === "Joined").length}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-[32px] border-border">
-          <CardContent className="p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
-              <Clock className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                Pending Invites
-              </p>
-              <p className="text-2xl font-black">
-                {members.filter((m) => m.status === "Pending").length}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {[
+          {
+            label: "Total Team",
+            value: members.length,
+            icon: Users,
+          },
+          {
+            label: "Joined",
+            value: members.filter((m) => m.status === "Joined").length,
+            icon: CheckCircle2,
+          },
+          {
+            label: "Pending Invited",
+            value: members.filter((m) => m.status === "Pending").length,
+            icon: Clock,
+          },
+        ].map((stat, i) => (
+          <Card
+            key={i}
+            className="rounded-[32px] border-border shadow-soft group hover:scale-[1.02] transition-all cursor-default overflow-hidden"
+          >
+            <CardContent className="p-8 flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-all">
+                <stat.icon className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                  {stat.label}
+                </p>
+                <p className="text-2xl font-black text-foreground">
+                  {stat.value}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Search Bar */}

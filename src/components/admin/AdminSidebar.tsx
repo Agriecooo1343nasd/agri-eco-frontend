@@ -60,16 +60,6 @@ export function AdminSidebar() {
             alt="Agri-Eco Logo"
             className="h-10 w-auto object-contain"
           />
-          {!collapsed && (
-            <div>
-              <h2 className="text-base font-bold font-heading text-sidebar-foreground leading-tight">
-                Agri-Eco
-              </h2>
-              <p className="text-[10px] text-muted-foreground leading-none">
-                Admin Portal
-              </p>
-            </div>
-          )}
         </div>
       </SidebarHeader>
 

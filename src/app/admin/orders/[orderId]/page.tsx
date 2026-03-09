@@ -118,6 +118,7 @@ const statusStyles: Record<string, string> = {
   Pending: "bg-slate-100 text-slate-700 border-slate-200",
   Processing: "bg-amber-100 text-amber-700 border-amber-200",
   Shipped: "bg-blue-100 text-blue-700 border-blue-200",
+  "Out for Delivery": "bg-indigo-100 text-indigo-700 border-indigo-200",
   Delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
   Cancelled: "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -134,14 +135,35 @@ export default function AdminOrderDetails({
   const order = allOrdersRaw[0];
 
   const [currentStatus, setCurrentStatus] = useState(order.status);
+  const [timeline, setTimeline] = useState(order.timeline);
   const [internalNotes, setInternalNotes] = useState(order.internalNotes);
   const [noteInput, setNoteInput] = useState("");
 
   const handleStatusChange = (newStatus: string) => {
     setCurrentStatus(newStatus);
-    toast.success("Status Updated", {
-      description: `Order status changed to ${newStatus}. Notification sent to customer.`,
-    });
+    const description =
+      newStatus === "Cancelled"
+        ? "Order has been cancelled and refund process initiated."
+        : `Order status changed to ${newStatus}. Notification sent to customer.`;
+
+    // Add to timeline
+    const newEvent = {
+      status: newStatus,
+      date: "Just now",
+      note:
+        newStatus === "Cancelled"
+          ? "Order cancelled and refunded."
+          : `Status manually updated to ${newStatus}`,
+      actor: "Admin",
+    };
+    setTimeline([newEvent, ...timeline]);
+
+    toast.success(
+      newStatus === "Cancelled" ? "Order Cancelled" : "Status Updated",
+      {
+        description,
+      },
+    );
   };
 
   const addNote = () => {
@@ -191,26 +213,28 @@ export default function AdminOrderDetails({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="rounded-xl h-12 px-6 font-bold shadow-sm border-rose-200 text-rose-600 hover:bg-rose-50"
-            onClick={() => handleStatusChange("Cancelled")}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Cancel Order
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-xl h-12 px-6 font-bold shadow-sm"
-            onClick={() =>
-              toast.success("Invoicing", {
-                description: "Generating PDF Invoice...",
-              })
-            }
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Generate Invoice
-          </Button>
+          {currentStatus !== "Delivered" && currentStatus !== "Cancelled" && (
+            <Button
+              variant="outline"
+              className="rounded-xl h-12 px-6 font-bold shadow-sm border-rose-200 text-rose-600 hover:bg-rose-50"
+              onClick={() => handleStatusChange("Cancelled")}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Refund & Cancel
+            </Button>
+          )}
+
+          {(currentStatus === "Shipped" ||
+            currentStatus === "Out for Delivery") && (
+            <Button
+              className="rounded-xl h-12 px-8 font-bold shadow-lg shadow-emerald-200 bg-emerald-600 text-white hover:bg-emerald-700"
+              onClick={() => handleStatusChange("Delivered")}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Confirm Delivery
+            </Button>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="rounded-xl h-12 px-8 font-bold shadow-lg shadow-primary/20 bg-primary text-white">
@@ -224,15 +248,23 @@ export default function AdminOrderDetails({
               <DropdownMenuLabel className="text-[10px] font-black uppercase text-muted-foreground px-3 py-2">
                 Set New Status
               </DropdownMenuLabel>
-              {["Pending", "Processing", "Shipped", "Delivered"].map((st) => (
-                <DropdownMenuItem
-                  key={st}
-                  className="rounded-xl px-3 py-2.5 cursor-pointer focus:bg-primary/10 focus:text-primary font-bold"
-                  onClick={() => handleStatusChange(st)}
-                >
-                  {st}
-                </DropdownMenuItem>
-              ))}
+              {[
+                "Pending",
+                "Processing",
+                "Shipped",
+                "Out for Delivery",
+                "Delivered",
+              ]
+                .filter((st) => st !== currentStatus)
+                .map((st) => (
+                  <DropdownMenuItem
+                    key={st}
+                    className="rounded-xl px-3 py-2.5 cursor-pointer focus:bg-primary/10 focus:text-primary font-bold"
+                    onClick={() => handleStatusChange(st)}
+                  >
+                    {st}
+                  </DropdownMenuItem>
+                ))}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -379,7 +411,7 @@ export default function AdminOrderDetails({
             </h3>
             <div className="space-y-10 relative">
               <div className="absolute left-6 top-2 bottom-2 w-0.5 bg-muted" />
-              {order.timeline.map((event, i) => (
+              {timeline.map((event, i) => (
                 <div key={i} className="flex gap-10 relative">
                   <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white z-10 shadow-lg shadow-primary/20">
                     <CheckCircle2 className="h-6 w-6" />
@@ -402,19 +434,6 @@ export default function AdminOrderDetails({
                   </div>
                 </div>
               ))}
-              <div className="flex gap-10 opacity-30">
-                <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center text-muted-foreground z-10">
-                  <Truck className="h-6 w-6" />
-                </div>
-                <div className="flex-1 pt-1">
-                  <h4 className="font-black text-muted-foreground uppercase text-sm tracking-wide">
-                    Shipment Dispatch
-                  </h4>
-                  <p className="text-xs font-medium">
-                    Auto-triggers when status changes to Shipped
-                  </p>
-                </div>
-              </div>
             </div>
           </Card>
         </div>

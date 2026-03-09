@@ -38,6 +38,7 @@ import {
   Cell,
 } from "recharts";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 /* ---- Mock data ---- */
 const stats = [
@@ -47,7 +48,6 @@ const stats = [
     change: "+12.5%",
     up: true,
     icon: DollarSign,
-    color: "bg-primary/10 text-primary",
   },
   {
     title: "Total Bookings",
@@ -55,7 +55,6 @@ const stats = [
     change: "+8.2%",
     up: true,
     icon: ShoppingCart,
-    color: "bg-secondary/20 text-secondary-foreground",
   },
   {
     title: "Active Members",
@@ -63,7 +62,6 @@ const stats = [
     change: "+5.1%",
     up: true,
     icon: Users,
-    color: "bg-accent text-accent-foreground",
   },
   {
     title: "Engagement Rate",
@@ -71,7 +69,6 @@ const stats = [
     change: "-0.4%",
     up: false,
     icon: TrendingUp,
-    color: "bg-destructive/10 text-destructive",
   },
 ];
 
@@ -206,42 +203,35 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, i) => (
           <Card
-            key={stat.title}
-            className="hover:shadow-md transition-all hover:-translate-y-0.5 border-border shadow-sm"
+            key={i}
+            className="rounded-[32px] border-border shadow-soft group hover:scale-[1.02] transition-all cursor-default overflow-hidden"
           >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            <CardContent className="p-8 flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-all">
+                <stat.icon className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                     {stat.title}
                   </p>
-                  <p className="text-xl font-bold text-foreground font-heading">
-                    {stat.value}
-                  </p>
-                  <div className="flex items-center gap-1 text-[10px] font-bold">
-                    {stat.up ? (
-                      <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
-                    ) : (
-                      <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
+                  <span
+                    className={cn(
+                      "text-[9px] font-black px-1.5 py-0.5 rounded-md",
+                      stat.up
+                        ? "bg-emerald-100 text-emerald-600"
+                        : "bg-rose-100 text-rose-600",
                     )}
-                    <span
-                      className={stat.up ? "text-primary" : "text-destructive"}
-                    >
-                      {stat.change}
-                    </span>
-                    <span className="text-muted-foreground/60">
-                      vs last month
-                    </span>
-                  </div>
+                  >
+                    {stat.change}
+                  </span>
                 </div>
-                <div
-                  className={`p-3 rounded-xl border border-current/10 ${stat.color} shadow-sm`}
-                >
-                  <stat.icon className="h-5 w-5" />
-                </div>
+                <p className="text-2xl font-black text-foreground">
+                  {stat.value}
+                </p>
               </div>
             </CardContent>
           </Card>
