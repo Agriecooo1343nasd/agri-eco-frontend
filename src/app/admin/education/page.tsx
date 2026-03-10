@@ -13,17 +13,15 @@ import {
   School,
   Search,
   Plus,
-  MoreHorizontal,
+  Menu,
   Eye,
   Edit,
   Trash2,
-  CheckCircle,
-  XCircle,
   Clock,
   Users,
   Calendar,
   Settings,
-} from "lucide-react";
+} from "lucide-react"; // Icons import
 import { getML } from "@/components/admin/MultiLangInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +59,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { SchoolVisitActions } from "@/components/admin/SchoolVisitActions";
 import { usePricing } from "@/context/PricingContext";
 
 const statusBadge: Record<string, string> = {
@@ -280,15 +279,25 @@ export default function AdminEducationPage() {
                               size="icon"
                               className="h-8 w-8 hover:bg-muted"
                             >
-                              <MoreHorizontal className="h-4 w-4" />
+                              <Menu className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-xs">
-                            <DropdownMenuItem className="gap-2 text-xs py-2 cursor-pointer">
+                            <DropdownMenuItem
+                              className="gap-2 text-xs py-2 cursor-pointer"
+                              onClick={() =>
+                                router.push(`/admin/education/stats/${p.id}`)
+                              }
+                            >
                               <Eye className="h-3.5 w-3.5" />
                               View Stats
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-xs py-2 cursor-pointer">
+                            <DropdownMenuItem
+                              className="gap-2 text-xs py-2 cursor-pointer"
+                              onClick={() =>
+                                router.push(`/admin/education/edit/${p.id}`)
+                              }
+                            >
                               <Edit className="h-3.5 w-3.5" />
                               Edit Content
                             </DropdownMenuItem>
@@ -380,45 +389,7 @@ export default function AdminEducationPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-muted"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="text-xs">
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer"
-                              onClick={() =>
-                                toast.success("Visit Approved", {
-                                  description: `${v.schoolName} visit scheduled for ${v.preferredDate}.`,
-                                })
-                              }
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                              Confirm Visit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-xs py-2 cursor-pointer">
-                              <Eye className="h-3.5 w-3.5" />
-                              Full Request
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              onClick={() =>
-                                toast.error("Visit Declined", {
-                                  description: `Invitation for ${v.schoolName} has been declined.`,
-                                })
-                              }
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                              Decline
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <SchoolVisitActions visit={v} />
                       </TableCell>
                     </TableRow>
                   ))}
