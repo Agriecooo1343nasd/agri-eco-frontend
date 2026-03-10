@@ -65,12 +65,10 @@ export interface TrainingProgram {
   maxParticipants: number;
   enrolled: number;
   startDate: MultiLangValue;
-  endDate?: string;
-  schedule: MultiLangValue;
   topics: MultiLangValue[];
   certificate: boolean;
   certificateTemplate?: CertificateTemplate;
-  status: "open" | "full" | "upcoming" | "completed";
+  status: "open" | "full" | "upcoming" | "completed" | "hidden" | "disabled";
   modules: ProgramModule[];
   instructor?: MultiLangValue;
   instructorBio?: MultiLangValue;
@@ -152,8 +150,6 @@ export const trainingPrograms: TrainingProgram[] = [
     maxParticipants: 30,
     enrolled: 22,
     startDate: ml("2026-04-01"),
-    endDate: "2026-04-29",
-    schedule: ml("Tuesdays & Thursdays, 9:00 AM - 12:00 PM"),
     topics: [
       ml("Soil preparation"),
       ml("Composting"),
@@ -417,8 +413,6 @@ export const trainingPrograms: TrainingProgram[] = [
     maxParticipants: 15,
     enrolled: 15,
     startDate: ml("2026-04-15"),
-    endDate: "2026-05-27",
-    schedule: ml("Mondays, Wednesdays & Fridays, 8:00 AM - 11:00 AM"),
     topics: [
       ml("Colony health assessment"),
       ml("Queen rearing"),
@@ -515,7 +509,6 @@ export const trainingPrograms: TrainingProgram[] = [
     maxParticipants: 40,
     enrolled: 12,
     startDate: ml("2026-03-28"),
-    schedule: ml("Saturday, 8:00 AM - 4:00 PM"),
     topics: [
       ml("Rainwater harvesting"),
       ml("Drip irrigation"),
@@ -599,8 +592,6 @@ export const trainingPrograms: TrainingProgram[] = [
     maxParticipants: 20,
     enrolled: 0,
     startDate: ml("2026-05-10"),
-    endDate: "2026-05-31",
-    schedule: ml("Saturdays, 9:00 AM - 1:00 PM"),
     topics: [
       ml("Jam & preserve making"),
       ml("Fruit drying techniques"),
