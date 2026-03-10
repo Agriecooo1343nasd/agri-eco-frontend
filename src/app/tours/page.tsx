@@ -25,17 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
 
 const categoryLabels: Record<TourCategory, string> = {
@@ -198,7 +187,6 @@ export default function ToursPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("featured");
-  const [schoolDialogOpen, setSchoolDialogOpen] = useState(false);
 
   const filtered = useMemo(() => {
     let result = [...tours];
@@ -424,142 +412,16 @@ export default function ToursPage() {
                 Contact Us for Group Rates
               </Button>
             </Link>
-            <Button className="gap-2" onClick={() => setSchoolDialogOpen(true)}>
-              <Calendar className="h-4 w-4" /> School Bookings
-            </Button>
+            <Link href="/education/school-visit">
+              <Button className="gap-2">
+                <Calendar className="h-4 w-4" /> School Bookings
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
 
       <Footer />
-
-      {/* School Visit Booking Dialog */}
-      <Dialog open={schoolDialogOpen} onOpenChange={setSchoolDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading border-b pb-2">
-              Book a School Visit
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Fill in your school details and we'll confirm your visit within 48
-              hours.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              toast.success("Visit Request Submitted!", {
-                description: "We'll confirm your booking within 48 hours.",
-              });
-              setSchoolDialogOpen(false);
-            }}
-            className="space-y-4 pt-2"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <Label className="text-[11px] mb-1 block">School Name *</Label>
-                <Input
-                  required
-                  placeholder="e.g. Green Hills Academy"
-                  className="h-9 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-[11px] mb-1 block">
-                  Contact Person *
-                </Label>
-                <Input
-                  required
-                  placeholder="Teacher name"
-                  className="h-9 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-[11px] mb-1 block">Email *</Label>
-                <Input
-                  type="email"
-                  required
-                  placeholder="contact@school.rw"
-                  className="h-9 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-[11px] mb-1 block">Phone *</Label>
-                <Input
-                  required
-                  placeholder="+250 7XX XXX XXX"
-                  className="h-9 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-[11px] mb-1 block">
-                  Number of Students *
-                </Label>
-                <Input
-                  type="number"
-                  required
-                  min={10}
-                  max={50}
-                  placeholder="e.g. 35"
-                  className="h-9 text-xs"
-                />
-              </div>
-              <div>
-                <Label className="text-[11px] mb-1 block">Grade Level *</Label>
-                <Select required>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Select grade level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="primary">Primary (P1-P6)</SelectItem>
-                    <SelectItem value="secondary">Secondary (S1-S6)</SelectItem>
-                    <SelectItem value="mixed">Mixed Levels</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-[11px] mb-1 block">
-                  Preferred Date *
-                </Label>
-                <Input type="date" required className="h-9 text-xs" />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-[11px] mb-1 block">
-                  Curriculum Alignment
-                </Label>
-                <Select>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Select subject area" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="agriculture">Agriculture</SelectItem>
-                    <SelectItem value="biology">Biology</SelectItem>
-                    <SelectItem value="geography">Geography</SelectItem>
-                    <SelectItem value="environmental">
-                      Environmental Science
-                    </SelectItem>
-                    <SelectItem value="general">General Education</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2">
-                <Label className="text-[11px] mb-1 block">
-                  Special Requirements
-                </Label>
-                <Textarea
-                  placeholder="Dietary needs, accessibility requirements, etc."
-                  className="text-xs resize-none"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full gap-2 mt-6">
-              <Calendar className="h-4 w-4" />
-              Submit Visit Request
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
