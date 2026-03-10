@@ -14,7 +14,7 @@ import { usePricing } from "@/context/PricingContext";
 const EducationPreview = () => {
   const { formatPrice } = usePricing();
   const openPrograms = trainingPrograms
-    .filter((p) => p.status === "open")
+    .filter((p) => p.status !== "hidden" && p.status !== "disabled")
     .slice(0, 3);
 
   return (

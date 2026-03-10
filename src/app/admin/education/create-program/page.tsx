@@ -33,7 +33,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -49,6 +48,7 @@ import {
   emptyLangValue,
   type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
+import { MediaUploader } from "@/components/admin/MediaUploader";
 
 const emptyModule = (): ProgramModule => ({
   id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -105,8 +105,6 @@ export default function CreateProgramPage() {
   const [formMaxParticipants, setFormMaxParticipants] = useState("");
   const [formDuration, setFormDuration] = useState("");
   const [formStartDate, setFormStartDate] = useState("");
-  const [formEndDate, setFormEndDate] = useState("");
-  const [formSchedule, setFormSchedule] = useState("");
   const [formTopics, setFormTopics] = useState("");
   const [formInstructor, setFormInstructor] = useState("");
   const [formInstructorBio, setFormInstructorBio] =
@@ -118,7 +116,9 @@ export default function CreateProgramPage() {
   const [formLanguage, setFormLanguage] = useState("");
   const [formLocation, setFormLocation] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
-  const [formStatus, setFormStatus] = useState<"open" | "upcoming">("upcoming");
+  const [formStatus, setFormStatus] = useState<
+    "open" | "upcoming" | "hidden" | "disabled"
+  >("upcoming");
 
   // Modules
   const [modules, setModules] = useState<ProgramModule[]>([]);
@@ -140,16 +140,6 @@ export default function CreateProgramPage() {
     id: string,
     field: "title" | "description" | "duration",
     value: MultiLangValue,
-  ) => {
-    setModules(
-      modules.map((m) => (m.id === id ? { ...m, [field]: value } : m)),
-    );
-  };
-
-  const updateModule = (
-    id: string,
-    field: keyof ProgramModule,
-    value: string,
   ) => {
     setModules(
       modules.map((m) => (m.id === id ? { ...m, [field]: value } : m)),
@@ -249,7 +239,7 @@ export default function CreateProgramPage() {
   const updateModuleQuiz = (
     moduleId: string,
     field: keyof ModuleQuiz,
-    value: any,
+    value: ModuleQuiz[keyof ModuleQuiz],
   ) => {
     setModules(
       modules.map((m) =>
@@ -310,7 +300,7 @@ export default function CreateProgramPage() {
     moduleId: string,
     qId: string,
     field: keyof ModuleQuizQuestion,
-    value: any,
+    value: ModuleQuizQuestion[keyof ModuleQuizQuestion],
   ) => {
     setModules(
       modules.map((m) => {
@@ -607,21 +597,22 @@ export default function CreateProgramPage() {
                     <SelectItem value="open" className="text-xs">
                       Open for Enrollment
                     </SelectItem>
+                    <SelectItem value="hidden" className="text-xs">
+                      Hidden
+                    </SelectItem>
+                    <SelectItem value="disabled" className="text-xs">
+                      Disabled
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                Cover Image URL
-              </Label>
-              <Input
-                value={formImageUrl}
-                onChange={(e) => setFormImageUrl(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="h-10 text-xs shadow-sm"
-              />
-            </div>
+            <MediaUploader
+              label="Cover Image"
+              value={formImageUrl}
+              onChange={setFormImageUrl}
+              description="A high-quality image representing the program"
+            />
             <div className="space-y-1">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
                 Topics (comma-separated)
@@ -640,7 +631,7 @@ export default function CreateProgramPage() {
         {activeStep === 1 && (
           <div className="space-y-5">
             <h2 className="text-lg font-semibold text-foreground">
-              Instructor & Schedule
+              Instructor & Details
             </h2>
             <div className="space-y-1">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
@@ -661,38 +652,15 @@ export default function CreateProgramPage() {
               type="textarea"
               rows={3}
             />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                  Start Date
-                </Label>
-                <Input
-                  type="date"
-                  value={formStartDate}
-                  onChange={(e) => setFormStartDate(e.target.value)}
-                  className="h-10 text-xs shadow-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                  End Date
-                </Label>
-                <Input
-                  type="date"
-                  value={formEndDate}
-                  onChange={(e) => setFormEndDate(e.target.value)}
-                  className="h-10 text-xs shadow-sm"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
+            <div className="space-y-1 max-w-sm">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                Schedule
+                Start Date
               </Label>
               <Input
-                value={formSchedule}
-                onChange={(e) => setFormSchedule(e.target.value)}
-                placeholder="Tuesdays & Thursdays, 9:00 AM - 12:00 PM"
+                type="date"
+                value={formStartDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setFormStartDate(e.target.value)}
                 className="h-10 text-xs shadow-sm"
               />
             </div>
@@ -766,7 +734,7 @@ export default function CreateProgramPage() {
                   No modules yet
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Click "Add Module" to start building your curriculum
+                  Click &quot;Add Module&quot; to start building your curriculum
                 </p>
               </div>
             )}
@@ -953,14 +921,31 @@ export default function CreateProgramPage() {
                                     type="textarea"
                                     rows={3}
                                   />
+                                ) : block.type === "image" ||
+                                  block.type === "video" ? (
+                                  <MediaUploader
+                                    label={
+                                      block.type === "image"
+                                        ? "Image Media"
+                                        : "Video Media"
+                                    }
+                                    value={block.content.en || ""}
+                                    onChange={(val: string) =>
+                                      updateContentBlockML(
+                                        mod.id,
+                                        block.id,
+                                        "content",
+                                        {
+                                          ...block.content,
+                                          en: val,
+                                        },
+                                      )
+                                    }
+                                  />
                                 ) : (
                                   <div className="space-y-1">
                                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                                      {block.type === "image"
-                                        ? "Image URL"
-                                        : block.type === "video"
-                                          ? "Video URL"
-                                          : "Download URL"}
+                                      Download URL
                                     </Label>
                                     <Input
                                       value={block.content.en || ""}
@@ -975,13 +960,7 @@ export default function CreateProgramPage() {
                                           },
                                         )
                                       }
-                                      placeholder={
-                                        block.type === "image"
-                                          ? "Image URL"
-                                          : block.type === "video"
-                                            ? "Video URL"
-                                            : "Download URL"
-                                      }
+                                      placeholder="Download URL"
                                       className="h-9 text-xs shadow-sm mt-1"
                                     />
                                   </div>
