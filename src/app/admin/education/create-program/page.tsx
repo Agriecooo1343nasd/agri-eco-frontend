@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  type ProgramModule,
+  type ContentBlock,
+  type CertificateTemplate,
+  type ModuleQuiz,
+  type ModuleQuizQuestion,
+} from "@/data/education";
+import {
   GraduationCap,
   Plus,
   Award,
@@ -17,7 +24,6 @@ import {
   Grip,
   ArrowLeft,
   Check,
-  Leaf,
   QrCode,
   Save,
   Brain,
@@ -44,66 +50,16 @@ import {
   type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
 
-// Local form-specific types (use MultiLangValue for translatable fields)
-// These are separate from the data-layer types in education.ts which use plain strings.
-type FormContentBlock = {
-  id: string;
-  type: "text" | "image" | "video" | "download" | "checklist";
-  title: MultiLangValue;
-  content: MultiLangValue;
-  caption: MultiLangValue;
-};
-
-type FormModuleQuizQuestion = {
-  id: string;
-  question: MultiLangValue;
-  questionImage?: string;
-  options: MultiLangValue[];
-  correctIndex: number;
-  explanation: MultiLangValue;
-};
-
-type FormModuleQuiz = {
-  id: string;
-  title: MultiLangValue;
-  description?: MultiLangValue;
-  passingScore: number;
-  questions: FormModuleQuizQuestion[];
-};
-
-type FormProgramModule = {
-  id: string;
-  title: MultiLangValue;
-  description: MultiLangValue;
-  duration: string;
-  order: number;
-  contentBlocks: FormContentBlock[];
-  quiz?: FormModuleQuiz;
-};
-
-type FormCertificateTemplate = {
-  enabled: boolean;
-  title: MultiLangValue;
-  subtitle: MultiLangValue;
-  description: MultiLangValue;
-  signatoryName: string;
-  signatoryTitle: string;
-  badgeColor: string;
-  logoUrl?: string;
-};
-
-const emptyModule = (): FormProgramModule => ({
+const emptyModule = (): ProgramModule => ({
   id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
   title: emptyLangValue(),
   description: emptyLangValue(),
-  duration: "",
+  duration: emptyLangValue(),
   order: 0,
   contentBlocks: [],
 });
 
-const emptyContentBlock = (
-  type: FormContentBlock["type"],
-): FormContentBlock => ({
+const emptyContentBlock = (type: ContentBlock["type"]): ContentBlock => ({
   id: `cb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
   type,
   title: emptyLangValue(),
@@ -111,7 +67,7 @@ const emptyContentBlock = (
   caption: emptyLangValue(),
 });
 
-const defaultCertTemplate: FormCertificateTemplate = {
+const defaultCertTemplate: CertificateTemplate = {
   enabled: false,
   title: emptyLangValue(),
   subtitle: emptyLangValue(),
@@ -119,7 +75,6 @@ const defaultCertTemplate: FormCertificateTemplate = {
   signatoryName: "",
   signatoryTitle: "",
   badgeColor: "#16a34a",
-  logoUrl: "",
 };
 
 const steps = [
@@ -166,11 +121,11 @@ export default function CreateProgramPage() {
   const [formStatus, setFormStatus] = useState<"open" | "upcoming">("upcoming");
 
   // Modules
-  const [modules, setModules] = useState<FormProgramModule[]>([]);
+  const [modules, setModules] = useState<ProgramModule[]>([]);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
 
   // Certificate
-  const [certTemplate, setCertTemplate] = useState<FormCertificateTemplate>({
+  const [certTemplate, setCertTemplate] = useState<CertificateTemplate>({
     ...defaultCertTemplate,
   });
 
@@ -183,7 +138,7 @@ export default function CreateProgramPage() {
 
   const updateModuleML = (
     id: string,
-    field: "title" | "description",
+    field: "title" | "description" | "duration",
     value: MultiLangValue,
   ) => {
     setModules(
@@ -193,7 +148,7 @@ export default function CreateProgramPage() {
 
   const updateModule = (
     id: string,
-    field: keyof FormProgramModule,
+    field: keyof ProgramModule,
     value: string,
   ) => {
     setModules(
@@ -209,10 +164,7 @@ export default function CreateProgramPage() {
     );
   };
 
-  const addContentBlock = (
-    moduleId: string,
-    type: FormContentBlock["type"],
-  ) => {
+  const addContentBlock = (moduleId: string, type: ContentBlock["type"]) => {
     setModules(
       modules.map((m) =>
         m.id === moduleId
@@ -274,7 +226,7 @@ export default function CreateProgramPage() {
             },
             passingScore: 60,
             questions: [],
-          } as FormModuleQuiz,
+          } as ModuleQuiz,
         };
       }),
     );
@@ -296,7 +248,7 @@ export default function CreateProgramPage() {
 
   const updateModuleQuiz = (
     moduleId: string,
-    field: keyof FormModuleQuiz,
+    field: keyof ModuleQuiz,
     value: any,
   ) => {
     setModules(
@@ -312,7 +264,7 @@ export default function CreateProgramPage() {
     setModules(
       modules.map((m) => {
         if (m.id !== moduleId || !m.quiz) return m;
-        const newQ: FormModuleQuizQuestion = {
+        const newQ: ModuleQuizQuestion = {
           id: `qq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           question: emptyLangValue(),
           options: [
@@ -357,7 +309,7 @@ export default function CreateProgramPage() {
   const updateQuizQuestion = (
     moduleId: string,
     qId: string,
-    field: keyof FormModuleQuizQuestion,
+    field: keyof ModuleQuizQuestion,
     value: any,
   ) => {
     setModules(
@@ -447,7 +399,7 @@ export default function CreateProgramPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto pb-10">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
@@ -555,98 +507,130 @@ export default function CreateProgramPage() {
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>Type</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Type
+                </Label>
                 <Select
                   value={formType}
                   onValueChange={(v) => setFormType(v as typeof formType)}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="h-10 text-xs shadow-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="workshop">Workshop</SelectItem>
-                    <SelectItem value="course">Course</SelectItem>
-                    <SelectItem value="certification">Certification</SelectItem>
+                    <SelectItem value="workshop" className="text-xs">
+                      Workshop
+                    </SelectItem>
+                    <SelectItem value="course" className="text-xs">
+                      Course
+                    </SelectItem>
+                    <SelectItem value="certification" className="text-xs">
+                      Certification
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Level</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Level
+                </Label>
                 <Select
                   value={formLevel}
                   onValueChange={(v) => setFormLevel(v as typeof formLevel)}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="h-10 text-xs shadow-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="beginner">Beginner</SelectItem>
-                    <SelectItem value="intermediate">Intermediate</SelectItem>
-                    <SelectItem value="advanced">Advanced</SelectItem>
+                    <SelectItem value="beginner" className="text-xs">
+                      Beginner
+                    </SelectItem>
+                    <SelectItem value="intermediate" className="text-xs">
+                      Intermediate
+                    </SelectItem>
+                    <SelectItem value="advanced" className="text-xs">
+                      Advanced
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Price (RWF)</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  Price (RWF)
+                </Label>
                 <Input
                   type="number"
                   value={formPrice}
                   onChange={(e) => setFormPrice(e.target.value)}
                   placeholder="0 for free"
-                  className="mt-1.5"
+                  className="h-10 text-xs shadow-sm"
                 />
               </div>
-              <div>
-                <Label>Max Participants</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  Max Participants
+                </Label>
                 <Input
                   type="number"
                   value={formMaxParticipants}
                   onChange={(e) => setFormMaxParticipants(e.target.value)}
                   placeholder="30"
-                  className="mt-1.5"
+                  className="h-10 text-xs shadow-sm"
                 />
               </div>
-              <div>
-                <Label>Duration</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  Duration
+                </Label>
                 <Input
                   value={formDuration}
                   onChange={(e) => setFormDuration(e.target.value)}
                   placeholder="e.g., 4 weeks"
-                  className="mt-1.5"
+                  className="h-10 text-xs shadow-sm"
                 />
               </div>
               <div>
-                <Label>Status</Label>
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                  Status
+                </Label>
                 <Select
                   value={formStatus}
                   onValueChange={(v) => setFormStatus(v as typeof formStatus)}
                 >
-                  <SelectTrigger className="mt-1.5">
+                  <SelectTrigger className="h-10 text-xs shadow-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="open">Open for Enrollment</SelectItem>
+                    <SelectItem value="upcoming" className="text-xs">
+                      Upcoming
+                    </SelectItem>
+                    <SelectItem value="open" className="text-xs">
+                      Open for Enrollment
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div>
-              <Label>Cover Image URL</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                Cover Image URL
+              </Label>
               <Input
                 value={formImageUrl}
                 onChange={(e) => setFormImageUrl(e.target.value)}
                 placeholder="https://example.com/image.jpg"
-                className="mt-1.5"
+                className="h-10 text-xs shadow-sm"
               />
             </div>
-            <div>
-              <Label>Topics (comma-separated)</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                Topics (comma-separated)
+              </Label>
               <Input
                 value={formTopics}
                 onChange={(e) => setFormTopics(e.target.value)}
                 placeholder="Soil prep, Composting, Crop rotation"
-                className="mt-1.5"
+                className="h-10 text-xs shadow-sm"
               />
             </div>
           </div>
@@ -656,322 +640,434 @@ export default function CreateProgramPage() {
         {activeStep === 1 && (
           <div className="space-y-5">
             <h2 className="text-lg font-semibold text-foreground">
-              Instructor & Details
+              Instructor & Schedule
             </h2>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                Instructor Name
+              </Label>
+              <Input
+                value={formInstructor}
+                onChange={(e) => setFormInstructor(e.target.value)}
+                placeholder="Jean-Pierre Habimana"
+                className="h-10 text-xs shadow-sm"
+              />
+            </div>
+            <MultiLangInput
+              label="Instructor Bio"
+              value={formInstructorBio}
+              onChange={setFormInstructorBio}
+              placeholder="Experience and qualifications..."
+              type="textarea"
+              rows={3}
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Instructor Name</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  Start Date
+                </Label>
                 <Input
-                  value={formInstructor}
-                  onChange={(e) => setFormInstructor(e.target.value)}
-                  placeholder="Jane Doe"
-                  className="mt-1.5"
+                  type="date"
+                  value={formStartDate}
+                  onChange={(e) => setFormStartDate(e.target.value)}
+                  className="h-10 text-xs shadow-sm"
                 />
               </div>
-              <div>
-                <Label>Instructor Photo URL</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  End Date
+                </Label>
                 <Input
-                  value={formInstructorBio.en}
-                  onChange={(e) =>
-                    setFormInstructorBio({
-                      ...formInstructorBio,
-                      en: e.target.value,
-                    })
-                  }
-                  placeholder="https://example.com/photo.jpg"
-                  className="mt-1.5"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <MultiLangInput
-                  label="Instructor Bio"
-                  value={formInstructorBio}
-                  onChange={setFormInstructorBio}
-                  placeholder="Short biography..."
-                  type="textarea"
-                  rows={3}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <MultiLangInput
-                  label="Requirements"
-                  value={formRequirements}
-                  onChange={setFormRequirements}
-                  placeholder="What attendees should know or bring..."
-                  type="textarea"
-                  rows={3}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <MultiLangInput
-                  label="What You’ll Learn"
-                  value={formWhatYouGet}
-                  onChange={setFormWhatYouGet}
-                  placeholder="Outcomes, skills, takeaways..."
-                  type="textarea"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label>Language</Label>
-                <Input
-                  value={formLanguage}
-                  onChange={(e) => setFormLanguage(e.target.value)}
-                  placeholder="English, Kinyarwanda, etc."
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label>Location</Label>
-                <Input
-                  value={formLocation}
-                  onChange={(e) => setFormLocation(e.target.value)}
-                  placeholder="City or online"
-                  className="mt-1.5"
+                  type="date"
+                  value={formEndDate}
+                  onChange={(e) => setFormEndDate(e.target.value)}
+                  className="h-10 text-xs shadow-sm"
                 />
               </div>
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                Schedule
+              </Label>
+              <Input
+                value={formSchedule}
+                onChange={(e) => setFormSchedule(e.target.value)}
+                placeholder="Tuesdays & Thursdays, 9:00 AM - 12:00 PM"
+                className="h-10 text-xs shadow-sm"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  Language
+                </Label>
+                <Input
+                  value={formLanguage}
+                  onChange={(e) => setFormLanguage(e.target.value)}
+                  placeholder="Kinyarwanda & English"
+                  className="h-10 text-xs shadow-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                  Location
+                </Label>
+                <Input
+                  value={formLocation}
+                  onChange={(e) => setFormLocation(e.target.value)}
+                  placeholder="Agri-Eco Farm, Musanze"
+                  className="h-10 text-xs shadow-sm"
+                />
+              </div>
+            </div>
+            <MultiLangInput
+              label="Requirements (one per line)"
+              value={formRequirements}
+              onChange={setFormRequirements}
+              placeholder="No prior experience needed"
+              type="textarea"
+              rows={3}
+            />
+            <MultiLangInput
+              label="What Students Get (one per line)"
+              value={formWhatYouGet}
+              onChange={setFormWhatYouGet}
+              placeholder="Certificate of Completion"
+              type="textarea"
+              rows={3}
+            />
           </div>
         )}
 
         {/* Step 2: Curriculum */}
         {activeStep === 2 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">
-              Curriculum
-            </h2>
-            <div className="space-y-4">
-              {modules.map((m, idx) => (
-                <div key={m.id} className="border border-border rounded-lg p-4">
-                  <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">
+                  Curriculum Builder
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {modules.length} module(s) added
+                </p>
+              </div>
+              <Button
+                className="gap-1.5 h-10 text-xs font-bold shadow-sm"
+                onClick={addModule}
+              >
+                <Plus className="h-4 w-4" /> Add Module
+              </Button>
+            </div>
+
+            {modules.length === 0 && (
+              <div className="border-2 border-dashed border-border rounded-xl p-12 text-center">
+                <GraduationCap className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground font-medium">
+                  No modules yet
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Click "Add Module" to start building your curriculum
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {modules.map((mod, idx) => (
+                <div
+                  key={mod.id}
+                  className="border border-border rounded-xl overflow-hidden shadow-sm"
+                >
+                  <button
+                    onClick={() =>
+                      setExpandedModuleId(
+                        expandedModuleId === mod.id ? null : mod.id,
+                      )
+                    }
+                    className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors text-left"
+                  >
                     <div className="flex items-center gap-3">
-                      <Grip className="h-5 w-5 cursor-move" />
-                      <div className="flex-1">
-                        <MultiLangInput
-                          label={`Module ${idx + 1} Title`}
-                          value={m.title}
-                          onChange={(v) => updateModuleML(m.id, "title", v)}
-                          placeholder="e.g., Introduction to Organic Farming"
-                        />
-                        <MultiLangInput
-                          label={`Module ${idx + 1} Description`}
-                          value={m.description}
-                          onChange={(v) =>
-                            updateModuleML(m.id, "description", v)
-                          }
-                          placeholder="Brief overview of this module"
-                          type="textarea"
-                          rows={2}
-                        />
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <Label>Duration</Label>
-                            <Input
-                              value={m.duration}
-                              onChange={(e) =>
-                                updateModule(m.id, "duration", e.target.value)
-                              }
-                              placeholder="e.g., 45 min"
-                              className="mt-1.5"
-                            />
-                          </div>
-                          <div>
-                            <Label>Order</Label>
-                            <Input
-                              type="number"
-                              value={m.order}
-                              onChange={(e) =>
-                                updateModule(m.id, "order", e.target.value)
-                              }
-                              className="mt-1.5 w-20"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => toggleModuleQuiz(m.id)}
-                        >
-                          <Brain className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeModule(m.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                      <Grip className="h-4 w-4 text-muted-foreground" />
+                      <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <span className="text-sm font-bold text-foreground">
+                          {mod.title.en || "Untitled Module"}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold tracking-tight text-muted-foreground ml-2">
+                          ({mod.contentBlocks.length} blocks)
+                        </span>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        setExpandedModuleId(
-                          expandedModuleId === m.id ? null : m.id,
-                        )
-                      }
-                    >
-                      {expandedModuleId === m.id ? (
-                        <ChevronUp />
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeModule(mod.id);
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                      {expandedModuleId === mod.id ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
                       ) : (
-                        <ChevronDown />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       )}
-                    </Button>
-                  </div>
-                  {expandedModuleId === m.id && (
-                    <div className="mt-4 space-y-4">
+                    </div>
+                  </button>
+
+                  {expandedModuleId === mod.id && (
+                    <div className="border-t border-border p-5 bg-accent/5 space-y-4">
+                      <MultiLangInput
+                        label="Module Title *"
+                        value={mod.title}
+                        onChange={(v) => updateModuleML(mod.id, "title", v)}
+                        placeholder="e.g., Introduction"
+                      />
+                      <MultiLangInput
+                        label="Duration"
+                        value={mod.duration || emptyLangValue()}
+                        onChange={(v) => updateModuleML(mod.id, "duration", v)}
+                        placeholder="e.g., 3 hours"
+                      />
+                      <MultiLangInput
+                        label="Description"
+                        value={mod.description}
+                        onChange={(v) =>
+                          updateModuleML(mod.id, "description", v)
+                        }
+                        placeholder="What this module covers..."
+                        type="textarea"
+                        rows={2}
+                      />
+
                       <Separator />
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-medium">Content Blocks</h3>
-                        {m.contentBlocks.map((cb) => (
-                          <div
-                            key={cb.id}
-                            className="border border-border rounded-lg p-3"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {blockTypeIcon(cb.type)}
-                                <span className="text-sm font-medium capitalize">
-                                  {cb.type}
-                                </span>
-                              </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            Content Blocks
+                          </Label>
+                          <div className="flex gap-1.5">
+                            {(
+                              [
+                                "text",
+                                "image",
+                                "video",
+                                "download",
+                                "checklist",
+                              ] as const
+                            ).map((type) => (
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeContentBlock(m.id, cb.id)}
+                                key={type}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 text-[10px] px-2.5 font-bold shadow-xs hover:bg-card"
+                                onClick={() => addContentBlock(mod.id, type)}
                               >
-                                <X className="h-4 w-4" />
+                                {blockTypeIcon(type)}
+                                <span className="hidden sm:inline capitalize">
+                                  {type}
+                                </span>
                               </Button>
-                            </div>
-                            <div className="mt-2 space-y-2">
-                              <MultiLangInput
-                                label="Title"
-                                value={cb.title}
-                                onChange={(v) =>
-                                  updateContentBlockML(m.id, cb.id, "title", v)
-                                }
-                                placeholder="Block title..."
-                              />
-                              <MultiLangInput
-                                label="Content"
-                                value={cb.content}
-                                onChange={(v) =>
-                                  updateContentBlockML(
-                                    m.id,
-                                    cb.id,
-                                    "content",
-                                    v,
-                                  )
-                                }
-                                placeholder="Main content..."
-                                type="textarea"
-                                rows={3}
-                              />
-                              <MultiLangInput
-                                label="Caption (optional)"
-                                value={cb.caption}
-                                onChange={(v) =>
-                                  updateContentBlockML(
-                                    m.id,
-                                    cb.id,
-                                    "caption",
-                                    v,
-                                  )
-                                }
-                              />
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addContentBlock(m.id, "text")}
-                          >
-                            + Text
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addContentBlock(m.id, "image")}
-                          >
-                            + Image
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addContentBlock(m.id, "video")}
-                          >
-                            + Video
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addContentBlock(m.id, "download")}
-                          >
-                            + Download
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addContentBlock(m.id, "checklist")}
-                          >
-                            + Checklist
-                          </Button>
                         </div>
-                      </div>
-                      {/* Quiz Section */}
-                      {m.quiz && (
-                        <div className="pt-4">
-                          <Separator />
-                          <div className="space-y-2">
-                            <h3 className="text-sm font-medium">Quiz</h3>
-                            <MultiLangInput
-                              label="Quiz Title"
-                              value={m.quiz.title}
-                              onChange={(v) =>
-                                updateModuleQuizML(m.id, "title", v)
-                              }
-                              placeholder="Optional quiz title..."
-                            />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <Label>Passing Score (%)</Label>
-                                <Input
-                                  type="number"
-                                  value={m.quiz.passingScore}
-                                  onChange={(e) =>
-                                    updateModuleQuiz(
-                                      m.id,
-                                      "passingScore",
-                                      Number(e.target.value),
+
+                        {mod.contentBlocks.length === 0 && (
+                          <p className="text-xs text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg bg-card/50">
+                            Add content blocks using the buttons above
+                          </p>
+                        )}
+
+                        <div className="space-y-3">
+                          {mod.contentBlocks.map((block) => (
+                            <div
+                              key={block.id}
+                              className="flex items-start gap-4 bg-card border border-border rounded-lg p-4 shadow-sm border-l-4 border-l-primary/30"
+                            >
+                              <div className="mt-1 text-primary">
+                                {blockTypeIcon(block.type)}
+                              </div>
+                              <div className="flex-1 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                    {block.type}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() =>
+                                      removeContentBlock(mod.id, block.id)
+                                    }
+                                  >
+                                    <X className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </div>
+                                <MultiLangInput
+                                  label="Block Title"
+                                  value={block.title || emptyLangValue()}
+                                  onChange={(v) =>
+                                    updateContentBlockML(
+                                      mod.id,
+                                      block.id,
+                                      "title",
+                                      v,
                                     )
                                   }
-                                  className="mt-1 h-9"
+                                  placeholder="Block title (optional)"
+                                />
+                                {block.type === "text" ? (
+                                  <MultiLangInput
+                                    label="Text Content"
+                                    value={block.content}
+                                    onChange={(v) =>
+                                      updateContentBlockML(
+                                        mod.id,
+                                        block.id,
+                                        "content",
+                                        v,
+                                      )
+                                    }
+                                    placeholder="Enter text content..."
+                                    type="textarea"
+                                    rows={4}
+                                  />
+                                ) : block.type === "checklist" ? (
+                                  <MultiLangInput
+                                    label="Checklist Items"
+                                    value={block.content}
+                                    onChange={(v) =>
+                                      updateContentBlockML(
+                                        mod.id,
+                                        block.id,
+                                        "content",
+                                        v,
+                                      )
+                                    }
+                                    placeholder="Item 1|Item 2|Item 3 (separate with |)"
+                                    type="textarea"
+                                    rows={3}
+                                  />
+                                ) : (
+                                  <div className="space-y-1">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                                      {block.type === "image"
+                                        ? "Image URL"
+                                        : block.type === "video"
+                                          ? "Video URL"
+                                          : "Download URL"}
+                                    </Label>
+                                    <Input
+                                      value={block.content.en || ""}
+                                      onChange={(e) =>
+                                        updateContentBlockML(
+                                          mod.id,
+                                          block.id,
+                                          "content",
+                                          {
+                                            ...block.content,
+                                            en: e.target.value,
+                                          },
+                                        )
+                                      }
+                                      placeholder={
+                                        block.type === "image"
+                                          ? "Image URL"
+                                          : block.type === "video"
+                                            ? "Video URL"
+                                            : "Download URL"
+                                      }
+                                      className="h-9 text-xs shadow-sm mt-1"
+                                    />
+                                  </div>
+                                )}
+                                <MultiLangInput
+                                  label="Caption"
+                                  value={block.caption || emptyLangValue()}
+                                  onChange={(v) =>
+                                    updateContentBlockML(
+                                      mod.id,
+                                      block.id,
+                                      "caption",
+                                      v,
+                                    )
+                                  }
+                                  placeholder="Caption (optional)"
                                 />
                               </div>
-                              <MultiLangInput
-                                label="Description (optional)"
-                                value={m.quiz.description || emptyLangValue()}
-                                onChange={(v) =>
-                                  updateModuleQuizML(m.id, "description", v)
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Module Quiz Section */}
+                      <Separator />
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <Brain className="h-4 w-4 text-primary" />
+                            <Label className="text-xs font-bold uppercase tracking-wider text-foreground">
+                              Module Quiz
+                            </Label>
+                          </div>
+                          <Switch
+                            checked={!!mod.quiz}
+                            onCheckedChange={() => toggleModuleQuiz(mod.id)}
+                          />
+                        </div>
+
+                        {mod.quiz && (
+                          <div className="space-y-4 bg-primary/5 border border-primary/20 rounded-xl p-5 shadow-xs">
+                            <MultiLangInput
+                              label="Quiz Title"
+                              value={mod.quiz.title}
+                              onChange={(v) =>
+                                updateModuleQuizML(mod.id, "title", v)
+                              }
+                              placeholder="Module Quiz"
+                            />
+                            <div className="space-y-1">
+                              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                                Passing Score (%)
+                              </Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={mod.quiz.passingScore}
+                                onChange={(e) =>
+                                  updateModuleQuiz(
+                                    mod.id,
+                                    "passingScore",
+                                    Number(e.target.value),
+                                  )
                                 }
-                                placeholder="Test your understanding..."
+                                className="h-9 text-xs shadow-sm mt-1"
                               />
                             </div>
+                            <MultiLangInput
+                              label="Description (optional)"
+                              value={mod.quiz.description || emptyLangValue()}
+                              onChange={(v) =>
+                                updateModuleQuizML(mod.id, "description", v)
+                              }
+                              placeholder="Test your understanding..."
+                            />
 
                             {/* Questions */}
-                            <div className="space-y-3">
-                              {m.quiz.questions.map((q, qi) => (
+                            <div className="space-y-4">
+                              {mod.quiz.questions.map((q, qi) => (
                                 <div
                                   key={q.id}
-                                  className="bg-card border border-border rounded-lg p-4 space-y-3"
+                                  className="bg-card border border-border rounded-lg p-4 space-y-4 shadow-sm border-l-4 border-l-amber-500/30"
                                 >
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-primary">
+                                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">
                                       Question {qi + 1}
                                     </span>
                                     <Button
@@ -979,7 +1075,7 @@ export default function CreateProgramPage() {
                                       size="icon"
                                       className="h-6 w-6"
                                       onClick={() =>
-                                        removeQuizQuestion(m.id, q.id)
+                                        removeQuizQuestion(mod.id, q.id)
                                       }
                                     >
                                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -990,7 +1086,7 @@ export default function CreateProgramPage() {
                                     value={q.question}
                                     onChange={(v) =>
                                       updateQuizQuestionML(
-                                        m.id,
+                                        mod.id,
                                         q.id,
                                         "question",
                                         v,
@@ -1000,47 +1096,47 @@ export default function CreateProgramPage() {
                                     type="textarea"
                                     rows={2}
                                   />
-                                  <div>
-                                    <Label className="text-xs">
+                                  <div className="space-y-1">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
                                       Question Image URL (optional)
                                     </Label>
                                     <Input
                                       value={q.questionImage || ""}
                                       onChange={(e) =>
                                         updateQuizQuestion(
-                                          m.id,
+                                          mod.id,
                                           q.id,
                                           "questionImage",
                                           e.target.value,
                                         )
                                       }
                                       placeholder="https://..."
-                                      className="mt-1 h-9"
+                                      className="h-9 text-xs shadow-sm mt-1"
                                     />
                                   </div>
                                   <div>
-                                    <Label className="text-xs">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
                                       Answer Options
                                     </Label>
-                                    <div className="space-y-2 mt-1">
+                                    <div className="space-y-3 mt-2">
                                       {q.options.map((opt, oi) => (
                                         <div
                                           key={oi}
-                                          className="flex items-center gap-2"
+                                          className="flex items-center gap-3"
                                         >
                                           <button
                                             type="button"
                                             onClick={() =>
                                               updateQuizQuestion(
-                                                m.id,
+                                                mod.id,
                                                 q.id,
                                                 "correctIndex",
                                                 oi,
                                               )
                                             }
-                                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
+                                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 text-[10px] font-bold transition-all shadow-sm ${
                                               q.correctIndex === oi
-                                                ? "border-primary bg-primary text-primary-foreground"
+                                                ? "border-primary bg-primary text-primary-foreground scale-110"
                                                 : "border-border text-muted-foreground hover:border-primary/50"
                                             }`}
                                           >
@@ -1051,7 +1147,7 @@ export default function CreateProgramPage() {
                                             value={opt}
                                             onChange={(v) =>
                                               updateQuizQuestionOption(
-                                                m.id,
+                                                mod.id,
                                                 q.id,
                                                 oi,
                                                 v,
@@ -1059,11 +1155,12 @@ export default function CreateProgramPage() {
                                             }
                                             placeholder={`Option ${String.fromCharCode(65 + oi)}`}
                                             className="flex-1"
+                                            hideLabel
                                           />
                                         </div>
                                       ))}
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                    <p className="text-[10px] text-muted-foreground mt-2 font-medium italic opacity-70">
                                       Click the letter to mark the correct
                                       answer
                                     </p>
@@ -1073,7 +1170,7 @@ export default function CreateProgramPage() {
                                     value={q.explanation}
                                     onChange={(v) =>
                                       updateQuizQuestionML(
-                                        m.id,
+                                        mod.id,
                                         q.id,
                                         "explanation",
                                         v,
@@ -1090,14 +1187,14 @@ export default function CreateProgramPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full gap-1.5"
-                              onClick={() => addQuizQuestion(m.id)}
+                              className="w-full gap-1.5 h-9 text-xs font-bold shadow-xs hover:bg-card"
+                              onClick={() => addQuizQuestion(mod.id)}
                             >
                               <Plus className="h-3.5 w-3.5" /> Add Question
                             </Button>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1112,10 +1209,10 @@ export default function CreateProgramPage() {
             <h2 className="text-lg font-semibold text-foreground">
               Certificate Designer
             </h2>
-            <div className="flex items-center justify-between p-4 bg-accent/30 rounded-xl">
+            <div className="flex items-center justify-between p-5 bg-primary/5 border border-primary/20 rounded-xl shadow-xs">
               <div>
-                <Label>Enable Certificate</Label>
-                <p className="text-xs text-muted-foreground">
+                <Label className="text-sm font-bold">Enable Certificate</Label>
+                <p className="text-xs text-muted-foreground font-medium">
                   Issue a certificate upon program completion
                 </p>
               </div>
@@ -1128,9 +1225,9 @@ export default function CreateProgramPage() {
             </div>
 
             {certTemplate.enabled && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Fields */}
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <MultiLangInput
                     label="Certificate Title"
                     value={certTemplate.title}
@@ -1158,8 +1255,10 @@ export default function CreateProgramPage() {
                     rows={3}
                   />
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Signatory Name</Label>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                        Signatory Name
+                      </Label>
                       <Input
                         value={certTemplate.signatoryName}
                         onChange={(e) =>
@@ -1169,11 +1268,13 @@ export default function CreateProgramPage() {
                           })
                         }
                         placeholder="Jean-Pierre Habimana"
-                        className="mt-1.5"
+                        className="h-10 text-xs shadow-sm mt-1"
                       />
                     </div>
-                    <div>
-                      <Label>Signatory Title</Label>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                        Signatory Title
+                      </Label>
                       <Input
                         value={certTemplate.signatoryTitle}
                         onChange={(e) =>
@@ -1183,47 +1284,7 @@ export default function CreateProgramPage() {
                           })
                         }
                         placeholder="Director of Education"
-                        className="mt-1.5"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Company Logo URL</Label>
-                    <Input
-                      value={certTemplate.logoUrl || ""}
-                      onChange={(e) =>
-                        setCertTemplate({
-                          ...certTemplate,
-                          logoUrl: e.target.value,
-                        })
-                      }
-                      placeholder="https://example.com/logo.png"
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label>Badge / Border Color</Label>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <input
-                        type="color"
-                        value={certTemplate.badgeColor}
-                        onChange={(e) =>
-                          setCertTemplate({
-                            ...certTemplate,
-                            badgeColor: e.target.value,
-                          })
-                        }
-                        className="w-10 h-10 rounded border border-border cursor-pointer"
-                      />
-                      <Input
-                        value={certTemplate.badgeColor}
-                        onChange={(e) =>
-                          setCertTemplate({
-                            ...certTemplate,
-                            badgeColor: e.target.value,
-                          })
-                        }
-                        className="max-w-32"
+                        className="h-10 text-xs shadow-sm mt-1"
                       />
                     </div>
                   </div>
@@ -1231,77 +1292,69 @@ export default function CreateProgramPage() {
 
                 {/* Live Preview */}
                 <div>
-                  <Label className="mb-3 block">Live Preview</Label>
+                  <Label className="mb-3 block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Live Preview
+                  </Label>
                   <div
-                    className="border-4 border-double rounded-xl p-8 text-center space-y-3 bg-card"
-                    style={{ borderColor: certTemplate.badgeColor }}
+                    className="border-8 border-double rounded-2xl p-8 text-center space-y-4 bg-card shadow-lg relative overflow-hidden"
+                    style={{ borderColor: "#16a34a" }}
                   >
-                    <div className="flex justify-center">
-                      {certTemplate.logoUrl ? (
-                        <img
-                          src={certTemplate.logoUrl}
-                          alt="Logo"
-                          className="h-12 object-contain"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                          <Leaf className="h-6 w-6 text-primary-foreground" />
-                        </div>
-                      )}
+                    <div className="flex justify-center mb-6">
+                      <img
+                        src="/assets/logo/logo.png"
+                        alt="Company Logo"
+                        className="h-16 w-auto object-contain"
+                      />
                     </div>
-                    <Award
-                      className="h-8 w-8 mx-auto"
-                      style={{ color: certTemplate.badgeColor }}
-                    />
-                    <h3 className="text-lg font-bold font-heading text-foreground">
+                    <h3 className="text-xl font-bold font-heading text-foreground tracking-tight">
                       {certTemplate.title.en || "Certificate Title"}
                     </h3>
-                    <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
                       {certTemplate.subtitle.en || "Program Name"}
                     </p>
-                    <div className="py-3">
-                      <p className="text-sm text-foreground">
+                    <div className="py-4">
+                      <p className="text-xs text-muted-foreground italic font-serif">
                         This certifies that
                       </p>
-                      <p className="text-xl font-bold text-primary my-1 font-heading">
+                      <p className="text-2xl font-bold text-primary my-2 font-heading tracking-tight">
                         [Student Name]
                       </p>
-                      <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      <p className="text-[11px] text-muted-foreground leading-relaxed max-w-sm mx-auto font-medium">
                         {certTemplate.description.en || "Description text..."}
                       </p>
                     </div>
-                    <div className="flex justify-between items-end pt-4 border-t border-border">
+                    <div className="flex justify-between items-end pt-6 border-t border-border mt-2">
                       <div className="text-center">
-                        <p className="text-[10px] text-muted-foreground">
-                          Date
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                          Issue Date
                         </p>
-                        <p className="text-xs font-medium text-foreground border-t border-foreground pt-1 px-3">
-                          [Date]
+                        <p className="text-xs font-bold text-foreground border-t border-border pt-1.5 px-4 font-mono">
+                          [MAR 10, 2026]
                         </p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
                           {certTemplate.signatoryTitle || "Title"}
                         </p>
-                        <p className="text-xs font-medium text-foreground border-t border-foreground pt-1 px-3 italic">
+                        <p className="text-xs font-bold text-foreground border-t border-border pt-1.5 px-4 italic serif tracking-tight">
                           {certTemplate.signatoryName || "Name"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-center pt-3">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-16 h-16 border-2 border-border rounded-lg flex items-center justify-center bg-accent/30">
+                    <div className="flex justify-center pt-4">
+                      <div className="flex flex-col items-center gap-1.5 opacity-60">
+                        <div className="w-16 h-16 border-2 border-border rounded-xl flex items-center justify-center bg-muted/30 shadow-inner">
                           <QrCode className="h-10 w-10 text-muted-foreground" />
                         </div>
-                        <p className="text-[9px] text-muted-foreground">
-                          Scan to verify
+                        <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider">
+                          SECURE VERIFICATION
                         </p>
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    A unique QR code will be auto-generated for each certificate
-                    to verify authenticity
+                  <p className="text-[10px] text-muted-foreground mt-4 text-center font-medium italic">
+                    A unique verification code will be generated for each
+                    certificate.
                   </p>
                 </div>
               </div>
@@ -1311,112 +1364,134 @@ export default function CreateProgramPage() {
 
         {/* Step 4: Review */}
         {activeStep === 4 && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">
-              Review & Publish
+              Final Review
             </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="bg-accent/30 border border-border rounded-xl p-5 space-y-3">
-                  <h3 className="font-semibold text-foreground text-lg">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="space-y-5">
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 space-y-4 shadow-xs">
+                  <h3 className="font-bold text-foreground text-xl tracking-tight font-heading">
                     {formTitle.en || "Untitled Program"}
                   </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {formDesc.en || "No description"}
+                  <p className="text-sm text-muted-foreground leading-relaxed font-medium">
+                    {formDesc.en || "No short description provided."}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="capitalize">
+                    <Badge
+                      variant="secondary"
+                      className="capitalize text-[10px] font-bold px-3 border border-border"
+                    >
                       {formType}
                     </Badge>
-                    <Badge variant="outline" className="capitalize">
+                    <Badge
+                      variant="secondary"
+                      className="capitalize text-[10px] font-bold px-3 border border-border"
+                    >
                       {formLevel}
                     </Badge>
-                    <Badge variant="outline" className="capitalize">
+                    <Badge
+                      variant="secondary"
+                      className="capitalize text-[10px] font-bold px-3 border border-border bg-amber-50 text-amber-600 border-amber-200"
+                    >
                       {formStatus}
                     </Badge>
                   </div>
                 </div>
-                <div className="bg-card border border-border rounded-xl p-5">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">
-                    Program Details
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-5">
+                    Program Summary
                   </h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Price:</span>{" "}
-                      <span className="font-medium text-foreground">
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-5 text-xs">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Price
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px]">
                         {formPrice
                           ? `${Number(formPrice).toLocaleString()} RWF`
                           : "Free"}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Duration:</span>{" "}
-                      <span className="font-medium text-foreground">
-                        {formDuration || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Max:</span>{" "}
-                      <span className="font-medium text-foreground">
-                        {formMaxParticipants || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Instructor:</span>{" "}
-                      <span className="font-medium text-foreground">
-                        {formInstructor || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Language:</span>{" "}
-                      <span className="font-medium text-foreground">
-                        {formLanguage || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Location:</span>{" "}
-                      <span className="font-medium text-foreground">
-                        {formLocation || "—"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Modules:</span>{" "}
-                      <span className="font-medium text-foreground">
-                        {modules.length}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">
-                        Certificate:
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Duration
                       </span>{" "}
-                      <span className="font-medium text-foreground">
-                        {certTemplate.enabled ? "Yes" : "No"}
+                      <span className="font-bold text-foreground text-[13px]">
+                        {formDuration || "Not Set"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Participants
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px]">
+                        {formMaxParticipants || "No Cap"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Instructor
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px]">
+                        {formInstructor || "Anonymous"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Language
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px]">
+                        {formLanguage || "English"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Location
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px] text-primary">
+                        {formLocation || "TBD"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Modules
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px]">
+                        {modules.length} modules
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Certificate
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px]">
+                        {certTemplate.enabled ? "Available" : "No"}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {modules.length > 0 && (
-                  <div className="bg-card border border-border rounded-xl p-5">
-                    <h4 className="text-sm font-semibold text-foreground mb-3">
-                      Curriculum Overview
+                  <div className="bg-card border border-border rounded-xl p-6 shadow-sm border-t-4 border-t-primary">
+                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-5">
+                      Curriculum Path
                     </h4>
-                    <ol className="space-y-2">
+                    <ol className="space-y-4">
                       {modules.map((m, i) => (
-                        <li key={m.id} className="flex items-start gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        <li key={m.id} className="flex items-start gap-3 group">
+                          <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors border border-primary/20">
                             {i + 1}
                           </span>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">
-                              {m.title.en || "Untitled"}
+                          <div className="border-b border-border pb-3 flex-1 group-last:border-0 group-last:pb-0">
+                            <p className="text-[13px] font-bold text-foreground group-hover:text-primary transition-colors">
+                              {m.title.en || "Untitled Module"}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {m.duration} · {m.contentBlocks.length} blocks
-                              {m.quiz
-                                ? ` · ${m.quiz.questions.length} quiz questions`
-                                : ""}
+                            <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tight mt-1">
+                              {m.duration.en || "Self-paced"} ·{" "}
+                              {m.contentBlocks.length} content blocks
+                              {m.quiz ? ` · Includes Quiz` : ""}
                             </p>
                           </div>
                         </li>
@@ -1425,19 +1500,38 @@ export default function CreateProgramPage() {
                   </div>
                 )}
                 {formTopics && (
-                  <div className="bg-card border border-border rounded-xl p-5">
-                    <h4 className="text-sm font-semibold text-foreground mb-3">
-                      Topics
+                  <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">
+                      Core Topics
                     </h4>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-2">
                       {formTopics.split(",").map((t, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">
+                        <Badge
+                          key={i}
+                          variant="outline"
+                          className="text-[10px] font-bold px-3 py-0.5 bg-muted/50 border-border capitalize"
+                        >
                           {t.trim()}
                         </Badge>
                       ))}
                     </div>
                   </div>
                 )}
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 border border-amber-200">
+                    <Check className="h-4 w-4 text-amber-700" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-amber-900 uppercase tracking-tight">
+                      Ready for Launch
+                    </p>
+                    <p className="text-[10px] text-amber-700 font-medium">
+                      Review all details carefully. Once published, the program
+                      will be visible to all farm visitors and potential
+                      students.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1445,24 +1539,31 @@ export default function CreateProgramPage() {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4 shadow-md sticky bottom-6 z-10 mx-2 sm:mx-0">
         <Button
           variant="outline"
           onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
           disabled={activeStep === 0}
+          className="h-10 px-6 text-xs font-bold shadow-xs transition-all active:scale-95"
         >
           Previous
         </Button>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60 hidden sm:block">
           Step {activeStep + 1} of {steps.length}
         </div>
         {activeStep < steps.length - 1 ? (
-          <Button onClick={() => setActiveStep(activeStep + 1)}>
-            Next: {steps[activeStep + 1].label}
+          <Button
+            onClick={() => setActiveStep(activeStep + 1)}
+            className="h-10 px-8 text-xs font-bold shadow-md transition-all active:scale-95 bg-primary hover:bg-primary/90"
+          >
+            Continue to {steps[activeStep + 1].label}
           </Button>
         ) : (
-          <Button onClick={handleSubmit} className="gap-2">
-            <Check className="h-4 w-4" /> Publish Program
+          <Button
+            onClick={handleSubmit}
+            className="gap-2 h-10 px-10 text-xs font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 bg-primary hover:bg-primary/90"
+          >
+            <Check className="h-4 w-4" /> Publish Program Now
           </Button>
         )}
       </div>

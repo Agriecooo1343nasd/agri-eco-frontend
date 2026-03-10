@@ -16,6 +16,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getML } from "@/components/admin/MultiLangInput";
 
 export default function BlogPost() {
   const params = useParams();
@@ -47,6 +48,9 @@ export default function BlogPost() {
     );
   }
 
+  const title = getML(post.title, "en");
+  const content = getML(post.content, "en");
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -55,7 +59,7 @@ export default function BlogPost() {
       <div className="relative h-64 md:h-80 overflow-hidden">
         <img
           src={post.image}
-          alt={post.title}
+          alt={title}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 to-transparent" />
@@ -69,7 +73,7 @@ export default function BlogPost() {
               Back to Blog
             </Link>
             <h1 className="text-2xl md:text-4xl font-bold font-heading text-card max-w-3xl">
-              {post.title}
+              {title}
             </h1>
           </div>
         </div>
@@ -96,7 +100,7 @@ export default function BlogPost() {
 
           {/* Content */}
           <article className="prose prose-lg max-w-none">
-            {post.content.split("\n").map((paragraph, i) =>
+            {content.split("\n").map((paragraph, i) =>
               paragraph.trim() ? (
                 <p key={i} className="text-foreground/80 leading-relaxed mb-4">
                   {paragraph}
@@ -132,13 +136,13 @@ export default function BlogPost() {
                     <div className="h-32 overflow-hidden">
                       <img
                         src={rp.image}
-                        alt={rp.title}
+                        alt={getML(rp.title, "en")}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
                     <CardContent className="p-3">
                       <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                        {rp.title}
+                        {getML(rp.title, "en")}
                       </h3>
                       <p className="text-[10px] text-muted-foreground mt-1">
                         {rp.readTime} min · {rp.publishedAt}

@@ -4,7 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { trainingPrograms, learningResources, quizzes } from "@/data/education";
+import {
+  trainingPrograms,
+  learningResources,
+  quizzes,
+  schoolVisitConfig,
+} from "@/data/education";
 import {
   GraduationCap,
   BookOpen,
@@ -100,7 +105,7 @@ export default function EducationPage() {
       setEnrollDialogOpen(false);
       toast.success("Enrollment Successful!", {
         description: selectedProgram
-          ? `You're now enrolled in "${selectedProgram.title}". Check your email for details.`
+          ? `You're now enrolled in "${selectedProgram.title.en}". Check your email for details.`
           : "You're now enrolled. Check your email for details.",
       });
     }, 1500);
@@ -111,7 +116,7 @@ export default function EducationPage() {
     setNotifyDialogOpen(false);
     toast.success("Notification Set!", {
       description: selectedProgram
-        ? `We'll notify you when "${selectedProgram.title}" opens for enrollment.`
+        ? `We'll notify you when "${selectedProgram.title.en}" opens for enrollment.`
         : "We'll notify you when programs open for enrollment.",
     });
   };
@@ -222,7 +227,7 @@ export default function EducationPage() {
                       <div className="aspect-[16/9] overflow-hidden">
                         <img
                           src={p.image}
-                          alt={p.title}
+                          alt={p.title.en}
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -238,7 +243,7 @@ export default function EducationPage() {
                             variant="outline"
                             className="capitalize text-[10px] py-0 px-2"
                           >
-                            {p.level}
+                            {p.level.en}
                           </Badge>
                           <Badge
                             className={`${statusColors[p.status]} border text-[10px] py-0 px-2 capitalize`}
@@ -247,19 +252,19 @@ export default function EducationPage() {
                           </Badge>
                         </div>
                         <h3 className="font-bold font-heading text-foreground text-lg mb-2">
-                          {p.title}
+                          {p.title.en}
                         </h3>
                         <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                          {p.description}
+                          {p.description.en}
                         </p>
                         <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
                           <span className="flex items-center gap-1">
                             <Clock className="h-3.5 w-3.5" />
-                            {p.duration}
+                            {p.duration.en}
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
-                            {p.startDate}
+                            {p.startDate.en}
                           </span>
                           <span className="flex items-center gap-1">
                             <Users className="h-3.5 w-3.5" />
@@ -284,10 +289,10 @@ export default function EducationPage() {
                         <div className="flex flex-wrap gap-1 mb-4">
                           {p.topics.slice(0, 4).map((t) => (
                             <span
-                              key={t}
+                              key={t.en}
                               className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full"
                             >
-                              {t}
+                              {t.en}
                             </span>
                           ))}
                           {p.topics.length > 4 && (
@@ -364,11 +369,10 @@ export default function EducationPage() {
               <TabsContent value="schools" className="space-y-6">
                 <div className="text-center mb-8">
                   <h2 className="section-heading text-xl">
-                    School Visit Programs
+                    {schoolVisitConfig.heading.en}
                   </h2>
                   <p className="section-subheading text-muted-foreground text-sm">
-                    Curriculum-aligned farm visits for primary and secondary
-                    schools
+                    {schoolVisitConfig.subheading.en}
                   </p>
                 </div>
                 <div className="max-w-3xl mx-auto">
@@ -379,20 +383,13 @@ export default function EducationPage() {
                           What's Included
                         </h3>
                         <ul className="space-y-3">
-                          {[
-                            "Curriculum-aligned activities",
-                            "Student workbooks",
-                            "Organic lunch for all",
-                            "Teacher resource packs",
-                            "Certificates of participation",
-                            "Pre & post-visit materials",
-                          ].map((item) => (
+                          {schoolVisitConfig.whatsIncluded.map((item) => (
                             <li
-                              key={item}
+                              key={item.en}
                               className="flex items-start gap-2 text-sm text-foreground"
                             >
                               <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                              {item}
+                              {item.en}
                             </li>
                           ))}
                         </ul>
@@ -402,44 +399,19 @@ export default function EducationPage() {
                           Program Details
                         </h3>
                         <div className="space-y-2 text-xs">
-                          <div className="flex justify-between py-2 border-b border-border">
-                            <span className="text-muted-foreground">
-                              Duration
-                            </span>
-                            <span className="font-bold text-foreground">
-                              Full day (6 hours)
-                            </span>
-                          </div>
-                          <div className="flex justify-between py-2 border-b border-border">
-                            <span className="text-muted-foreground">Price</span>
-                            <span className="font-bold text-foreground">
-                              {formatPrice(5000)}/student
-                            </span>
-                          </div>
-                          <div className="flex justify-between py-2 border-b border-border">
-                            <span className="text-muted-foreground">
-                              Group Size
-                            </span>
-                            <span className="font-bold text-foreground">
-                              10 - 50 students
-                            </span>
-                          </div>
-                          <div className="flex justify-between py-2 border-b border-border">
-                            <span className="text-muted-foreground">
-                              Levels
-                            </span>
-                            <span className="font-bold text-foreground">
-                              Primary & Secondary
-                            </span>
-                          </div>
-                          <div className="flex justify-between py-2">
-                            <span className="text-muted-foreground">
-                              Advance Booking
-                            </span>
-                            <span className="font-bold text-foreground font-semibold">
-                              2 weeks required
-                            </span>
-                          </div>
+                          {schoolVisitConfig.details.map((d) => (
+                            <div
+                              key={d.label.en}
+                              className="flex justify-between py-2 border-b border-border last:border-0"
+                            >
+                              <span className="text-muted-foreground">
+                                {d.label.en}
+                              </span>
+                              <span className="font-bold text-foreground">
+                                {d.value.en}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -605,7 +577,7 @@ export default function EducationPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading text-lg border-b pb-2">
-              {activeQuiz?.title}
+              {activeQuiz?.title.en}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {quizFinished
@@ -620,7 +592,7 @@ export default function EducationPage() {
                 className="h-1.5"
               />
               <p className="font-bold text-foreground text-sm leading-relaxed">
-                {activeQuiz.questions[currentQ].question}
+                {activeQuiz.questions[currentQ].question.en}
               </p>
               <div className="space-y-2">
                 {activeQuiz.questions[currentQ].options.map((opt, i) => (
@@ -639,7 +611,7 @@ export default function EducationPage() {
                           : "border-border text-foreground hover:bg-accent"
                     }`}
                   >
-                    {opt}
+                    {opt.en}
                   </button>
                 ))}
               </div>
@@ -648,7 +620,7 @@ export default function EducationPage() {
                   <strong className="text-primary block mb-1 uppercase tracking-wider">
                     Explanation:
                   </strong>{" "}
-                  {activeQuiz.questions[currentQ].explanation}
+                  {activeQuiz.questions[currentQ].explanation.en}
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">

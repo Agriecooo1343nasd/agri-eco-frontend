@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   trainingPrograms,
   sampleSchoolVisits,
@@ -21,7 +22,9 @@ import {
   Clock,
   Users,
   Calendar,
+  Settings,
 } from "lucide-react";
+import { getML } from "@/components/admin/MultiLangInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -72,8 +75,8 @@ const statusBadge: Record<string, string> = {
 
 export default function AdminEducationPage() {
   const { formatPrice } = usePricing();
+  const router = useRouter();
   const [search, setSearch] = useState("");
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const activePrograms = trainingPrograms.filter(
     (p) => p.status === "open",
@@ -101,7 +104,7 @@ export default function AdminEducationPage() {
         </div>
         <Button
           className="gap-2 text-xs font-bold h-10 px-6 shadow-sm"
-          onClick={() => setCreateDialogOpen(true)}
+          onClick={() => router.push("/admin/education/create-program")}
         >
           <Plus className="h-4 w-4" /> Add Training Program
         </Button>
@@ -153,20 +156,32 @@ export default function AdminEducationPage() {
       </div>
 
       <Tabs defaultValue="programs" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 h-auto gap-1 border border-border">
-          <TabsTrigger
-            value="programs"
-            className="text-xs px-4 py-2 font-bold data-[state=active]:bg-card data-[state=active]:shadow-sm"
+        <div className="flex items-center justify-between">
+          <TabsList className="bg-muted/50 p-1 h-auto gap-1 border border-border">
+            <TabsTrigger
+              value="programs"
+              className="text-xs px-4 py-2 font-bold data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            >
+              Training Programs
+            </TabsTrigger>
+            <TabsTrigger
+              value="visits"
+              className="text-xs px-4 py-2 font-bold data-[state=active]:bg-card data-[state=active]:shadow-sm"
+            >
+              School Visits
+            </TabsTrigger>
+          </TabsList>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-xs font-bold h-9 bg-card hover:bg-muted"
+            onClick={() => router.push("/admin/education/school-settings")}
           >
-            Training Programs
-          </TabsTrigger>
-          <TabsTrigger
-            value="visits"
-            className="text-xs px-4 py-2 font-bold data-[state=active]:bg-card data-[state=active]:shadow-sm"
-          >
-            School Visits
-          </TabsTrigger>
-        </TabsList>
+            <Settings className="h-3.5 w-3.5" />
+            School Visit Settings
+          </Button>
+        </div>
 
         <TabsContent value="programs">
           <div className="border border-border rounded-xl overflow-hidden bg-card shadow-sm">
@@ -206,10 +221,10 @@ export default function AdminEducationPage() {
                     >
                       <TableCell>
                         <p className="font-bold text-foreground text-[11px] mb-0.5">
-                          {p.title}
+                          {p.title.en}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {p.duration}
+                          <Clock className="h-3 w-3" /> {p.duration.en}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -222,7 +237,7 @@ export default function AdminEducationPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-[10px] font-bold capitalize text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/20">
-                          {p.level}
+                          {p.level.en}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -245,7 +260,7 @@ export default function AdminEducationPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-[10px] font-bold text-foreground">
-                        {p.startDate}
+                        {p.startDate.en}
                       </TableCell>
                       <TableCell className="font-bold text-foreground text-sm">
                         {formatPrice(p.price)}
@@ -413,149 +428,6 @@ export default function AdminEducationPage() {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Create Program Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle className="font-heading text-lg">
-              Create Training Program
-            </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
-              Define a new educational experience for the community.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              toast.success("Creation Successful", {
-                description: "The new training program is now live.",
-              });
-              setCreateDialogOpen(false);
-            }}
-            className="space-y-5 pt-4"
-          >
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Program Identity
-              </Label>
-              <Input
-                required
-                placeholder="e.g., Organic Farming Basics & Soils"
-                className="text-xs h-10 shadow-sm border-border"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Comprehensive Description
-              </Label>
-              <Textarea
-                required
-                placeholder="Highlight core learning objectives and impact..."
-                className="text-xs min-h-[100px] shadow-sm border-border"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Content Type
-                </Label>
-                <Select>
-                  <SelectTrigger className="text-xs h-10 shadow-sm">
-                    <SelectValue placeholder="Format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="workshop" className="text-xs">
-                      Workshop
-                    </SelectItem>
-                    <SelectItem value="course" className="text-xs">
-                      Full Course
-                    </SelectItem>
-                    <SelectItem value="certification" className="text-xs">
-                      Certification
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Complexity Level
-                </Label>
-                <Select>
-                  <SelectTrigger className="text-xs h-10 shadow-sm">
-                    <SelectValue placeholder="Difficulty" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="beginner" className="text-xs">
-                      Beginner Friendly
-                    </SelectItem>
-                    <SelectItem value="intermediate" className="text-xs">
-                      Intermediate
-                    </SelectItem>
-                    <SelectItem value="advanced" className="text-xs">
-                      Specialized/Advanced
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Enrollment Fee (RWF)
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="50000"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Participant Cap
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="30"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Session Duration
-                </Label>
-                <Input
-                  placeholder="e.g., 4 weeks (Saturdays)"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Launch Date
-                </Label>
-                <Input
-                  type="date"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-            </div>
-            <DialogFooter className="border-t pt-5">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setCreateDialogOpen(false)}
-                className="text-xs h-10 px-6 font-bold"
-              >
-                Discard
-              </Button>
-              <Button
-                type="submit"
-                className="text-xs h-10 px-8 font-bold shadow-sm"
-              >
-                Publish Program
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

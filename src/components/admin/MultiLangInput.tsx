@@ -15,7 +15,7 @@ export const emptyLangValue = (): MultiLangValue => ({
 });
 
 interface MultiLangInputProps {
-  label: string;
+  label?: string;
   value: MultiLangValue;
   onChange: (val: MultiLangValue) => void;
   placeholder?: string;
@@ -23,6 +23,7 @@ interface MultiLangInputProps {
   type?: "input" | "textarea";
   rows?: number;
   className?: string;
+  hideLabel?: boolean;
 }
 
 export function MultiLangInput({
@@ -34,16 +35,19 @@ export function MultiLangInput({
   type = "input",
   rows = 3,
   className,
+  hideLabel,
 }: MultiLangInputProps) {
   const [activeLang, setActiveLang] = useState<LangCode>("en");
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium">
-          {label} {required && <span className="text-destructive">*</span>}
-        </Label>
-      </div>
+      {!hideLabel && (
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">
+            {label} {required && <span className="text-destructive">*</span>}
+          </Label>
+        </div>
+      )}
       {/* Language tabs */}
       <div className="flex rounded-lg border border-border overflow-hidden bg-muted/30">
         {languages.map((lang) => (
@@ -96,5 +100,21 @@ export function MultiLangInput({
     </div>
   );
 }
+
+export const ml = (text: string): MultiLangValue => ({
+  en: text,
+  rw: "",
+  fr: "",
+  sw: "",
+});
+
+export const getML = (
+  val: MultiLangValue | string | undefined,
+  lang: LangCode = "en",
+): string => {
+  if (!val) return "";
+  if (typeof val === "string") return val;
+  return val[lang] || val["en"] || "";
+};
 
 export type { LangCode as MultiLangCode };

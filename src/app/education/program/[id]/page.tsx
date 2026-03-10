@@ -282,15 +282,15 @@ export default function ProgramDetail() {
   const handleDownloadCertificate = () => {
     const certHtml = `
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Certificate - ${program.title}</title>
+<html><head><meta charset="utf-8"><title>Certificate - ${program.title.en}</title>
 <style>
   body { font-family: Georgia, serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f9f9f6; }
-  .cert { border: 6px double #2d5016; border-radius: 16px; padding: 60px; max-width: 800px; text-align: center; background: white; position: relative; }
-  .logo { font-size: 28px; font-weight: bold; color: #2d5016; margin-bottom: 8px; }
+  .cert { border: 6px double #16a34a; border-radius: 16px; padding: 60px; max-width: 800px; text-align: center; background: white; position: relative; }
+  .logo-img { height: 64px; width: auto; margin-bottom: 20px; }
   .subtitle { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 30px; }
   h1 { font-size: 32px; color: #333; margin: 0 0 8px; }
   .certifies { font-size: 14px; color: #666; margin: 20px 0 6px; }
-  .name { font-size: 28px; color: #2d5016; font-weight: bold; margin: 10px 0 20px; }
+  .name { font-size: 28px; color: #16a34a; font-weight: bold; margin: 10px 0 20px; }
   .desc { font-size: 13px; color: #666; max-width: 500px; margin: 0 auto 30px; }
   .footer { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px; }
   .sig { text-align: center; }
@@ -299,12 +299,12 @@ export default function ProgramDetail() {
   .qr { width: 80px; height: 80px; border: 1px solid #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #aaa; }
 </style></head><body>
 <div class="cert">
-  <div class="logo">🌿 Agri-Eco Connect</div>
+  <img src="/assets/logo/logo.png" class="logo-img" alt="Agri-Eco Connect">
   <div class="subtitle">Certificate of Completion</div>
-  <h1>${program.certificateTemplate?.title || "Certificate of Achievement"}</h1>
+  <h1>${program.certificateTemplate?.title.en || "Certificate of Achievement"}</h1>
   <p class="certifies">This certifies that</p>
   <p class="name">[Your Name]</p>
-  <p class="desc">${program.certificateTemplate?.description || `Has successfully completed all modules of "${program.title}"`}</p>
+  <p class="desc">${program.certificateTemplate?.description.en || `Has successfully completed all modules of "${program.title.en}"`}</p>
   <div class="footer">
     <div class="sig"><div class="title">Date of Completion</div><div class="line">${new Date().toLocaleDateString()}</div></div>
     <div class="qr">QR Code</div>
@@ -332,7 +332,7 @@ export default function ProgramDetail() {
         <section className="relative h-[40vh] min-h-[320px] overflow-hidden">
           <img
             src={program.image}
-            alt={program.title}
+            alt={program.title.en}
             className="absolute inset-0 w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/50 to-foreground/20" />
@@ -354,7 +354,7 @@ export default function ProgramDetail() {
                 variant="outline"
                 className="capitalize text-xs border-card/30 text-card"
               >
-                {program.level}
+                {program.level.en}
               </Badge>
               <Badge
                 className={`${statusColors[program.status]} border text-xs capitalize`}
@@ -363,11 +363,11 @@ export default function ProgramDetail() {
               </Badge>
             </div>
             <h1 className="text-3xl md:text-4xl font-bold font-heading text-card mb-2">
-              {program.title}
+              {program.title.en}
             </h1>
             {program.instructor && (
               <p className="text-card/70 flex items-center gap-2 text-sm">
-                <User className="h-4 w-4" /> Instructor: {program.instructor}
+                <User className="h-4 w-4" /> Instructor: {program.instructor.en}
               </p>
             )}
           </div>
@@ -385,7 +385,7 @@ export default function ProgramDetail() {
                     About This Program
                   </h2>
                   <p className="text-muted-foreground leading-relaxed text-sm">
-                    {program.longDescription || program.description}
+                    {program.longDescription?.en || program.description.en}
                   </p>
                   {program.topics.length > 0 && (
                     <div className="mt-5">
@@ -395,10 +395,10 @@ export default function ProgramDetail() {
                       <div className="flex flex-wrap gap-2">
                         {program.topics.map((t) => (
                           <span
-                            key={t}
+                            key={t.en}
                             className="text-xs bg-accent text-accent-foreground px-3 py-1 rounded-full"
                           >
-                            {t}
+                            {t.en}
                           </span>
                         ))}
                       </div>
@@ -414,10 +414,10 @@ export default function ProgramDetail() {
                     </h2>
                     <div className="grid sm:grid-cols-2 gap-3">
                       {program.whatYouGet.map((item) => (
-                        <div key={item} className="flex items-start gap-2.5">
+                        <div key={item.en} className="flex items-start gap-2.5">
                           <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                           <span className="text-sm text-foreground">
-                            {item}
+                            {item.en}
                           </span>
                         </div>
                       ))}
@@ -523,7 +523,7 @@ export default function ProgramDetail() {
                               </span>
                               <div>
                                 <h4 className="font-semibold text-foreground text-sm flex items-center gap-2">
-                                  {mod.title}
+                                  {mod.title.en}
                                   {completed && (
                                     <Badge className="bg-primary/10 text-primary border-0 text-[10px] py-0">
                                       Completed
@@ -540,7 +540,7 @@ export default function ProgramDetail() {
                                   )}
                                 </h4>
                                 <p className="text-xs text-muted-foreground">
-                                  {mod.duration} • {mod.contentBlocks.length}{" "}
+                                  {mod.duration.en} • {mod.contentBlocks.length}{" "}
                                   content blocks
                                 </p>
                               </div>
@@ -565,7 +565,7 @@ export default function ProgramDetail() {
                             expandedModule === mod.id && (
                               <div className="border-t border-border p-4 bg-accent/20 space-y-4">
                                 <p className="text-sm text-muted-foreground">
-                                  {mod.description}
+                                  {mod.description.en}
                                 </p>
 
                                 {/* Content blocks */}
@@ -580,18 +580,18 @@ export default function ProgramDetail() {
                                     <div className="flex-1 min-w-0">
                                       {block.title && (
                                         <h5 className="text-sm font-medium text-foreground">
-                                          {block.title}
+                                          {block.title.en}
                                         </h5>
                                       )}
                                       {block.type === "text" && (
                                         <p className="text-xs text-muted-foreground mt-1">
-                                          {block.content}
+                                          {block.content.en}
                                         </p>
                                       )}
                                       {block.type === "image" && (
                                         <img
-                                          src={block.content}
-                                          alt={block.caption}
+                                          src={block.content.en}
+                                          alt={block.caption?.en}
                                           className="mt-2 rounded-lg w-full max-h-48 object-cover"
                                         />
                                       )}
@@ -617,7 +617,7 @@ export default function ProgramDetail() {
                                       )}
                                       {block.type === "checklist" && (
                                         <ul className="mt-2 space-y-1">
-                                          {block.content
+                                          {block.content.en
                                             .split("|")
                                             .map((item) => (
                                               <li
@@ -633,7 +633,7 @@ export default function ProgramDetail() {
                                       {block.caption &&
                                         block.type !== "checklist" && (
                                           <p className="text-[11px] text-muted-foreground mt-1 italic">
-                                            {block.caption}
+                                            {block.caption.en}
                                           </p>
                                         )}
                                     </div>
@@ -651,7 +651,7 @@ export default function ProgramDetail() {
                                           </div>
                                           <div>
                                             <h5 className="text-sm font-semibold text-foreground">
-                                              {mod.quiz!.title}
+                                              {mod.quiz!.title.en}
                                             </h5>
                                             <p className="text-xs text-muted-foreground">
                                               {mod.quiz!.questions.length}{" "}
@@ -675,7 +675,7 @@ export default function ProgramDetail() {
                                       <div className="space-y-4">
                                         <div className="flex items-center justify-between">
                                           <h5 className="text-sm font-semibold text-primary">
-                                            {mod.quiz!.title}
+                                            {mod.quiz!.title.en}
                                           </h5>
                                           <span className="text-xs text-muted-foreground">
                                             Q{quizCurrentQ + 1}/
@@ -704,7 +704,7 @@ export default function ProgramDetail() {
                                         <p className="text-sm font-medium text-foreground">
                                           {
                                             mod.quiz!.questions[quizCurrentQ]
-                                              .question
+                                              .question.en
                                           }
                                         </p>
                                         <div className="space-y-2">
@@ -735,7 +735,7 @@ export default function ProgramDetail() {
                                               <span className="font-semibold mr-2">
                                                 {String.fromCharCode(65 + oi)}.
                                               </span>
-                                              {opt}
+                                              {opt.en}
                                             </button>
                                           ))}
                                         </div>
@@ -744,7 +744,7 @@ export default function ProgramDetail() {
                                             <strong>Explanation:</strong>{" "}
                                             {
                                               mod.quiz!.questions[quizCurrentQ]
-                                                .explanation
+                                                .explanation.en
                                             }
                                           </div>
                                         )}
@@ -902,8 +902,8 @@ export default function ProgramDetail() {
                       <div className="space-y-3">
                         <p className="text-sm text-muted-foreground">
                           Complete all {sortedModules.length} modules to unlock
-                          your certificate. You&apos;ve completed {completedCount} so
-                          far.
+                          your certificate. You&apos;ve completed{" "}
+                          {completedCount} so far.
                         </p>
                         <Progress value={progressPercent} className="h-2" />
                       </div>
@@ -945,10 +945,10 @@ export default function ProgramDetail() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-foreground">
-                          {program.instructor}
+                          {program.instructor.en}
                         </h3>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {program.instructorBio}
+                          {program.instructorBio?.en}
                         </p>
                       </div>
                     </div>
@@ -983,7 +983,8 @@ export default function ProgramDetail() {
                     {isEnrolled ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 justify-center text-sm text-primary font-medium">
-                          <CheckCircle className="h-4 w-4" /> You&apos;re Enrolled
+                          <CheckCircle className="h-4 w-4" /> You&apos;re
+                          Enrolled
                         </div>
                         {isEnrolled && (
                           <div className="mb-2">
@@ -1072,7 +1073,7 @@ export default function ProgramDetail() {
                             Duration
                           </p>
                           <p className="font-medium text-foreground text-sm">
-                            {program.duration}
+                            {program.duration.en}
                           </p>
                         </div>
                       </div>
@@ -1083,7 +1084,7 @@ export default function ProgramDetail() {
                             Starts
                           </p>
                           <p className="font-medium text-foreground text-sm">
-                            {program.startDate}
+                            {program.startDate.en}
                           </p>
                         </div>
                       </div>
@@ -1106,7 +1107,7 @@ export default function ProgramDetail() {
                               Location
                             </p>
                             <p className="font-medium text-foreground text-sm">
-                              {program.location}
+                              {program.location?.en}
                             </p>
                           </div>
                         </div>
@@ -1119,7 +1120,7 @@ export default function ProgramDetail() {
                               Language
                             </p>
                             <p className="font-medium text-foreground text-sm">
-                              {program.language}
+                              {program.language?.en}
                             </p>
                           </div>
                         </div>
@@ -1131,7 +1132,7 @@ export default function ProgramDetail() {
                             Schedule
                           </p>
                           <p className="font-medium text-foreground text-sm">
-                            {program.schedule}
+                            {program.schedule.en}
                           </p>
                         </div>
                       </div>
@@ -1147,11 +1148,11 @@ export default function ProgramDetail() {
                       <ul className="space-y-2">
                         {program.requirements.map((req) => (
                           <li
-                            key={req}
+                            key={req.en}
                             className="flex items-start gap-2 text-sm text-muted-foreground"
                           >
                             <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />{" "}
-                            {req}
+                            {req.en}
                           </li>
                         ))}
                       </ul>
@@ -1362,12 +1363,12 @@ export default function ProgramDetail() {
               className="border-4 border-double rounded-xl p-8 text-center space-y-4 bg-card"
               style={{ borderColor: program.certificateTemplate.badgeColor }}
             >
-              {/* Company Logo */}
-              <div className="flex justify-center items-center gap-2 mb-2">
-                <Leaf className="h-8 w-8 text-primary" />
-                <span className="text-xl font-bold font-heading text-primary">
-                  Agri-Eco Connect
-                </span>
+              <div className="flex justify-center items-center gap-2 mb-6">
+                <img
+                  src="/assets/logo/logo.png"
+                  alt="Company Logo"
+                  className="h-12 w-auto object-contain"
+                />
               </div>
               <div className="flex justify-center">
                 <Award
@@ -1376,10 +1377,10 @@ export default function ProgramDetail() {
                 />
               </div>
               <h2 className="text-2xl font-bold font-heading text-foreground">
-                {program.certificateTemplate.title}
+                {program.certificateTemplate.title.en}
               </h2>
               <p className="text-sm text-muted-foreground uppercase tracking-widest">
-                {program.certificateTemplate.subtitle}
+                {program.certificateTemplate.subtitle.en}
               </p>
               <div className="py-4">
                 <p className="text-lg text-foreground font-medium">
@@ -1389,7 +1390,7 @@ export default function ProgramDetail() {
                   [Your Name]
                 </p>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  {program.certificateTemplate.description}
+                  {program.certificateTemplate.description.en}
                 </p>
               </div>
               <div className="pt-6 border-t border-border">

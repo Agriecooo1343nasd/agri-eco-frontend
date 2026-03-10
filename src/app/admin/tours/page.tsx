@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Search,
   Plus,
@@ -37,14 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Table,
   TableBody,
   TableCell,
@@ -52,8 +45,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
+import { useRouter } from "next/navigation";
 
 const statusBadge: Record<string, string> = {
   available: "bg-primary/10 text-primary border-primary/20",
@@ -76,13 +80,14 @@ type SortKey = "name" | "price" | "rating" | "maxParticipants" | "createdAt";
 type SortDir = "asc" | "desc";
 
 export default function AdminToursPage() {
+  const router = useRouter();
   const { formatPrice } = usePricing();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [deletingTour, setDeletingTour] = useState<Tour | null>(null);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -90,6 +95,18 @@ export default function AdminToursPage() {
       setSortKey(key);
       setSortDir("asc");
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingTour) return;
+
+    // Simulate API call
+    toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
+      loading: "Removing experience...",
+      success: "Experience deleted forever.",
+      error: "Failed to delete experience.",
+    });
+    setDeletingTour(null);
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -151,12 +168,11 @@ export default function AdminToursPage() {
             {filtered.length} agritourism experiences active
           </p>
         </div>
-        <Button
-          className="gap-2 text-xs font-bold h-10 px-6 shadow-sm"
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          <Plus className="h-4 w-4" /> Add New Experience
-        </Button>
+        <Link href="/admin/tours/create-tour">
+          <Button className="gap-2 text-xs font-bold h-10 px-6 shadow-sm">
+            <Plus className="h-4 w-4" /> Add New Experience
+          </Button>
+        </Link>
       </div>
 
       {/* Filters */}
@@ -354,21 +370,17 @@ export default function AdminToursPage() {
                       <DropdownMenuContent align="end" className="text-xs">
                         <DropdownMenuItem
                           className="gap-2 text-xs py-2 cursor-pointer"
-                          onClick={() =>
-                            toast.success(tour.name, {
-                              description: "Viewing public experience page.",
-                            })
-                          }
+                          asChild
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                          Preview Public
+                          <Link href={`/tours/${tour.slug}`}>
+                            <Eye className="h-3.5 w-3.5" />
+                            Preview Public
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="gap-2 text-xs py-2 cursor-pointer"
                           onClick={() =>
-                            toast.info(tour.name, {
-                              description: "Editing mode activated.",
-                            })
+                            router.push(`/admin/tours/${tour.slug}/edit`)
                           }
                         >
                           <Edit className="h-3.5 w-3.5" />
@@ -376,11 +388,7 @@ export default function AdminToursPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                          onClick={() =>
-                            toast.error("Experience Removed", {
-                              description: tour.name + " deleted.",
-                            })
-                          }
+                          onClick={() => setDeletingTour(tour)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           Delete Forever
@@ -395,177 +403,33 @@ export default function AdminToursPage() {
         </div>
       </div>
 
-      {/* Create Experience Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-3 text-left">
-            <DialogTitle className="font-heading text-lg">
-              Create New Experience
-            </DialogTitle>
-            <DialogDescription className="text-xs font-medium">
-              Add a unique agritourism tour or workshop to your catalog.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              toast.success("Experience Live", {
-                description:
-                  "The new experience has been published successfully.",
-              });
-              setCreateDialogOpen(false);
-            }}
-            className="space-y-5 pt-4"
-          >
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Internal Catalog Name *
-              </Label>
-              <Input
-                required
-                placeholder="e.g., Morning Coffee Harvest & Brewing"
-                className="text-xs h-10 shadow-sm border-border"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Market-Facing Description *
-              </Label>
-              <Textarea
-                required
-                placeholder="Highlight the unique value proposition and itinerary..."
-                className="text-xs min-h-[100px] shadow-sm border-border"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Experience Category *
-                </Label>
-                <Select required>
-                  <SelectTrigger className="text-xs h-10 shadow-sm">
-                    <SelectValue placeholder="Select Sector" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(categoryLabels).map(([k, v]) => (
-                      <SelectItem key={k} value={k} className="text-xs">
-                        {v}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Standard Duration *
-                </Label>
-                <Input
-                  required
-                  placeholder="e.g., 3 hours (Flexible)"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Base Price (RWF) *
-                </Label>
-                <Input
-                  type="number"
-                  required
-                  placeholder="25000"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Institutional/Group Price
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="18000"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Operational Capacity *
-                </Label>
-                <Input
-                  type="number"
-                  required
-                  placeholder="20 pax"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Min. Policy
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="1 pax"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Initial Launch Status
-                </Label>
-                <Select>
-                  <SelectTrigger className="text-xs h-10 shadow-sm">
-                    <SelectValue placeholder="Initial Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available" className="text-xs">
-                      Live / Available
-                    </SelectItem>
-                    <SelectItem value="limited" className="text-xs">
-                      Limited Capacity
-                    </SelectItem>
-                    <SelectItem value="upcoming" className="text-xs">
-                      Upcoming/Hidden
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Geo-Location / Point
-                </Label>
-                <Input
-                  placeholder="Musanze District Hub"
-                  className="text-xs h-10 shadow-sm border-border"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Value Propositions (What's Included)
-              </Label>
-              <Textarea
-                placeholder="Entry fees, Professional Guide, Lunch, etc. (Separate by commas)"
-                className="text-xs shadow-sm border-border"
-              />
-            </div>
-            <DialogFooter className="border-t pt-5">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setCreateDialogOpen(false)}
-                className="text-xs h-10 px-6 font-bold"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="text-xs h-10 px-8 font-bold shadow-sm"
-              >
-                Publish to Catalog
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog
+        open={!!deletingTour}
+        onOpenChange={(open) => !open && setDeletingTour(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <span className="font-bold text-foreground">
+                "{deletingTour?.name}"
+              </span>
+              . This action cannot be undone and will remove all associated data
+              from the marketplace.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Experience
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1,8 +1,10 @@
+import { ml, type MultiLangValue } from "@/components/admin/MultiLangInput";
+
 export interface BlogPost {
   id: string;
-  title: string;
-  excerpt: string;
-  content: string;
+  title: MultiLangValue;
+  excerpt: MultiLangValue;
+  content: MultiLangValue;
   author: string;
   authorAvatar?: string;
   category: string;
@@ -27,11 +29,13 @@ export const blogCategories = [
 export const blogPosts: BlogPost[] = [
   {
     id: "1",
-    title: "10 Tips for Starting Your Organic Garden",
-    excerpt:
+    title: ml("10 Tips for Starting Your Organic Garden"),
+    excerpt: ml(
       "Learn the essential steps to transform your backyard into a thriving organic garden with practical advice from local farmers.",
-    content:
+    ),
+    content: ml(
       "Starting an organic garden can be one of the most rewarding experiences. Here are ten proven tips from Rwanda's experienced farmers...\n\n1. Start with healthy soil. Composting is key to building nutrient-rich soil.\n2. Choose native and adapted varieties that thrive in your local climate.\n3. Practice crop rotation to maintain soil health.\n4. Use companion planting to naturally deter pests.\n5. Water deeply but less frequently to encourage strong root growth.",
+    ),
     author: "Dr. Marie Uwimana",
     category: "Farming Tips",
     tags: ["organic", "gardening", "beginners"],
@@ -43,11 +47,13 @@ export const blogPosts: BlogPost[] = [
   },
   {
     id: "2",
-    title: "The Sweet Science of Rwandan Honey",
-    excerpt:
+    title: ml("The Sweet Science of Rwandan Honey"),
+    excerpt: ml(
       "Discover how local beekeepers are producing some of the finest organic honey in East Africa.",
-    content:
+    ),
+    content: ml(
       "Rwanda's unique climate and diverse flora create perfect conditions for producing exceptional honey. Our beekeepers combine traditional knowledge with modern sustainable practices...",
+    ),
     author: "Prof. Jean Ndayisaba",
     category: "Beekeeping",
     tags: ["honey", "beekeeping", "sustainability"],
@@ -59,11 +65,13 @@ export const blogPosts: BlogPost[] = [
   },
   {
     id: "3",
-    title: "Building Resilient Communities Through Agriculture",
-    excerpt:
+    title: ml("Building Resilient Communities Through Agriculture"),
+    excerpt: ml(
       "How cooperative farming models are strengthening rural communities across Rwanda.",
-    content:
+    ),
+    content: ml(
       "Agriculture has always been the backbone of Rwandan communities. Today, innovative cooperative models are taking this connection to new heights...",
+    ),
     author: "Eng. Patrick Kagabo",
     category: "Community Stories",
     tags: ["community", "cooperatives", "rural development"],

@@ -25,7 +25,7 @@ const AccountDashboard = () => {
       value: "12",
       sub: "+2 this month",
       icon: ShoppingBag,
-      color: "bg-blue-50 text-blue-600",
+      color: "bg-green-50 text-green-600",
     },
     {
       label: "Items in Cart",

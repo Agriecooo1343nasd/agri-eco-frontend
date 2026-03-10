@@ -416,23 +416,37 @@ export default function TourDetailPage({
                         <Button
                           variant="outline"
                           className={cn(
-                            "w-full justify-start text-left text-xs h-9",
+                            "w-full justify-start text-left font-medium h-12 px-4 border-2 hover:border-primary/50 hover:bg-primary/5 transition-all rounded-xl shadow-sm",
                             !selectedDate && "text-muted-foreground",
                           )}
                         >
-                          <Calendar className="mr-2 h-3.5 w-3.5" />
-                          {selectedDate
-                            ? format(selectedDate, "PPP")
-                            : "Pick a date"}
+                          <Calendar className="mr-3 h-5 w-5 text-primary" />
+                          <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground/70 leading-none mb-0.5">
+                              Check-in Date
+                            </span>
+                            <span className="text-sm">
+                              {selectedDate
+                                ? format(selectedDate, "PPP")
+                                : "Select your visit date"}
+                            </span>
+                          </div>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent
+                        className="w-auto p-0 rounded-xl border-2 shadow-2xl"
+                        align="start"
+                      >
                         <CalendarComponent
                           mode="single"
                           selected={selectedDate}
                           onSelect={setSelectedDate}
-                          disabled={(date) => date < new Date()}
+                          disabled={
+                            (date) =>
+                              date < new Date() || date < new Date("2024-01-01") // Safety constraint
+                          }
                           initialFocus
+                          className="p-3 pointer-events-auto"
                         />
                       </PopoverContent>
                     </Popover>

@@ -14,6 +14,11 @@ import {
   Calendar,
   GraduationCap,
   Handshake,
+  Palette,
+  Newspaper,
+  MessageCircle,
+  ExternalLink,
+  Home,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -31,15 +36,18 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-
 const mainItems = [
   { title: "Dashboard", url: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Products", url: "/admin/products", icon: Package },
   { title: "Tours", url: "/admin/tours", icon: MapPin },
+  { title: "Accommodations", url: "/admin/accommodations", icon: Home },
   { title: "Bookings", url: "/admin/bookings", icon: Calendar },
   { title: "Education", url: "/admin/education", icon: GraduationCap },
+  { title: "Artisans", url: "/admin/artisans", icon: Palette },
   { title: "Partners", url: "/admin/partners", icon: Handshake },
   { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
+  { title: "Blog", url: "/admin/blog", icon: Newspaper },
+  { title: "Feedback", url: "/admin/feedback", icon: MessageCircle },
   { title: "Discounts", url: "/admin/discounts", icon: Tag },
   { title: "Categories", url: "/admin/categories", icon: FolderTree },
   { title: "Members", url: "/admin/members", icon: Users },
@@ -94,6 +102,17 @@ export function AdminSidebar() {
 
       <SidebarFooter className="p-2">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <Link
+                href="/"
+                className="text-foreground hover:bg-sidebar-accent"
+              >
+                <ExternalLink className="h-4 w-4" />
+                {!collapsed && <span>Go to Site</span>}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <Link

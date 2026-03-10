@@ -47,8 +47,8 @@ const statusConfig: Record<
 > = {
   upcoming: {
     label: "Upcoming",
-    className: "bg-blue-500/10 border-blue-500/20",
-    textColor: "text-blue-600",
+    className: "bg-green-500/10 border-green-500/20",
+    textColor: "text-green-600",
   },
   completed: {
     label: "Completed",

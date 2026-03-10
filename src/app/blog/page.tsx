@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { BookOpen, Search, Clock, User, Newspaper } from "lucide-react";
+import { getML } from "@/components/admin/MultiLangInput";
 import { cn } from "@/lib/utils";
 
 export default function Blog() {
@@ -17,9 +18,11 @@ export default function Blog() {
 
   const published = blogPosts.filter((p) => p.status === "published");
   const filtered = published.filter((post) => {
-    const matchSearch =
-      post.title.toLowerCase().includes(search.toLowerCase()) ||
-      post.excerpt.toLowerCase().includes(search.toLowerCase());
+    const titleEn = getML(post.title, "en").toLowerCase();
+    const excerptEn = getML(post.excerpt, "en").toLowerCase();
+    const q = search.toLowerCase();
+
+    const matchSearch = titleEn.includes(q) || excerptEn.includes(q);
     const matchCategory =
       activeCategory === "All" || post.category === activeCategory;
     return matchSearch && matchCategory;
@@ -100,7 +103,7 @@ export default function Blog() {
                     <div className="relative h-52 overflow-hidden">
                       <img
                         src={post.image}
-                        alt={post.title}
+                        alt={getML(post.title, "en")}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <Badge className="absolute top-3 left-3 bg-secondary text-secondary-foreground text-[10px]">
@@ -112,10 +115,10 @@ export default function Blog() {
                         {post.category}
                       </Badge>
                       <h3 className="font-bold font-heading text-foreground text-lg mb-2 group-hover:text-primary transition-colors line-clamp-2">
-                        {post.title}
+                        {getML(post.title, "en")}
                       </h3>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {post.excerpt}
+                        {getML(post.excerpt, "en")}
                       </p>
                       <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -148,7 +151,7 @@ export default function Blog() {
                     <div className="h-40 overflow-hidden">
                       <img
                         src={post.image}
-                        alt={post.title}
+                        alt={getML(post.title, "en")}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
@@ -157,10 +160,10 @@ export default function Blog() {
                         {post.category}
                       </Badge>
                       <h3 className="font-semibold text-foreground text-sm mb-1.5 group-hover:text-primary transition-colors line-clamp-2">
-                        {post.title}
+                        {getML(post.title, "en")}
                       </h3>
                       <p className="text-xs text-muted-foreground line-clamp-2">
-                        {post.excerpt}
+                        {getML(post.excerpt, "en")}
                       </p>
                       <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground">
                         <span>{post.author}</span>

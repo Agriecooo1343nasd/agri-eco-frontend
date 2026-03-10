@@ -154,7 +154,7 @@ const allOrders = [
 const statusStyles: Record<string, string> = {
   Pending: "bg-slate-100 text-slate-700 border-slate-200",
   Processing: "bg-amber-100 text-amber-700 border-amber-200",
-  Shipped: "bg-blue-100 text-blue-700 border-blue-200",
+  Shipped: "bg-green-100 text-green-700 border-green-200",
   "Out for Delivery": "bg-indigo-100 text-indigo-700 border-indigo-200",
   Delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
   Cancelled: "bg-rose-100 text-rose-700 border-rose-200",

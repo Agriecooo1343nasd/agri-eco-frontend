@@ -120,8 +120,8 @@ export default function OrderDetailsPage({
         </div>
 
         <div className="bg-white p-6 rounded-3xl border border-border shadow-soft flex gap-4">
-          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center shrink-0">
-            <Truck className="h-6 w-6 text-blue-600" />
+          <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center shrink-0">
+            <Truck className="h-6 w-6 text-green-600" />
           </div>
           <div>
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1">

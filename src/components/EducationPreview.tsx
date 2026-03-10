@@ -60,7 +60,7 @@ const EducationPreview = () => {
               <div className="aspect-[16/9] overflow-hidden">
                 <img
                   src={program.image}
-                  alt={program.title}
+                  alt={program.title.en}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -71,14 +71,14 @@ const EducationPreview = () => {
                     {program.type}
                   </span>
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent text-accent-foreground">
-                    {program.level}
+                    {program.level.en}
                   </span>
                 </div>
                 <h3 className="font-heading font-bold text-foreground text-sm">
-                  {program.title}
+                  {program.title.en}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
-                  {program.description}
+                  {program.description.en}
                 </p>
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
                   <span className="text-sm font-bold text-foreground">
