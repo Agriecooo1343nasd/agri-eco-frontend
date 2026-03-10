@@ -91,18 +91,6 @@ export default function MyBookingsPage() {
 
   return (
     <div className="min-h-screen bg-background text-xs">
-      <Header />
-
-      <div className="bg-card border-b border-border">
-        <div className="container py-3 flex items-center gap-2 text-muted-foreground">
-          <Link href="/" className="hover:text-primary transition-colors">
-            Home
-          </Link>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground font-semibold">My Bookings</span>
-        </div>
-      </div>
-
       <div className="container py-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
@@ -154,7 +142,7 @@ export default function MyBookingsPage() {
               No bookings found
             </h3>
             <p className="text-xs text-muted-foreground mb-6">
-              You haven't made any bookings yet.
+              You haven&apos;t made any bookings yet.
             </p>
             <Link href="/tours">
               <Button size="lg" className="text-xs h-10 px-6">
@@ -420,8 +408,8 @@ export default function MyBookingsPage() {
             </p>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
               This action will initiate the cancellation process. Refunds are
-              subject to the tour's cancellation policy (usually 48 hours notice
-              for full refund).
+              subject to the tour&apos;s cancellation policy (usually 48 hours
+              notice for full refund).
             </p>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -442,8 +430,6 @@ export default function MyBookingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Footer />
     </div>
   );
 }

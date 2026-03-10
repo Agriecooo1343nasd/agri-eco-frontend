@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   ChevronUp,
   ChevronDown,
-  Calendar,
+  ArrowUp,
+  ArrowDown,
   Layers,
   MoreHorizontal,
   Eye,
@@ -26,9 +27,30 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { usePricing } from "@/context/PricingContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -180,6 +202,8 @@ export default function AdminOrders() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   const filtered = useMemo(() => {
     let list = [...allOrders];
@@ -218,6 +242,20 @@ export default function AdminOrders() {
     return list;
   }, [filtered, sortKey, sortDir]);
 
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, dateRange.start, dateRange.end, sortKey, sortDir]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -228,26 +266,17 @@ export default function AdminOrders() {
   }
 
   function SortIndicator({ column }: { column: SortKey }) {
-    const isActive = sortKey === column;
-    return (
-      <span className="inline-flex flex-col ml-1 -space-y-1">
-        <ChevronUp
-          className={cn(
-            "h-3 w-3",
-            isActive && sortDir === "asc"
-              ? "text-primary"
-              : "text-muted-foreground/30",
-          )}
-        />
-        <ChevronDown
-          className={cn(
-            "h-3 w-3",
-            isActive && sortDir === "desc"
-              ? "text-primary"
-              : "text-muted-foreground/30",
-          )}
-        />
-      </span>
+    if (sortKey !== column)
+      return (
+        <span className="inline-flex flex-col ml-1 opacity-30">
+          <ArrowUp className="h-3 w-3" />
+          <ArrowDown className="h-3 w-3 -mt-1" />
+        </span>
+      );
+    return sortDir === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1 inline" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1 inline" />
     );
   }
 
@@ -262,357 +291,346 @@ export default function AdminOrders() {
   };
 
   return (
-    <div className="space-y-8 pb-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+    <div className="space-y-6 text-xs">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black font-heading text-foreground tracking-tight">
+          <h1 className="text-2xl font-bold font-heading text-foreground">
             Orders Management
           </h1>
-          <p className="text-muted-foreground font-medium text-sm mt-1">
-            Monitor and process customer orders from all regions.
+          <p className="text-sm text-muted-foreground font-medium">
+            {sorted.length} orders total
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="rounded-xl h-11 px-5 font-bold gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          className="gap-2 text-xs h-9 px-4"
+          onClick={() =>
+            toast.success("Export Started", {
+              description: "CSV export is being generated.",
+            })
+          }
+        >
+          <Download className="h-4 w-4" /> Export CSV
+        </Button>
       </div>
 
-      {/* Analytics Brief */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           {
             label: "Total Orders",
             value: allOrders.length,
+            color: "text-foreground",
             icon: FileText,
           },
           {
             label: "Pending",
             value: allOrders.filter((o) => o.status === "Pending").length,
+            color: "text-amber-600",
             icon: Clock,
           },
           {
             label: "On Shipment",
             value: allOrders.filter((o) => o.status === "Shipped").length,
+            color: "text-primary",
             icon: Truck,
           },
           {
-            label: "Total Revenue",
-            value: "2.4M RWF",
+            label: "Revenue",
+            value: `${Math.round(allOrders.reduce((s, o) => s + o.total, 0))} RWF`,
+            color: "text-primary",
             icon: DollarSign,
           },
-        ].map((item, i) => (
-          <Card
-            key={i}
-            className="rounded-[32px] border-border shadow-soft group hover:scale-[1.02] transition-all cursor-default"
+        ].map((s) => (
+          <div
+            key={s.label}
+            className="bg-card border border-border rounded-xl p-4 shadow-sm"
           >
-            <CardContent className="p-8 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-all">
-                <item.icon className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                  {item.label}
-                </p>
-                <p className="text-2xl font-black text-foreground">
-                  {item.value}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                {s.label}
+              </p>
+              <s.icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className={cn("text-2xl font-bold font-heading", s.color)}>
+              {s.value}
+            </p>
+          </div>
         ))}
       </div>
 
-      {/* Filters Card */}
-      <Card className="rounded-[32px] border-border overflow-hidden">
-        <CardContent className="p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="relative group lg:col-span-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <Input
-                placeholder="Search by ID, name, items..."
-                className="pl-11 h-12 rounded-xl border-border bg-muted/20 focus:bg-white focus:ring-primary/20 transition-all font-medium"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="relative">
-              <Layers className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <select
-                className="w-full h-12 pl-11 pr-4 bg-muted/20 border border-border rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 appearance-none"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Processing">Processing</option>
-                <option value="Shipped">Shipped</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            </div>
-            <div className="relative group">
-              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type={dateRange.start ? "date" : "text"}
-                onFocus={(e) => (e.target.type = "date")}
-                onBlur={(e) => !dateRange.start && (e.target.type = "text")}
-                placeholder="FROM DATE"
-                className="pl-11 h-12 rounded-xl border-border bg-muted/20 focus:bg-white transition-all font-bold uppercase text-[10px] tracking-widest cursor-pointer"
-                value={dateRange.start}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, start: e.target.value })
-                }
-              />
-            </div>
-            <div className="relative group">
-              <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type={dateRange.end ? "date" : "text"}
-                onFocus={(e) => (e.target.type = "date")}
-                onBlur={(e) => !dateRange.end && (e.target.type = "text")}
-                placeholder="TO DATE"
-                className="pl-11 h-12 rounded-xl border-border bg-muted/20 focus:bg-white transition-all font-bold uppercase text-[10px] tracking-widest cursor-pointer"
-                value={dateRange.end}
-                onChange={(e) =>
-                  setDateRange({ ...dateRange, end: e.target.value })
-                }
-              />
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-3 bg-card border border-border p-3 rounded-xl shadow-sm">
+        <div className="flex items-center border border-border rounded-lg bg-background flex-1 max-w-xs focus-within:ring-2 focus-within:ring-primary/20">
+          <Search className="h-4 w-4 ml-3 text-muted-foreground" />
+          <input
+            className="flex-1 px-3 py-2 text-xs bg-transparent outline-none"
+            placeholder="Search by ID, name, items..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
-          {(search ||
-            statusFilter !== "all" ||
-            dateRange.start ||
-            dateRange.end) && (
-            <div className="flex items-center gap-3 pt-4 border-t border-border flex-wrap">
-              <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                Active Filters:
-              </span>
-              {search && (
-                <Badge variant="secondary" className="rounded-lg py-1 px-3">
-                  Search: {search}
-                </Badge>
-              )}
-              {statusFilter !== "all" && (
-                <Badge variant="secondary" className="rounded-lg py-1 px-3">
-                  Status: {statusFilter}
-                </Badge>
-              )}
-              {(dateRange.start || dateRange.end) && (
-                <Badge variant="secondary" className="rounded-lg py-1 px-3">
-                  Date Range
-                </Badge>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs font-bold text-destructive hover:bg-destructive/10"
-                onClick={() => {
-                  setSearch("");
-                  setStatusFilter("all");
-                  setDateRange({ start: "", end: "" });
-                }}
-              >
-                Clear All
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-44 h-9 text-xs bg-background border-border shadow-none">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all" className="text-xs">
+              All Statuses
+            </SelectItem>
+            <SelectItem value="Pending" className="text-xs">
+              Pending
+            </SelectItem>
+            <SelectItem value="Processing" className="text-xs">
+              Processing
+            </SelectItem>
+            <SelectItem value="Shipped" className="text-xs">
+              Shipped
+            </SelectItem>
+            <SelectItem value="Delivered" className="text-xs">
+              Delivered
+            </SelectItem>
+            <SelectItem value="Cancelled" className="text-xs">
+              Cancelled
+            </SelectItem>
+          </SelectContent>
+        </Select>
 
-      {/* Orders Table */}
-      <Card className="rounded-[32px] border-border overflow-hidden">
+        <Input
+          type="date"
+          className="h-9 w-44 text-xs"
+          value={dateRange.start}
+          onChange={(e) =>
+            setDateRange({ ...dateRange, start: e.target.value })
+          }
+        />
+        <Input
+          type="date"
+          className="h-9 w-44 text-xs"
+          value={dateRange.end}
+          onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+        />
+
+        {(search ||
+          statusFilter !== "all" ||
+          dateRange.start ||
+          dateRange.end) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 text-xs font-semibold text-destructive hover:bg-destructive/10"
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("all");
+              setDateRange({ start: "", end: "" });
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      <div className="border border-border rounded-xl overflow-hidden bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-muted/30 border-b border-border">
-              <tr>
-                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Order ID
-                </th>
-                <th
-                  className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground cursor-pointer group"
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="text-[10px] uppercase font-bold tracking-wider">
+                  Ref
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none text-[10px] uppercase font-bold tracking-wider"
                   onClick={() => toggleSort("customer")}
                 >
                   Customer <SortIndicator column="customer" />
-                </th>
-                <th
-                  className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground cursor-pointer group"
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none text-[10px] uppercase font-bold tracking-wider"
                   onClick={() => toggleSort("date")}
                 >
-                  Date & Time <SortIndicator column="date" />
-                </th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                  Total Status
-                </th>
-                <th
-                  className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground cursor-pointer group"
+                  Date <SortIndicator column="date" />
+                </TableHead>
+                <TableHead className="text-[10px] uppercase font-bold tracking-wider">
+                  Status
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none text-[10px] uppercase font-bold tracking-wider"
                   onClick={() => toggleSort("total")}
                 >
                   Amount <SortIndicator column="total" />
-                </th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                </TableHead>
+                <TableHead className="text-[10px] uppercase font-bold tracking-wider">
                   Payment
-                </th>
-                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {sorted.length > 0 ? (
-                sorted.map((order) => {
+                </TableHead>
+                <TableHead className="w-12" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginated.length > 0 ? (
+                paginated.map((order) => {
                   const StatusIcon = statusIcons[order.status];
                   return (
-                    <tr
+                    <TableRow
                       key={order.id}
-                      className="hover:bg-muted/10 transition-colors group"
+                      className="hover:bg-muted/30 transition-colors"
                     >
-                      <td className="px-8 py-6">
-                        <span className="font-black text-foreground">
-                          #{order.id.split("-")[1]}
-                        </span>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                          {order.id}
+                      <TableCell className="text-[10px] font-mono text-muted-foreground font-bold">
+                        {order.id}
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-bold text-foreground text-[11px] mb-0.5">
+                          {order.customer.name}
                         </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
-                            {order.customer.avatar}
-                          </div>
-                          <div>
-                            <p className="font-bold text-foreground leading-none">
-                              {order.customer.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {order.customer.email}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="font-bold text-foreground text-sm">
+                        <p className="text-[10px] text-muted-foreground font-medium">
+                          {order.customer.email}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-[11px] font-bold text-foreground">
                           {new Date(order.date).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                             year: "numeric",
                           })}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-[10px] text-muted-foreground font-medium">
                           {new Date(order.date).toLocaleTimeString("en-US", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
                         </p>
-                      </td>
-                      <td className="px-8 py-6">
+                      </TableCell>
+                      <TableCell>
                         <Badge
                           className={cn(
-                            "rounded-lg px-3 py-1 text-[10px] font-black uppercase flex items-center gap-1.5 w-fit",
-                            statusStyles[order.status],
+                            `${statusStyles[order.status]} border text-[10px] py-0 px-2 font-bold capitalize shadow-none`,
                           )}
-                          variant="outline"
                         >
-                          <StatusIcon className="h-3 w-3" />
+                          <StatusIcon className="h-3 w-3 mr-1" />
                           {order.status}
                         </Badge>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="font-black text-foreground text-lg">
-                          {formatPrice(order.total)}
-                        </p>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      </TableCell>
+                      <TableCell className="font-bold text-foreground text-sm">
+                        {formatPrice(order.total)}
+                        <p className="text-[10px] text-muted-foreground font-medium">
                           {order.items} items
                         </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={cn(
-                              "w-2 h-2 rounded-full",
-                              order.payment === "Paid"
-                                ? "bg-emerald-500"
-                                : order.payment === "Unpaid"
-                                  ? "bg-amber-500"
-                                  : "bg-slate-400",
-                            )}
-                          ></div>
-                          <span className="text-sm font-bold text-foreground">
-                            {order.payment}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 text-right">
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
+                        {order.payment}
+                      </TableCell>
+                      <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-10 w-10 rounded-xl hover:bg-muted"
+                              className="h-8 w-8 hover:bg-muted"
                             >
-                              <MoreHorizontal className="h-5 w-5" />
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-[180px] rounded-2xl p-2 border-border"
-                          >
-                            <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-3 py-2">
-                              Order Options
-                            </DropdownMenuLabel>
+                          <DropdownMenuContent align="end" className="text-xs">
                             <DropdownMenuItem
-                              className="rounded-xl px-3 py-2.5 focus:bg-primary/10 focus:text-primary cursor-pointer group"
+                              className="gap-2 text-xs py-2 cursor-pointer"
                               onClick={() => handleAction("View", order)}
                             >
-                              <Eye className="h-4 w-4 mr-2 group-hover:scale-110 transition-transform" />
-                              <span className="font-bold">View Details</span>
+                              <Eye className="h-3.5 w-3.5" />
+                              View Details
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               ) : (
-                <tr>
-                  <td colSpan={7} className="px-8 py-20 text-center">
-                    <div className="flex flex-col items-center justify-center gap-4 opacity-40">
-                      <Search className="h-12 w-12" />
-                      <div className="space-y-1">
-                        <p className="text-xl font-black italic">
-                          No matching orders found
-                        </p>
-                        <p className="text-sm font-medium">
-                          Try broadening your search or adjusting the filters.
-                        </p>
-                      </div>
+                <TableRow>
+                  <TableCell colSpan={7} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                      <Search className="h-8 w-8" />
+                      <p className="text-sm font-semibold">
+                        No matching orders found
+                      </p>
                       <Button
                         variant="outline"
-                        className="rounded-xl px-6 font-bold"
+                        className="text-xs"
                         onClick={() => {
                           setSearch("");
                           setStatusFilter("all");
                           setDateRange({ start: "", end: "" });
                         }}
                       >
-                        Reset All Filters
+                        Reset filters
                       </Button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </Card>
+
+        {sorted.length > 0 && (
+          <div className="border-t border-border px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-[11px] text-muted-foreground font-medium">
+              Showing {(currentPage - 1) * pageSize + 1}-
+              {Math.min(currentPage * pageSize, sorted.length)} of{" "}
+              {sorted.length} orders
+            </p>
+
+            <Pagination className="justify-end mx-0 w-auto">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage > 1) setCurrentPage((p) => p - 1);
+                    }}
+                    className={cn(
+                      currentPage === 1 && "pointer-events-none opacity-50",
+                    )}
+                  />
+                </PaginationItem>
+
+                {Array.from({ length: totalPages }).map((_, index) => {
+                  const page = index + 1;
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#"
+                        isActive={page === currentPage}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(page);
+                        }}
+                        size="icon"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage < totalPages)
+                        setCurrentPage((p) => p + 1);
+                    }}
+                    className={cn(
+                      currentPage === totalPages &&
+                        "pointer-events-none opacity-50",
+                    )}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
