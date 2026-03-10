@@ -14,6 +14,11 @@ export interface Artisan {
   products: ArtisanProduct[];
   story: string;
   featured: boolean;
+  status: "active" | "pending" | "rejected";
+  phone?: string;
+  email?: string;
+  appliedDate?: string;
+  approvedDate?: string;
 }
 
 export interface ArtisanProduct {
@@ -22,6 +27,25 @@ export interface ArtisanProduct {
   price: number;
   image: string;
   description: string;
+  artisanId?: string;
+  stock?: number;
+  category?: string;
+}
+
+export interface ArtisanApplication {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  location: string;
+  specialty: string;
+  experience: string;
+  bio: string;
+  portfolioDescription: string;
+  status: "pending" | "approved" | "rejected";
+  appliedDate: string;
+  reviewedDate?: string;
+  reviewNotes?: string;
 }
 
 export interface Partner {
@@ -60,6 +84,11 @@ export const artisans: Artisan[] = [
     story:
       "Vestine learned basket weaving from her grandmother at age 8. Today, she leads a cooperative of 15 women artisans, creating traditional Agaseke baskets that symbolize peace and unity in Rwandan culture.",
     featured: true,
+    status: "active",
+    phone: "+250 788 123 456",
+    email: "vestine@example.com",
+    appliedDate: "2025-03-10",
+    approvedDate: "2025-03-15",
     products: [
       {
         id: "ap-1",
@@ -67,6 +96,9 @@ export const artisans: Artisan[] = [
         price: 25000,
         image: cultural,
         description: "Handwoven peace basket with geometric patterns",
+        artisanId: "art-1",
+        stock: 12,
+        category: "Baskets",
       },
       {
         id: "ap-2",
@@ -74,6 +106,9 @@ export const artisans: Artisan[] = [
         price: 45000,
         image: cultural,
         description: "Set of 3 colorful wall-hanging baskets",
+        artisanId: "art-1",
+        stock: 8,
+        category: "Baskets",
       },
       {
         id: "ap-3",
@@ -81,6 +116,9 @@ export const artisans: Artisan[] = [
         price: 18000,
         image: cultural,
         description: "Practical woven basket with fitted lid",
+        artisanId: "art-1",
+        stock: 15,
+        category: "Baskets",
       },
     ],
   },
@@ -95,6 +133,11 @@ export const artisans: Artisan[] = [
     story:
       "Emmanuel transforms fallen trees into works of art. His carvings tell stories of Rwandan wildlife and daily life, each piece taking days of careful hand-carving using traditional tools passed down through generations.",
     featured: true,
+    status: "active",
+    phone: "+250 788 234 567",
+    email: "emmanuel@example.com",
+    appliedDate: "2025-04-01",
+    approvedDate: "2025-04-05",
     products: [
       {
         id: "ap-4",
@@ -102,6 +145,9 @@ export const artisans: Artisan[] = [
         price: 35000,
         image: farmTour,
         description: "Hand-carved mountain gorilla from local wood",
+        artisanId: "art-2",
+        stock: 5,
+        category: "Sculptures",
       },
       {
         id: "ap-5",
@@ -109,6 +155,9 @@ export const artisans: Artisan[] = [
         price: 22000,
         image: farmTour,
         description: "Set of 3 hand-carved serving bowls",
+        artisanId: "art-2",
+        stock: 10,
+        category: "Kitchenware",
       },
     ],
   },
@@ -123,6 +172,11 @@ export const artisans: Artisan[] = [
     story:
       "Claudine's pottery connects ancient Rwandan craftsmanship with contemporary design. She sources clay from the shores of Lake Kivu and fires her pieces in a traditional wood-burning kiln.",
     featured: true,
+    status: "active",
+    phone: "+250 788 345 678",
+    email: "claudine@example.com",
+    appliedDate: "2025-05-10",
+    approvedDate: "2025-05-14",
     products: [
       {
         id: "ap-6",
@@ -130,6 +184,9 @@ export const artisans: Artisan[] = [
         price: 15000,
         image: waxWorkshop,
         description: "Authentic clay cooking pot for traditional dishes",
+        artisanId: "art-3",
+        stock: 20,
+        category: "Pottery",
       },
       {
         id: "ap-7",
@@ -137,6 +194,9 @@ export const artisans: Artisan[] = [
         price: 28000,
         image: waxWorkshop,
         description: "Hand-thrown vase with traditional motifs",
+        artisanId: "art-3",
+        stock: 6,
+        category: "Pottery",
       },
       {
         id: "ap-8",
@@ -144,6 +204,9 @@ export const artisans: Artisan[] = [
         price: 20000,
         image: waxWorkshop,
         description: "Set of 4 handmade ceramic mugs",
+        artisanId: "art-3",
+        stock: 14,
+        category: "Pottery",
       },
     ],
   },
@@ -158,6 +221,11 @@ export const artisans: Artisan[] = [
     story:
       "Using beeswax from Agri-Eco's own hives, Jean de Dieu creates hand-poured candles and all-natural skincare products. His lip balms and hand creams use only farm-grown herbs and essential oils.",
     featured: false,
+    status: "active",
+    phone: "+250 788 456 789",
+    email: "jeandedieu@example.com",
+    appliedDate: "2025-06-01",
+    approvedDate: "2025-06-05",
     products: [
       {
         id: "ap-9",
@@ -165,6 +233,9 @@ export const artisans: Artisan[] = [
         price: 18000,
         image: beekeeping,
         description: "Hand-poured pure beeswax candles",
+        artisanId: "art-4",
+        stock: 25,
+        category: "Candles",
       },
       {
         id: "ap-10",
@@ -172,6 +243,9 @@ export const artisans: Artisan[] = [
         price: 8000,
         image: beekeeping,
         description: "3 flavors: honey, eucalyptus, lemongrass",
+        artisanId: "art-4",
+        stock: 40,
+        category: "Skincare",
       },
       {
         id: "ap-11",
@@ -179,8 +253,79 @@ export const artisans: Artisan[] = [
         price: 12000,
         image: beekeeping,
         description: "Moisturizing cream with shea butter & beeswax",
+        artisanId: "art-4",
+        stock: 30,
+        category: "Skincare",
       },
     ],
+  },
+];
+
+export const artisanApplications: ArtisanApplication[] = [
+  {
+    id: "app-1",
+    fullName: "Alice Uwimana",
+    email: "alice@example.com",
+    phone: "+250 788 555 111",
+    location: "Kigali",
+    specialty: "Textile Weaving",
+    experience:
+      "8 years of traditional textile weaving, trained at Rwanda Arts Initiative",
+    bio: "I create vibrant textiles using natural dyes and traditional Rwandan patterns. My work blends modern fashion with ancestral techniques.",
+    portfolioDescription:
+      "Collection of hand-dyed scarves, table runners, and wall hangings using locally sourced cotton and natural plant dyes.",
+    status: "pending",
+    appliedDate: "2026-03-01",
+  },
+  {
+    id: "app-2",
+    fullName: "Patrick Mugisha",
+    email: "patrick.m@example.com",
+    phone: "+250 788 555 222",
+    location: "Huye District",
+    specialty: "Leather Crafting",
+    experience:
+      "12 years crafting leather goods, apprenticeship under master craftsman",
+    bio: "From wallets to bags, I work with locally tanned leather to create durable, beautiful pieces that tell a story of Rwandan craftsmanship.",
+    portfolioDescription:
+      "Handmade leather bags, belts, wallets, and sandals using vegetable-tanned leather from local tanneries.",
+    status: "pending",
+    appliedDate: "2026-03-05",
+  },
+  {
+    id: "app-3",
+    fullName: "Grace Ingabire",
+    email: "grace.i@example.com",
+    phone: "+250 788 555 333",
+    location: "Rubavu District",
+    specialty: "Jewelry Making",
+    experience:
+      "5 years creating jewelry from recycled materials and natural stones",
+    bio: "I transform recycled brass, copper, and semi-precious stones from the Rwandan hills into unique jewelry pieces.",
+    portfolioDescription:
+      "Earrings, necklaces, bracelets, and rings made from recycled metals and locally sourced stones.",
+    status: "approved",
+    appliedDate: "2026-02-15",
+    reviewedDate: "2026-02-20",
+    reviewNotes:
+      "Excellent portfolio. Strong alignment with our sustainability values.",
+  },
+  {
+    id: "app-4",
+    fullName: "Samuel Ntezimana",
+    email: "samuel.n@example.com",
+    phone: "+250 788 555 444",
+    location: "Nyagatare",
+    specialty: "Bamboo Crafts",
+    experience: "3 years working with bamboo furniture and decor",
+    bio: "I craft eco-friendly furniture and home decor from sustainably harvested bamboo.",
+    portfolioDescription:
+      "Bamboo chairs, lampshades, picture frames, and small tables.",
+    status: "rejected",
+    appliedDate: "2026-02-10",
+    reviewedDate: "2026-02-18",
+    reviewNotes:
+      "Portfolio needs more development. Encouraged to reapply in 6 months.",
   },
 ];
 

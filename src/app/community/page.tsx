@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { artisans } from "@/data/community";
@@ -10,9 +11,9 @@ import {
   ShoppingBag,
   MapPin,
   ArrowRight,
-  Star,
   Heart,
-  Leaf,
+  Palette,
+  Star,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,15 +35,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { usePricing } from "@/context/PricingContext";
 
 export default function CommunityPage() {
-  const { formatPrice } = usePricing();
   const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
-  const [selectedArtisan, setSelectedArtisan] = useState<
-    (typeof artisans)[0] | null
-  >(null);
+  const [artisanDialogOpen, setArtisanDialogOpen] = useState(false);
 
+  const activeArtisans = artisans.filter((a) => a.status === "active");
   const culturalImg = "/assets/tours/cultural.jpg";
 
   return (
@@ -60,29 +58,30 @@ export default function CommunityPage() {
           <div className="relative container h-full flex items-center">
             <div className="max-w-xl text-card">
               <Badge className="bg-secondary text-secondary-foreground mb-4 gap-1.5 text-[10px] py-0 px-2 font-bold">
-                <Handshake className="h-3.5 w-3.5" /> Community & Partners
+                <Handshake className="h-3.5 w-3.5" /> Community &amp; Partners
               </Badge>
               <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 text-white leading-tight">
                 Stronger Together
               </h1>
               <p className="text-card/80 text-lg mb-6 text-white/90">
-                Meet our local artisans, join as a partner, and support Rwanda's
-                vibrant farming communities and cultural heritage.
+                Meet our local artisans, join as a partner, and support
+                Rwanda&#39;s vibrant farming communities and cultural heritage.
               </p>
               <div className="flex gap-3 flex-wrap">
                 <Button
                   size="lg"
                   className="gap-2 text-sm"
-                  onClick={() => setPartnerDialogOpen(true)}
+                  onClick={() => setArtisanDialogOpen(true)}
                 >
-                  <Handshake className="h-4 w-4" /> Become a Partner
+                  <Palette className="h-4 w-4" /> Become an Artisan
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
                   className="border-card/30 text-white bg-card/10 hover:bg-card/40 gap-2 text-sm"
+                  onClick={() => setPartnerDialogOpen(true)}
                 >
-                  <ShoppingBag className="h-4 w-4" /> Shop Artisan Crafts
+                  <Handshake className="h-4 w-4" /> Become a Partner
                 </Button>
               </div>
             </div>
@@ -94,7 +93,11 @@ export default function CommunityPage() {
           <div className="container">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               {[
-                { label: "Local Artisans", value: "15+", icon: Users },
+                {
+                  label: "Local Artisans",
+                  value: `${activeArtisans.length}+`,
+                  icon: Users,
+                },
                 { label: "Tourism Partners", value: "12", icon: Handshake },
                 { label: "Crafts Available", value: "50+", icon: ShoppingBag },
                 { label: "Community Members", value: "200+", icon: Heart },
@@ -119,11 +122,11 @@ export default function CommunityPage() {
         <section className="py-16">
           <div className="container">
             <h2 className="section-heading text-xl">Meet Our Artisans</h2>
-            <p className="section-subheading text-muted-foreground text-sm">
-              Talented craftspeople preserving Rwanda's cultural heritage
+            <p className="section-subheading text-muted-foreground text-sm mb-12">
+              Talented craftspeople preserving Rwanda&#39;s cultural heritage
             </p>
-            <div className="grid md:grid-cols-2 gap-8 mt-8">
-              {artisans.map((a) => (
+            <div className="grid md:grid-cols-2 gap-8">
+              {activeArtisans.map((a) => (
                 <div
                   key={a.id}
                   className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow group"
@@ -144,6 +147,12 @@ export default function CommunityPage() {
                         >
                           {a.specialty}
                         </Badge>
+                        {a.featured && (
+                          <Badge className="ml-2 text-[10px] py-0 px-2 bg-amber-100 text-amber-700 border border-amber-200">
+                            <Star className="h-2.5 w-2.5 fill-amber-500 mr-0.5" />
+                            Featured
+                          </Badge>
+                        )}
                       </div>
                       <h3 className="text-lg font-bold font-heading text-foreground mb-1 group-hover:text-primary transition-colors">
                         {a.name}
@@ -164,10 +173,12 @@ export default function CommunityPage() {
                         size="sm"
                         variant="outline"
                         className="gap-1 text-xs w-fit"
-                        onClick={() => setSelectedArtisan(a)}
+                        asChild
                       >
-                        View Profile & Products{" "}
-                        <ArrowRight className="h-3 w-3" />
+                        <Link href={`/community/artisan/${a.id}`}>
+                          View Profile &amp; Products{" "}
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
                       </Button>
                     </div>
                   </div>
@@ -179,119 +190,182 @@ export default function CommunityPage() {
 
         {/* Partnership CTA */}
         <section className="py-16 bg-primary/5 border-y border-border">
-          <div className="container text-center">
-            <h2 className="section-heading text-xl mb-3">Partner With Us</h2>
-            <p className="text-muted-foreground mb-8 max-w-xl mx-auto text-sm">
-              Are you a tourism operator, hotel, restaurant, or organization?
-              Join our partner network and create unique agritourism packages.
-            </p>
-            <div className="grid sm:grid-cols-3 gap-6 mb-8 text-left">
-              {[
-                {
-                  title: "Create Packages",
-                  desc: "Bundle tours, accommodation, and dining into unique offerings",
-                },
-                {
-                  title: "Earn Commissions",
-                  desc: "Competitive rates on every booking through your channel",
-                },
-                {
-                  title: "Shared Calendar",
-                  desc: "Real-time availability visibility for seamless coordination",
-                },
-              ].map((b) => (
-                <div
-                  key={b.title}
-                  className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow"
-                >
-                  <h3 className="font-bold font-heading text-foreground mb-2 text-sm text-primary">
-                    {b.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {b.desc}
-                  </p>
-                </div>
-              ))}
+          <div className="container">
+            <div className="max-w-3xl mx-auto text-center">
+              <h2 className="section-heading text-xl mb-3">Partner With Us</h2>
+              <p className="text-muted-foreground mb-8 max-w-xl mx-auto text-sm">
+                Are you a tourism operator, hotel, restaurant, or organization?
+                Join our partner network and create unique agritourism packages.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-6 mb-8 text-left">
+                {[
+                  {
+                    title: "Create Packages",
+                    desc: "Bundle tours, accommodation, and dining into unique offerings",
+                  },
+                  {
+                    title: "Earn Commissions",
+                    desc: "Competitive rates on every booking through your channel",
+                  },
+                  {
+                    title: "Shared Calendar",
+                    desc: "Real-time availability visibility for seamless coordination",
+                  },
+                ].map((b) => (
+                  <div
+                    key={b.title}
+                    className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow"
+                  >
+                    <h3 className="font-bold font-heading text-primary mb-2 text-sm">
+                      {b.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {b.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <Button
+                size="lg"
+                className="gap-2 text-sm"
+                onClick={() => setPartnerDialogOpen(true)}
+              >
+                <Handshake className="h-4 w-4" /> Apply to Join
+              </Button>
             </div>
-            <Button
-              size="lg"
-              className="gap-2 text-sm"
-              onClick={() => setPartnerDialogOpen(true)}
-            >
-              <Handshake className="h-4 w-4" /> Apply to Join
-            </Button>
           </div>
         </section>
       </main>
       <Footer />
 
-      {/* Artisan Profile Dialog */}
-      <Dialog
-        open={!!selectedArtisan}
-        onOpenChange={() => setSelectedArtisan(null)}
-      >
+      {/* Artisan Application Dialog */}
+      <Dialog open={artisanDialogOpen} onOpenChange={setArtisanDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          {selectedArtisan && (
-            <>
-              <DialogHeader className="border-b pb-3">
-                <DialogTitle className="font-heading text-lg">
-                  {selectedArtisan.name}
-                </DialogTitle>
-                <DialogDescription className="text-xs font-semibold text-primary">
-                  {selectedArtisan.specialty}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="mt-4 aspect-video overflow-hidden rounded-lg">
-                <img
-                  src={selectedArtisan.image}
-                  alt={selectedArtisan.name}
-                  className="w-full h-full object-cover"
+          <DialogHeader>
+            <DialogTitle className="font-heading">
+              Apply to Become an Artisan
+            </DialogTitle>
+            <DialogDescription>
+              Share your craft with the world. Our team will review your
+              application within 5 business days.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              toast.success("Application Submitted!", {
+                description:
+                  "Thank you for applying! We'll review your application and get back to you within 5 business days.",
+              });
+              setArtisanDialogOpen(false);
+            }}
+            className="space-y-4 pt-2"
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label className="text-[11px] mb-1 block">Full Name *</Label>
+                <Input
+                  required
+                  placeholder="Your full name"
+                  className="h-9 text-xs"
                 />
               </div>
-              <div className="mt-4 space-y-4">
-                <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
-                  {selectedArtisan.story}
-                </p>
-                <h4 className="font-bold font-heading text-foreground text-sm border-t pt-4">
-                  Products by {selectedArtisan.name}
-                </h4>
-                <div className="space-y-3">
-                  {selectedArtisan.products.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-3 bg-accent/30 rounded-lg p-3 hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-foreground truncate">
-                          {p.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground line-clamp-1">
-                          {p.description}
-                        </p>
-                        <p className="text-sm font-bold text-primary mt-1">
-                          {formatPrice(p.price)}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 shrink-0"
-                      >
-                        <ShoppingBag className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+              <div>
+                <Label className="text-[11px] mb-1 block">Email *</Label>
+                <Input
+                  type="email"
+                  required
+                  placeholder="email@example.com"
+                  className="h-9 text-xs"
+                />
               </div>
-            </>
-          )}
+              <div>
+                <Label className="text-[11px] mb-1 block">Phone *</Label>
+                <Input
+                  required
+                  placeholder="+250 7XX XXX XXX"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px] mb-1 block">Location *</Label>
+                <Input
+                  required
+                  placeholder="e.g., Musanze District"
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px] mb-1 block">Specialty *</Label>
+                <Select required>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Your craft" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="basket-weaving" className="text-xs">
+                      Basket Weaving
+                    </SelectItem>
+                    <SelectItem value="wood-carving" className="text-xs">
+                      Wood Carving
+                    </SelectItem>
+                    <SelectItem value="pottery" className="text-xs">
+                      Pottery &amp; Ceramics
+                    </SelectItem>
+                    <SelectItem value="textile" className="text-xs">
+                      Textile Weaving
+                    </SelectItem>
+                    <SelectItem value="leather" className="text-xs">
+                      Leather Crafting
+                    </SelectItem>
+                    <SelectItem value="jewelry" className="text-xs">
+                      Jewelry Making
+                    </SelectItem>
+                    <SelectItem value="candles" className="text-xs">
+                      Candles &amp; Skincare
+                    </SelectItem>
+                    <SelectItem value="other" className="text-xs">
+                      Other
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[11px] mb-1 block">
+                  Years of Experience *
+                </Label>
+                <Input
+                  required
+                  placeholder="e.g., 5 years of basket weaving, trained by..."
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[11px] mb-1 block">
+                  Tell us about yourself *
+                </Label>
+                <Textarea
+                  required
+                  placeholder="Your background, passion for your craft, what makes your work unique..."
+                  rows={3}
+                  className="text-xs"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[11px] mb-1 block">
+                  Describe your portfolio / products *
+                </Label>
+                <Textarea
+                  required
+                  placeholder="What types of products do you create? Materials used? Price range?"
+                  rows={3}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+            <Button type="submit" className="w-full gap-1.5 text-xs h-10">
+              <Palette className="h-4 w-4" /> Submit Application
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -303,8 +377,8 @@ export default function CommunityPage() {
               Partner Application
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Apply to join Agri-Eco's partner network. We'll review and respond
-              within 5 business days.
+              Apply to join Agri-Eco&#39;s partner network. We&#39;ll review and
+              respond within 5 business days.
             </DialogDescription>
           </DialogHeader>
           <form
