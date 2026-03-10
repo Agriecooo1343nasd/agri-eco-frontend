@@ -3,13 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  type ProgramModule,
-  type ContentBlock,
-  type CertificateTemplate,
-  type ModuleQuiz,
-  type ModuleQuizQuestion,
-} from "@/data/education";
-import {
   GraduationCap,
   Plus,
   Award,
@@ -51,7 +44,55 @@ import {
   type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
 
-const emptyModule = (): ProgramModule => ({
+// Local form-specific types (use MultiLangValue for translatable fields)
+// These are separate from the data-layer types in education.ts which use plain strings.
+type FormContentBlock = {
+  id: string;
+  type: "text" | "image" | "video" | "download" | "checklist";
+  title: MultiLangValue;
+  content: MultiLangValue;
+  caption: MultiLangValue;
+};
+
+type FormModuleQuizQuestion = {
+  id: string;
+  question: MultiLangValue;
+  questionImage?: string;
+  options: MultiLangValue[];
+  correctIndex: number;
+  explanation: MultiLangValue;
+};
+
+type FormModuleQuiz = {
+  id: string;
+  title: MultiLangValue;
+  description?: MultiLangValue;
+  passingScore: number;
+  questions: FormModuleQuizQuestion[];
+};
+
+type FormProgramModule = {
+  id: string;
+  title: MultiLangValue;
+  description: MultiLangValue;
+  duration: string;
+  order: number;
+  contentBlocks: FormContentBlock[];
+  quiz?: FormModuleQuiz;
+};
+
+type FormCertificateTemplate = {
+  enabled: boolean;
+  title: MultiLangValue;
+  subtitle: MultiLangValue;
+  description: MultiLangValue;
+  signatoryName: string;
+  signatoryTitle: string;
+  badgeColor: string;
+  logoUrl?: string;
+};
+
+const emptyModule = (): FormProgramModule => ({
   id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
   title: emptyLangValue(),
   description: emptyLangValue(),
@@ -61,8 +102,8 @@ const emptyModule = (): ProgramModule => ({
 });
 
 const emptyContentBlock = (
-  type: ContentBlock["type"],
-): ContentBlock => ({
+  type: FormContentBlock["type"],
+): FormContentBlock => ({
   id: `cb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
   type,
   title: emptyLangValue(),
@@ -70,7 +111,7 @@ const emptyContentBlock = (
   caption: emptyLangValue(),
 });
 
-const defaultCertTemplate: CertificateTemplate = {
+const defaultCertTemplate: FormCertificateTemplate = {
   enabled: false,
   title: emptyLangValue(),
   subtitle: emptyLangValue(),
@@ -94,15 +135,10 @@ export default function CreateProgramPage() {
   const [activeStep, setActiveStep] = useState(0);
 
   // Form state — multi-lang fields
-  const [formTitle, setFormTitle] = useState<MultiLangValue>(
-    emptyLangValue(),
-  );
-  const [formDesc, setFormDesc] = useState<MultiLangValue>(
-    emptyLangValue(),
-  );
-  const [formLongDesc, setFormLongDesc] = useState<MultiLangValue>(
-    emptyLangValue(),
-  );
+  const [formTitle, setFormTitle] = useState<MultiLangValue>(emptyLangValue());
+  const [formDesc, setFormDesc] = useState<MultiLangValue>(emptyLangValue());
+  const [formLongDesc, setFormLongDesc] =
+    useState<MultiLangValue>(emptyLangValue());
   // Non-translatable fields
   const [formType, setFormType] = useState<
     "workshop" | "course" | "certification"
@@ -127,18 +163,16 @@ export default function CreateProgramPage() {
   const [formLanguage, setFormLanguage] = useState("");
   const [formLocation, setFormLocation] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
-  const [formStatus, setFormStatus] = useState<"open" | "upcoming">(
-    "upcoming",
-  );
+  const [formStatus, setFormStatus] = useState<"open" | "upcoming">("upcoming");
 
   // Modules
-  const [modules, setModules] = useState<ProgramModule[]>([]);
-  const [expandedModuleId, setExpandedModuleId] =
-    useState<string | null>(null);
+  const [modules, setModules] = useState<FormProgramModule[]>([]);
+  const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
 
   // Certificate
-  const [certTemplate, setCertTemplate] =
-    useState<CertificateTemplate>({ ...defaultCertTemplate });
+  const [certTemplate, setCertTemplate] = useState<FormCertificateTemplate>({
+    ...defaultCertTemplate,
+  });
 
   const addModule = () => {
     const mod = emptyModule();
@@ -159,7 +193,7 @@ export default function CreateProgramPage() {
 
   const updateModule = (
     id: string,
-    field: keyof ProgramModule,
+    field: keyof FormProgramModule,
     value: string,
   ) => {
     setModules(
@@ -175,11 +209,17 @@ export default function CreateProgramPage() {
     );
   };
 
-  const addContentBlock = (moduleId: string, type: ContentBlock["type"]) => {
+  const addContentBlock = (
+    moduleId: string,
+    type: FormContentBlock["type"],
+  ) => {
     setModules(
       modules.map((m) =>
         m.id === moduleId
-          ? { ...m, contentBlocks: [...m.contentBlocks, emptyContentBlock(type)] }
+          ? {
+              ...m,
+              contentBlocks: [...m.contentBlocks, emptyContentBlock(type)],
+            }
           : m,
       ),
     );
@@ -209,7 +249,10 @@ export default function CreateProgramPage() {
     setModules(
       modules.map((m) =>
         m.id === moduleId
-          ? { ...m, contentBlocks: m.contentBlocks.filter((cb) => cb.id !== blockId) }
+          ? {
+              ...m,
+              contentBlocks: m.contentBlocks.filter((cb) => cb.id !== blockId),
+            }
           : m,
       ),
     );
@@ -225,10 +268,13 @@ export default function CreateProgramPage() {
           ...m,
           quiz: {
             id: `quiz-${Date.now()}`,
-            title: { ...emptyLangValue(), en: `${m.title.en || "Module"} Quiz` },
+            title: {
+              ...emptyLangValue(),
+              en: `${m.title.en || "Module"} Quiz`,
+            },
             passingScore: 60,
             questions: [],
-          } as ModuleQuiz,
+          } as FormModuleQuiz,
         };
       }),
     );
@@ -241,19 +287,23 @@ export default function CreateProgramPage() {
   ) => {
     setModules(
       modules.map((m) =>
-        m.id === moduleId && m.quiz ? { ...m, quiz: { ...m.quiz, [field]: value } } : m,
+        m.id === moduleId && m.quiz
+          ? { ...m, quiz: { ...m.quiz, [field]: value } }
+          : m,
       ),
     );
   };
 
   const updateModuleQuiz = (
     moduleId: string,
-    field: keyof ModuleQuiz,
+    field: keyof FormModuleQuiz,
     value: any,
   ) => {
     setModules(
       modules.map((m) =>
-        m.id === moduleId && m.quiz ? { ...m, quiz: { ...m.quiz, [field]: value } } : m,
+        m.id === moduleId && m.quiz
+          ? { ...m, quiz: { ...m.quiz, [field]: value } }
+          : m,
       ),
     );
   };
@@ -262,14 +312,22 @@ export default function CreateProgramPage() {
     setModules(
       modules.map((m) => {
         if (m.id !== moduleId || !m.quiz) return m;
-        const newQ: ModuleQuizQuestion = {
+        const newQ: FormModuleQuizQuestion = {
           id: `qq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           question: emptyLangValue(),
-          options: [emptyLangValue(), emptyLangValue(), emptyLangValue(), emptyLangValue()],
+          options: [
+            emptyLangValue(),
+            emptyLangValue(),
+            emptyLangValue(),
+            emptyLangValue(),
+          ],
           correctIndex: 0,
           explanation: emptyLangValue(),
         };
-        return { ...m, quiz: { ...m.quiz, questions: [...m.quiz.questions, newQ] } };
+        return {
+          ...m,
+          quiz: { ...m.quiz, questions: [...m.quiz.questions, newQ] },
+        };
       }),
     );
   };
@@ -299,7 +357,7 @@ export default function CreateProgramPage() {
   const updateQuizQuestion = (
     moduleId: string,
     qId: string,
-    field: keyof ModuleQuizQuestion,
+    field: keyof FormModuleQuizQuestion,
     value: any,
   ) => {
     setModules(
@@ -360,15 +418,12 @@ export default function CreateProgramPage() {
 
   const handleSubmit = () => {
     if (!formTitle.en || !formDesc.en) {
-      toast({
-        title: "Missing required fields",
+      toast.error("Missing required fields", {
         description: "Please fill in the title and description.",
-        variant: "destructive",
       });
       return;
     }
-    toast({
-      title: "Program Created!",
+    toast.success("Program Created!", {
       description: `"${formTitle.en}" has been created successfully.`,
     });
     router.push("/admin/education");
@@ -414,7 +469,7 @@ export default function CreateProgramPage() {
         <Button
           variant="outline"
           className="gap-2 hidden sm:flex"
-          onClick={() => toast({ title: "Draft Saved" })}
+          onClick={() => toast.success("Draft Saved")}
         >
           <Save className="h-4 w-4" /> Save Draft
         </Button>
@@ -435,18 +490,24 @@ export default function CreateProgramPage() {
                   isActive
                     ? "bg-primary/10 text-primary"
                     : isCompleted
-                    ? "text-primary/70 hover:bg-accent/50"
-                    : "text-muted-foreground hover:bg-accent/50"
+                      ? "text-primary/70 hover:bg-accent/50"
+                      : "text-muted-foreground hover:bg-accent/50"
                 }`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : isCompleted
-                    ? "bg-primary/20 text-primary"
-                    : "bg-muted text-muted-foreground"
-                }`}>
-                  {isCompleted ? <Check className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : isCompleted
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {isCompleted ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <StepIcon className="h-4 w-4" />
+                  )}
                 </div>
                 <span className="text-xs sm:text-sm font-medium hidden sm:inline">
                   {step.label}
@@ -465,7 +526,9 @@ export default function CreateProgramPage() {
         {/* Step 0: Basic Info */}
         {activeStep === 0 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Basic Information</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Basic Information
+            </h2>
             <MultiLangInput
               label="Program Title"
               value={formTitle}
@@ -493,8 +556,13 @@ export default function CreateProgramPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Type</Label>
-                <Select value={formType} onValueChange={(v) => setFormType(v as typeof formType)}>
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <Select
+                  value={formType}
+                  onValueChange={(v) => setFormType(v as typeof formType)}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="workshop">Workshop</SelectItem>
                     <SelectItem value="course">Course</SelectItem>
@@ -504,8 +572,13 @@ export default function CreateProgramPage() {
               </div>
               <div>
                 <Label>Level</Label>
-                <Select value={formLevel} onValueChange={(v) => setFormLevel(v as typeof formLevel)}>
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <Select
+                  value={formLevel}
+                  onValueChange={(v) => setFormLevel(v as typeof formLevel)}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="beginner">Beginner</SelectItem>
                     <SelectItem value="intermediate">Intermediate</SelectItem>
@@ -548,7 +621,9 @@ export default function CreateProgramPage() {
                   value={formStatus}
                   onValueChange={(v) => setFormStatus(v as typeof formStatus)}
                 >
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="upcoming">Upcoming</SelectItem>
                     <SelectItem value="open">Open for Enrollment</SelectItem>
@@ -598,7 +673,10 @@ export default function CreateProgramPage() {
                 <Input
                   value={formInstructorBio.en}
                   onChange={(e) =>
-                    setFormInstructorBio({ ...formInstructorBio, en: e.target.value })
+                    setFormInstructorBio({
+                      ...formInstructorBio,
+                      en: e.target.value,
+                    })
                   }
                   placeholder="https://example.com/photo.jpg"
                   className="mt-1.5"
@@ -659,13 +737,12 @@ export default function CreateProgramPage() {
         {/* Step 2: Curriculum */}
         {activeStep === 2 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Curriculum</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Curriculum
+            </h2>
             <div className="space-y-4">
               {modules.map((m, idx) => (
-                <div
-                  key={m.id}
-                  className="border border-border rounded-lg p-4"
-                >
+                <div key={m.id} className="border border-border rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Grip className="h-5 w-5 cursor-move" />
@@ -679,7 +756,9 @@ export default function CreateProgramPage() {
                         <MultiLangInput
                           label={`Module ${idx + 1} Description`}
                           value={m.description}
-                          onChange={(v) => updateModuleML(m.id, "description", v)}
+                          onChange={(v) =>
+                            updateModuleML(m.id, "description", v)
+                          }
                           placeholder="Brief overview of this module"
                           type="textarea"
                           rows={2}
@@ -689,7 +768,9 @@ export default function CreateProgramPage() {
                             <Label>Duration</Label>
                             <Input
                               value={m.duration}
-                              onChange={(e) => updateModule(m.id, "duration", e.target.value)}
+                              onChange={(e) =>
+                                updateModule(m.id, "duration", e.target.value)
+                              }
                               placeholder="e.g., 45 min"
                               className="mt-1.5"
                             />
@@ -699,7 +780,9 @@ export default function CreateProgramPage() {
                             <Input
                               type="number"
                               value={m.order}
-                              onChange={(e) => updateModule(m.id, "order", e.target.value)}
+                              onChange={(e) =>
+                                updateModule(m.id, "order", e.target.value)
+                              }
                               className="mt-1.5 w-20"
                             />
                           </div>
@@ -726,10 +809,16 @@ export default function CreateProgramPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() =>
-                        setExpandedModuleId(expandedModuleId === m.id ? null : m.id)
+                        setExpandedModuleId(
+                          expandedModuleId === m.id ? null : m.id,
+                        )
                       }
                     >
-                      {expandedModuleId === m.id ? <ChevronUp /> : <ChevronDown />}
+                      {expandedModuleId === m.id ? (
+                        <ChevronUp />
+                      ) : (
+                        <ChevronDown />
+                      )}
                     </Button>
                   </div>
                   {expandedModuleId === m.id && (
@@ -770,7 +859,12 @@ export default function CreateProgramPage() {
                                 label="Content"
                                 value={cb.content}
                                 onChange={(v) =>
-                                  updateContentBlockML(m.id, cb.id, "content", v)
+                                  updateContentBlockML(
+                                    m.id,
+                                    cb.id,
+                                    "content",
+                                    v,
+                                  )
                                 }
                                 placeholder="Main content..."
                                 type="textarea"
@@ -780,7 +874,12 @@ export default function CreateProgramPage() {
                                 label="Caption (optional)"
                                 value={cb.caption}
                                 onChange={(v) =>
-                                  updateContentBlockML(m.id, cb.id, "caption", v)
+                                  updateContentBlockML(
+                                    m.id,
+                                    cb.id,
+                                    "caption",
+                                    v,
+                                  )
                                 }
                               />
                             </div>
@@ -833,7 +932,9 @@ export default function CreateProgramPage() {
                             <MultiLangInput
                               label="Quiz Title"
                               value={m.quiz.title}
-                              onChange={(v) => updateModuleQuizML(m.id, "title", v)}
+                              onChange={(v) =>
+                                updateModuleQuizML(m.id, "title", v)
+                              }
                               placeholder="Optional quiz title..."
                             />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -842,35 +943,105 @@ export default function CreateProgramPage() {
                                 <Input
                                   type="number"
                                   value={m.quiz.passingScore}
-                                  onChange={(e) => updateModuleQuiz(m.id, "passingScore", Number(e.target.value))} className="mt-1 h-9" />
+                                  onChange={(e) =>
+                                    updateModuleQuiz(
+                                      m.id,
+                                      "passingScore",
+                                      Number(e.target.value),
+                                    )
+                                  }
+                                  className="mt-1 h-9"
+                                />
+                              </div>
+                              <MultiLangInput
+                                label="Description (optional)"
+                                value={m.quiz.description || emptyLangValue()}
+                                onChange={(v) =>
+                                  updateModuleQuizML(m.id, "description", v)
+                                }
+                                placeholder="Test your understanding..."
+                              />
                             </div>
-                            <MultiLangInput label="Description (optional)" value={m.quiz.description || emptyLangValue()} onChange={v => updateModuleQuizML(m.id, "description", v)} placeholder="Test your understanding..." />
 
                             {/* Questions */}
                             <div className="space-y-3">
                               {m.quiz.questions.map((q, qi) => (
-                                <div key={q.id} className="bg-card border border-border rounded-lg p-4 space-y-3">
+                                <div
+                                  key={q.id}
+                                  className="bg-card border border-border rounded-lg p-4 space-y-3"
+                                >
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs font-semibold text-primary">Question {qi + 1}</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeQuizQuestion(m.id, q.id)}>
+                                    <span className="text-xs font-semibold text-primary">
+                                      Question {qi + 1}
+                                    </span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() =>
+                                        removeQuizQuestion(m.id, q.id)
+                                      }
+                                    >
                                       <Trash2 className="h-3 w-3 text-destructive" />
                                     </Button>
                                   </div>
-                                  <MultiLangInput label="Question Text *" value={q.question} onChange={v => updateQuizQuestionML(m.id, q.id, "question", v)} placeholder="Enter your question..." type="textarea" rows={2} />
+                                  <MultiLangInput
+                                    label="Question Text *"
+                                    value={q.question}
+                                    onChange={(v) =>
+                                      updateQuizQuestionML(
+                                        m.id,
+                                        q.id,
+                                        "question",
+                                        v,
+                                      )
+                                    }
+                                    placeholder="Enter your question..."
+                                    type="textarea"
+                                    rows={2}
+                                  />
                                   <div>
-                                    <Label className="text-xs">Question Image URL (optional)</Label>
-                                    <Input value={q.questionImage || ""} onChange={e => updateQuizQuestion(m.id, q.id, "questionImage", e.target.value)} placeholder="https://..." className="mt-1 h-9" />
+                                    <Label className="text-xs">
+                                      Question Image URL (optional)
+                                    </Label>
+                                    <Input
+                                      value={q.questionImage || ""}
+                                      onChange={(e) =>
+                                        updateQuizQuestion(
+                                          m.id,
+                                          q.id,
+                                          "questionImage",
+                                          e.target.value,
+                                        )
+                                      }
+                                      placeholder="https://..."
+                                      className="mt-1 h-9"
+                                    />
                                   </div>
                                   <div>
-                                    <Label className="text-xs">Answer Options</Label>
+                                    <Label className="text-xs">
+                                      Answer Options
+                                    </Label>
                                     <div className="space-y-2 mt-1">
                                       {q.options.map((opt, oi) => (
-                                        <div key={oi} className="flex items-center gap-2">
+                                        <div
+                                          key={oi}
+                                          className="flex items-center gap-2"
+                                        >
                                           <button
                                             type="button"
-                                            onClick={() => updateQuizQuestion(m.id, q.id, "correctIndex", oi)}
+                                            onClick={() =>
+                                              updateQuizQuestion(
+                                                m.id,
+                                                q.id,
+                                                "correctIndex",
+                                                oi,
+                                              )
+                                            }
                                             className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 text-xs font-bold transition-colors ${
-                                              q.correctIndex === oi ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:border-primary/50"
+                                              q.correctIndex === oi
+                                                ? "border-primary bg-primary text-primary-foreground"
+                                                : "border-border text-muted-foreground hover:border-primary/50"
                                             }`}
                                           >
                                             {String.fromCharCode(65 + oi)}
@@ -878,26 +1049,55 @@ export default function CreateProgramPage() {
                                           <MultiLangInput
                                             label=""
                                             value={opt}
-                                            onChange={v => updateQuizQuestionOption(m.id, q.id, oi, v)}
+                                            onChange={(v) =>
+                                              updateQuizQuestionOption(
+                                                m.id,
+                                                q.id,
+                                                oi,
+                                                v,
+                                              )
+                                            }
                                             placeholder={`Option ${String.fromCharCode(65 + oi)}`}
                                             className="flex-1"
                                           />
                                         </div>
                                       ))}
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground mt-1">Click the letter to mark the correct answer</p>
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                      Click the letter to mark the correct
+                                      answer
+                                    </p>
                                   </div>
-                                  <MultiLangInput label="Explanation (shown after answering)" value={q.explanation} onChange={v => updateQuizQuestionML(m.id, q.id, "explanation", v)} placeholder="Explain why this is the correct answer..." type="textarea" rows={2} />
+                                  <MultiLangInput
+                                    label="Explanation (shown after answering)"
+                                    value={q.explanation}
+                                    onChange={(v) =>
+                                      updateQuizQuestionML(
+                                        m.id,
+                                        q.id,
+                                        "explanation",
+                                        v,
+                                      )
+                                    }
+                                    placeholder="Explain why this is the correct answer..."
+                                    type="textarea"
+                                    rows={2}
+                                  />
                                 </div>
                               ))}
                             </div>
 
-                            <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => addQuizQuestion(m.id)}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full gap-1.5"
+                              onClick={() => addQuizQuestion(m.id)}
+                            >
                               <Plus className="h-3.5 w-3.5" /> Add Question
                             </Button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -909,41 +1109,122 @@ export default function CreateProgramPage() {
         {/* Step 3: Certificate */}
         {activeStep === 3 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Certificate Designer</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Certificate Designer
+            </h2>
             <div className="flex items-center justify-between p-4 bg-accent/30 rounded-xl">
               <div>
                 <Label>Enable Certificate</Label>
-                <p className="text-xs text-muted-foreground">Issue a certificate upon program completion</p>
+                <p className="text-xs text-muted-foreground">
+                  Issue a certificate upon program completion
+                </p>
               </div>
-              <Switch checked={certTemplate.enabled} onCheckedChange={v => setCertTemplate({ ...certTemplate, enabled: v })} />
+              <Switch
+                checked={certTemplate.enabled}
+                onCheckedChange={(v) =>
+                  setCertTemplate({ ...certTemplate, enabled: v })
+                }
+              />
             </div>
 
             {certTemplate.enabled && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Fields */}
                 <div className="space-y-4">
-                  <MultiLangInput label="Certificate Title" value={certTemplate.title} onChange={v => setCertTemplate({ ...certTemplate, title: v })} placeholder="Certificate of Completion" />
-                  <MultiLangInput label="Subtitle" value={certTemplate.subtitle} onChange={v => setCertTemplate({ ...certTemplate, subtitle: v })} placeholder="Program name on certificate" />
-                  <MultiLangInput label="Description Text" value={certTemplate.description} onChange={v => setCertTemplate({ ...certTemplate, description: v })} placeholder="Has successfully completed..." type="textarea" rows={3} />
+                  <MultiLangInput
+                    label="Certificate Title"
+                    value={certTemplate.title}
+                    onChange={(v) =>
+                      setCertTemplate({ ...certTemplate, title: v })
+                    }
+                    placeholder="Certificate of Completion"
+                  />
+                  <MultiLangInput
+                    label="Subtitle"
+                    value={certTemplate.subtitle}
+                    onChange={(v) =>
+                      setCertTemplate({ ...certTemplate, subtitle: v })
+                    }
+                    placeholder="Program name on certificate"
+                  />
+                  <MultiLangInput
+                    label="Description Text"
+                    value={certTemplate.description}
+                    onChange={(v) =>
+                      setCertTemplate({ ...certTemplate, description: v })
+                    }
+                    placeholder="Has successfully completed..."
+                    type="textarea"
+                    rows={3}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Signatory Name</Label>
-                      <Input value={certTemplate.signatoryName} onChange={e => setCertTemplate({ ...certTemplate, signatoryName: e.target.value })} placeholder="Jean-Pierre Habimana" className="mt-1.5" />
+                      <Input
+                        value={certTemplate.signatoryName}
+                        onChange={(e) =>
+                          setCertTemplate({
+                            ...certTemplate,
+                            signatoryName: e.target.value,
+                          })
+                        }
+                        placeholder="Jean-Pierre Habimana"
+                        className="mt-1.5"
+                      />
                     </div>
                     <div>
                       <Label>Signatory Title</Label>
-                      <Input value={certTemplate.signatoryTitle} onChange={e => setCertTemplate({ ...certTemplate, signatoryTitle: e.target.value })} placeholder="Director of Education" className="mt-1.5" />
+                      <Input
+                        value={certTemplate.signatoryTitle}
+                        onChange={(e) =>
+                          setCertTemplate({
+                            ...certTemplate,
+                            signatoryTitle: e.target.value,
+                          })
+                        }
+                        placeholder="Director of Education"
+                        className="mt-1.5"
+                      />
                     </div>
                   </div>
                   <div>
                     <Label>Company Logo URL</Label>
-                    <Input value={certTemplate.logoUrl || ""} onChange={e => setCertTemplate({ ...certTemplate, logoUrl: e.target.value })} placeholder="https://example.com/logo.png" className="mt-1.5" />
+                    <Input
+                      value={certTemplate.logoUrl || ""}
+                      onChange={(e) =>
+                        setCertTemplate({
+                          ...certTemplate,
+                          logoUrl: e.target.value,
+                        })
+                      }
+                      placeholder="https://example.com/logo.png"
+                      className="mt-1.5"
+                    />
                   </div>
                   <div>
                     <Label>Badge / Border Color</Label>
                     <div className="flex items-center gap-3 mt-1.5">
-                      <input type="color" value={certTemplate.badgeColor} onChange={e => setCertTemplate({ ...certTemplate, badgeColor: e.target.value })} className="w-10 h-10 rounded border border-border cursor-pointer" />
-                      <Input value={certTemplate.badgeColor} onChange={e => setCertTemplate({ ...certTemplate, badgeColor: e.target.value })} className="max-w-32" />
+                      <input
+                        type="color"
+                        value={certTemplate.badgeColor}
+                        onChange={(e) =>
+                          setCertTemplate({
+                            ...certTemplate,
+                            badgeColor: e.target.value,
+                          })
+                        }
+                        className="w-10 h-10 rounded border border-border cursor-pointer"
+                      />
+                      <Input
+                        value={certTemplate.badgeColor}
+                        onChange={(e) =>
+                          setCertTemplate({
+                            ...certTemplate,
+                            badgeColor: e.target.value,
+                          })
+                        }
+                        className="max-w-32"
+                      />
                     </div>
                   </div>
                 </div>
@@ -951,32 +1232,60 @@ export default function CreateProgramPage() {
                 {/* Live Preview */}
                 <div>
                   <Label className="mb-3 block">Live Preview</Label>
-                  <div className="border-4 border-double rounded-xl p-8 text-center space-y-3 bg-card" style={{ borderColor: certTemplate.badgeColor }}>
+                  <div
+                    className="border-4 border-double rounded-xl p-8 text-center space-y-3 bg-card"
+                    style={{ borderColor: certTemplate.badgeColor }}
+                  >
                     <div className="flex justify-center">
                       {certTemplate.logoUrl ? (
-                        <img src={certTemplate.logoUrl} alt="Logo" className="h-12 object-contain" />
+                        <img
+                          src={certTemplate.logoUrl}
+                          alt="Logo"
+                          className="h-12 object-contain"
+                        />
                       ) : (
                         <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
                           <Leaf className="h-6 w-6 text-primary-foreground" />
                         </div>
                       )}
                     </div>
-                    <Award className="h-8 w-8 mx-auto" style={{ color: certTemplate.badgeColor }} />
-                    <h3 className="text-lg font-bold font-heading text-foreground">{certTemplate.title.en || "Certificate Title"}</h3>
-                    <p className="text-xs text-muted-foreground uppercase tracking-widest">{certTemplate.subtitle.en || "Program Name"}</p>
+                    <Award
+                      className="h-8 w-8 mx-auto"
+                      style={{ color: certTemplate.badgeColor }}
+                    />
+                    <h3 className="text-lg font-bold font-heading text-foreground">
+                      {certTemplate.title.en || "Certificate Title"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                      {certTemplate.subtitle.en || "Program Name"}
+                    </p>
                     <div className="py-3">
-                      <p className="text-sm text-foreground">This certifies that</p>
-                      <p className="text-xl font-bold text-primary my-1 font-heading">[Student Name]</p>
-                      <p className="text-xs text-muted-foreground max-w-sm mx-auto">{certTemplate.description.en || "Description text..."}</p>
+                      <p className="text-sm text-foreground">
+                        This certifies that
+                      </p>
+                      <p className="text-xl font-bold text-primary my-1 font-heading">
+                        [Student Name]
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                        {certTemplate.description.en || "Description text..."}
+                      </p>
                     </div>
                     <div className="flex justify-between items-end pt-4 border-t border-border">
                       <div className="text-center">
-                        <p className="text-[10px] text-muted-foreground">Date</p>
-                        <p className="text-xs font-medium text-foreground border-t border-foreground pt-1 px-3">[Date]</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Date
+                        </p>
+                        <p className="text-xs font-medium text-foreground border-t border-foreground pt-1 px-3">
+                          [Date]
+                        </p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px] text-muted-foreground">{certTemplate.signatoryTitle || "Title"}</p>
-                        <p className="text-xs font-medium text-foreground border-t border-foreground pt-1 px-3 italic">{certTemplate.signatoryName || "Name"}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {certTemplate.signatoryTitle || "Title"}
+                        </p>
+                        <p className="text-xs font-medium text-foreground border-t border-foreground pt-1 px-3 italic">
+                          {certTemplate.signatoryName || "Name"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex justify-center pt-3">
@@ -984,11 +1293,16 @@ export default function CreateProgramPage() {
                         <div className="w-16 h-16 border-2 border-border rounded-lg flex items-center justify-center bg-accent/30">
                           <QrCode className="h-10 w-10 text-muted-foreground" />
                         </div>
-                        <p className="text-[9px] text-muted-foreground">Scan to verify</p>
+                        <p className="text-[9px] text-muted-foreground">
+                          Scan to verify
+                        </p>
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2 text-center">A unique QR code will be auto-generated for each certificate to verify authenticity</p>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    A unique QR code will be auto-generated for each certificate
+                    to verify authenticity
+                  </p>
                 </div>
               </div>
             )}
@@ -998,43 +1312,112 @@ export default function CreateProgramPage() {
         {/* Step 4: Review */}
         {activeStep === 4 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-foreground">Review & Publish</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Review & Publish
+            </h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="bg-accent/30 border border-border rounded-xl p-5 space-y-3">
-                  <h3 className="font-semibold text-foreground text-lg">{formTitle.en || "Untitled Program"}</h3>
-                  <p className="text-sm text-muted-foreground">{formDesc.en || "No description"}</p>
+                  <h3 className="font-semibold text-foreground text-lg">
+                    {formTitle.en || "Untitled Program"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {formDesc.en || "No description"}
+                  </p>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="capitalize">{formType}</Badge>
-                    <Badge variant="outline" className="capitalize">{formLevel}</Badge>
-                    <Badge variant="outline" className="capitalize">{formStatus}</Badge>
+                    <Badge variant="outline" className="capitalize">
+                      {formType}
+                    </Badge>
+                    <Badge variant="outline" className="capitalize">
+                      {formLevel}
+                    </Badge>
+                    <Badge variant="outline" className="capitalize">
+                      {formStatus}
+                    </Badge>
                   </div>
                 </div>
                 <div className="bg-card border border-border rounded-xl p-5">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">Program Details</h4>
+                  <h4 className="text-sm font-semibold text-foreground mb-3">
+                    Program Details
+                  </h4>
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-muted-foreground">Price:</span> <span className="font-medium text-foreground">{formPrice ? `${Number(formPrice).toLocaleString()} RWF` : "Free"}</span></div>
-                    <div><span className="text-muted-foreground">Duration:</span> <span className="font-medium text-foreground">{formDuration || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Max:</span> <span className="font-medium text-foreground">{formMaxParticipants || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Instructor:</span> <span className="font-medium text-foreground">{formInstructor || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Language:</span> <span className="font-medium text-foreground">{formLanguage || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Location:</span> <span className="font-medium text-foreground">{formLocation || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Modules:</span> <span className="font-medium text-foreground">{modules.length}</span></div>
-                    <div><span className="text-muted-foreground">Certificate:</span> <span className="font-medium text-foreground">{certTemplate.enabled ? "Yes" : "No"}</span></div>
+                    <div>
+                      <span className="text-muted-foreground">Price:</span>{" "}
+                      <span className="font-medium text-foreground">
+                        {formPrice
+                          ? `${Number(formPrice).toLocaleString()} RWF`
+                          : "Free"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Duration:</span>{" "}
+                      <span className="font-medium text-foreground">
+                        {formDuration || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Max:</span>{" "}
+                      <span className="font-medium text-foreground">
+                        {formMaxParticipants || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Instructor:</span>{" "}
+                      <span className="font-medium text-foreground">
+                        {formInstructor || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Language:</span>{" "}
+                      <span className="font-medium text-foreground">
+                        {formLanguage || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Location:</span>{" "}
+                      <span className="font-medium text-foreground">
+                        {formLocation || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Modules:</span>{" "}
+                      <span className="font-medium text-foreground">
+                        {modules.length}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Certificate:
+                      </span>{" "}
+                      <span className="font-medium text-foreground">
+                        {certTemplate.enabled ? "Yes" : "No"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
               <div className="space-y-4">
                 {modules.length > 0 && (
                   <div className="bg-card border border-border rounded-xl p-5">
-                    <h4 className="text-sm font-semibold text-foreground mb-3">Curriculum Overview</h4>
+                    <h4 className="text-sm font-semibold text-foreground mb-3">
+                      Curriculum Overview
+                    </h4>
                     <ol className="space-y-2">
                       {modules.map((m, i) => (
                         <li key={m.id} className="flex items-start gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                          <span className="w-6 h-6 rounded-lg bg-primary/10 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                            {i + 1}
+                          </span>
                           <div>
-                            <p className="text-sm font-medium text-foreground">{m.title.en || "Untitled"}</p>
-                            <p className="text-xs text-muted-foreground">{m.duration} · {m.contentBlocks.length} blocks{m.quiz ? ` · ${m.quiz.questions.length} quiz questions` : ""}</p>
+                            <p className="text-sm font-medium text-foreground">
+                              {m.title.en || "Untitled"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {m.duration} · {m.contentBlocks.length} blocks
+                              {m.quiz
+                                ? ` · ${m.quiz.questions.length} quiz questions`
+                                : ""}
+                            </p>
                           </div>
                         </li>
                       ))}
@@ -1043,10 +1426,14 @@ export default function CreateProgramPage() {
                 )}
                 {formTopics && (
                   <div className="bg-card border border-border rounded-xl p-5">
-                    <h4 className="text-sm font-semibold text-foreground mb-3">Topics</h4>
+                    <h4 className="text-sm font-semibold text-foreground mb-3">
+                      Topics
+                    </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {formTopics.split(",").map((t, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">{t.trim()}</Badge>
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {t.trim()}
+                        </Badge>
                       ))}
                     </div>
                   </div>
@@ -1059,7 +1446,11 @@ export default function CreateProgramPage() {
 
       {/* Bottom Navigation */}
       <div className="flex items-center justify-between bg-card border border-border rounded-xl p-4">
-        <Button variant="outline" onClick={() => setActiveStep(Math.max(0, activeStep - 1))} disabled={activeStep === 0}>
+        <Button
+          variant="outline"
+          onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
+          disabled={activeStep === 0}
+        >
           Previous
         </Button>
         <div className="text-sm text-muted-foreground">

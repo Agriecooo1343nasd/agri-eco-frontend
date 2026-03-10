@@ -97,5 +97,4 @@ export function MultiLangInput({
   );
 }
 
-export { emptyLangValue };
 export type { LangCode as MultiLangCode };
