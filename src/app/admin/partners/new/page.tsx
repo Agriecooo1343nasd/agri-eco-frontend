@@ -35,9 +35,6 @@ export default function RegisterPartnerPage() {
     aboutBusiness: "",
     status: "active" as Partner["status"],
     networkStatus: "onboarding" as Partner["networkStatus"],
-    commissionRate: "10",
-    partnerSharePercent: "90",
-    platformSharePercent: "10",
     grossRevenue: "0",
     totalBookings: "0",
     payoutCycle: "monthly" as Partner["payoutCycle"],
@@ -59,16 +56,6 @@ export default function RegisterPartnerPage() {
       return;
     }
 
-    const partnerShare = Number(formState.partnerSharePercent);
-    const platformShare = Number(formState.platformSharePercent);
-    if (partnerShare + platformShare !== 100) {
-      toast.error("Invalid Revenue Share", {
-        description:
-          "Partner share and platform share must add up to exactly 100%.",
-      });
-      return;
-    }
-
     const created = createPartnerFromInput({
       businessName: formState.businessName,
       contactPerson: formState.contactPerson,
@@ -78,9 +65,6 @@ export default function RegisterPartnerPage() {
       aboutBusiness: formState.aboutBusiness,
       status: formState.status,
       networkStatus: formState.networkStatus,
-      commissionRate: Number(formState.commissionRate),
-      partnerSharePercent: partnerShare,
-      platformSharePercent: platformShare,
       grossRevenue: Number(formState.grossRevenue),
       totalBookings: Number(formState.totalBookings),
       payoutCycle: formState.payoutCycle,
@@ -109,8 +93,8 @@ export default function RegisterPartnerPage() {
           Register a New Partner
         </h1>
         <p className="text-xs text-muted-foreground">
-          Capture partner profile, finance model, network status and agreement
-          context.
+          Capture partner profile and operational setup. Financial conditions
+          are managed at the agreement level.
         </p>
       </div>
 
@@ -245,57 +229,6 @@ export default function RegisterPartnerPage() {
                   setFormState((prev) => ({
                     ...prev,
                     grossRevenue: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Commission %</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                placeholder="Example: 10"
-                value={formState.commissionRate}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    commissionRate: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Partner Share %</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                placeholder="Example: 90"
-                value={formState.partnerSharePercent}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    partnerSharePercent: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Platform Share %</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                placeholder="Example: 10"
-                value={formState.platformSharePercent}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    platformSharePercent: event.target.value,
                   }))
                 }
                 className="h-9 text-xs"

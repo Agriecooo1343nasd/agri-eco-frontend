@@ -19,9 +19,9 @@ type NewPartnerInput = {
   aboutBusiness: string;
   status: Partner["status"];
   networkStatus: Partner["networkStatus"];
-  commissionRate: number;
-  partnerSharePercent: number;
-  platformSharePercent: number;
+  commissionRate?: number;
+  partnerSharePercent?: number;
+  platformSharePercent?: number;
   grossRevenue: number;
   totalBookings: number;
   payoutCycle: Partner["payoutCycle"];
@@ -114,8 +114,9 @@ export function createPartnerAgreement(
 
 export function createPartnerFromInput(input: NewPartnerInput): Partner {
   const today = new Date().toISOString().slice(0, 10);
-  const platformShare = Math.max(0, input.platformSharePercent);
-  const partnerShare = Math.max(0, input.partnerSharePercent);
+  const platformShare = Math.max(0, input.platformSharePercent ?? 0);
+  const partnerShare = Math.max(0, input.partnerSharePercent ?? 0);
+  const commissionRate = Math.max(0, input.commissionRate ?? 0);
   const grossRevenue = Math.max(0, input.grossRevenue);
 
   const platformEarnings = Math.round((grossRevenue * platformShare) / 100);
@@ -131,7 +132,7 @@ export function createPartnerFromInput(input: NewPartnerInput): Partner {
     aboutBusiness: input.aboutBusiness,
     status: input.status,
     networkStatus: input.networkStatus,
-    commissionRate: input.commissionRate,
+    commissionRate,
     partnerSharePercent: partnerShare,
     platformSharePercent: platformShare,
     grossRevenue,
@@ -167,9 +168,6 @@ export function createPartnerFromApplication(
     aboutBusiness: application.aboutBusiness,
     status: "active",
     networkStatus: "onboarding",
-    commissionRate: 10,
-    partnerSharePercent: 90,
-    platformSharePercent: 10,
     grossRevenue: 0,
     totalBookings: 0,
     payoutCycle: "monthly",

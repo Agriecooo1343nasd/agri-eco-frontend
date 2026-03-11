@@ -3,7 +3,6 @@
 import { type FormEvent, useState } from "react";
 import {
   AlertTriangle,
-  Banknote,
   CheckCircle,
   Clock,
   FileText,
@@ -40,6 +39,7 @@ import {
   getPartnerApplications,
   getPartners,
 } from "@/lib/partner-store";
+import Link from "next/link";
 
 const statusBadge: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
@@ -52,12 +52,6 @@ const applicationBadge: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 border-amber-200",
   approved: "bg-primary/10 text-primary border-primary/20",
   rejected: "bg-destructive/10 text-destructive border-destructive/20",
-};
-
-const payoutBadge: Record<string, string> = {
-  paid: "bg-primary/10 text-primary border-primary/20",
-  pending: "bg-amber-100 text-amber-700 border-amber-200",
-  failed: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 function buildAgreementEarnings(partner: Partner) {
@@ -224,10 +218,6 @@ export default function AccountPartnerPage() {
     getPartnerApplications(),
   );
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
-  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(
-    null,
-  );
   const [form, setForm] = useState({
     businessName: "",
     contactPerson: user?.name || "",
@@ -267,12 +257,6 @@ export default function AccountPartnerPage() {
         (agreement) => agreement.status !== "active",
       )
     : [];
-
-  const selectedAgreement = displayPartner
-    ? displayPartner.agreements.find(
-        (agreement) => agreement.id === selectedAgreementId,
-      ) || null
-    : null;
 
   const submitApplication = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -319,18 +303,6 @@ export default function AccountPartnerPage() {
 
       {displayPartner ? (
         <>
-          {isMockData && (
-            <Card className="border-primary/20 bg-primary/5">
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-primary">
-                  Demo partnership data is currently displayed for your account.
-                  This helps you preview how your partner dashboard will look
-                  when your real profile is linked.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
           <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4 space-y-1">
@@ -505,17 +477,32 @@ export default function AccountPartnerPage() {
                                 agreementEarnings[agreement.id] || 0,
                               )}
                             </p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              onClick={() => {
-                                setSelectedAgreementId(agreement.id);
-                                setAgreementDialogOpen(true);
-                              }}
-                            >
-                              Read Contract
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                asChild
+                              >
+                                <Link
+                                  href={`/account/partner/agreement/${agreement.id}`}
+                                >
+                                  View Agreement
+                                </Link>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                asChild
+                              >
+                                <Link
+                                  href={`/account/partner/agreements/${agreement.id}/payments`}
+                                >
+                                  Payment History
+                                </Link>
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -558,100 +545,37 @@ export default function AccountPartnerPage() {
                                 agreementEarnings[agreement.id] || 0,
                               )}
                             </p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              onClick={() => {
-                                setSelectedAgreementId(agreement.id);
-                                setAgreementDialogOpen(true);
-                              }}
-                            >
-                              Open Contract
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                asChild
+                              >
+                                <Link
+                                  href={`/account/partner/agreement/${agreement.id}`}
+                                >
+                                  View Agreement
+                                </Link>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                asChild
+                              >
+                                <Link
+                                  href={`/account/partner/agreements/${agreement.id}/payments`}
+                                >
+                                  Payment History
+                                </Link>
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold flex items-center gap-2">
-                    <Banknote className="h-4 w-4" /> Payout History
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Total received:{" "}
-                    <strong className="text-foreground">
-                      {formatPrice(
-                        (displayPartner.payouts ?? [])
-                          .filter((entry) => entry.status === "paid")
-                          .reduce((sum, entry) => sum + entry.amount, 0),
-                      )}
-                    </strong>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">
-                    {displayPartner.payoutCycle} cycle
-                  </p>
-                  <Badge
-                    className={`text-[10px] capitalize mt-0.5 ${
-                      displayPartner.payoutStatus === "paid"
-                        ? payoutBadge.paid
-                        : displayPartner.payoutStatus === "on-hold"
-                          ? payoutBadge.failed
-                          : payoutBadge.pending
-                    }`}
-                  >
-                    {displayPartner.payoutStatus}
-                  </Badge>
-                </div>
-              </div>
-
-              {(displayPartner.payouts ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No payout records yet.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {(displayPartner.payouts ?? []).map((payout) => (
-                    <div
-                      key={payout.id}
-                      className="border border-border rounded-lg p-3 flex flex-wrap items-center justify-between gap-2"
-                    >
-                      <div className="space-y-0.5 min-w-0">
-                        <p className="text-xs font-semibold">{payout.period}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {payout.agreementTitle || "General"}
-                          {payout.notes && (
-                            <span className="ml-2 italic">
-                              - {payout.notes}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {payout.date}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <p className="text-sm font-bold text-foreground">
-                          {formatPrice(payout.amount)}
-                        </p>
-                        <Badge
-                          className={`text-[10px] capitalize border ${payoutBadge[payout.status]}`}
-                        >
-                          {payout.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </CardContent>
@@ -829,61 +753,6 @@ export default function AccountPartnerPage() {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={agreementDialogOpen} onOpenChange={setAgreementDialogOpen}>
-        <DialogContent className="max-w-xl">
-          {selectedAgreement && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-heading">
-                  {selectedAgreement.title}
-                </DialogTitle>
-                <DialogDescription>
-                  Contract details, lifecycle status and earnings summary.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 text-xs">
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div className="border border-border rounded-lg p-3 space-y-1">
-                    <p>
-                      <span className="text-muted-foreground">Version:</span>{" "}
-                      {selectedAgreement.version}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">Status:</span>{" "}
-                      <span className="capitalize">
-                        {selectedAgreement.status}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="border border-border rounded-lg p-3 space-y-1">
-                    <p>
-                      <span className="text-muted-foreground">Effective:</span>{" "}
-                      {selectedAgreement.effectiveDate}
-                    </p>
-                    <p>
-                      <span className="text-muted-foreground">End Date:</span>{" "}
-                      {selectedAgreement.endDate || "Open"}
-                    </p>
-                  </div>
-                </div>
-                <div className="border border-border rounded-lg p-3">
-                  <p className="text-muted-foreground mb-1">Summary</p>
-                  <p>{selectedAgreement.termsSummary}</p>
-                </div>
-                <div className="border border-border rounded-lg p-3">
-                  <p className="text-muted-foreground mb-1">
-                    Earnings from this contract (to date)
-                  </p>
-                  <p className="text-sm font-semibold">
-                    {formatPrice(agreementEarnings[selectedAgreement.id] || 0)}
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
         </DialogContent>
       </Dialog>
     </div>
