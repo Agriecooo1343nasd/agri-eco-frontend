@@ -35,26 +35,96 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { appendPartnerApplication } from "@/lib/partner-store";
 
 export default function CommunityPage() {
   const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
   const [artisanDialogOpen, setArtisanDialogOpen] = useState(false);
+  const [partnerForm, setPartnerForm] = useState({
+    businessName: "",
+    contactPerson: "",
+    email: "",
+    phone: "",
+    type: "tourism-operator",
+    aboutBusiness: "",
+  });
 
   const activeArtisans = artisans.filter((a) => a.status === "active");
   const culturalImg = "/assets/tours/cultural.jpg";
+
+  const resetPartnerForm = () => {
+    setPartnerForm({
+      businessName: "",
+      contactPerson: "",
+      email: "",
+      phone: "",
+      type: "tourism-operator",
+      aboutBusiness: "",
+    });
+  };
+
+  const submitPartnerApplication = (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    if (
+      !partnerForm.businessName.trim() ||
+      !partnerForm.contactPerson.trim() ||
+      !partnerForm.email.trim() ||
+      !partnerForm.phone.trim()
+    ) {
+      toast.error("Missing Required Fields", {
+        description:
+          "Please provide business name, contact person, email and phone.",
+      });
+      return;
+    }
+
+    const emailValid = /\S+@\S+\.\S+/.test(partnerForm.email);
+    if (!emailValid) {
+      toast.error("Invalid Email", {
+        description: "Please provide a valid business email address.",
+      });
+      return;
+    }
+
+    appendPartnerApplication({
+      businessName: partnerForm.businessName.trim(),
+      contactPerson: partnerForm.contactPerson.trim(),
+      email: partnerForm.email.trim(),
+      phone: partnerForm.phone.trim(),
+      type: partnerForm.type as
+        | "tourism-operator"
+        | "hotel"
+        | "restaurant"
+        | "school"
+        | "ngo",
+      aboutBusiness:
+        partnerForm.aboutBusiness.trim() ||
+        "No additional business summary provided.",
+    });
+
+    toast.success("Application Submitted", {
+      description:
+        "Your partner application has been received and is now pending review.",
+    });
+    resetPartnerForm();
+    setPartnerDialogOpen(false);
+  };
 
   return (
     <div className="min-h-screen bg-background text-xs">
       <Header />
       <main>
         {/* Hero */}
-        <section className="relative h-[45vh] min-h-[380px] overflow-hidden">
+        <section className="relative h-[45vh] min-h-95 overflow-hidden">
           <img
             src={culturalImg}
             alt="Community at Agri-Eco"
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 to-foreground/30" />
+          <div className="absolute inset-0 bg-linear-to-r from-foreground/80 to-foreground/30" />
           <div className="relative container h-full flex items-center">
             <div className="max-w-xl text-card">
               <Badge className="bg-secondary text-secondary-foreground mb-4 gap-1.5 text-[10px] py-0 px-2 font-bold">
@@ -63,7 +133,7 @@ export default function CommunityPage() {
               <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 text-white leading-tight">
                 Stronger Together
               </h1>
-              <p className="text-card/80 text-lg mb-6 text-white/90">
+              <p className="text-lg mb-6 text-white/90">
                 Meet our local artisans, join as a partner, and support
                 Rwanda&#39;s vibrant farming communities and cultural heritage.
               </p>
@@ -381,16 +451,7 @@ export default function CommunityPage() {
               respond within 5 business days.
             </DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              toast.success("Application Submitted!", {
-                description: "We'll contact you within 5 business days.",
-              });
-              setPartnerDialogOpen(false);
-            }}
-            className="space-y-4 pt-3"
-          >
+          <form onSubmit={submitPartnerApplication} className="space-y-4 pt-3">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label className="text-[11px] mb-1 block">
@@ -400,6 +461,13 @@ export default function CommunityPage() {
                   required
                   placeholder="Your business name"
                   className="h-9 text-xs"
+                  value={partnerForm.businessName}
+                  onChange={(e) =>
+                    setPartnerForm((prev) => ({
+                      ...prev,
+                      businessName: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -410,6 +478,13 @@ export default function CommunityPage() {
                   required
                   placeholder="Full name"
                   className="h-9 text-xs"
+                  value={partnerForm.contactPerson}
+                  onChange={(e) =>
+                    setPartnerForm((prev) => ({
+                      ...prev,
+                      contactPerson: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -419,6 +494,13 @@ export default function CommunityPage() {
                   required
                   placeholder="email@business.com"
                   className="h-9 text-xs"
+                  value={partnerForm.email}
+                  onChange={(e) =>
+                    setPartnerForm((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -427,13 +509,25 @@ export default function CommunityPage() {
                   required
                   placeholder="+250 7XX XXX XXX"
                   className="h-9 text-xs"
+                  value={partnerForm.phone}
+                  onChange={(e) =>
+                    setPartnerForm((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
                 <Label className="text-[11px] mb-1 block">
                   Business Type *
                 </Label>
-                <Select required>
+                <Select
+                  value={partnerForm.type}
+                  onValueChange={(value) =>
+                    setPartnerForm((prev) => ({ ...prev, type: value }))
+                  }
+                >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -464,6 +558,13 @@ export default function CommunityPage() {
                   placeholder="How you'd like to partner with Agri-Eco..."
                   className="text-xs"
                   rows={3}
+                  value={partnerForm.aboutBusiness}
+                  onChange={(e) =>
+                    setPartnerForm((prev) => ({
+                      ...prev,
+                      aboutBusiness: e.target.value,
+                    }))
+                  }
                 />
               </div>
             </div>

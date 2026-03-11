@@ -55,6 +55,11 @@ export default function AccountLayout({
         label: "My Tours",
         href: "/account/bookings",
       });
+    } else if (paths.includes("partner")) {
+      breadcrumbs.push({
+        label: "Partner Network",
+        href: "/account/partner",
+      });
     } else if (paths.includes("requests")) {
       breadcrumbs.push({
         label: "My Requests",
