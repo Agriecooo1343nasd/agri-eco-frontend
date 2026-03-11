@@ -6,7 +6,6 @@ import {
   Calendar,
   Clock,
   Users,
-  ChevronRight,
   AlertCircle,
   CheckCircle2,
   XCircle,
@@ -15,9 +14,8 @@ import {
   X,
   Leaf,
   Home,
+  type LucideIcon,
 } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { sampleBookings, type Booking } from "@/data/tours";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,7 +39,7 @@ import { usePricing } from "@/context/PricingContext";
 
 const statusConfig: Record<
   string,
-  { label: string; color: string; icon: any }
+  { label: string; color: string; icon: LucideIcon }
 > = {
   pending: {
     label: "Pending",
