@@ -11,6 +11,7 @@ import {
   Award,
   Map,
   MessageSquare,
+  Handshake,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -36,6 +37,12 @@ const menuItems = [
     label: "My Tours",
     icon: Map,
     href: "/account/bookings",
+  },
+  {
+    id: "partner-network",
+    label: "Partner Network",
+    icon: Handshake,
+    href: "/account/partner",
   },
   {
     id: "enrollments",
@@ -81,9 +88,9 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
   return (
     <aside
       className={cn(
-        "lg:w-72 bg-white rounded-3xl border border-border shadow-soft overflow-hidden transition-all duration-300",
+        "lg:w-72 bg-white rounded-3xl border border-border shadow-soft overflow-hidden transition-all duration-300 h-fit",
         isOpen ? "block" : "hidden lg:block",
-        "absolute lg:relative z-40 w-full lg:w-auto top-0 lg:top-auto",
+        "absolute lg:sticky z-40 w-full lg:w-auto top-0 lg:top-28",
       )}
     >
       <div className="p-8 border-b border-border text-center lg:text-left">
@@ -145,7 +152,7 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
           <li className="pt-4 mt-4 border-t border-border px-2">
             <button
               onClick={logout}
-              className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all transition-colors"
+              className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
             >
               <LogOut className="h-5 w-5" />
               Logout Account

@@ -75,6 +75,7 @@ export interface Partner {
   notes?: string;
   agreements: PartnerAgreement[];
   packages: PartnerPackage[];
+  payouts?: PartnerPayoutRecord[];
 }
 
 export interface PartnerAgreement {
@@ -86,6 +87,20 @@ export interface PartnerAgreement {
   endDate?: string;
   termsSummary: string;
   updatedAt: string;
+  commissionRate?: number;
+  partnerSharePercent?: number;
+  platformSharePercent?: number;
+}
+
+export interface PartnerPayoutRecord {
+  id: string;
+  amount: number;
+  date: string;
+  period: string;
+  agreementId?: string;
+  agreementTitle?: string;
+  status: "paid" | "pending" | "failed";
+  notes?: string;
 }
 
 export interface PartnerApplication {
@@ -427,6 +442,45 @@ export const partners: Partner[] = [
         active: true,
       },
     ],
+    payouts: [
+      {
+        id: "pay-1-1",
+        amount: 584200,
+        date: "2026-03-05",
+        period: "March 2026",
+        agreementId: "agr-1",
+        agreementTitle: "Primary Distribution Agreement",
+        status: "paid",
+        notes: "Monthly payout via bank transfer.",
+      },
+      {
+        id: "pay-1-2",
+        amount: 1050000,
+        date: "2026-02-28",
+        period: "February 2026",
+        agreementId: "agr-1",
+        agreementTitle: "Primary Distribution Agreement",
+        status: "paid",
+      },
+      {
+        id: "pay-1-3",
+        amount: 925000,
+        date: "2026-01-31",
+        period: "January 2026",
+        agreementId: "agr-1",
+        agreementTitle: "Primary Distribution Agreement",
+        status: "paid",
+      },
+      {
+        id: "pay-1-4",
+        amount: 820000,
+        date: "2025-12-31",
+        period: "December 2025",
+        agreementId: "agr-1",
+        agreementTitle: "Primary Distribution Agreement",
+        status: "paid",
+      },
+    ],
   },
   {
     id: "p-2",
@@ -476,6 +530,36 @@ export const partners: Partner[] = [
         active: true,
       },
     ],
+    payouts: [
+      {
+        id: "pay-2-1",
+        amount: 954000,
+        date: "2026-02-28",
+        period: "February 2026",
+        agreementId: "agr-2",
+        agreementTitle: "Corporate Co-Marketing Agreement",
+        status: "pending",
+        notes: "Pending partner confirmation.",
+      },
+      {
+        id: "pay-2-2",
+        amount: 750000,
+        date: "2026-01-31",
+        period: "January 2026",
+        agreementId: "agr-2",
+        agreementTitle: "Corporate Co-Marketing Agreement",
+        status: "paid",
+      },
+      {
+        id: "pay-2-3",
+        amount: 600000,
+        date: "2025-12-31",
+        period: "December 2025",
+        agreementId: "agr-2",
+        agreementTitle: "Corporate Co-Marketing Agreement",
+        status: "paid",
+      },
+    ],
   },
   {
     id: "p-3",
@@ -515,7 +599,45 @@ export const partners: Partner[] = [
         updatedAt: "2026-02-02",
       },
     ],
-    packages: [],
+    packages: [
+      {
+        id: "pkg-4",
+        name: "Farm-to-Table Evening",
+        description: "Evening dining package featuring local farm ingredients",
+        tourIds: ["tour-4"],
+        price: 120000,
+        active: true,
+      },
+    ],
+    payouts: [
+      {
+        id: "pay-3-1",
+        amount: 97000,
+        date: "2026-03-03",
+        period: "March 2026",
+        agreementId: "agr-3",
+        agreementTitle: "Referral & Catering Collaboration",
+        status: "paid",
+      },
+      {
+        id: "pay-3-2",
+        amount: 420000,
+        date: "2026-02-28",
+        period: "February 2026",
+        agreementId: "agr-3",
+        agreementTitle: "Referral & Catering Collaboration",
+        status: "paid",
+      },
+      {
+        id: "pay-3-3",
+        amount: 380000,
+        date: "2026-01-31",
+        period: "January 2026",
+        agreementId: "agr-3",
+        agreementTitle: "Referral & Catering Collaboration",
+        status: "paid",
+      },
+    ],
   },
   {
     id: "p-4",
@@ -540,6 +662,7 @@ export const partners: Partner[] = [
     totalRevenue: 0,
     joinedDate: "2026-03-01",
     contractStartDate: "2026-03-01",
+    contractEndDate: "2027-03-01",
     agreements: [
       {
         id: "agr-4",
@@ -552,7 +675,18 @@ export const partners: Partner[] = [
         updatedAt: "2026-03-01",
       },
     ],
-    packages: [],
+    packages: [
+      {
+        id: "pkg-5",
+        name: "Volcanoes Eco Retreat",
+        description:
+          "2-night eco retreat with guided sustainable tourism activities",
+        tourIds: ["tour-3"],
+        price: 300000,
+        active: false,
+      },
+    ],
+    payouts: [],
   },
 ];
 

@@ -4,6 +4,7 @@ import {
   type Partner,
   type PartnerAgreement,
   type PartnerApplication,
+  type PartnerPayoutRecord,
 } from "@/data/community";
 
 const PARTNERS_KEY = "agriEco.partners";
@@ -75,6 +76,26 @@ export function savePartnerApplications(next: PartnerApplication[]): void {
   window.localStorage.setItem(PARTNER_APPLICATIONS_KEY, JSON.stringify(next));
 }
 
+export function createPayoutRecord(
+  amount: number,
+  period: string,
+  agreementId?: string,
+  agreementTitle?: string,
+  notes?: string,
+): PartnerPayoutRecord {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    id: makeId("pay"),
+    amount,
+    date: today,
+    period,
+    agreementId,
+    agreementTitle,
+    status: "paid",
+    notes,
+  };
+}
+
 export function createPartnerAgreement(
   title: string,
   termsSummary: string,
@@ -130,6 +151,7 @@ export function createPartnerFromInput(input: NewPartnerInput): Partner {
       ),
     ],
     packages: [],
+    payouts: [],
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Partner, PartnerApplication } from "@/data/community";
@@ -143,17 +143,7 @@ export default function AdminPartnersPage() {
       application.email.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const allAgreements = useMemo(
-    () =>
-      partners.flatMap((partner) =>
-        partner.agreements.map((agreement) => ({
-          ...agreement,
-          partnerId: partner.id,
-          partnerName: partner.businessName,
-        })),
-      ),
-    [partners],
-  );
+
 
   const resetForm = () => {
     setFormState({
@@ -175,11 +165,6 @@ export default function AdminPartnersPage() {
       notes: "",
     });
     setEditingPartner(null);
-  };
-
-  const openCreatePartnerDialog = () => {
-    resetForm();
-    setFormOpen(true);
   };
 
   const openEditPartnerDialog = (partner: Partner) => {
@@ -427,11 +412,10 @@ export default function AdminPartnersPage() {
             applications
           </p>
         </div>
-        <Button
-          className="gap-2 text-xs font-bold h-10 px-6 shadow-sm"
-          onClick={openCreatePartnerDialog}
-        >
-          <Plus className="h-4 w-4" /> Register New Partner
+        <Button className="gap-2 text-xs font-bold h-10 px-6 shadow-sm" asChild>
+          <Link href="/admin/partners/new">
+            <Plus className="h-4 w-4" /> Register New Partner
+          </Link>
         </Button>
       </div>
 
@@ -504,15 +488,12 @@ export default function AdminPartnersPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 w-full sm:w-130">
+        <TabsList className="grid grid-cols-2 w-full sm:w-80">
           <TabsTrigger value="partners" className="text-xs font-semibold">
             Partners
           </TabsTrigger>
           <TabsTrigger value="applications" className="text-xs font-semibold">
             Applications
-          </TabsTrigger>
-          <TabsTrigger value="agreements" className="text-xs font-semibold">
-            Agreements
           </TabsTrigger>
         </TabsList>
 
@@ -547,7 +528,7 @@ export default function AdminPartnersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPartners.map((partner) => (
+                  {filteredPartners.filter((p) => p.status === "active").map((partner) => (
                     <TableRow
                       key={partner.id}
                       className="hover:bg-muted/30 transition-colors"
@@ -747,39 +728,6 @@ export default function AdminPartnersPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="agreements" className="space-y-4 pt-2">
-          <div className="grid md:grid-cols-2 gap-4">
-            {allAgreements.map((agreement) => (
-              <Card key={agreement.id} className="border border-border">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-semibold text-sm">{agreement.title}</h3>
-                    <Badge className="text-[10px] capitalize">{agreement.status}</Badge>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Partner: {agreement.partnerName}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground line-clamp-2">
-                    {agreement.termsSummary}
-                  </p>
-                  <div className="text-[10px] text-muted-foreground flex items-center justify-between">
-                    <span>{agreement.version}</span>
-                    <span>Updated {agreement.updatedAt}</span>
-                  </div>
-                  <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      className="text-xs h-8"
-                      onClick={() => router.push(`/admin/partners/${agreement.partnerId}`)}
-                    >
-                      Manage in Profile
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
       </Tabs>
 
       <Dialog
@@ -811,38 +759,7 @@ export default function AdminPartnersPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Contact Person *</Label>
-              <Input
-                value={formState.contactPerson}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, contactPerson: event.target.value }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Email *</Label>
-              <Input
-                type="email"
-                value={formState.email}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, email: event.target.value }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Phone *</Label>
-              <Input
-                value={formState.phone}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, phone: event.target.value }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Type *</Label>
+              <Label className="text-[11px]">Partner Type</Label>
               <Select
                 value={formState.type}
                 onValueChange={(value: Partner["type"]) =>
