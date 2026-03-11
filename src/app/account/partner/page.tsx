@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import {
   AlertTriangle,
@@ -9,7 +10,6 @@ import {
   Handshake,
   Wallet,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,7 +39,7 @@ import {
   getPartnerApplications,
   getPartners,
 } from "@/lib/partner-store";
-import Link from "next/link";
+import { toast } from "sonner";
 
 const statusBadge: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
@@ -54,13 +54,16 @@ const applicationBadge: Record<string, string> = {
   rejected: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-function buildAgreementEarnings(partner: Partner) {
+function buildAgreementEarnings(partner: Partner): Record<string, number> {
   const earnings: Record<string, number> = {};
-  (partner.payouts ?? []).forEach((entry) => {
-    if (!entry.agreementId || entry.status !== "paid") return;
-    earnings[entry.agreementId] =
-      (earnings[entry.agreementId] ?? 0) + entry.amount;
+
+  (partner.payouts ?? []).forEach((payout) => {
+    if (payout.status === "paid" && payout.agreementId) {
+      earnings[payout.agreementId] =
+        (earnings[payout.agreementId] || 0) + payout.amount;
+    }
   });
+
   return earnings;
 }
 
@@ -102,7 +105,7 @@ function buildMockPartner(
         effectiveDate: "2025-11-14",
         endDate: "2027-11-13",
         termsSummary:
-          "Defines booking distribution, revenue sharing, quality standards, and guest support expectations.",
+          "Defines booking distribution, revenue-sharing terms, quality standards, and guest support expectations.",
         updatedAt: "2026-02-10",
       },
       {
@@ -240,7 +243,6 @@ export default function AccountPartnerPage() {
 
   const demoPartner = buildMockPartner(user?.name, user?.email);
   const displayPartner = partner || (!userApplication ? demoPartner : null);
-  const isMockData = !partner && !!displayPartner;
 
   const agreementEarnings = displayPartner
     ? buildAgreementEarnings(displayPartner)
@@ -319,6 +321,7 @@ export default function AccountPartnerPage() {
                 </p>
               </CardContent>
             </Card>
+
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -332,6 +335,7 @@ export default function AccountPartnerPage() {
                 </p>
               </CardContent>
             </Card>
+
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -345,10 +349,11 @@ export default function AccountPartnerPage() {
                 </p>
               </CardContent>
             </Card>
+
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Payout
+                  Payout Cycle
                 </p>
                 <p className="text-sm font-bold capitalize">
                   {displayPartner.payoutCycle}
@@ -408,6 +413,7 @@ export default function AccountPartnerPage() {
               <h2 className="text-sm font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" /> Agreements
               </h2>
+
               {displayPartner.agreements.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   No agreements found.
@@ -467,10 +473,10 @@ export default function AccountPartnerPage() {
                             {agreement.termsSummary}
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-1">
-                            {agreement.version} - {agreement.effectiveDate} -{" "}
+                            {agreement.version} · {agreement.effectiveDate} -{" "}
                             {agreement.endDate || "Open"}
                           </p>
-                          <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                             <p className="text-xs font-medium text-primary">
                               Earnings:{" "}
                               {formatPrice(
@@ -511,7 +517,7 @@ export default function AccountPartnerPage() {
 
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                      Contract History (Ended / Terminated)
+                      Contract History
                     </p>
                     {endedAgreements.length === 0 ? (
                       <p className="text-xs text-muted-foreground">
@@ -535,10 +541,10 @@ export default function AccountPartnerPage() {
                             {agreement.termsSummary}
                           </p>
                           <p className="text-[11px] text-muted-foreground mt-1">
-                            {agreement.version} - {agreement.effectiveDate} -{" "}
+                            {agreement.version} · {agreement.effectiveDate} -{" "}
                             {agreement.endDate || "Open"}
                           </p>
-                          <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                             <p className="text-xs font-medium text-foreground">
                               Earnings made:{" "}
                               {formatPrice(
@@ -582,8 +588,8 @@ export default function AccountPartnerPage() {
           </Card>
         </>
       ) : userApplication?.status === "pending" ? (
-        <Card>
-          <CardContent className="p-6 space-y-3">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-5 space-y-3">
             <p className="text-sm font-semibold flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-600" /> Partner Application
               Pending
@@ -648,6 +654,7 @@ export default function AccountPartnerPage() {
               Share your business details and we will review your application.
             </DialogDescription>
           </DialogHeader>
+
           <form onSubmit={submitApplication} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -664,6 +671,7 @@ export default function AccountPartnerPage() {
                   }
                 />
               </div>
+
               <div className="space-y-1">
                 <Label className="text-[11px]">Contact Person *</Label>
                 <Input
@@ -678,6 +686,7 @@ export default function AccountPartnerPage() {
                   }
                 />
               </div>
+
               <div className="space-y-1">
                 <Label className="text-[11px]">Business Email *</Label>
                 <Input
@@ -690,6 +699,7 @@ export default function AccountPartnerPage() {
                   }
                 />
               </div>
+
               <div className="space-y-1">
                 <Label className="text-[11px]">Phone Number *</Label>
                 <Input
@@ -701,6 +711,7 @@ export default function AccountPartnerPage() {
                   }
                 />
               </div>
+
               <div className="space-y-1">
                 <Label className="text-[11px]">Business Type *</Label>
                 <Select
@@ -723,6 +734,7 @@ export default function AccountPartnerPage() {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="md:col-span-2 space-y-1">
                 <Label className="text-[11px]">About Your Business</Label>
                 <Textarea

@@ -182,10 +182,6 @@ export default function AgreementPaymentsPage() {
   const totalPages = Math.max(1, Math.ceil(payouts.length / PAGE_SIZE));
 
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
-
-  useEffect(() => {
     setPage(1);
   }, [params.agreementId]);
 

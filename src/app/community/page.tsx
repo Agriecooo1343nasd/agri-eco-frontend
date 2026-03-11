@@ -118,13 +118,13 @@ export default function CommunityPage() {
       <Header />
       <main>
         {/* Hero */}
-        <section className="relative h-[45vh] min-h-[380px] overflow-hidden">
+        <section className="relative h-[45vh] min-h-95 overflow-hidden">
           <img
             src={culturalImg}
             alt="Community at Agri-Eco"
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 to-foreground/30" />
+          <div className="absolute inset-0 bg-linear-to-r from-foreground/80 to-foreground/30" />
           <div className="relative container h-full flex items-center">
             <div className="max-w-xl text-card">
               <Badge className="bg-secondary text-secondary-foreground mb-4 gap-1.5 text-[10px] py-0 px-2 font-bold">
@@ -133,7 +133,7 @@ export default function CommunityPage() {
               <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 text-white leading-tight">
                 Stronger Together
               </h1>
-              <p className="text-card/80 text-lg mb-6 text-white/90">
+              <p className="text-lg mb-6 text-white/90">
                 Meet our local artisans, join as a partner, and support
                 Rwanda&#39;s vibrant farming communities and cultural heritage.
               </p>
