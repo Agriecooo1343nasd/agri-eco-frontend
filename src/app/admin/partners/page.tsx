@@ -42,11 +42,11 @@ const statusBadge: Record<string, string> = {
 };
 
 const typeBadge: Record<string, string> = {
-  "tourism-operator": "🌍 Tourism",
-  hotel: "🏨 Hotel",
-  restaurant: "🍽️ Restaurant",
-  school: "🏫 School",
-  ngo: "🤝 NGO",
+  "tourism-operator": " Tourism",
+  hotel: " Hotel",
+  restaurant: " Restaurant",
+  school: " School",
+  ngo: " NGO",
 };
 
 export default function AdminPartnersPage() {
