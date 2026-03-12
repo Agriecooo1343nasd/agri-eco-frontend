@@ -91,7 +91,7 @@ const AccountDashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Welcome Banner */}
-      <div className="bg-primary overflow-hidden rounded-[40px] text-white p-8 md:p-12 relative shadow-2xl">
+      <div className="bg-primary overflow-hidden rounded-[20] text-white p-8 md:p-12 relative shadow-2xl">
         <div className="relative z-10">
           <h2 className="text-3xl font-black mb-2 font-heading">
             Hello, {user?.name?.split(" ")[0] || "User"}!
@@ -115,12 +115,12 @@ const AccountDashboard = () => {
         {stats.map((stat, i) => {
           const StatContent = (
             <div
-              className="bg-white p-6 rounded-3xl border border-border shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
+              className="bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow group cursor-pointer"
               key={i}
             >
               <div className="flex items-center justify-between mb-4">
                 <div
-                  className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center`}
+                  className={`w-12 h-12 ${stat.color} rounded-xl flex items-center justify-center`}
                 >
                   <stat.icon className="h-6 w-6" />
                 </div>
@@ -151,7 +151,7 @@ const AccountDashboard = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         {/* Recent Orders Card */}
-        <div className="bg-white rounded-3xl border border-border overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
           <div className="p-6 border-b border-border flex items-center justify-between">
             <h3 className="text-lg font-bold text-foreground font-heading">
               Recent Orders
@@ -209,7 +209,7 @@ const AccountDashboard = () => {
         </div>
 
         {/* Quick Links Card */}
-        <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden h-fit">
+        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden h-fit">
           <div className="p-6 border-b border-border">
             <h3 className="text-lg font-bold text-foreground font-heading">
               Quick Access

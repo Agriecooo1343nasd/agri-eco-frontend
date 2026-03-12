@@ -44,7 +44,11 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { usePricing } from "@/context/PricingContext";
-import type { Partner, PartnerAgreement, PartnerPayoutRecord } from "@/data/community";
+import type {
+  Partner,
+  PartnerAgreement,
+  PartnerPayoutRecord,
+} from "@/data/community";
 import {
   createPartnerAgreement,
   createPayoutRecord,
@@ -87,16 +91,6 @@ export default function PartnerProfilePage() {
   const [agreementFormOpen, setAgreementFormOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<PartnerAgreement | null>(null);
   const [agreementForm, setAgreementForm] = useState({ ...emptyAgreementForm });
-  const [payoutFormOpen, setPayoutFormOpen] = useState(false);
-  const [payoutForm, setPayoutForm] = useState({
-    amount: "",
-    date: new Date().toISOString().slice(0, 10),
-    period: "",
-    agreementId: "",
-    notes: "",
-    status: "paid" as PartnerPayoutRecord["status"],
-  });
-
   const partner = useMemo(
     () => partners.find((entry) => entry.id === params.partnerId),
     [partners, params.partnerId],
@@ -207,44 +201,6 @@ export default function PartnerProfilePage() {
     setEditingAgreement(null);
   };
 
-  const handleRecordPayout = () => {
-    if (!partner || !payoutForm.amount || !payoutForm.period) {
-      toast.error("Amount and period are required.");
-      return;
-    }
-
-    const agreement = partner.agreements.find((entry) => entry.id === payoutForm.agreementId);
-    const record = createPayoutRecord(
-      Number(payoutForm.amount),
-      payoutForm.period,
-      payoutForm.agreementId || undefined,
-      agreement?.title,
-      payoutForm.notes || undefined,
-    );
-    record.status = payoutForm.status;
-    record.date = payoutForm.date;
-
-    const updated: Partner = {
-      ...partner,
-      payouts: [record, ...(partner.payouts ?? [])],
-      lastPayoutDate: payoutForm.status === "paid" ? payoutForm.date : partner.lastPayoutDate,
-    };
-
-    updatePartnerInList(updated);
-    setPayoutFormOpen(false);
-    setPayoutForm({
-      amount: "",
-      date: new Date().toISOString().slice(0, 10),
-      period: "",
-      agreementId: "",
-      notes: "",
-      status: "paid",
-    });
-
-    toast.success("Payout Recorded", {
-      description: `${formatPrice(Number(payoutForm.amount))} for ${payoutForm.period} recorded.`,
-    });
-  };
 
   if (!partner) {
     return (
@@ -339,11 +295,16 @@ export default function PartnerProfilePage() {
           ) : (
             <div className="space-y-3">
               {partner.agreements.map((agreement) => (
-                <div key={agreement.id} className="space-y-2 rounded-xl border border-border p-4">
+                <div
+                  key={agreement.id}
+                  className="space-y-2 rounded-xl border border-border p-4"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold">{agreement.title}</p>
-                      <Badge className={`${statusBadge[agreement.status]} border text-[10px] capitalize`}>
+                      <Badge
+                        className={`${statusBadge[agreement.status]} border text-[10px] capitalize`}
+                      >
                         {agreement.status}
                       </Badge>
                     </div>
@@ -364,64 +325,36 @@ export default function PartnerProfilePage() {
                     {agreement.endDate && <span>Ends: {agreement.endDate}</span>}
                     <span>Updated: {agreement.updatedAt}</span>
                   </div>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      asChild
+                    >
+                      <Link
+                        href={`/admin/partners/${partner.id}/agreements/${agreement.id}/payments`}
+                      >
+                        View Payouts
+                      </Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      asChild
+                    >
+                      <Link
+                        href={`/admin/partners/${partner.id}/agreements/${agreement.id}/inputs`}
+                      >
+                        View Inputs
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-4 p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold">
-              <Wallet className="h-4 w-4" /> Payout History
-              <Badge variant="outline" className="text-[10px]">{payouts.length}</Badge>
-            </h2>
-            <Button size="sm" className="h-8 text-xs" onClick={() => setPayoutFormOpen(true)}>
-              Record Payout
-            </Button>
-          </div>
-
-          <div className="rounded-xl border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Agreement</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payouts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-xs text-muted-foreground">
-                      No payout records yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  payouts.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="text-xs">{record.date}</TableCell>
-                      <TableCell className="text-xs">{record.period}</TableCell>
-                      <TableCell className="text-xs">{record.agreementTitle || "General"}</TableCell>
-                      <TableCell className="text-right text-xs font-semibold">{formatPrice(record.amount)}</TableCell>
-                      <TableCell>
-                        <Badge className={`${payoutStatusBadge[record.status]} border text-[10px] capitalize`}>
-                          {record.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{record.notes || "-"}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <p className="text-xs text-muted-foreground">Total paid to partner: <strong className="text-foreground">{formatPrice(totalPaid)}</strong></p>
         </CardContent>
       </Card>
 
@@ -515,65 +448,6 @@ export default function PartnerProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={payoutFormOpen} onOpenChange={setPayoutFormOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Record Payout</DialogTitle>
-            <DialogDescription>Add a payout entry for this partner and agreement.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1">
-              <Label>Amount (RWF)</Label>
-              <Input type="number" min="0" value={payoutForm.amount} onChange={(e) => setPayoutForm((p) => ({ ...p, amount: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Period</Label>
-              <Input value={payoutForm.period} onChange={(e) => setPayoutForm((p) => ({ ...p, period: e.target.value }))} placeholder="March 2026" />
-            </div>
-            <div className="space-y-1">
-              <Label>Date</Label>
-              <Input type="date" value={payoutForm.date} onChange={(e) => setPayoutForm((p) => ({ ...p, date: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label>Status</Label>
-              <Select
-                value={payoutForm.status}
-                onValueChange={(value: PartnerPayoutRecord["status"]) => setPayoutForm((p) => ({ ...p, status: value }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Agreement</Label>
-              <Select
-                value={payoutForm.agreementId}
-                onValueChange={(value) => setPayoutForm((p) => ({ ...p, agreementId: value }))}
-              >
-                <SelectTrigger><SelectValue placeholder="Select agreement" /></SelectTrigger>
-                <SelectContent>
-                  {partner.agreements.map((agreement) => (
-                    <SelectItem key={agreement.id} value={agreement.id}>{agreement.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Notes</Label>
-              <Textarea value={payoutForm.notes} onChange={(e) => setPayoutForm((p) => ({ ...p, notes: e.target.value }))} rows={3} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPayoutFormOpen(false)}>Cancel</Button>
-            <Button onClick={handleRecordPayout}>Record</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+</div>
   );
 }

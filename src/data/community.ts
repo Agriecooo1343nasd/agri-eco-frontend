@@ -76,6 +76,7 @@ export interface Partner {
   agreements: PartnerAgreement[];
   packages: PartnerPackage[];
   payouts?: PartnerPayoutRecord[];
+  inputs?: PartnerInputRecord[];
 }
 
 export interface PartnerAgreement {
@@ -100,6 +101,18 @@ export interface PartnerPayoutRecord {
   agreementId?: string;
   agreementTitle?: string;
   status: "paid" | "pending" | "failed";
+  notes?: string;
+}
+
+export interface PartnerInputRecord {
+  id: string;
+  kind: "financial" | "in-kind";
+  amount?: number;
+  date: string;
+  agreementId?: string;
+  agreementTitle?: string;
+  storageCategory: "capital" | "operations" | "marketing" | "community" | "other";
+  description: string;
   notes?: string;
 }
 
@@ -479,6 +492,29 @@ export const partners: Partner[] = [
         agreementId: "agr-1",
         agreementTitle: "Primary Distribution Agreement",
         status: "paid",
+      },
+    ],
+    inputs: [
+      {
+        id: "inp-1-1",
+        kind: "financial",
+        amount: 1500000,
+        date: "2025-06-10",
+        agreementId: "agr-1",
+        agreementTitle: "Primary Distribution Agreement",
+        storageCategory: "capital",
+        description: "Initial capital injection to support farm infrastructure upgrades.",
+        notes: "Recorded as partner capital contribution in farm balance sheet.",
+      },
+      {
+        id: "inp-1-2",
+        kind: "in-kind",
+        date: "2025-09-20",
+        agreementId: "agr-1",
+        agreementTitle: "Primary Distribution Agreement",
+        storageCategory: "operations",
+        description: "Provision of branded buses for school group transport for one season.",
+        notes: "Valued separately for reporting; not booked as direct cash revenue.",
       },
     ],
   },

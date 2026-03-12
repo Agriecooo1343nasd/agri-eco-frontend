@@ -240,6 +240,13 @@ export default function AgreementDetailsPage() {
               </Link>
             </Button>
             <Button size="sm" variant="outline" className="text-xs" asChild>
+              <Link
+                href={`/account/partner/agreements/${agreement.id}/inputs`}
+              >
+                View Inputs
+              </Link>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs" asChild>
               <Link href="/account/partner">Back to All Agreements</Link>
             </Button>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Users,
   Leaf,
@@ -18,48 +19,38 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-
-const teamMembers = [
-  {
-    name: "Dr. Samuel Green",
-    role: "Founder & CEO",
-    image:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=400&h=400&auto=format&fit=crop",
-    bio: "With 20 years in sustainable agriculture, Dr. Samuel started Agri-Eco to bridge the gap between rural farmers and urban families.",
-  },
-  {
-    name: "Sarah Richards",
-    role: "Head of Quality Control",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&h=400&auto=format&fit=crop",
-    bio: "Sarah ensures every product that leaves our warehouse meets the highest organic certifications and freshness standards.",
-  },
-  {
-    name: "David Nkurunziza",
-    role: "Farmer Relations Manager",
-    image:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&h=400&auto=format&fit=crop",
-    bio: "David works directly with over 50 local farms, ensuring fair trade practices and helping them transition to organic methods.",
-  },
-  {
-    name: "Elena Martinez",
-    role: "Logistics Director",
-    image:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400&h=400&auto=format&fit=crop",
-    bio: "The 'Engine' of Agri-Eco, Elena manages our supply chain to guarantee next-day delivery for our fresh produce.",
-  },
-];
-
-const galleryImages = [
-  "https://images.unsplash.com/photo-1500651230702-0e2d8a49d4ad?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1464226184884-fa280b87c399?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1589923188900-85dae523342b?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1592419044706-39796d40f98c?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1495570689269-d883b1224443?q=80&w=600&auto=format&fit=crop",
-];
+import {
+  getAboutGalleryImages,
+  getAboutTeamMembers,
+} from "@/lib/about-store";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import type { AboutGalleryImage } from "@/data/site";
 
 const AboutPage = () => {
+  const teamMembers = getAboutTeamMembers();
+  const rawGallery = getAboutGalleryImages();
+  const galleryImages: AboutGalleryImage[] = rawGallery.map((img, index) =>
+    typeof img === "string"
+      ? { id: `about-gallery-${index}`, url: img }
+      : img,
+  );
+
+  const [selectedImage, setSelectedImage] = useState<AboutGalleryImage | null>(
+    null,
+  );
+  const [galleryOpen, setGalleryOpen] = useState(false);
+
+  const handleOpenImage = (image: AboutGalleryImage) => {
+    setSelectedImage(image);
+    setGalleryOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <Header />
@@ -68,7 +59,7 @@ const AboutPage = () => {
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img
-            src="https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?q=80&w=1920&auto=format&fit=crop"
+            src="/assets/hero.png"
             alt="About Agri-Eco"
             className="w-full h-full object-cover brightness-50"
           />
@@ -144,7 +135,7 @@ const AboutPage = () => {
                   className="w-full aspect-[4/5] object-cover"
                 />
               </div>
-              <div className="absolute -bottom-10 -left-10 z-20 bg-primary text-white p-8 rounded-3xl hidden md:block animate-bounce-subtle">
+              <div className="absolute -bottom-10 -left-10 z-20 bg-primary text-white p-8 rounded-xl hidden md:block animate-bounce-subtle">
                 <div className="text-4xl font-black mb-1">12+</div>
                 <div className="text-sm font-bold opacity-80 uppercase tracking-widest">
                   Years of Trust
@@ -223,11 +214,11 @@ const AboutPage = () => {
               <Linkedin className="h-5 w-5 text-muted-foreground hover:text-primary cursor-pointer" />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory lg:grid lg:grid-cols-4 lg:gap-8 lg:overflow-visible lg:mx-0 lg:px-0">
             {teamMembers.map((member, i) => (
               <div
                 key={i}
-                className="group flex flex-col items-center text-center"
+                className="group flex flex-col items-center text-center min-w-[260px] snap-start lg:min-w-0"
               >
                 <div className="relative w-full aspect-square mb-6 rounded-3xl overflow-hidden shadow-lg">
                   <img
@@ -290,7 +281,6 @@ const AboutPage = () => {
               </div>
               <Button
                 asChild
-                className="h-14 px-8 rounded-2xl text-lg font-black shadow-xl shadow-primary/20"
               >
                 <Link href="/contact">Get Directions</Link>
               </Button>
@@ -324,21 +314,53 @@ const AboutPage = () => {
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 px-2">
-          {galleryImages.map((img, i) => (
-            <div
-              key={i}
-              className="aspect-square group overflow-hidden cursor-zoom-in"
+        <div className="flex gap-2 overflow-x-auto px-2 pb-2 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-2 md:overflow-visible">
+          {galleryImages.map((img) => (
+            <button
+              key={img.id}
+              type="button"
+              className="aspect-square group overflow-hidden cursor-zoom-in min-w-[45%] md:min-w-0 snap-start focus:outline-none"
+              onClick={() => handleOpenImage(img)}
             >
               <img
-                src={img}
-                alt={`Gallery ${i}`}
+                src={img.url}
+                alt={img.caption || "Gallery image"}
                 className="w-full h-full object-cover group-hover:scale-125 transition-transform duration-1000 brightness-90 group-hover:brightness-110"
               />
-            </div>
+            </button>
           ))}
         </div>
       </section>
+
+      <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+        <DialogContent className="max-w-3xl">
+          {selectedImage && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Gallery Image</DialogTitle>
+                <DialogDescription>
+                  {selectedImage.caption ||
+                    "Captured moments from our farm and community."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-2 space-y-3">
+                <div className="w-full overflow-hidden rounded-2xl border border-border bg-black/5">
+                  <img
+                    src={selectedImage.url}
+                    alt={selectedImage.caption || "Gallery image"}
+                    className="w-full h-full max-h-[480px] object-contain bg-black/5"
+                  />
+                </div>
+                {selectedImage.caption && (
+                  <p className="text-sm text-muted-foreground">
+                    {selectedImage.caption}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
