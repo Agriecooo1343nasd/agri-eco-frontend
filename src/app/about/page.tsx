@@ -135,7 +135,7 @@ const AboutPage = () => {
                   className="w-full aspect-[4/5] object-cover"
                 />
               </div>
-              <div className="absolute -bottom-10 -left-10 z-20 bg-primary text-white p-8 rounded-3xl hidden md:block animate-bounce-subtle">
+              <div className="absolute -bottom-10 -left-10 z-20 bg-primary text-white p-8 rounded-xl hidden md:block animate-bounce-subtle">
                 <div className="text-4xl font-black mb-1">12+</div>
                 <div className="text-sm font-bold opacity-80 uppercase tracking-widest">
                   Years of Trust
@@ -281,7 +281,6 @@ const AboutPage = () => {
               </div>
               <Button
                 asChild
-                className="h-14 px-8 rounded-2xl text-lg font-black shadow-xl shadow-primary/20"
               >
                 <Link href="/contact">Get Directions</Link>
               </Button>

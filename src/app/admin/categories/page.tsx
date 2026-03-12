@@ -190,13 +190,12 @@ export default function AdminCategories() {
         </div>
         <Button
           onClick={() => handleOpenDialog()}
-          className="rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20 bg-primary text-white gap-2 transition-all hover:scale-105"
         >
           <Plus className="h-5 w-5" /> Add Category
         </Button>
       </div>
 
-      <div className="bg-card p-6 rounded-[32px] border border-border">
+      <div className="bg-card p-4 rounded-xl border border-border">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-all" />
           <Input
@@ -208,7 +207,7 @@ export default function AdminCategories() {
         </div>
       </div>
 
-      <Card className="rounded-[32px] border-border overflow-hidden">
+      <Card className="border-border overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/30">
@@ -322,7 +321,7 @@ export default function AdminCategories() {
       </Card>
 
       {filteredCategories.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 bg-card rounded-[32px] border border-border border-dashed opacity-40">
+        <div className="flex flex-col items-center justify-center py-16 bg-card rounded-xl border border-border border-dashed opacity-40">
           <FolderTree className="h-16 w-16 mb-4 text-muted-foreground" />
           <p className="text-2xl font-black italic">No categories found</p>
           <p className="text-sm font-medium">
@@ -332,7 +331,7 @@ export default function AdminCategories() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
           <div className="bg-primary p-8 text-white relative">
             <Button
               variant="ghost"
@@ -459,13 +458,11 @@ export default function AdminCategories() {
             <Button
               variant="outline"
               onClick={() => setIsDialogOpen(false)}
-              className="rounded-xl h-12 px-6 font-bold"
             >
               Discard
             </Button>
             <Button
               onClick={handleSave}
-              className="rounded-xl h-12 px-10 font-bold bg-primary text-white shadow-lg shadow-primary/20"
             >
               {currentCategory?.id ? "Update Info" : "Create Category"}
             </Button>

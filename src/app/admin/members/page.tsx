@@ -155,7 +155,6 @@ export default function AdminMembers() {
         </div>
         <Button
           onClick={() => setIsDialogOpen(true)}
-          className="rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20 bg-primary text-white gap-2 transition-all hover:scale-105 active:scale-95"
         >
           <UserPlus className="h-5 w-5" /> Invite Member
         </Button>
@@ -180,19 +179,16 @@ export default function AdminMembers() {
             icon: Clock,
           },
         ].map((stat, i) => (
-          <Card
-            key={i}
-            className="rounded-[32px] border-border shadow-soft group hover:scale-[1.02] transition-all cursor-default overflow-hidden"
-          >
-            <CardContent className="p-8 flex items-center gap-5">
-              <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-all">
-                <stat.icon className="h-6 w-6" />
+          <Card key={i} className="border-border">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-muted/30 flex items-center justify-center text-muted-foreground">
+                <stat.icon className="h-5 w-5" />
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                   {stat.label}
                 </p>
-                <p className="text-2xl font-black text-foreground">
+                <p className="text-xl font-black text-foreground">
                   {stat.value}
                 </p>
               </div>
@@ -202,7 +198,7 @@ export default function AdminMembers() {
       </div>
 
       {/* Search Bar */}
-      <div className="bg-card p-6 rounded-[32px] border border-border">
+      <div className="bg-card p-4 rounded-xl border border-border">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-all" />
           <Input
@@ -215,7 +211,7 @@ export default function AdminMembers() {
       </div>
 
       {/* Members Table */}
-      <Card className="rounded-[32px] border-border overflow-hidden">
+      <Card className="border-border overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/30">
@@ -324,7 +320,6 @@ export default function AdminMembers() {
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem
-                          className="rounded-xl px-3 py-2.5 focus:bg-rose-50 text-rose-600 cursor-pointer font-bold gap-2"
                           onClick={() => handleDelete(member.id)}
                         >
                           <Trash2 className="h-4 w-4" />{" "}
@@ -343,7 +338,7 @@ export default function AdminMembers() {
       </Card>
 
       {filteredMembers.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 bg-card rounded-[32px] border border-border border-dashed opacity-40">
+        <div className="flex flex-col items-center justify-center py-16 bg-card rounded-xl border border-border border-dashed opacity-40">
           <Users className="h-16 w-16 mb-4 text-muted-foreground" />
           <p className="text-2xl font-black italic">No members found</p>
           <p className="text-sm font-medium">
@@ -354,7 +349,7 @@ export default function AdminMembers() {
 
       {/* Invite Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] rounded-[32px] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
           <div className="bg-primary p-8 text-white relative">
             <Button
               variant="ghost"
@@ -430,13 +425,11 @@ export default function AdminMembers() {
             <Button
               variant="outline"
               onClick={() => setIsDialogOpen(false)}
-              className="rounded-xl h-12 px-6 font-bold"
             >
               Cancel
             </Button>
             <Button
               onClick={handleInvite}
-              className="rounded-xl h-12 px-10 font-bold bg-primary text-white shadow-lg shadow-primary/20 flex items-center gap-2"
             >
               <Send className="h-4 w-4" /> Send Invite
             </Button>

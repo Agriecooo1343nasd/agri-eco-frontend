@@ -97,7 +97,7 @@ export default function AdminAccommodationsPage() {
           </p>
         </div>
         <Link href="/admin/accommodations/create">
-          <Button className="h-11 px-6 rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all font-semibold gap-2">
+          <Button >
             <Plus className="h-5 w-5" />
             <span>Add New Stay</span>
           </Button>
@@ -134,10 +134,7 @@ export default function AdminAccommodationsPage() {
             color: "text-primary",
           },
         ].map((stat, i) => (
-          <Card
-            key={i}
-            className="border-border/50 bg-card/50 backdrop-blur-sm"
-          >
+          <Card key={i} className="border-border bg-card">
             <CardContent className="p-5 flex items-center gap-4">
               <div
                 className={cn(
@@ -161,8 +158,8 @@ export default function AdminAccommodationsPage() {
       </div>
 
       {/* Filters and List */}
-      <Card className="border-border/50 shadow-sm overflow-hidden bg-card/30 backdrop-blur-sm">
-        <CardHeader className="p-6 bg-muted/20 border-b border-border/50">
+      <Card className="border-border shadow-sm overflow-hidden bg-card">
+        <CardHeader className="p-6 bg-muted/20 border-b border-border">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

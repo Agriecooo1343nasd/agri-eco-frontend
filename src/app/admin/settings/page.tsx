@@ -57,7 +57,6 @@ export default function AdminSettings() {
         <Button
           onClick={handleSave}
           disabled={isSaving}
-          className="rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20 bg-primary text-white gap-2 transition-all hover:scale-105"
         >
           {isSaving ? (
             <span className="animate-spin mr-2">⏳</span>
@@ -69,7 +68,7 @@ export default function AdminSettings() {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="bg-card p-1 rounded-2xl border border-border shadow-sm h-16 w-full sm:w-auto overflow-x-auto overflow-y-hidden">
+        <TabsList className="bg-card p-1 rounded-xl border border-border shadow-sm h-14 w-full sm:w-auto overflow-x-auto overflow-y-hidden">
           <TabsTrigger
             value="general"
             className="rounded-xl px-6 h-full data-[state=active]:bg-primary data-[state=active]:text-white font-bold gap-2"
@@ -101,7 +100,7 @@ export default function AdminSettings() {
           className="space-y-6 animate-in fade-in-50 duration-500 mt-0 focus-visible:outline-none"
         >
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2 rounded-[32px] border-border">
+            <Card className="lg:col-span-2 border-border">
               <CardHeader className="p-8 pb-4">
                 <CardTitle className="text-xl font-black font-heading">
                   Store Metadata
@@ -163,7 +162,7 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-[32px] border-border overflow-hidden">
+            <Card className="border-border overflow-hidden">
               <div className="bg-primary/5 p-8 border-b border-border">
                 <p className="text-xs font-black uppercase text-primary tracking-widest">
                   Regional Config
@@ -204,7 +203,7 @@ export default function AdminSettings() {
           value="profile"
           className="animate-in slide-in-from-bottom-5 duration-500 mt-0 focus-visible:outline-none"
         >
-          <Card className="rounded-[32px] border-border overflow-hidden">
+            <Card className="border-border overflow-hidden">
             <div className="bg-primary h-32 w-full relative">
               <div className="absolute -bottom-12 left-12 w-24 h-24 rounded-[28px] border-4 border-white bg-muted overflow-hidden shadow-xl group">
                 <img
@@ -248,7 +247,7 @@ export default function AdminSettings() {
                     />
                   </div>
                 </div>
-                <div className="w-full md:w-64 p-6 rounded-[28px] bg-muted/20 border border-border space-y-4">
+                <div className="w-full md:w-64 p-6 rounded-2xl bg-muted/20 border border-border space-y-4">
                   <p className="text-xs font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
                     <Check className="h-4 w-4 text-primary" /> Account Status
                   </p>
@@ -276,7 +275,7 @@ export default function AdminSettings() {
           value="notifications"
           className="animate-in fade-in-50 duration-500 mt-0 focus-visible:outline-none"
         >
-          <Card className="rounded-[32px] border-border">
+          <Card className="border-border">
             <CardHeader className="p-8">
               <CardTitle className="text-xl font-black font-heading tracking-tight">
                 System Notifications
@@ -338,7 +337,7 @@ export default function AdminSettings() {
           className="animate-in slide-in-from-right-5 duration-500 mt-0 focus-visible:outline-none"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="rounded-[32px] border-border">
+            <Card className="border-border">
               <CardHeader className="p-8">
                 <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center mb-4">
                   <Lock className="h-6 w-6 text-rose-600" />
@@ -377,7 +376,7 @@ export default function AdminSettings() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-[32px] border-border bg-zinc-900 border-none relative overflow-hidden group">
+            <Card className="border-border bg-zinc-900 relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 via-transparent to-transparent opacity-50" />
               <CardHeader className="p-8 relative z-10 text-white">
                 <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-md">
