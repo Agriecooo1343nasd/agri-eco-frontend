@@ -363,11 +363,6 @@ const Header = () => {
               </Link>
             ))}
           </div>
-
-          <div className="ml-auto flex items-center gap-1 text-sm text-muted-foreground py-3">
-            <Phone className="h-3.5 w-3.5" />
-            Call Us: 0785760108
-          </div>
         </div>
       </nav>
 

@@ -5,6 +5,7 @@ import {
   type PartnerAgreement,
   type PartnerApplication,
   type PartnerPayoutRecord,
+  type PartnerInputRecord,
 } from "@/data/community";
 
 const PARTNERS_KEY = "agriEco.partners";
@@ -96,6 +97,29 @@ export function createPayoutRecord(
   };
 }
 
+export function createPartnerInputRecord(
+  kind: PartnerInputRecord["kind"],
+  description: string,
+  storageCategory: PartnerInputRecord["storageCategory"],
+  amount?: number,
+  agreementId?: string,
+  agreementTitle?: string,
+  notes?: string,
+): PartnerInputRecord {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    id: makeId("inp"),
+    kind,
+    amount,
+    date: today,
+    agreementId,
+    agreementTitle,
+    storageCategory,
+    description,
+    notes,
+  };
+}
+
 export function createPartnerAgreement(
   title: string,
   termsSummary: string,
@@ -153,6 +177,7 @@ export function createPartnerFromInput(input: NewPartnerInput): Partner {
     ],
     packages: [],
     payouts: [],
+    inputs: [],
   };
 }
 

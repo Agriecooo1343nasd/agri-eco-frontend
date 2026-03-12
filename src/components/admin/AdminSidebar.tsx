@@ -9,7 +9,6 @@ import {
   Users,
   Settings,
   LogOut,
-  Leaf,
   MapPin,
   Calendar,
   GraduationCap,
@@ -19,6 +18,7 @@ import {
   MessageCircle,
   ExternalLink,
   Home,
+  Leaf,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -52,6 +52,7 @@ const mainItems = [
   { title: "Categories", url: "/admin/categories", icon: FolderTree },
   { title: "Members", url: "/admin/members", icon: Users },
   { title: "Settings", url: "/admin/settings", icon: Settings },
+  { title: "About Page", url: "/admin/about", icon: Leaf },
 ];
 
 export function AdminSidebar() {
