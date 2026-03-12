@@ -10,6 +10,7 @@ export interface BlogPost {
   category: string;
   tags: string[];
   image: string;
+  videoUrl?: string;
   publishedAt: string;
   readTime: number;
   status: "draft" | "published" | "archived";

@@ -1,34 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { blogPosts, blogCategories, type BlogPost } from "@/data/blog";
-import {
-  MultiLangInput,
-  emptyLangValue,
-  type MultiLangValue,
-  getML,
-} from "@/components/admin/MultiLangInput";
+import Link from "next/link";
+import { blogPosts } from "@/data/blog";
+import { getML } from "@/components/admin/MultiLangInput";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -38,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Newspaper, Plus, Edit, Trash2, Search } from "lucide-react";
+import { Newspaper, Plus, Edit, Trash2, Search, Eye } from "lucide-react";
 
 const statusColors: Record<string, string> = {
   published: "bg-primary/10 text-primary border-primary/20",
@@ -48,81 +27,7 @@ const statusColors: Record<string, string> = {
 
 export default function BlogManagementPage() {
   const [posts, setPosts] = useState(blogPosts);
-  const [showEditor, setShowEditor] = useState(false);
   const [search, setSearch] = useState("");
-  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
-
-  // Form state
-  const [formTitle, setFormTitle] = useState<MultiLangValue>(emptyLangValue());
-  const [formExcerpt, setFormExcerpt] =
-    useState<MultiLangValue>(emptyLangValue());
-  const [formContent, setFormContent] =
-    useState<MultiLangValue>(emptyLangValue());
-  const [formCategory, setFormCategory] = useState("Farming Tips");
-  const [formAuthor, setFormAuthor] = useState("");
-  const [formTags, setFormTags] = useState("");
-  const [formStatus, setFormStatus] = useState<"draft" | "published">("draft");
-  const [formFeatured, setFormFeatured] = useState(false);
-
-  const openNew = () => {
-    setEditingPost(null);
-    setFormTitle(emptyLangValue());
-    setFormExcerpt(emptyLangValue());
-    setFormContent(emptyLangValue());
-    setFormCategory("Farming Tips");
-    setFormAuthor("");
-    setFormTags("");
-    setFormStatus("draft");
-    setFormFeatured(false);
-    setShowEditor(true);
-  };
-
-  const openEdit = (post: BlogPost) => {
-    setEditingPost(post);
-    setFormTitle(post.title);
-    setFormExcerpt(post.excerpt);
-    setFormContent(post.content);
-    setFormCategory(post.category);
-    setFormAuthor(post.author);
-    setFormTags(post.tags.join(", "));
-    setFormStatus(post.status === "archived" ? "draft" : post.status);
-    setFormFeatured(post.featured);
-    setShowEditor(true);
-  };
-
-  const handleSave = () => {
-    if (!formTitle.en.trim() || !formAuthor.trim()) {
-      toast.error("Error", {
-        description: "Title (EN) and Author are required",
-      });
-      return;
-    }
-    const newPost: BlogPost = {
-      id: editingPost?.id || Date.now().toString(),
-      title: formTitle,
-      excerpt: formExcerpt,
-      content: formContent,
-      author: formAuthor,
-      category: formCategory,
-      tags: formTags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-      image: editingPost?.image || "/placeholder.svg",
-      publishedAt: new Date().toISOString().split("T")[0],
-      readTime: Math.ceil(formContent.en.split(" ").length / 200) || 3,
-      status: formStatus,
-      featured: formFeatured,
-    };
-
-    if (editingPost) {
-      setPosts(posts.map((p) => (p.id === editingPost.id ? newPost : p)));
-    } else {
-      setPosts([newPost, ...posts]);
-    }
-    setShowEditor(false);
-    toast.success(editingPost ? "Post updated" : "Post created");
-  };
 
   const handleDelete = (id: string) => {
     setPosts(posts.filter((p) => p.id !== id));
@@ -148,9 +53,11 @@ export default function BlogManagementPage() {
             {posts.length} articles total
           </p>
         </div>
-        <Button onClick={openNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Article
+        <Button className="gap-2 rounded-xl h-10 px-5" asChild>
+          <Link href="/admin/blog/create">
+            <Plus className="h-4 w-4" />
+            New Article
+          </Link>
         </Button>
       </div>
 
@@ -222,9 +129,21 @@ export default function BlogManagementPage() {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={() => openEdit(post)}
+                        asChild
                       >
-                        <Edit className="h-3.5 w-3.5" />
+                        <Link href={`/admin/blog/create?id=${post.id}`}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        asChild
+                      >
+                        <Link href={`/admin/blog/${post.id}/view`}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Link>
                       </Button>
                       <Button
                         variant="ghost"
@@ -242,120 +161,6 @@ export default function BlogManagementPage() {
           </Table>
         </CardContent>
       </Card>
-
-      {/* Editor dialog */}
-      <Dialog open={showEditor} onOpenChange={setShowEditor}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingPost ? "Edit Article" : "New Article"}
-            </DialogTitle>
-            <DialogDescription>
-              Fill in the article details in all supported languages.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <MultiLangInput
-              label="Title"
-              value={formTitle}
-              onChange={setFormTitle}
-              placeholder="Article title"
-              required
-            />
-            <MultiLangInput
-              label="Excerpt"
-              value={formExcerpt}
-              onChange={setFormExcerpt}
-              placeholder="Short description"
-              type="textarea"
-              rows={2}
-            />
-            <MultiLangInput
-              label="Content"
-              value={formContent}
-              onChange={setFormContent}
-              placeholder="Full article content"
-              type="textarea"
-              rows={8}
-              required
-            />
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
-                  Author <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  value={formAuthor}
-                  onChange={(e) => setFormAuthor(e.target.value)}
-                  placeholder="Author name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Category</Label>
-                <Select value={formCategory} onValueChange={setFormCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {blogCategories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Tags (comma separated)
-              </Label>
-              <Input
-                value={formTags}
-                onChange={(e) => setFormTags(e.target.value)}
-                placeholder="organic, farming, tips"
-              />
-            </div>
-
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Status:</Label>
-                <Select
-                  value={formStatus}
-                  onValueChange={(v) => setFormStatus(v as any)}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm">Featured</Label>
-                <Switch
-                  checked={formFeatured}
-                  onCheckedChange={setFormFeatured}
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditor(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>
-              {editingPost ? "Update" : "Publish"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

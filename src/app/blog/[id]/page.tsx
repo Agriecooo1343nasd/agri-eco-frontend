@@ -98,6 +98,17 @@ export default function BlogPost() {
             <Badge variant="outline">{post.category}</Badge>
           </div>
 
+          {/* Optional video */}
+          {post.videoUrl && (
+            <div className="mb-8 rounded-2xl overflow-hidden border border-border bg-black">
+              <video
+                src={post.videoUrl}
+                controls
+                className="w-full h-auto max-h-[480px] bg-black"
+              />
+            </div>
+          )}
+
           {/* Content */}
           <article className="prose prose-lg max-w-none">
             {content.split("\n").map((paragraph, i) =>
