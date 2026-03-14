@@ -182,7 +182,7 @@ export default function CreateProduct() {
         quantity: 0,
       },
     ]);
-  };
+  }; 
   const updateBatch = (batchId: string, field: keyof Batch, value: any) => {
     setBatches(
       batches.map((b) => (b.id === batchId ? { ...b, [field]: value } : b)),
