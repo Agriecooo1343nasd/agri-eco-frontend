@@ -90,7 +90,7 @@ export default function TourDetailPage({
   const accomOption = tour?.accommodation?.find((a) => a.id === selectedAccom);
   const accommodationGallery = selectedAccommodationInfo?.gallery?.length
     ? selectedAccommodationInfo.gallery
-    : tour?.gallery ?? [];
+    : (tour?.gallery ?? []);
   const pricePerPerson =
     isGroup && tour?.groupPrice && participants >= (tour?.minParticipants || 1)
       ? tour.groupPrice
@@ -641,7 +641,9 @@ export default function TourDetailPage({
                             <div className="flex items-start justify-between gap-3">
                               <button
                                 type="button"
-                                onClick={() => a.available && setSelectedAccom(a.id)}
+                                onClick={() =>
+                                  a.available && setSelectedAccom(a.id)
+                                }
                                 disabled={!a.available}
                                 className="flex-1 text-left"
                               >

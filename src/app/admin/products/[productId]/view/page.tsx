@@ -196,7 +196,7 @@ export default function ViewProduct({
             className="rounded-xl h-12 px-6 font-bold shadow-sm"
             asChild
           >
-            <Link href={`/admin/products/${productId}/update`}>
+            <Link href={`/admin/products/${productId}/edit`}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit Product
             </Link>
