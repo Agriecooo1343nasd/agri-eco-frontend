@@ -17,6 +17,7 @@ import {
   Search,
   Check,
   Trash2,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,9 +51,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePricing } from "@/context/PricingContext";
 import { toast } from "sonner";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { products as baseProducts } from "@/data/products";
 
@@ -270,7 +273,7 @@ export default function UpdateProduct({
   const buttonLabel = isActivated ? "Update Product" : "Save Changes";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 pb-20 max-w-6xl mx-auto">
+    <form onSubmit={handleSubmit} className="space-y-8 pb-20">
       {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div className="space-y-1">
@@ -303,14 +306,10 @@ export default function UpdateProduct({
             variant="outline"
             type="button"
             onClick={() => router.push("/admin/products")}
-            className="rounded-xl h-11 px-6 font-medium"
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            className="rounded-xl h-11 px-8 font-medium gap-2 shadow-lg shadow-primary/20"
-          >
+          <Button type="submit">
             <Save className="h-4 w-4" />
             {buttonLabel}
           </Button>
@@ -349,7 +348,7 @@ export default function UpdateProduct({
 
             {/* General Tab */}
             <TabsContent value="general" className="mt-6 space-y-6">
-              <Card className="rounded-[32px] border-border shadow-soft overflow-hidden">
+              <Card className="rounded-md border-border shadow-soft overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -374,7 +373,6 @@ export default function UpdateProduct({
                       placeholder="e.g. Pure Mountain Honey"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="h-14 rounded-2xl bg-muted/20 border-border focus:bg-white focus:ring-primary/20 transition-all font-medium text-lg"
                       required
                     />
                   </div>
@@ -392,7 +390,7 @@ export default function UpdateProduct({
                             variant="outline"
                             role="combobox"
                             className={cn(
-                              "h-14 w-full justify-between rounded-2xl bg-muted/20 border-border text-left font-medium px-4",
+                              " w-full justify-between bg-muted/20 border-border text-left font-medium px-4",
                               !activeCategory && "text-muted-foreground",
                             )}
                           >
@@ -403,7 +401,7 @@ export default function UpdateProduct({
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="w-[300px] p-0 rounded-2xl border-border"
+                          className="w-[300px] p-0 border-border"
                           align="start"
                         >
                           <Command className="rounded-2xl">
@@ -467,7 +465,7 @@ export default function UpdateProduct({
                         <span className="text-destructive">*</span>
                       </label>
                       <Select value={unit} onValueChange={setUnit}>
-                        <SelectTrigger className="h-14 rounded-2xl bg-muted/20 border-border font-medium">
+                        <SelectTrigger className="h-14 bg-muted/20 border-border font-medium">
                           <SelectValue placeholder="Select Unit" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl border-border">
@@ -491,7 +489,6 @@ export default function UpdateProduct({
                         placeholder="Brief summary for product cards..."
                         value={shortDesc}
                         onChange={(e) => setShortDesc(e.target.value)}
-                        className="h-14 rounded-2xl bg-muted/20 border-border font-medium"
                         required
                       />
                     </div>
@@ -504,7 +501,7 @@ export default function UpdateProduct({
                       </label>
                       <Textarea
                         placeholder="Detailed product information, origin, organic certifications..."
-                        className="min-h-[160px] rounded-2xl bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
+                        className="min-h-[160px] bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
                         value={longDesc}
                         onChange={(e) => setLongDesc(e.target.value)}
                       />
@@ -512,7 +509,7 @@ export default function UpdateProduct({
                   </div>
                 </CardContent>
               </Card>
-              <Card className="rounded-[32px] border-border shadow-soft">
+              <Card className="rounded-md border-border shadow-soft">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
@@ -540,7 +537,6 @@ export default function UpdateProduct({
                         placeholder="0.00"
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
-                        className="h-14 rounded-2xl bg-muted/20 border-border text-lg font-black text-primary"
                         required
                       />
                     </div>
@@ -556,7 +552,6 @@ export default function UpdateProduct({
                         placeholder="0.00"
                         value={oldPrice}
                         onChange={(e) => setOldPrice(e.target.value)}
-                        className="h-14 rounded-2xl bg-muted/20 border-border text-lg font-medium text-muted-foreground line-through"
                       />
                     </div>
                   </div>
@@ -566,7 +561,7 @@ export default function UpdateProduct({
 
             {/* Inventory Tab */}
             <TabsContent value="inventory" className="mt-6 space-y-6">
-              <Card className="rounded-[32px] border-border shadow-soft overflow-hidden">
+              <Card className="rounded-md border-border shadow-soft overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b border-border p-8 pb-4">
                   <div className="flex items-center justify-between gap-6">
                     <div className="flex items-center gap-3">
@@ -594,7 +589,7 @@ export default function UpdateProduct({
                   </div>
                 </CardHeader>
                 <CardContent className="p-8">
-                  <div className="bg-white border rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-white border rounded-sm overflow-hidden shadow-sm">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-muted/50 border-b">
                         <tr>
@@ -631,32 +626,112 @@ export default function UpdateProduct({
                               />
                             </td>
                             <td className="px-6 py-3">
-                              <Input
-                                type="date"
-                                value={batch.manufactureDate}
-                                onChange={(e) =>
-                                  updateBatch(
-                                    batch.id,
-                                    "manufactureDate",
-                                    e.target.value,
-                                  )
-                                }
-                                className="h-10 border-none shadow-none focus-visible:ring-0 font-medium p-0"
-                              />
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className={cn(
+                                      "h-10 justify-start px-0 text-left font-medium hover:bg-transparent",
+                                      !batch.manufactureDate &&
+                                        "text-muted-foreground",
+                                    )}
+                                  >
+                                    <CalendarDays className="mr-2 h-4 w-4" />
+                                    {batch.manufactureDate
+                                      ? format(
+                                          new Date(
+                                            `${batch.manufactureDate}T00:00:00`,
+                                          ),
+                                          "PPP",
+                                        )
+                                      : "Select mfg date"}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-auto p-0"
+                                  align="start"
+                                >
+                                  <CalendarComponent
+                                    mode="single"
+                                    selected={
+                                      batch.manufactureDate
+                                        ? new Date(
+                                            `${batch.manufactureDate}T00:00:00`,
+                                          )
+                                        : undefined
+                                    }
+                                    onSelect={(date: Date | undefined) =>
+                                      updateBatch(
+                                        batch.id,
+                                        "manufactureDate",
+                                        date ? format(date, "yyyy-MM-dd") : "",
+                                      )
+                                    }
+                                    disabled={(date: Date) => date > new Date()}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
                             </td>
                             <td className="px-6 py-3">
-                              <Input
-                                type="date"
-                                value={batch.expiryDate}
-                                onChange={(e) =>
-                                  updateBatch(
-                                    batch.id,
-                                    "expiryDate",
-                                    e.target.value,
-                                  )
-                                }
-                                className="h-10 border-none shadow-none focus-visible:ring-0 font-medium p-0 text-red-500"
-                              />
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className={cn(
+                                      "h-10 justify-start px-0 text-left font-medium text-red-500 hover:bg-transparent",
+                                      !batch.expiryDate &&
+                                        "text-muted-foreground",
+                                    )}
+                                  >
+                                    <CalendarDays className="mr-2 h-4 w-4" />
+                                    {batch.expiryDate
+                                      ? format(
+                                          new Date(
+                                            `${batch.expiryDate}T00:00:00`,
+                                          ),
+                                          "PPP",
+                                        )
+                                      : "Select expiry date"}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-auto p-0"
+                                  align="start"
+                                >
+                                  <CalendarComponent
+                                    mode="single"
+                                    selected={
+                                      batch.expiryDate
+                                        ? new Date(
+                                            `${batch.expiryDate}T00:00:00`,
+                                          )
+                                        : undefined
+                                    }
+                                    onSelect={(date: Date | undefined) =>
+                                      updateBatch(
+                                        batch.id,
+                                        "expiryDate",
+                                        date ? format(date, "yyyy-MM-dd") : "",
+                                      )
+                                    }
+                                    disabled={(date: Date) => {
+                                      if (!batch.manufactureDate) {
+                                        return false;
+                                      }
+                                      return (
+                                        date <
+                                        new Date(
+                                          `${batch.manufactureDate}T00:00:00`,
+                                        )
+                                      );
+                                    }}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
                             </td>
                             <td className="px-6 py-3">
                               <Input
@@ -697,7 +772,7 @@ export default function UpdateProduct({
 
             {/* Logistics Tab */}
             <TabsContent value="logistics" className="mt-6 space-y-6">
-              <Card className="rounded-[32px] border-border shadow-soft">
+              <Card className="rounded-md border-border shadow-soft">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -726,7 +801,6 @@ export default function UpdateProduct({
                         placeholder="e.g. 12"
                         value={shelfLife}
                         onChange={(e) => setShelfLife(e.target.value)}
-                        className="h-14 rounded-2xl bg-muted/20 border-border font-medium"
                       />
                     </div>
                   </div>
@@ -742,7 +816,6 @@ export default function UpdateProduct({
                         placeholder="e.g. Store in cool, dry place"
                         value={storage}
                         onChange={(e) => setStorage(e.target.value)}
-                        className="h-14 rounded-2xl bg-muted/20 border-border font-medium"
                       />
                     </div>
                     <div className="space-y-2">
@@ -757,7 +830,6 @@ export default function UpdateProduct({
                         placeholder="0.0"
                         value={weight}
                         onChange={(e) => setWeight(e.target.value)}
-                        className="h-14 rounded-2xl bg-muted/20 border-border font-medium"
                       />
                     </div>
                   </div>
@@ -772,12 +844,11 @@ export default function UpdateProduct({
                       placeholder="e.g. 10 x 5 x 15"
                       value={dimensions}
                       onChange={(e) => setDimensions(e.target.value)}
-                      className="h-14 rounded-2xl bg-muted/20 border-border font-medium tracking-widest"
                     />
                   </div>
                 </CardContent>
               </Card>
-              <Card className="rounded-[32px] border-border shadow-soft">
+              <Card className="rounded-md border-border shadow-soft">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -841,7 +912,7 @@ export default function UpdateProduct({
 
             {/* Marketing Tab */}
             <TabsContent value="marketing" className="mt-6 space-y-6">
-              <Card className="rounded-[32px] border-border shadow-soft">
+              <Card className="rounded-md border-border shadow-soft">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
@@ -868,7 +939,6 @@ export default function UpdateProduct({
                         variant="ghost"
                         size="sm"
                         onClick={addFeature}
-                        className="text-primary font-black hover:bg-primary/5 text-xs"
                       >
                         + Add Feature
                       </Button>
@@ -880,14 +950,12 @@ export default function UpdateProduct({
                             placeholder="e.g. 100% Raw and Unfiltered"
                             value={f}
                             onChange={(e) => updateFeature(i, e.target.value)}
-                            className="h-12 rounded-xl border-border bg-muted/20 focus:bg-white transition-all font-medium"
                           />
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => removeFeature(i)}
-                            className="text-muted-foreground h-12 w-12 rounded-xl hover:bg-red-50 hover:text-red-500 shrink-0"
                           >
                             <Trash2 className="h-5 w-5" />
                           </Button>
@@ -905,7 +973,6 @@ export default function UpdateProduct({
                         variant="ghost"
                         size="sm"
                         onClick={addBenefit}
-                        className="text-primary font-black hover:bg-primary/5 text-xs"
                       >
                         + Add Benefit
                       </Button>
@@ -917,14 +984,12 @@ export default function UpdateProduct({
                             placeholder="e.g. Boosts Immune System"
                             value={b}
                             onChange={(e) => updateBenefit(i, e.target.value)}
-                            className="h-12 rounded-xl border-border bg-muted/20 focus:bg-white transition-all font-medium"
                           />
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => removeBenefit(i)}
-                            className="text-muted-foreground h-12 w-12 rounded-xl hover:bg-red-50 hover:text-red-500 shrink-0"
                           >
                             <Trash2 className="h-5 w-5" />
                           </Button>
@@ -936,13 +1001,13 @@ export default function UpdateProduct({
                     <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                       Search Tags (SEO)
                     </label>
-                    <div className="p-4 bg-muted/30 rounded-2xl border border-border border-dashed">
+                    <div className="p-4 bg-muted/30 rounded-md border border-border border-dashed">
                       <div className="flex flex-wrap gap-2 mb-3">
                         {tags.map((t) => (
                           <Badge
                             key={t}
                             variant="secondary"
-                            className="rounded-lg py-1 pl-3 pr-1 text-xs font-medium gap-1 group"
+                            className="rounded-sm py-1 pl-3 pr-1 text-xs font-medium gap-1 group"
                           >
                             {t}
                             <X
@@ -1004,7 +1069,7 @@ export default function UpdateProduct({
 
         {/* Summary Sidebar */}
         <div className="space-y-8">
-          <Card className="rounded-[32px] border-border shadow-soft overflow-hidden sticky top-8">
+          <Card className="rounded-md border-border shadow-soft overflow-hidden sticky top-8">
             <div className="aspect-video bg-muted/30 relative">
               {previews[0] ? (
                 <img
@@ -1071,7 +1136,7 @@ export default function UpdateProduct({
               </div>
               <Button
                 type="submit"
-                className="w-full h-14 rounded-2xl font-medium text-lg gap-3 shadow-xl shadow-primary/20"
+                className="w-full h-14  font-medium text-lg gap-3 shadow-xl shadow-primary/20"
               >
                 <Save className="h-5 w-5" />
                 {buttonLabel}

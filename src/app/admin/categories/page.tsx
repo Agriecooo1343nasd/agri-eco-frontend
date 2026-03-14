@@ -188,19 +188,17 @@ export default function AdminCategories() {
             Organize your organic products into manageable groups.
           </p>
         </div>
-        <Button
-          onClick={() => handleOpenDialog()}
-        >
+        <Button onClick={() => handleOpenDialog()}>
           <Plus className="h-5 w-5" /> Add Category
         </Button>
       </div>
 
-      <div className="bg-card p-4 rounded-xl border border-border">
+      <div className="p-4 rounded-xl border border-border">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-all" />
           <Input
             placeholder="Search by category name or keyword..."
-            className="pl-12 h-14 rounded-2xl border-none bg-muted/20 focus:bg-white focus:ring-4 focus:ring-primary/5 font-bold text-base transition-all"
+            className="pl-12 h-14 rounded-md border-none bg-muted/20 focus:bg-white focus:ring-4 focus:ring-primary/5 font-bold text-base transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -236,7 +234,7 @@ export default function AdminCategories() {
                   className="border-border group hover:bg-muted/5 transition-colors"
                 >
                   <TableCell className="px-8 py-5">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden border border-border bg-muted/20 group-hover:scale-105 transition-transform duration-300">
+                    <div className="w-16 h-16 rounded-md overflow-hidden border border-border bg-muted/20 group-hover:scale-105 transition-transform duration-300">
                       {category.image ? (
                         <img
                           src={category.image}
@@ -296,7 +294,7 @@ export default function AdminCategories() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="end"
-                        className="w-[180px] rounded-2xl p-2 border-border"
+                        className="w-[180px] rounded-md p-2 border-border"
                       >
                         <DropdownMenuItem
                           className="rounded-xl px-3 py-2.5 focus:bg-primary/10 focus:text-primary cursor-pointer font-bold gap-2"
@@ -331,7 +329,7 @@ export default function AdminCategories() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-2xl">
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none shadow-2xl rounded-md">
           <div className="bg-primary p-8 text-white relative">
             <Button
               variant="ghost"
@@ -341,7 +339,7 @@ export default function AdminCategories() {
             >
               <X className="h-5 w-5" />
             </Button>
-            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-white/10">
+            <div className="w-12 h-12 bg-white/20 rounded-md flex items-center justify-center mb-4 shadow-lg shadow-white/10">
               <FolderTree className="h-6 w-6 text-white" />
             </div>
             <DialogTitle className="text-3xl font-black font-heading leading-tight">
@@ -426,7 +424,7 @@ export default function AdminCategories() {
                   </div>
                 ) : (
                   <div className="relative">
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-2xl cursor-pointer bg-muted/10 hover:bg-muted/30 transition-all hover:border-primary/50">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-md cursor-pointer bg-muted/10 hover:bg-muted/30 transition-all hover:border-primary/50">
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         {currentCategory?.image ? (
                           <div className="w-20 h-20 rounded-xl overflow-hidden mb-2">
@@ -455,15 +453,10 @@ export default function AdminCategories() {
             </div>
           </div>
           <DialogFooter className="p-8 bg-muted/5 border-t border-border mt-0 sm:justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setIsDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Discard
             </Button>
-            <Button
-              onClick={handleSave}
-            >
+            <Button onClick={handleSave}>
               {currentCategory?.id ? "Update Info" : "Create Category"}
             </Button>
           </DialogFooter>
