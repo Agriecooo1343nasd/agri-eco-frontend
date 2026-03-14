@@ -19,10 +19,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import {
-  getAboutGalleryImages,
-  getAboutTeamMembers,
-} from "@/lib/about-store";
+import { getAboutGalleryImages, getAboutTeamMembers } from "@/lib/about-store";
 import {
   Dialog,
   DialogContent,
@@ -36,9 +33,7 @@ const AboutPage = () => {
   const teamMembers = getAboutTeamMembers();
   const rawGallery = getAboutGalleryImages();
   const galleryImages: AboutGalleryImage[] = rawGallery.map((img, index) =>
-    typeof img === "string"
-      ? { id: `about-gallery-${index}`, url: img }
-      : img,
+    typeof img === "string" ? { id: `about-gallery-${index}`, url: img } : img,
   );
 
   const [selectedImage, setSelectedImage] = useState<AboutGalleryImage | null>(
@@ -279,9 +274,7 @@ const AboutPage = () => {
                   </div>
                 </div>
               </div>
-              <Button
-                asChild
-              >
+              <Button asChild>
                 <Link href="/contact">Get Directions</Link>
               </Button>
             </div>
@@ -329,6 +322,11 @@ const AboutPage = () => {
               />
             </button>
           ))}
+        </div>
+        <div className="container px-4 mx-auto mt-10 flex justify-center">
+          <Button asChild size="lg" className="font-bold">
+            <Link href="/gallery">Discover Full Gallery</Link>
+          </Button>
         </div>
       </section>
 
