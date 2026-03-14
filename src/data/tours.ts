@@ -24,6 +24,7 @@ export interface TourAccommodation {
   capacity: number;
   available: boolean;
   description: string;
+  gallery?: string[];
 }
 
 export interface Tour {
@@ -142,6 +143,7 @@ export const tours: Tour[] = [
         capacity: 2,
         available: true,
         description: "Cozy cottage overlooking the organic gardens",
+        gallery: [farmstay, farmTour, educational],
       },
       {
         id: "acc-2",
@@ -151,6 +153,7 @@ export const tours: Tour[] = [
         capacity: 2,
         available: true,
         description: "Spacious lodge with panoramic valley views",
+        gallery: [farmstay, harvesting, farmTour],
       },
       {
         id: "acc-3",
@@ -160,6 +163,7 @@ export const tours: Tour[] = [
         capacity: 6,
         available: false,
         description: "Full farmhouse with kitchen, perfect for families",
+        gallery: [farmstay, educational, harvesting],
       },
     ],
     cancellationPolicy:

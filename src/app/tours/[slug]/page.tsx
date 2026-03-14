@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, use } from "react";
+import { useState, use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Clock,
@@ -20,25 +21,25 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { tours, type Tour } from "@/data/tours";
+import { tours, type TourAccommodation } from "@/data/tours";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -76,19 +77,20 @@ export default function TourDetailPage({
   const [accomNights, setAccomNights] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [activeGallery, setActiveGallery] = useState(0);
+  const [selectedAccommodationInfo, setSelectedAccommodationInfo] =
+    useState<TourAccommodation | null>(null);
+  const [activeAccommodationImage, setActiveAccommodationImage] = useState(0);
   const [bookingStep, setBookingStep] = useState(1);
-  const [showWaitlist, setShowWaitlist] = useState(false);
 
   // Calculation for prices
   const selectedSlot = tour?.timeSlots.find((ts) => ts.id === selectedTimeSlot);
   const slotFull = selectedSlot
     ? selectedSlot.booked >= selectedSlot.capacity
     : false;
-  const spotsAvailable = selectedSlot
-    ? selectedSlot.capacity - selectedSlot.booked
-    : 0;
-
   const accomOption = tour?.accommodation?.find((a) => a.id === selectedAccom);
+  const accommodationGallery = selectedAccommodationInfo?.gallery?.length
+    ? selectedAccommodationInfo.gallery
+    : tour?.gallery ?? [];
   const pricePerPerson =
     isGroup && tour?.groupPrice && participants >= (tour?.minParticipants || 1)
       ? tour.groupPrice
@@ -107,7 +109,7 @@ export default function TourDetailPage({
             Tour Not Found
           </h1>
           <p className="text-muted-foreground mb-6">
-            The experience you're looking for doesn't exist.
+            The experience you&apos;re looking for doesn&apos;t exist.
           </p>
           <Link href="/tours">
             <Button>Browse All Tours</Button>
@@ -150,6 +152,11 @@ export default function TourDetailPage({
     .filter((t) => t.id !== tour.id && t.category === tour.category)
     .slice(0, 2);
 
+  const openAccommodationInfo = (accommodation: TourAccommodation) => {
+    setSelectedAccommodationInfo(accommodation);
+    setActiveAccommodationImage(0);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -177,11 +184,14 @@ export default function TourDetailPage({
           <div className="lg:col-span-2 space-y-6">
             {/* Gallery */}
             <div className="space-y-3">
-              <div className="rounded-xl overflow-hidden aspect-[16/9] md:aspect-[21/9]">
-                <img
+              <div className="relative overflow-hidden rounded-xl aspect-video md:aspect-21/9">
+                <Image
                   src={tour.gallery[activeGallery] || tour.image}
                   alt={tour.name}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(min-width: 1024px) 66vw, 100vw"
+                  className="object-cover"
+                  priority
                 />
               </div>
               {tour.gallery.length > 1 && (
@@ -192,10 +202,12 @@ export default function TourDetailPage({
                       onClick={() => setActiveGallery(i)}
                       className={`rounded-lg overflow-hidden border-2 shrink-0 transition-colors ${i === activeGallery ? "border-primary" : "border-transparent"}`}
                     >
-                      <img
+                      <Image
                         src={img}
                         alt=""
-                        className="w-20 h-14 object-cover"
+                        width={80}
+                        height={56}
+                        className="h-14 w-20 object-cover"
                       />
                     </button>
                   ))}
@@ -253,7 +265,7 @@ export default function TourDetailPage({
                   Overview
                 </TabsTrigger>
                 <TabsTrigger value="includes" className="text-xs">
-                  What's Included
+                  What&apos;s Included
                 </TabsTrigger>
                 <TabsTrigger value="highlights" className="text-xs">
                   Highlights
@@ -338,11 +350,13 @@ export default function TourDetailPage({
                       href={`/tours/${rt.slug}`}
                       className="flex gap-3 bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow group"
                     >
-                      <div className="relative w-20 h-20 rounded-lg overflow-hidden shrink-0">
-                        <img
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg">
+                        <Image
                           src={rt.image}
                           alt={rt.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          fill
+                          sizes="80px"
+                          className="object-cover transition-transform group-hover:scale-105"
                         />
                       </div>
                       <div className="min-w-0">
@@ -466,7 +480,6 @@ export default function TourDetailPage({
                             key={ts.id}
                             onClick={() => {
                               setSelectedTimeSlot(ts.id);
-                              if (full) setShowWaitlist(true);
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-xs transition-colors ${
                               selectedTimeSlot === ts.id
@@ -604,7 +617,7 @@ export default function TourDetailPage({
                   {/* Accommodation */}
                   {tour.accommodation && tour.accommodation.length > 0 && (
                     <div className="pt-2">
-                      <Label className="text-[11px] text-muted-foreground mb-2 block flex items-center gap-1">
+                      <Label className="mb-2 flex items-center gap-1 text-[11px] text-muted-foreground">
                         <Home className="h-3.5 w-3.5" /> Add Accommodation
                       </Label>
                       <div className="space-y-2">
@@ -615,34 +628,48 @@ export default function TourDetailPage({
                           None needed
                         </button>
                         {tour.accommodation.map((a) => (
-                          <button
+                          <div
                             key={a.id}
-                            onClick={() =>
-                              a.available && setSelectedAccom(a.id)
-                            }
-                            disabled={!a.available}
-                            className={`w-full text-left px-3 py-2 rounded-lg border text-[11px] transition-colors ${
+                            className={`rounded-lg border p-3 text-[11px] transition-colors ${
                               selectedAccom === a.id
-                                ? "border-primary bg-primary/5 text-primary"
+                                ? "border-primary bg-primary/5"
                                 : a.available
                                   ? "border-border hover:border-primary/50"
-                                  : "border-border opacity-50"
+                                  : "border-border opacity-70"
                             }`}
                           >
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium text-foreground">
-                                {a.name}
-                              </span>
-                              <span className="font-semibold">
-                                {a.pricePerNight === 0
-                                  ? "Included"
-                                  : `${formatPrice(a.pricePerNight)}`}
-                              </span>
+                            <div className="flex items-start justify-between gap-3">
+                              <button
+                                type="button"
+                                onClick={() => a.available && setSelectedAccom(a.id)}
+                                disabled={!a.available}
+                                className="flex-1 text-left"
+                              >
+                                <div className="flex justify-between items-center gap-3">
+                                  <span className="font-medium text-foreground">
+                                    {a.name}
+                                  </span>
+                                  <span className="font-semibold text-foreground">
+                                    {a.pricePerNight === 0
+                                      ? "Included"
+                                      : formatPrice(a.pricePerNight)}
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                  {a.description} · up to {a.capacity} guests
+                                </p>
+                              </button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 shrink-0 text-[10px]"
+                                onClick={() => openAccommodationInfo(a)}
+                              >
+                                View Info
+                              </Button>
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              {a.description} · up to {a.capacity} guests
-                            </p>
-                          </button>
+                          </div>
                         ))}
                       </div>
                       {selectedAccom &&
@@ -705,7 +732,7 @@ export default function TourDetailPage({
                   <div className="bg-accent/30 rounded-lg p-4 space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Tour</span>
-                      <span className="font-medium text-foreground text-right max-w-[140px] truncate">
+                      <span className="max-w-35 truncate text-right font-medium text-foreground">
                         {tour.name}
                       </span>
                     </div>
@@ -761,7 +788,7 @@ export default function TourDetailPage({
                     <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3 flex items-start gap-2 border border-amber-200 dark:border-amber-800">
                       <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                       <p className="text-[10px] text-amber-800 dark:text-amber-300">
-                        This time slot is full. You'll be added to the{" "}
+                        This time slot is full. You&apos;ll be added to the{" "}
                         <strong>waiting list</strong>.
                       </p>
                     </div>
@@ -815,6 +842,100 @@ export default function TourDetailPage({
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={!!selectedAccommodationInfo}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedAccommodationInfo(null);
+            setActiveAccommodationImage(0);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl overflow-hidden">
+          {selectedAccommodationInfo && (
+            <div className="space-y-4">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl">
+                  {selectedAccommodationInfo.name}
+                </DialogTitle>
+                <DialogDescription className="text-sm leading-relaxed">
+                  {selectedAccommodationInfo.description}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <div className="relative aspect-16/10 overflow-hidden rounded-xl border border-border bg-card">
+                  <Image
+                    src={
+                      accommodationGallery[activeAccommodationImage] ??
+                      tour.image
+                    }
+                    alt={selectedAccommodationInfo.name}
+                    fill
+                    sizes="(min-width: 1024px) 720px, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+
+                {accommodationGallery.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {accommodationGallery.map((image, index) => (
+                      <button
+                        key={`${selectedAccommodationInfo.id}-${index}`}
+                        type="button"
+                        onClick={() => setActiveAccommodationImage(index)}
+                        className={`overflow-hidden rounded-lg border-2 transition-colors ${
+                          activeAccommodationImage === index
+                            ? "border-primary"
+                            : "border-transparent"
+                        }`}
+                      >
+                        <Image
+                          src={image}
+                          alt={`${selectedAccommodationInfo.name} preview ${index + 1}`}
+                          width={96}
+                          height={64}
+                          className="h-16 w-24 object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-3 rounded-xl bg-accent/30 p-4 text-sm sm:grid-cols-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Type
+                  </p>
+                  <p className="mt-1 font-medium capitalize text-foreground">
+                    {selectedAccommodationInfo.type}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Capacity
+                  </p>
+                  <p className="mt-1 font-medium text-foreground">
+                    Up to {selectedAccommodationInfo.capacity} guests
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Price
+                  </p>
+                  <p className="mt-1 font-medium text-foreground">
+                    {selectedAccommodationInfo.pricePerNight === 0
+                      ? "Included"
+                      : `${formatPrice(selectedAccommodationInfo.pricePerNight)} / night`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

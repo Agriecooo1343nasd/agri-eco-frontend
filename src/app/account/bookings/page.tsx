@@ -14,6 +14,7 @@ import {
   X,
   Leaf,
   Home,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 import { sampleBookings, type Booking } from "@/data/tours";
@@ -68,12 +69,35 @@ const statusConfig: Record<
   },
 };
 
+const BOOKING_RATINGS_KEY = "agriEco.bookingRatings";
+
+type BookingRatings = Record<string, number>;
+
+function loadBookingRatings(): BookingRatings {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(BOOKING_RATINGS_KEY);
+    return raw ? (JSON.parse(raw) as BookingRatings) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistBookingRatings(ratings: BookingRatings): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(BOOKING_RATINGS_KEY, JSON.stringify(ratings));
+}
+
 export default function MyBookingsPage() {
   const { formatPrice } = usePricing();
   const [bookings] = useState<Booking[]>(sampleBookings);
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Booking | null>(null);
+  const [bookingRatings, setBookingRatings] = useState<BookingRatings>(() =>
+    loadBookingRatings(),
+  );
+  const [hoveredRating, setHoveredRating] = useState<number | null>(null);
 
   const filtered =
     statusFilter === "all"
@@ -85,6 +109,17 @@ export default function MyBookingsPage() {
       description: `Booking ${booking.bookingRef} has been cancelled. Refund will be processed.`,
     });
     setCancelDialog(null);
+  };
+
+  const handleRateBooking = (bookingId: string, rating: number) => {
+    setBookingRatings((prev) => {
+      const next = { ...prev, [bookingId]: rating };
+      persistBookingRatings(next);
+      return next;
+    });
+    toast.success("Thanks for your rating!", {
+      description: `You rated this experience ${rating} out of 5 stars.`,
+    });
   };
 
   return (
@@ -249,7 +284,10 @@ export default function MyBookingsPage() {
       {/* View detail dialog */}
       <Dialog
         open={!!selectedBooking}
-        onOpenChange={() => setSelectedBooking(null)}
+        onOpenChange={() => {
+          setSelectedBooking(null);
+          setHoveredRating(null);
+        }}
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-3">
@@ -377,6 +415,56 @@ export default function MyBookingsPage() {
                   </p>
                 </div>
               )}
+
+              <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+                <p className="font-bold text-foreground text-[11px] uppercase tracking-tight">
+                  Rate This Tour
+                </p>
+                <div
+                  className="flex items-center gap-1"
+                  role="radiogroup"
+                  aria-label="Rate this tour"
+                >
+                  {Array.from({ length: 5 }, (_, idx) => {
+                    const value = idx + 1;
+                    const selected = selectedBooking
+                      ? bookingRatings[selectedBooking.id] || 0
+                      : 0;
+                    const active = (hoveredRating ?? selected) >= value;
+
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected === value}
+                        aria-label={`${value} star${value > 1 ? "s" : ""}`}
+                        className="p-1 rounded-md transition-colors hover:bg-accent"
+                        onMouseEnter={() => setHoveredRating(value)}
+                        onMouseLeave={() => setHoveredRating(null)}
+                        onFocus={() => setHoveredRating(value)}
+                        onBlur={() => setHoveredRating(null)}
+                        onClick={() =>
+                          handleRateBooking(selectedBooking.id, value)
+                        }
+                      >
+                        <Star
+                          className={`h-5 w-5 ${
+                            active
+                              ? "text-amber-500 fill-amber-500"
+                              : "text-muted-foreground/40"
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                  <span className="ml-2 text-[11px] text-muted-foreground font-medium">
+                    {selectedBooking
+                      ? `${bookingRatings[selectedBooking.id] || 0}/5`
+                      : "0/5"}
+                  </span>
+                </div>
+              </div>
 
               <div className="flex justify-between font-bold text-lg border-t border-border pt-4 px-1">
                 <span className="text-foreground">Total Paid</span>
