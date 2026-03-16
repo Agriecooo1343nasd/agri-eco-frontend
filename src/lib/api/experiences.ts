@@ -67,6 +67,33 @@ export interface FetchAdminExperiencesResult {
   pagination: ApiPagination;
 }
 
+export interface CreateAdminExperiencePayload {
+  title: MultiLangText;
+  type: ExperienceType;
+  shortDescription: MultiLangText;
+  fullOverview: MultiLangText;
+  cancellationPolicy?: MultiLangText;
+  heroImage?: string;
+  gallery?: string[];
+  highlights?: string[];
+  requirements?: string[];
+  inclusions?: string[];
+  priceRwf?: number;
+  pricePerGroupRwf?: number;
+  capacity?: number;
+  minParticipants?: number;
+  expectedDuration?: string;
+  durationMinutes?: number;
+  marketSector?: string;
+  destination?: string;
+  linkedAccommodationIds?: string[];
+  isActive?: boolean;
+  isFeatured?: boolean;
+  seasonStart?: string;
+  seasonEnd?: string;
+  languageSupport?: string[];
+}
+
 function buildQuery(params: FetchAdminExperiencesParams): string {
   const query = new URLSearchParams();
 
@@ -104,6 +131,21 @@ export async function fetchAdminExperiences(
 
 export async function deleteAdminExperience(id: string): Promise<void> {
   await apiClient.delete(`/experiences/${id}`);
+}
+
+export async function createAdminExperience(
+  payload: CreateAdminExperiencePayload,
+): Promise<AdminExperience> {
+  const response = await apiClient.post<ApiSuccessResponse<AdminExperience>>(
+    "/experiences",
+    payload,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing created experience response data");
+  }
+
+  return response.data.data;
 }
 
 export function toAbsoluteExperienceImage(url?: string): string {

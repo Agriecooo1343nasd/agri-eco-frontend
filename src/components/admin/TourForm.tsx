@@ -1,40 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ChevronRight,
   Save,
-  Eye,
   Trash2,
-  Calendar,
   Clock,
   MapPin,
   Users,
   DollarSign,
   Maximize2,
   Image as ImageIcon,
-  Map,
-  GraduationCap,
   Globe,
   Plus,
   Home,
   Check,
+  Search,
+  ChevronLeft,
 } from "lucide-react";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -42,15 +39,67 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import {
   MultiLangInput,
   emptyLangValue,
+  type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { accommodations } from "@/data/accommodations";
 import { Tour } from "@/data/tours";
+import {
+  createAdminExperience,
+  type ExperienceType,
+} from "@/lib/api/experiences";
+import {
+  fetchAccommodations,
+  type AdminAccommodation,
+} from "@/lib/api/accommodations";
+
+const EXPERIENCE_TYPE_MAP: Record<string, ExperienceType> = {
+  "farm-tour": "farm_tour",
+  beekeeping: "beekeeping",
+  harvesting: "harvesting",
+  cultural: "cultural",
+  educational: "educational",
+  "farm-stay": "farm_stay",
+  workshop: "workshop",
+};
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const normalizeLang = (value: MultiLangValue): MultiLangValue => ({
+  en: value.en.trim(),
+  rw: value.rw.trim(),
+  fr: value.fr.trim(),
+  sw: value.sw.trim(),
+});
+
+const toEnglishList = (items: { id: string; text: MultiLangValue }[]) =>
+  items.map((item) => item.text.en.trim()).filter(Boolean);
+
+const parseDurationMinutes = (value: string): number => {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return 120;
+
+  const hourMatch = trimmed.match(/(\d+)\s*h/);
+  const minMatch = trimmed.match(/(\d+)\s*m/);
+
+  if (hourMatch || minMatch) {
+    const hours = hourMatch ? Number.parseInt(hourMatch[1], 10) : 0;
+    const mins = minMatch ? Number.parseInt(minMatch[1], 10) : 0;
+    const total = hours * 60 + mins;
+    return total >= 15 ? total : 120;
+  }
+
+  const asNumber = Number.parseInt(trimmed, 10);
+  if (Number.isFinite(asNumber) && asNumber >= 15) {
+    return asNumber;
+  }
+
+  return 120;
+};
 
 const categoryLabels: Record<string, string> = {
   "farm-tour": "Farm Tour",
@@ -71,6 +120,11 @@ export function TourForm({ initialData, mode }: TourFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Accommodations search & pagination
+  const [accommodationsPage, setAccommodationsPage] = useState(1);
+  const [accommodationsSearch, setAccommodationsSearch] = useState("");
+  const [accommodationsLimit] = useState(5);
+
   // Form states
   const [name, setName] = useState(
     initialData?.name
@@ -88,19 +142,25 @@ export function TourForm({ initialData, mode }: TourFormProps) {
       : emptyLangValue(),
   );
 
-  const [highlights, setHighlights] = useState<{ id: string; text: any }[]>(
+  const [highlights, setHighlights] = useState<
+    { id: string; text: MultiLangValue }[]
+  >(
     initialData?.highlights?.map((h) => ({
       id: Math.random().toString(36).substr(2, 9),
       text: { en: h, rw: "", fr: "", sw: "" },
     })) || [],
   );
-  const [requirements, setRequirements] = useState<{ id: string; text: any }[]>(
+  const [requirements, setRequirements] = useState<
+    { id: string; text: MultiLangValue }[]
+  >(
     initialData?.requirements?.map((r) => ({
       id: Math.random().toString(36).substr(2, 9),
       text: { en: r, rw: "", fr: "", sw: "" },
     })) || [],
   );
-  const [included, setIncluded] = useState<{ id: string; text: any }[]>(
+  const [included, setIncluded] = useState<
+    { id: string; text: MultiLangValue }[]
+  >(
     initialData?.includes?.map((i) => ({
       id: Math.random().toString(36).substr(2, 9),
       text: { en: i, rw: "", fr: "", sw: "" },
@@ -134,14 +194,47 @@ export function TourForm({ initialData, mode }: TourFormProps) {
     initialData?.minParticipants?.toString() || "1",
   );
   const [status, setStatus] = useState(initialData?.status || "available");
+  const [marketSector, setMarketSector] = useState("");
   const [location, setLocation] = useState(initialData?.location || "");
+  const [heroImageUrl, setHeroImageUrl] = useState(initialData?.image || "");
+  const [galleryDraft, setGalleryDraft] = useState("");
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(
+    initialData?.gallery ?? [],
+  );
   const [selectedAccommodations, setSelectedAccommodations] = useState<
     string[]
   >(initialData?.accommodation?.map((a) => a.id) || []);
 
-  // Helpers for list management
+  // Fetch accommodations from backend
+  const { data: accommodationsData, isLoading: accommodationsLoading } =
+    useQuery({
+      queryKey: [
+        "accommodations",
+        accommodationsPage,
+        accommodationsSearch,
+        accommodationsLimit,
+      ],
+      queryFn: async () => {
+        try {
+          return await fetchAccommodations({
+            page: accommodationsPage,
+            limit: accommodationsLimit,
+            search: accommodationsSearch || undefined,
+          });
+        } catch {
+          toast.error("Failed to load accommodations", {
+            description:
+              "Backend error. Using fallback mock accommodations data.",
+          });
+          return null;
+        }
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    });
   const addListItem = (
-    setter: React.Dispatch<React.SetStateAction<{ id: string; text: any }[]>>,
+    setter: React.Dispatch<
+      React.SetStateAction<{ id: string; text: MultiLangValue }[]>
+    >,
   ) => {
     setter((prev) => [
       ...prev,
@@ -151,15 +244,19 @@ export function TourForm({ initialData, mode }: TourFormProps) {
 
   const removeListItem = (
     id: string,
-    setter: React.Dispatch<React.SetStateAction<{ id: string; text: any }[]>>,
+    setter: React.Dispatch<
+      React.SetStateAction<{ id: string; text: MultiLangValue }[]>
+    >,
   ) => {
     setter((prev) => prev.filter((item) => item.id !== id));
   };
 
   const updateListItem = (
     id: string,
-    value: any,
-    setter: React.Dispatch<React.SetStateAction<{ id: string; text: any }[]>>,
+    value: MultiLangValue,
+    setter: React.Dispatch<
+      React.SetStateAction<{ id: string; text: MultiLangValue }[]>
+    >,
   ) => {
     setter((prev) =>
       prev.map((item) => (item.id === id ? { ...item, text: value } : item)),
@@ -189,11 +286,116 @@ export function TourForm({ initialData, mode }: TourFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const normalizedName = normalizeLang(name);
+    const normalizedDescription = normalizeLang(description);
+    const normalizedLongDescription = normalizeLang(longDescription);
+    const normalizedPolicy = normalizeLang(policy);
+
+    if (!normalizedName.en) {
+      toast.error("Missing title", {
+        description: "Please provide at least an English title.",
+      });
+      return;
+    }
+
+    if (!normalizedDescription.en) {
+      toast.error("Missing short description", {
+        description: "Please provide at least an English short description.",
+      });
+      return;
+    }
+
+    if (!normalizedLongDescription.en) {
+      toast.error("Missing overview", {
+        description: "Please provide at least an English full overview.",
+      });
+      return;
+    }
+
+    const backendType = EXPERIENCE_TYPE_MAP[category];
+    if (!backendType) {
+      toast.error("Missing experience type", {
+        description: "Please select the tour category/type before publishing.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (mode === "create") {
+        const validAccommodationIds = selectedAccommodations.filter((id) =>
+          UUID_RE.test(id),
+        );
+
+        const languages = Array.from(
+          new Set(
+            [
+              normalizedName.en ? "en" : "",
+              normalizedName.rw ||
+              normalizedDescription.rw ||
+              normalizedLongDescription.rw
+                ? "rw"
+                : "",
+              normalizedName.fr ||
+              normalizedDescription.fr ||
+              normalizedLongDescription.fr
+                ? "fr"
+                : "",
+              normalizedName.sw ||
+              normalizedDescription.sw ||
+              normalizedLongDescription.sw
+                ? "sw"
+                : "",
+            ].filter(Boolean),
+          ),
+        );
+
+        await createAdminExperience({
+          title: normalizedName,
+          type: backendType,
+          shortDescription: normalizedDescription,
+          fullOverview: normalizedLongDescription,
+          cancellationPolicy: normalizedPolicy.en
+            ? normalizedPolicy
+            : undefined,
+          heroImage: heroImageUrl.trim() || undefined,
+          gallery: galleryUrls,
+          highlights: toEnglishList(highlights),
+          requirements: toEnglishList(requirements),
+          inclusions: toEnglishList(included),
+          priceRwf: Number.parseFloat(price || "0") || 0,
+          pricePerGroupRwf: Number.parseFloat(groupPrice || "0") || 0,
+          capacity: Number.parseInt(maxParticipants || "20", 10) || 20,
+          minParticipants: Number.parseInt(minParticipants || "1", 10) || 1,
+          expectedDuration: duration.trim() || undefined,
+          durationMinutes: parseDurationMinutes(duration),
+          marketSector: marketSector.trim() || undefined,
+          destination: location.trim() || undefined,
+          linkedAccommodationIds: validAccommodationIds,
+          isActive: status !== "upcoming",
+          isFeatured: status === "limited",
+          languageSupport: languages.length > 0 ? languages : ["en"],
+        });
+
+        if (selectedAccommodations.length !== validAccommodationIds.length) {
+          toast.warning("Some linked accommodations were skipped", {
+            description:
+              "Only UUID accommodation IDs are accepted by backend, so local mock IDs were not sent.",
+          });
+        }
+
+        if (timeSlots.length > 0) {
+          toast.warning("Time slots not persisted", {
+            description:
+              "Backend create experience DTO currently does not accept time slots. Please ask backend to support this.",
+          });
+        }
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+
       toast.success(
         mode === "create" ? "Experience Published" : "Experience Updated",
         {
@@ -206,7 +408,10 @@ export function TourForm({ initialData, mode }: TourFormProps) {
       router.push("/admin/tours");
     } catch (error) {
       toast.error(mode === "create" ? "Publication Failed" : "Update Failed", {
-        description: "Something went wrong. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.",
       });
     } finally {
       setIsSubmitting(false);
@@ -443,12 +648,12 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                 </div>
               </div>
 
-              {/* What's Included */}
+              {/* What&apos;s Included */}
               <div className="space-y-4 pt-4 border-t border-border/50">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-sm font-semibold">
-                      What's Included
+                      What&apos;s Included
                     </Label>
                     <p className="text-[10px] text-muted-foreground">
                       Services or items provided during the tour
@@ -584,8 +789,8 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                 {timeSlots.length === 0 && (
                   <div className="text-center py-6 border border-dashed rounded-lg bg-muted/20">
                     <p className="text-xs text-muted-foreground">
-                      No time slots defined. Tourists won't be able to book this
-                      experience until you add at least one slot.
+                      No time slots defined. Tourists won&apos;t be able to book
+                      this experience until you add at least one slot.
                     </p>
                   </div>
                 )}
@@ -610,7 +815,9 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                 </Label>
                 <Select
                   value={status}
-                  onValueChange={(val) => setStatus(val as any)}
+                  onValueChange={(val) =>
+                    setStatus(val as "available" | "limited" | "upcoming")
+                  }
                 >
                   <SelectTrigger className="font-medium">
                     <SelectValue placeholder="Select status" />
@@ -631,7 +838,13 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                     <SelectItem value="upcoming">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                        Upcoming/Hidden
+                        Upcoming/
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="sold-out">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-destructive" />
+                        Sold-out
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -640,11 +853,11 @@ export function TourForm({ initialData, mode }: TourFormProps) {
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Market Sector
+                  Experience Type
                 </Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="font-medium">
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder="Select experience type" />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(categoryLabels).map(([k, v]) => (
@@ -654,6 +867,18 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Market Sector (Optional)
+                </Label>
+                <Input
+                  value={marketSector}
+                  onChange={(e) => setMarketSector(e.target.value)}
+                  placeholder="e.g., Family Tourism, Corporate Retreats"
+                  className="font-medium"
+                />
               </div>
             </CardContent>
           </Card>
@@ -672,53 +897,125 @@ export function TourForm({ initialData, mode }: TourFormProps) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 pt-0">
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                {accommodations.map((accom) => (
-                  <div
-                    key={accom.id}
-                    className={cn(
-                      "flex items-center justify-between p-2 rounded-lg border border-border transition-colors cursor-pointer hover:bg-muted/30",
-                      selectedAccommodations.includes(accom.id) &&
-                        "bg-primary/5 border-primary/30",
-                    )}
-                    onClick={() => {
-                      if (selectedAccommodations.includes(accom.id)) {
-                        setSelectedAccommodations((prev) =>
-                          prev.filter((id) => id !== accom.id),
-                        );
-                      } else {
-                        setSelectedAccommodations((prev) => [
-                          ...prev,
-                          accom.id,
-                        ]);
-                      }
-                    }}
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-foreground">
-                        {accom.name}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {accom.type}
-                      </span>
-                    </div>
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded border border-input flex items-center justify-center transition-colors",
-                        selectedAccommodations.includes(accom.id)
-                          ? "bg-primary border-primary"
-                          : "bg-background",
-                      )}
-                    >
-                      {selectedAccommodations.includes(accom.id) && (
-                        <Check className="h-3 w-3 text-primary-foreground" />
-                      )}
-                    </div>
-                  </div>
-                ))}
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search accommodations..."
+                  value={accommodationsSearch}
+                  onChange={(e) => {
+                    setAccommodationsSearch(e.target.value);
+                    setAccommodationsPage(1);
+                  }}
+                  className="pl-8 h-8 text-xs"
+                />
               </div>
+
+              {/* Accommodations List with Fallback */}
+              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {accommodationsLoading ? (
+                  <div className="text-center py-4">
+                    <p className="text-xs text-muted-foreground">
+                      Loading accommodations...
+                    </p>
+                  </div>
+                ) : accommodationsData && accommodationsData.data.length > 0 ? (
+                  accommodationsData.data.map((accom: AdminAccommodation) => (
+                    <div
+                      key={accom.id}
+                      className={cn(
+                        "flex items-center justify-between p-2 rounded-lg border border-border transition-colors cursor-pointer hover:bg-muted/30",
+                        selectedAccommodations.includes(accom.id) &&
+                          "bg-primary/5 border-primary/30",
+                      )}
+                      onClick={() => {
+                        if (selectedAccommodations.includes(accom.id)) {
+                          setSelectedAccommodations((prev) =>
+                            prev.filter((id) => id !== accom.id),
+                          );
+                        } else {
+                          setSelectedAccommodations((prev) => [
+                            ...prev,
+                            accom.id,
+                          ]);
+                        }
+                      }}
+                    >
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="text-xs font-semibold text-foreground truncate">
+                          {accom.name.en}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {accom.category} • {accom.maxGuests} guests • RWF{" "}
+                          {accom.ratePerNightRwf.toLocaleString()}
+                        </span>
+                      </div>
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded border border-input flex items-center justify-center transition-colors shrink-0 ml-2",
+                          selectedAccommodations.includes(accom.id)
+                            ? "bg-primary border-primary"
+                            : "bg-background",
+                        )}
+                      >
+                        {selectedAccommodations.includes(accom.id) && (
+                          <Check className="h-3 w-3 text-primary-foreground" />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 border border-dashed rounded-lg bg-muted/20">
+                    <p className="text-[10px] text-muted-foreground">
+                      {accommodationsSearch
+                        ? "No accommodations match your search"
+                        : "No accommodations available"}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Pagination Controls */}
+              {accommodationsData &&
+                accommodationsData.pagination.pages > 1 && (
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setAccommodationsPage((p) => Math.max(1, p - 1))
+                      }
+                      disabled={accommodationsPage === 1}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <ChevronLeft className="h-3 w-3" /> Prev
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      Page {accommodationsData.pagination.page} of{" "}
+                      {accommodationsData.pagination.pages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setAccommodationsPage((p) =>
+                          Math.min(accommodationsData.pagination.pages, p + 1),
+                        )
+                      }
+                      disabled={
+                        accommodationsPage ===
+                        accommodationsData.pagination.pages
+                      }
+                      className="h-7 text-xs gap-1"
+                    >
+                      Next <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
+              {/* Summary */}
               {selectedAccommodations.length > 0 && (
-                <p className="text-[10px] text-muted-foreground text-center">
+                <p className="text-[10px] text-muted-foreground text-center pt-2 border-t border-border/50">
                   {selectedAccommodations.length} accommodation(s) linked
                 </p>
               )}
@@ -838,57 +1135,121 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                 Media Assets
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:bg-muted/30 transition-colors cursor-pointer group">
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+            <CardContent className="space-y-4 pt-0">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Hero Image URL
+                </Label>
+                <Input
+                  value={heroImageUrl}
+                  onChange={(e) => setHeroImageUrl(e.target.value)}
+                  placeholder="https://example.com/hero-image.jpg"
+                  className="font-medium"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Gallery Image URLs
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={galleryDraft}
+                    onChange={(e) => setGalleryDraft(e.target.value)}
+                    placeholder="https://example.com/gallery-image.jpg"
+                    className="font-medium"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const url = galleryDraft.trim();
+                      if (!url) return;
+                      setGalleryUrls((prev) => [...prev, url]);
+                      setGalleryDraft("");
+                    }}
+                  >
+                    Add
+                  </Button>
                 </div>
-                <p className="text-sm font-semibold text-foreground">
-                  Upload Hero Image
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  1200 x 800 recommended
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/10 p-3">
+                <p className="text-[11px] font-medium text-muted-foreground">
+                  Backend currently accepts image URLs for experience media.
+                  File upload for experiences is not available yet.
                 </p>
               </div>
 
-              <div className="mt-4 flex gap-2">
-                <div className="w-1/4 aspect-square rounded-lg bg-muted border border-border flex items-center justify-center">
+              <div className="mt-2 flex gap-2">
+                <div className="flex aspect-square w-1/4 items-center justify-center rounded-lg border border-border bg-muted">
                   <Plus className="h-4 w-4 text-muted-foreground" />
                 </div>
-                {initialData?.image ? (
-                  <div className="w-1/4 aspect-square rounded-lg border border-border overflow-hidden">
+                {heroImageUrl ? (
+                  <div className="aspect-square w-1/4 overflow-hidden rounded-lg border border-border">
                     <img
-                      src={initialData.image}
+                      src={heroImageUrl}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="w-1/4 aspect-square rounded-lg bg-muted border border-border" />
+                  <div className="aspect-square w-1/4 rounded-lg border border-border bg-muted" />
                 )}
-                {initialData?.gallery?.[0] ? (
-                  <div className="w-1/4 aspect-square rounded-lg border border-border overflow-hidden">
+                {galleryUrls[0] ? (
+                  <div className="aspect-square w-1/4 overflow-hidden rounded-lg border border-border">
                     <img
-                      src={initialData.gallery[0]}
+                      src={galleryUrls[0]}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="w-1/4 aspect-square rounded-lg bg-muted border border-border" />
+                  <div className="aspect-square w-1/4 rounded-lg border border-border bg-muted" />
                 )}
-                {initialData?.gallery?.[1] ? (
-                  <div className="w-1/4 aspect-square rounded-lg border border-border overflow-hidden">
+                {galleryUrls[1] ? (
+                  <div className="aspect-square w-1/4 overflow-hidden rounded-lg border border-border">
                     <img
-                      src={initialData.gallery[1]}
+                      src={galleryUrls[1]}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="w-1/4 aspect-square rounded-lg bg-muted border border-border" />
+                  <div className="aspect-square w-1/4 rounded-lg border border-border bg-muted" />
                 )}
               </div>
+
+              {galleryUrls.length > 0 && (
+                <div className="space-y-2">
+                  {galleryUrls.map((url, index) => (
+                    <div
+                      key={`${url}-${index}`}
+                      className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5"
+                    >
+                      <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <p className="flex-1 truncate text-[11px] text-muted-foreground">
+                        {url}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() =>
+                          setGalleryUrls((prev) =>
+                            prev.filter(
+                              (_, currentIndex) => currentIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
