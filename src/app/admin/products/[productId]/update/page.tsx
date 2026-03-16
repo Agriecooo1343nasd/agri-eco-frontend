@@ -1,7 +1,10 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Upload,
@@ -57,7 +60,14 @@ import { usePricing } from "@/context/PricingContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { products as baseProducts } from "@/data/products";
+import {
+  fetchAdminProductById,
+  updateAdminProduct,
+  fetchCategoriesForAdmin,
+  toAbsoluteMediaUrl,
+  type CreateAdminProductPayload,
+  type ProductCategory,
+} from "@/lib/api/products";
 
 interface Batch {
   id: string;
@@ -67,94 +77,172 @@ interface Batch {
   quantity: number;
 }
 
-const CATEGORIES = [
-  "Fruits",
-  "Vegetables",
-  "Dairy",
-  "Organic Honey",
-  "Green Tea",
-  "Grains",
-  "Oils",
-  "Spices",
-];
+const toIsoDateTime = (value?: string) => {
+  if (!value?.trim()) return undefined;
+  const raw = value.trim();
 
-export default function UpdateProduct({
-  params,
-}: {
-  params: Promise<{ productId: string }>;
-}) {
-  const { productId } = use(params);
+  // Date-only inputs from <input type="date"> need a full RFC3339 datetime.
+  const normalized = raw.includes("T") ? raw : `${raw}T00:00:00.000Z`;
+  const date = new Date(normalized);
+
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+};
+
+const toDateInput = (value?: string) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value.includes("T") ? value.split("T")[0] : value;
+  }
+  return parsed.toISOString().slice(0, 10);
+};
+
+const parseDimensions = (value: string) => {
+  const matches = value
+    .split(/[xX]/)
+    .map((part) => Number(part.trim()))
+    .filter((num) => Number.isFinite(num));
+
+  if (matches.length !== 3) return undefined;
+
+  const [length, width, height] = matches;
+  return { length, width, height };
+};
+
+export default function UpdateProduct() {
+  const routeParams = useParams<{ productId: string | string[] }>();
+  const routeProductId = Array.isArray(routeParams?.productId)
+    ? routeParams.productId[0]
+    : routeParams?.productId;
+  const productId = routeProductId ?? "";
   const router = useRouter();
   const { formatPrice } = usePricing();
 
-  const existingProduct = baseProducts.find((p) => p.id === Number(productId));
-  const mockStatus: "Active" | "Draft" =
-    Number(productId) % 4 === 0 ? "Draft" : "Active";
+  // Fetch product data
+  const {
+    data: product,
+    isLoading: productLoading,
+    error: productError,
+  } = useQuery({
+    queryKey: ["admin-product", productId],
+    queryFn: () => fetchAdminProductById(productId),
+    enabled: !!productId,
+  });
 
-  const [initialStatus] = useState<"Active" | "Draft" | "Inactive">(mockStatus);
-  const [isActivated, setIsActivated] = useState(mockStatus === "Active");
+  // Fetch categories
+  const { data: categoryResult } = useQuery({
+    queryKey: ["admin-product-categories"],
+    queryFn: fetchCategoriesForAdmin,
+  });
+  const categories: ProductCategory[] = categoryResult?.data ?? [];
 
-  const [name, setName] = useState(existingProduct?.name ?? "");
-  const [shortDesc, setShortDesc] = useState(
-    existingProduct?.shortDescription ?? "",
-  );
-  const [longDesc, setLongDesc] = useState(
-    existingProduct?.longDescription ?? "",
-  );
-  const [unit, setUnit] = useState(existingProduct?.unit || "kg");
-  const [activeCategory, setActiveCategory] = useState(
-    existingProduct?.category ?? "",
-  );
+  // State for form fields
+  const [name, setName] = useState("");
+  const [shortDesc, setShortDesc] = useState("");
+  const [longDesc, setLongDesc] = useState("");
+  const [unit, setUnit] = useState("kg");
+  const [activeCategory, setActiveCategory] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
-  const [categories, setCategories] = useState(CATEGORIES);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-
-  const [price, setPrice] = useState(existingProduct?.price?.toString() ?? "");
-  const [oldPrice, setOldPrice] = useState(
-    existingProduct?.oldPrice?.toString() || "",
-  );
+  const [price, setPrice] = useState("");
+  const [oldPrice, setOldPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [dimensions, setDimensions] = useState("");
-
   const [shelfLife, setShelfLife] = useState("");
   const [storage, setStorage] = useState("");
-  const [tags, setTags] = useState<string[]>(
-    existingProduct?.category
-      ? [existingProduct.category, "Fresh", "Organic"]
-      : [],
-  );
+  const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [features, setFeatures] = useState<string[]>([
-    "Organic Certified",
-    "Local Farm Sourced",
-    "Pesticide Free",
-  ]);
-  const [benefits, setBenefits] = useState<string[]>([
-    "High in Nutrients",
-    "Supports Local Economy",
-    "Better Flavor",
-  ]);
-
-  const [batches, setBatches] = useState<Batch[]>(
-    existingProduct
-      ? [
-          {
-            id: "b1",
-            batchNumber: `B-${Number(productId)}-01`,
-            manufactureDate: "2024-02-01",
-            expiryDate: "2024-05-01",
-            quantity: existingProduct.stock || 50,
-          },
-        ]
-      : [],
-  );
+  const [features, setFeatures] = useState<string[]>([]);
+  const [benefits, setBenefits] = useState<string[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>(
-    existingProduct
-      ? [existingProduct.image, ...(existingProduct.images || [])]
-      : [],
-  );
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [isActivated, setIsActivated] = useState(false);
+  const [initialStatus, setInitialStatus] = useState<
+    "Active" | "Draft" | "Inactive"
+  >("Draft");
+  const [activeTab, setActiveTab] = useState("general");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const selectedCategoryLabel =
+    categories.find((c) => c.id === activeCategory)?.name ??
+    categories.find((c) => c.name === activeCategory)?.name ??
+    product?.category?.name ??
+    "";
 
+  // Pre-populate fields from backend
+  useEffect(() => {
+    if (!product) return;
+    setName(product.name ?? "");
+    setShortDesc(product.shortDescription ?? "");
+    setLongDesc(product.description ?? "");
+    setUnit(product.unit ?? "kg");
+    setActiveCategory(product.category?.id ?? "");
+    setPrice(product.sellingPrice?.toString() ?? "");
+    setOldPrice(product.originalPrice?.toString() ?? "");
+    setTags(product.tags ?? []);
+    setFeatures(product.features ?? []);
+    setBenefits(product.benefits ?? []);
+    setBatches(
+      (product.batches ?? []).map((batch, index) => ({
+        id: `${batch.batchId}-${index}`,
+        batchNumber: batch.batchId ?? "",
+        manufactureDate: toDateInput(batch.receivedDate),
+        expiryDate: toDateInput(batch.expiryDate),
+        quantity: Number(batch.quantity) || 0,
+      })),
+    );
+    setWeight(
+      product.shipping?.weight !== undefined
+        ? String(product.shipping.weight)
+        : "",
+    );
+    setShelfLife(product.shipping?.shelfLife ?? "");
+    setStorage(product.shipping?.storageCondition ?? "");
+    setDimensions(
+      product.shipping?.dimensions
+        ? `${product.shipping.dimensions.length} x ${product.shipping.dimensions.width} x ${product.shipping.dimensions.height}`
+        : "",
+    );
+    setPreviews((product.images ?? []).map((img) => toAbsoluteMediaUrl(img.url)));
+    setIsActivated(product.isActive ?? false);
+    setInitialStatus(product.isActive ? "Active" : "Draft");
+  }, [product]);
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({
+      payload,
+      files,
+    }: {
+      payload: Partial<CreateAdminProductPayload>;
+      files?: { images?: File[]; videos?: File[] };
+    }) => updateAdminProduct(productId, payload, files),
+    onSuccess: () => {
+      toast.success("Product updated successfully");
+      router.push("/admin/products");
+    },
+    onError: (err: Error) => {
+      toast.error("Update failed", { description: err.message || "" });
+    },
+  });
+
+  // Submit handler
+  // Duplicate handleSubmit removed. Only keep one definition.
+
+  if (productLoading) return <div className="p-8 text-center">Loading...</div>;
+  if (productError)
+    return (
+      <div className="p-8 text-center text-red-500">Error loading product.</div>
+    );
+  if (!product)
+    return (
+      <div className="p-8 text-center text-red-500 font-bold">
+        Product not found.
+      </div>
+    );
+
+  // Handlers
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && tagInput.trim()) {
       e.preventDefault();
@@ -219,31 +307,130 @@ export default function UpdateProduct({
   };
 
   const createCategory = () => {
-    if (searchCategory && !categories.includes(searchCategory)) {
-      setCategories([...categories, searchCategory]);
+    // Category creation logic should be handled via API, not local state.
+    // Remove setCategories and fix category handling.
+    if (
+      searchCategory &&
+      !categories.some((cat) => cat.name === searchCategory)
+    ) {
       setActiveCategory(searchCategory);
       setIsCategoryOpen(false);
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.category;
+        return next;
+      });
       toast.success("New Category Added", {
         description: `Added "${searchCategory}" to categories.`,
       });
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const finalStatus = isActivated ? "Active" : "Draft";
-    toast.success("Product Updated", {
-      description: `"${name}" has been updated successfully as ${finalStatus}.`,
+  // Validate required fields before submission
+  const validateForm = (): {
+    valid: boolean;
+    errors: Record<string, string>;
+    firstErrorTab: string;
+    firstErrorFieldId: string;
+  } => {
+    const errors: Record<string, string> = {};
+    if (!name.trim()) errors.name = "Product name is required";
+    if (!activeCategory) errors.category = "Category is required";
+    if (!unit) errors.unit = "Unit is required";
+    if (!shortDesc.trim()) errors.shortDesc = "Short description is required";
+    if (!price || Number(price) <= 0)
+      errors.price = "Selling price must be greater than 0";
+    batches.forEach((batch, i) => {
+      if (!batch.batchNumber.trim())
+        errors[`batch_${i}_batchNumber`] = "Batch name is required";
+      if (!batch.expiryDate)
+        errors[`batch_${i}_expiryDate`] = "Expiry date is required";
     });
-    router.push("/admin/products");
+    const generalFieldKeys = ["name", "category", "unit", "shortDesc", "price"];
+    const hasGeneralErrors = generalFieldKeys.some((k) => k in errors);
+    const hasInventoryErrors = Object.keys(errors).some((k) =>
+      k.startsWith("batch_"),
+    );
+    let firstErrorTab = "general";
+    let firstErrorFieldId = "";
+    if (hasGeneralErrors) {
+      firstErrorTab = "general";
+      const firstKey = generalFieldKeys.find((k) => k in errors) ?? "";
+      firstErrorFieldId = firstKey ? `field-${firstKey}` : "";
+    } else if (hasInventoryErrors) {
+      firstErrorTab = "inventory";
+      const firstBatchKey = Object.keys(errors).find((k) =>
+        k.startsWith("batch_"),
+      );
+      firstErrorFieldId = firstBatchKey ? `field-${firstBatchKey}` : "";
+    }
+    return {
+      valid: Object.keys(errors).length === 0,
+      errors,
+      firstErrorTab,
+      firstErrorFieldId,
+    };
   };
 
-  if (!existingProduct)
-    return (
-      <div className="p-8 text-center text-red-500 font-bold">
-        Product not found.
-      </div>
-    );
+  // Submit handler
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const {
+      valid,
+      errors: validationErrors,
+      firstErrorTab,
+      firstErrorFieldId,
+    } = validateForm();
+    if (!valid) {
+      setFieldErrors(validationErrors);
+      setActiveTab(firstErrorTab);
+      if (firstErrorFieldId) {
+        setTimeout(() => {
+          const el = document.getElementById(firstErrorFieldId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            (el as HTMLElement).focus?.();
+          }
+        }, 150);
+      }
+      return;
+    }
+    setFieldErrors({});
+    const parsedDimensions = dimensions.trim()
+      ? parseDimensions(dimensions)
+      : undefined;
+
+    const payload = {
+      name,
+      shortDescription: shortDesc,
+      description: longDesc,
+      unit: unit as CreateAdminProductPayload["unit"],
+      category: activeCategory,
+      sellingPrice: Number(price),
+      originalPrice: Number(oldPrice) || undefined,
+      tags,
+      features,
+      benefits,
+      batches: batches.map((batch) => ({
+        batchId: batch.batchNumber || batch.id,
+        quantity: batch.quantity,
+        costPrice: 0,
+        expiryDate: toIsoDateTime(batch.expiryDate),
+        receivedDate: toIsoDateTime(batch.manufactureDate),
+      })),
+      shipping:
+        weight || shelfLife || storage || parsedDimensions
+          ? {
+              weight: weight ? Number(weight) : undefined,
+              dimensions: parsedDimensions,
+              shelfLife: shelfLife || undefined,
+              storageCondition: storage || undefined,
+            }
+          : undefined,
+      isActive: isActivated,
+    };
+    updateMutation.mutate({ payload, files: { images } });
+  };
 
   const buttonLabel = isActivated ? "Update Product" : "Save Changes";
 
@@ -293,7 +480,11 @@ export default function UpdateProduct({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-8">
-          <Tabs defaultValue="general" className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
             <TabsList className="bg-white border p-1 rounded-2xl h-auto flex-wrap justify-start gap-1">
               <TabsTrigger
                 value="general"
@@ -345,11 +536,29 @@ export default function UpdateProduct({
                       Product Name <span className="text-destructive">*</span>
                     </label>
                     <Input
+                      id="field-name"
                       placeholder="e.g. Pure Mountain Honey"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (fieldErrors.name)
+                          setFieldErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.name;
+                            return next;
+                          });
+                      }}
+                      className={cn(
+                        fieldErrors.name &&
+                          "border-destructive focus-visible:ring-destructive",
+                      )}
                       required
                     />
+                    {fieldErrors.name && (
+                      <p className="text-destructive text-xs mt-1 font-medium">
+                        {fieldErrors.name}
+                      </p>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -362,15 +571,17 @@ export default function UpdateProduct({
                       >
                         <PopoverTrigger asChild>
                           <Button
+                            id="field-category"
                             variant="outline"
                             role="combobox"
                             className={cn(
                               " w-full justify-between bg-muted/20 border-border text-left font-medium px-4",
                               !activeCategory && "text-muted-foreground",
+                              fieldErrors.category && "border-destructive",
                             )}
                           >
                             {activeCategory
-                              ? activeCategory
+                              ? selectedCategoryLabel || activeCategory
                               : "Select or create category..."}
                             <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
@@ -405,8 +616,8 @@ export default function UpdateProduct({
                               <CommandGroup>
                                 {categories.map((c) => (
                                   <CommandItem
-                                    key={c}
-                                    value={c}
+                                    key={c.id}
+                                    value={c.id}
                                     onSelect={(currentValue) => {
                                       setActiveCategory(
                                         currentValue === activeCategory
@@ -414,18 +625,26 @@ export default function UpdateProduct({
                                           : currentValue,
                                       );
                                       setIsCategoryOpen(false);
+                                      if (fieldErrors.category)
+                                        setFieldErrors((prev) => {
+                                          const next = { ...prev };
+                                          delete next.category;
+                                          return next;
+                                        });
                                     }}
                                     className="py-3 px-4 rounded-xl m-1"
                                   >
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        activeCategory === c
+                                        activeCategory === c.id
                                           ? "opacity-100"
                                           : "opacity-0",
                                       )}
                                     />
-                                    <span className="font-medium">{c}</span>
+                                    <span className="font-medium">
+                                      {c.name}
+                                    </span>
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
@@ -433,14 +652,36 @@ export default function UpdateProduct({
                           </Command>
                         </PopoverContent>
                       </Popover>
+                      {fieldErrors.category && (
+                        <p className="text-destructive text-xs mt-1 font-medium">
+                          {fieldErrors.category}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                         Measurement Unit{" "}
                         <span className="text-destructive">*</span>
                       </label>
-                      <Select value={unit} onValueChange={setUnit}>
-                        <SelectTrigger className="h-14 bg-muted/20 border-border font-medium">
+                      <Select
+                        value={unit}
+                        onValueChange={(val) => {
+                          setUnit(val);
+                          if (fieldErrors.unit)
+                            setFieldErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.unit;
+                              return next;
+                            });
+                        }}
+                      >
+                        <SelectTrigger
+                          id="field-unit"
+                          className={cn(
+                            "h-14 bg-muted/20 border-border font-medium",
+                            fieldErrors.unit && "border-destructive",
+                          )}
+                        >
                           <SelectValue placeholder="Select Unit" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl border-border">
@@ -450,8 +691,14 @@ export default function UpdateProduct({
                           <SelectItem value="oz">Ounces (oz)</SelectItem>
                           <SelectItem value="pack">Packets / Units</SelectItem>
                           <SelectItem value="liter">Liters (L)</SelectItem>
+                          <SelectItem value="piece">Pieces</SelectItem>
                         </SelectContent>
                       </Select>
+                      {fieldErrors.unit && (
+                        <p className="text-destructive text-xs mt-1 font-medium">
+                          {fieldErrors.unit}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="space-y-6">
@@ -461,11 +708,29 @@ export default function UpdateProduct({
                         <span className="text-destructive">*</span>
                       </label>
                       <Input
+                        id="field-shortDesc"
                         placeholder="Brief summary for product cards..."
                         value={shortDesc}
-                        onChange={(e) => setShortDesc(e.target.value)}
+                        onChange={(e) => {
+                          setShortDesc(e.target.value);
+                          if (fieldErrors.shortDesc)
+                            setFieldErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.shortDesc;
+                              return next;
+                            });
+                        }}
+                        className={cn(
+                          fieldErrors.shortDesc &&
+                            "border-destructive focus-visible:ring-destructive",
+                        )}
                         required
                       />
+                      {fieldErrors.shortDesc && (
+                        <p className="text-destructive text-xs mt-1 font-medium">
+                          {fieldErrors.shortDesc}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
@@ -508,12 +773,30 @@ export default function UpdateProduct({
                         <span className="text-destructive">*</span>
                       </label>
                       <Input
+                        id="field-price"
                         type="number"
                         placeholder="0.00"
                         value={price}
-                        onChange={(e) => setPrice(e.target.value)}
+                        onChange={(e) => {
+                          setPrice(e.target.value);
+                          if (fieldErrors.price)
+                            setFieldErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.price;
+                              return next;
+                            });
+                        }}
+                        className={cn(
+                          fieldErrors.price &&
+                            "border-destructive focus-visible:ring-destructive",
+                        )}
                         required
                       />
+                      {fieldErrors.price && (
+                        <p className="text-destructive text-xs mt-1 font-medium">
+                          {fieldErrors.price}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
@@ -584,21 +867,50 @@ export default function UpdateProduct({
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {batches.map((batch) => (
+                        {batches.map((batch, batchIndex) => (
                           <tr key={batch.id}>
-                            <td className="px-6 py-3">
+                            <td className="px-6 py-3 align-top">
                               <Input
+                                id={`field-batch_${batchIndex}_batchNumber`}
                                 placeholder="e.g. B-2026-A"
                                 value={batch.batchNumber}
-                                onChange={(e) =>
+                                onChange={(e) => {
                                   updateBatch(
                                     batch.id,
                                     "batchNumber",
                                     e.target.value,
+                                  );
+                                  if (
+                                    fieldErrors[
+                                      `batch_${batchIndex}_batchNumber`
+                                    ]
                                   )
-                                }
-                                className="h-10 border-none shadow-none focus-visible:ring-0 font-medium p-0"
+                                    setFieldErrors((prev) => {
+                                      const next = { ...prev };
+                                      delete next[
+                                        `batch_${batchIndex}_batchNumber`
+                                      ];
+                                      return next;
+                                    });
+                                }}
+                                className={cn(
+                                  "h-10 border-none shadow-none focus-visible:ring-0 font-medium p-0",
+                                  fieldErrors[
+                                    `batch_${batchIndex}_batchNumber`
+                                  ] && "ring-1 ring-destructive rounded",
+                                )}
                               />
+                              {fieldErrors[
+                                `batch_${batchIndex}_batchNumber`
+                              ] && (
+                                <p className="text-destructive text-[10px] mt-1 font-medium">
+                                  {
+                                    fieldErrors[
+                                      `batch_${batchIndex}_batchNumber`
+                                    ]
+                                  }
+                                </p>
+                              )}
                             </td>
                             <td className="px-6 py-3">
                               <Popover>
@@ -649,16 +961,21 @@ export default function UpdateProduct({
                                 </PopoverContent>
                               </Popover>
                             </td>
-                            <td className="px-6 py-3">
+                            <td className="px-6 py-3 align-top">
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button
+                                    id={`field-batch_${batchIndex}_expiryDate`}
                                     type="button"
                                     variant="ghost"
                                     className={cn(
                                       "h-10 justify-start px-0 text-left font-medium text-red-500 hover:bg-transparent",
                                       !batch.expiryDate &&
                                         "text-muted-foreground",
+                                      fieldErrors[
+                                        `batch_${batchIndex}_expiryDate`
+                                      ] &&
+                                        "text-destructive underline decoration-dashed",
                                     )}
                                   >
                                     <CalendarDays className="mr-2 h-4 w-4" />
@@ -685,13 +1002,26 @@ export default function UpdateProduct({
                                           )
                                         : undefined
                                     }
-                                    onSelect={(date: Date | undefined) =>
+                                    onSelect={(date: Date | undefined) => {
                                       updateBatch(
                                         batch.id,
                                         "expiryDate",
                                         date ? format(date, "yyyy-MM-dd") : "",
+                                      );
+                                      if (
+                                        date &&
+                                        fieldErrors[
+                                          `batch_${batchIndex}_expiryDate`
+                                        ]
                                       )
-                                    }
+                                        setFieldErrors((prev) => {
+                                          const next = { ...prev };
+                                          delete next[
+                                            `batch_${batchIndex}_expiryDate`
+                                          ];
+                                          return next;
+                                        });
+                                    }}
                                     disabled={(date: Date) => {
                                       if (!batch.manufactureDate) {
                                         return false;
@@ -707,19 +1037,34 @@ export default function UpdateProduct({
                                   />
                                 </PopoverContent>
                               </Popover>
+                              {fieldErrors[
+                                `batch_${batchIndex}_expiryDate`
+                              ] && (
+                                <p className="text-destructive text-[10px] mt-1 font-medium">
+                                  {
+                                    fieldErrors[
+                                      `batch_${batchIndex}_expiryDate`
+                                    ]
+                                  }
+                                </p>
+                              )}
                             </td>
                             <td className="px-6 py-3">
                               <Input
                                 type="number"
                                 placeholder="0"
                                 value={batch.quantity || ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const parsed = Number.parseInt(
+                                    e.target.value,
+                                    10,
+                                  );
                                   updateBatch(
                                     batch.id,
                                     "quantity",
-                                    parseInt(e.target.value),
-                                  )
-                                }
+                                    Number.isNaN(parsed) ? 0 : parsed,
+                                  );
+                                }}
                                 className="h-10 w-24 border-none shadow-none focus-visible:ring-0 font-black p-0 text-base"
                               />
                             </td>

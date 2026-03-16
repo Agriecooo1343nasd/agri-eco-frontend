@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Plus,
@@ -47,12 +47,23 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
 import Link from "next/link";
 import {
   fetchAdminProducts,
   fetchCategoriesForAdmin,
+  deleteAdminProduct,
   toAbsoluteMediaUrl,
   type AdminProduct,
   type AdminProductSort,
@@ -71,12 +82,16 @@ const statusStyles: Record<string, string> = {
 
 export default function AdminProductsPage() {
   const { formatPrice } = usePricing();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(
+    null,
+  );
 
   const apiSortKey: AdminProductSort =
     sortKey === "price"
@@ -150,10 +165,25 @@ export default function AdminProductsPage() {
     );
   }
 
-  function handleAction(action: string, product: AdminProduct) {
-    toast.success(`${action} Product`, {
-      description: `Action initiated for "${product.name}".`,
-    });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteAdminProduct(id),
+    onSuccess: () => {
+      toast.success("Product removed", {
+        description: `"${productToDelete?.name}" has been permanently deleted.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      setProductToDelete(null);
+    },
+    onError: () => {
+      toast.error("Failed to delete", {
+        description: "Something went wrong. Please try again.",
+      });
+      setProductToDelete(null);
+    },
+  });
+
+  function handleDeleteRequest(product: AdminProduct) {
+    setProductToDelete(product);
   }
 
   /* ---- Pagination range ---- */
@@ -529,7 +559,7 @@ export default function AdminProductsPage() {
                             </Link>
                             <DropdownMenuItem
                               className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              onClick={() => handleAction("Delete", product)}
+                              onClick={() => handleDeleteRequest(product)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Remove Item
@@ -545,6 +575,44 @@ export default function AdminProductsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={productToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setProductToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to permanently delete{" "}
+              <span className="font-semibold text-foreground">
+                {productToDelete?.name}
+              </span>
+              . This action cannot be undone and will remove all associated data
+              including images, batches, and inventory records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (productToDelete) {
+                  deleteMutation.mutate(productToDelete.id);
+                }
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Yes, delete it"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Pagination */}
       {totalPages > 1 && (

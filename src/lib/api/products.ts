@@ -1,6 +1,39 @@
+export async function fetchAdminProductById(
+  productId: string,
+): Promise<AdminProduct> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminProduct>>(
+    `/products/${productId}`,
+  );
+  if (!response.data.data) {
+    throw new Error("Product not found");
+  }
+  return response.data.data;
+}
+
+export async function updateAdminProduct(
+  productId: string,
+  payload: Partial<CreateAdminProductPayload>,
+  files?: { images?: File[]; videos?: File[] },
+): Promise<AdminProduct> {
+  const formData = new FormData();
+  formData.append("data", JSON.stringify(payload));
+  for (const image of files?.images ?? []) {
+    formData.append("images", image);
+  }
+  for (const video of files?.videos ?? []) {
+    formData.append("videos", video);
+  }
+  const response = await apiClient.put<ApiSuccessResponse<AdminProduct>>(
+    `/products/${productId}`,
+    formData,
+  );
+  if (!response.data.data) {
+    throw new Error("Product update failed");
+  }
+  return response.data.data;
+}
 import { apiClient } from "@/lib/api/client";
 import type { ApiPagination, ApiSuccessResponse } from "@/lib/api/types";
-import { apiBaseUrl } from "@/lib/config/api";
 
 export interface ProductCategory {
   id: string;
@@ -14,16 +47,45 @@ export interface ProductImage {
   isPrimary?: boolean;
 }
 
+export interface ProductBatch {
+  batchId: string;
+  quantity: number;
+  costPrice?: number;
+  expiryDate?: string;
+  receivedDate?: string;
+  supplier?: string;
+  status?: "active" | "expired" | "depleted";
+}
+
+export interface ProductShipping {
+  weight?: number;
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+  };
+  shelfLife?: string;
+  storageCondition?: string;
+  requiresRefrigeration?: boolean;
+}
+
 export interface AdminProduct {
   id: string;
   name: string;
   slug: string;
   sku: string;
+  description?: string;
+  shortDescription?: string;
   sellingPrice: number;
   originalPrice: number;
   stock: number;
   lowStockThreshold?: number;
   unit: string;
+  tags?: string[];
+  features?: string[];
+  benefits?: string[];
+  batches?: ProductBatch[];
+  shipping?: ProductShipping;
   images?: ProductImage[];
   isActive: boolean;
   isFeatured?: boolean;
@@ -61,6 +123,75 @@ export interface FetchAdminProductsResult {
 interface CategoryListResult {
   data: ProductCategory[];
   pagination?: ApiPagination;
+}
+
+export interface CreateCategoryPayload {
+  name: string;
+}
+
+export interface InventoryBatchPayload {
+  batchId: string;
+  quantity: number;
+  costPrice: number;
+  expiryDate?: string;
+  receivedDate?: string;
+  supplier?: string;
+  status?: "active" | "expired" | "depleted";
+}
+
+export interface CreateAdminProductPayload {
+  name: string;
+  sku: string;
+  description: string;
+  shortDescription?: string;
+  category: string;
+  tags: string[];
+  sellingPrice: number;
+  originalPrice?: number;
+  costPrice?: number;
+  unit: "kg" | "g" | "piece" | "bunch" | "pack" | "dozen" | "lb" | "oz";
+  measurementUnit?:
+    | "kg"
+    | "g"
+    | "piece"
+    | "bunch"
+    | "pack"
+    | "dozen"
+    | "lb"
+    | "oz";
+  stock: number;
+  lowStockThreshold: number;
+  trackInventory: boolean;
+  images?: Array<{ url: string; alt?: string; isPrimary?: boolean }>;
+  videos?: Array<{
+    url: string;
+    title?: string;
+    duration?: number;
+    isPrimary?: boolean;
+  }>;
+  features: string[];
+  benefits: string[];
+  marketingHooks: Array<{ label: string; isActive?: boolean }>;
+  healthBenefits: Array<{ title: string; description?: string }>;
+  nutrition: Array<{ label: string; value: string }>;
+  shipping?: {
+    weight?: number;
+    dimensions?: {
+      length: number;
+      width: number;
+      height: number;
+    };
+    shelfLife?: string;
+    storageCondition?: string;
+    requiresRefrigeration?: boolean;
+  };
+  certifications: string[];
+  isActive: boolean;
+  isFeatured?: boolean;
+  isOnSale?: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+  batches: InventoryBatchPayload[];
 }
 
 function buildQuery(params: FetchAdminProductsParams): string {
@@ -109,15 +240,71 @@ export async function fetchCategoriesForAdmin(): Promise<CategoryListResult> {
   };
 }
 
+export async function createCategoryForAdmin(
+  payload: CreateCategoryPayload,
+): Promise<ProductCategory> {
+  const response = await apiClient.post<ApiSuccessResponse<ProductCategory>>(
+    "/categories",
+    {
+      name: payload.name.trim(),
+      isActive: true,
+    },
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing category response data");
+  }
+
+  return response.data.data;
+}
+
+export async function deleteAdminProduct(productId: string): Promise<void> {
+  await apiClient.delete(`/products/${productId}`);
+}
+
+export async function createAdminProduct(
+  payload: CreateAdminProductPayload,
+  files?: {
+    images?: File[];
+    videos?: File[];
+  },
+): Promise<AdminProduct> {
+  const formData = new FormData();
+  formData.append("data", JSON.stringify(payload));
+
+  for (const image of files?.images ?? []) {
+    formData.append("images", image);
+  }
+
+  for (const video of files?.videos ?? []) {
+    formData.append("videos", video);
+  }
+
+  const response = await apiClient.post<ApiSuccessResponse<AdminProduct>>(
+    "/products",
+    formData,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing created product response data");
+  }
+
+  return response.data.data;
+}
+
 export function toAbsoluteMediaUrl(url?: string): string {
   if (!url) {
     return "/assets/products/placeholder.jpg";
+  }
+
+  // Keep same-origin paths so Next.js rewrites can proxy media in any env.
+  if (url.startsWith("/")) {
+    return url;
   }
 
   if (/^https?:\/\//i.test(url)) {
     return url;
   }
 
-  const origin = apiBaseUrl.replace(/\/api\/v1\/?$/, "");
-  return `${origin}${url.startsWith("/") ? "" : "/"}${url}`;
+  return `/${url}`;
 }
