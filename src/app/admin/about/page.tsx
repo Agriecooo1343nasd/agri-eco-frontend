@@ -82,10 +82,7 @@ export default function AdminAboutPage() {
     [team],
   );
 
-  const totalTeamPages = Math.max(
-    1,
-    Math.ceil(team.length / TEAM_PAGE_SIZE),
-  );
+  const totalTeamPages = Math.max(1, Math.ceil(team.length / TEAM_PAGE_SIZE));
   const totalGalleryPages = Math.max(
     1,
     Math.ceil(gallery.length / GALLERY_PAGE_SIZE),
@@ -279,8 +276,8 @@ export default function AdminAboutPage() {
             About Page Content
           </h1>
           <p className="text-muted-foreground font-medium text-sm mt-1">
-            Manage the people and farm gallery that appear on the public
-            About page.
+            Manage the people and farm gallery that appear on the public About
+            page.
           </p>
         </div>
       </div>
@@ -296,10 +293,7 @@ export default function AdminAboutPage() {
                 These team members are shown on the About page team section.
               </CardDescription>
             </div>
-            <Button
-              size="sm"
-              onClick={openNewMember}
-            >
+            <Button size="sm" onClick={openNewMember}>
               <Plus className="h-4 w-4" /> Add Member
             </Button>
           </CardHeader>
@@ -391,9 +385,7 @@ export default function AdminAboutPage() {
                     size="sm"
                     className="h-7 px-3 text-[11px]"
                     disabled={teamPage <= 1}
-                    onClick={() =>
-                      setTeamPage((prev) => Math.max(1, prev - 1))
-                    }
+                    onClick={() => setTeamPage((prev) => Math.max(1, prev - 1))}
                   >
                     Previous
                   </Button>
@@ -403,9 +395,7 @@ export default function AdminAboutPage() {
                     className="h-7 px-3 text-[11px]"
                     disabled={teamPage >= totalTeamPages}
                     onClick={() =>
-                      setTeamPage((prev) =>
-                        Math.min(totalTeamPages, prev + 1),
-                      )
+                      setTeamPage((prev) => Math.min(totalTeamPages, prev + 1))
                     }
                   >
                     Next
@@ -459,9 +449,7 @@ export default function AdminAboutPage() {
                 </p>
                 <p className="text-lg font-black">{totalContacts}</p>
               </div>
-              <Badge>
-                PUBLIC FACING
-              </Badge>
+              <Badge>PUBLIC FACING</Badge>
             </div>
           </CardContent>
         </Card>
@@ -477,10 +465,7 @@ export default function AdminAboutPage() {
               Images displayed in the About page gallery section.
             </CardDescription>
           </div>
-          <Button
-            size="sm"
-            onClick={openNewImage}
-          >
+          <Button size="sm" onClick={openNewImage}>
             <Plus className="h-4 w-4" /> Add Image
           </Button>
         </CardHeader>
@@ -550,9 +535,7 @@ export default function AdminAboutPage() {
                 size="sm"
                 className="h-7 px-3 text-[11px]"
                 disabled={galleryPage <= 1}
-                onClick={() =>
-                  setGalleryPage((prev) => Math.max(1, prev - 1))
-                }
+                onClick={() => setGalleryPage((prev) => Math.max(1, prev - 1))}
               >
                 Previous
               </Button>
@@ -764,4 +747,3 @@ export default function AdminAboutPage() {
     </div>
   );
 }
-
