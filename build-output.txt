@@ -1,1 +1,108 @@
-��
+﻿
+> agri-eco@0.0.0 build C:\Developer\agri-eco\agri-eco
+> next build
+
+Ôû▓ Next.js 16.1.6 (Turbopack)
+
+  Creating an optimized production build ...
+Ô£ô Compiled successfully in 28.3s
+  Running TypeScript ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/61) ...
+  Generating static pages using 11 workers (15/61) 
+  Generating static pages using 11 workers (30/61) 
+  Generating static pages using 11 workers (45/61) 
+Ô£ô Generating static pages using 11 workers (61/61) in 3.4s
+  Finalizing page optimization ...
+
+Route (app)
+Ôöî Ôùï /
+Ôö£ Ôùï /_not-found
+Ôö£ Ôùï /about
+Ôö£ Ôùï /account
+Ôö£ Ôùï /account/addresses
+Ôö£ Ôùï /account/bookings
+Ôö£ Ôùï /account/certificates
+Ôö£ Ôùï /account/enrollments
+Ôö£ Ôùï /account/orders
+Ôö£ ãÆ /account/orders/[orderId]
+Ôö£ Ôùï /account/partner
+Ôö£ ãÆ /account/partner/agreement/[agreementId]
+Ôö£ ãÆ /account/partner/agreements/[agreementId]/inputs
+Ôö£ ãÆ /account/partner/agreements/[agreementId]/payments
+Ôö£ Ôùï /account/profile
+Ôö£ Ôùï /account/requests
+Ôö£ Ôùï /account/settings
+Ôö£ Ôùï /account/tours
+Ôö£ Ôùï /admin
+Ôö£ Ôùï /admin/about
+Ôö£ Ôùï /admin/accommodations
+Ôö£ ãÆ /admin/accommodations/[id]
+Ôö£ ãÆ /admin/accommodations/[id]/edit
+Ôö£ Ôùï /admin/accommodations/create
+Ôö£ Ôùï /admin/artisans
+Ôö£ Ôùï /admin/blog
+Ôö£ ãÆ /admin/blog/[id]/view
+Ôö£ Ôùï /admin/blog/create
+Ôö£ Ôùï /admin/bookings
+Ôö£ Ôùï /admin/categories
+Ôö£ Ôùï /admin/dashboard
+Ôö£ Ôùï /admin/discounts
+Ôö£ Ôùï /admin/education
+Ôö£ Ôùï /admin/education/create-program
+Ôö£ ãÆ /admin/education/edit/[id]
+Ôö£ Ôùï /admin/education/school-settings
+Ôö£ ãÆ /admin/education/school-visit/[id]
+Ôö£ ãÆ /admin/education/stats/[id]
+Ôö£ Ôùï /admin/feedback
+Ôö£ Ôùï /admin/members
+Ôö£ Ôùï /admin/orders
+Ôö£ ãÆ /admin/orders/[orderId]
+Ôö£ Ôùï /admin/partners
+Ôö£ ãÆ /admin/partners/[partnerId]
+Ôö£ ãÆ /admin/partners/[partnerId]/agreements/[agreementId]/inputs
+Ôö£ ãÆ /admin/partners/[partnerId]/agreements/[agreementId]/payments
+Ôö£ Ôùï /admin/partners/application
+Ôö£ ãÆ /admin/partners/application/[applicationId]
+Ôö£ Ôùï /admin/partners/new
+Ôö£ Ôùï /admin/products
+Ôö£ ãÆ /admin/products/[productId]/edit
+Ôö£ ãÆ /admin/products/[productId]/update
+Ôö£ ãÆ /admin/products/[productId]/view
+Ôö£ Ôùï /admin/products/create
+Ôö£ Ôùï /admin/settings
+Ôö£ Ôùï /admin/tours
+Ôö£ ãÆ /admin/tours/[slug]/edit
+Ôö£ Ôùï /admin/tours/create-tour
+Ôö£ Ôùï /beekeeping
+Ôö£ Ôùï /blog
+Ôö£ ãÆ /blog/[id]
+Ôö£ Ôùï /cart
+Ôö£ Ôùï /checkout
+Ôö£ Ôùï /community
+Ôö£ ãÆ /community/artisan/[id]
+Ôö£ Ôùï /contact
+Ôö£ Ôùï /deals
+Ôö£ Ôùï /education
+Ôö£ ãÆ /education/program/[id]
+Ôö£ Ôùï /education/school-visit
+Ôö£ Ôùï /feedback
+Ôö£ Ôùï /forgot-password
+Ôö£ Ôùï /gallery
+Ôö£ Ôùï /login
+Ôö£ Ôùï /payment-failed
+Ôö£ Ôùï /payment-success
+Ôö£ ãÆ /product/[id]
+Ôö£ Ôùï /register
+Ôö£ Ôùï /reset-password
+Ôö£ Ôùï /shop
+Ôö£ Ôùï /tours
+Ôö£ ãÆ /tours/[slug]
+Ôöö Ôùï /wishlist
+
+
+ãÆ Proxy (Middleware)
+
+Ôùï  (Static)   prerendered as static content
+ãÆ  (Dynamic)  server-rendered on demand
+

@@ -510,7 +510,9 @@ export default function AdminToursPage() {
                           <DropdownMenuItem
                             className="cursor-pointer gap-2 py-2 text-xs"
                             onClick={() =>
-                              router.push(`/admin/tours/${tour.slug}/edit`)
+                              router.push(
+                                `/admin/tours/${tour.slug}/edit?id=${tour.id}`,
+                              )
                             }
                           >
                             <Edit className="h-3.5 w-3.5" />

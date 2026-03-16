@@ -34,6 +34,7 @@ export interface AdminExperience {
   type: ExperienceType;
   shortDescription: MultiLangText;
   fullOverview: MultiLangText;
+  cancellationPolicy?: MultiLangText;
   heroImage?: string;
   gallery: string[];
   highlights: string[];
@@ -45,10 +46,16 @@ export interface AdminExperience {
   minParticipants: number;
   expectedDuration?: string;
   durationMinutes: number;
+  marketSector?: string;
   destination?: string;
+  linkedAccommodationIds: string[];
   isActive: boolean;
   isFeatured: boolean;
+  seasonStart?: string;
+  seasonEnd?: string;
+  languageSupport: string[];
   createdAt: string;
+  updatedAt?: string;
   slots?: ExperienceSlot[];
 }
 
@@ -143,6 +150,36 @@ export async function createAdminExperience(
 
   if (!response.data.data) {
     throw new Error("Missing created experience response data");
+  }
+
+  return response.data.data;
+}
+
+export async function fetchAdminExperienceById(
+  id: string,
+): Promise<AdminExperience> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminExperience>>(
+    `/experiences/admin/${id}`,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Experience not found");
+  }
+
+  return response.data.data;
+}
+
+export async function updateAdminExperience(
+  id: string,
+  payload: Partial<CreateAdminExperiencePayload>,
+): Promise<AdminExperience> {
+  const response = await apiClient.put<ApiSuccessResponse<AdminExperience>>(
+    `/experiences/${id}`,
+    payload,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated experience response data");
   }
 
   return response.data.data;

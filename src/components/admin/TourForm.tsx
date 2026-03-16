@@ -49,10 +49,12 @@ import { cn } from "@/lib/utils";
 import { Tour } from "@/data/tours";
 import {
   createAdminExperience,
+  updateAdminExperience,
+  type AdminExperience,
   type ExperienceType,
 } from "@/lib/api/experiences";
 import {
-  fetchAccommodations,
+  fetchAdminAccommodations,
   type AdminAccommodation,
 } from "@/lib/api/accommodations";
 
@@ -65,6 +67,56 @@ const EXPERIENCE_TYPE_MAP: Record<string, ExperienceType> = {
   "farm-stay": "farm_stay",
   workshop: "workshop",
 };
+
+const BACKEND_TO_FORM_TYPE_MAP: Partial<Record<ExperienceType, string>> = {
+  farm_tour: "farm-tour",
+  farm_stay: "farm-stay",
+  beekeeping: "beekeeping",
+  harvesting: "harvesting",
+  cultural: "cultural",
+  educational: "educational",
+  workshop: "workshop",
+};
+
+function isAdminExperience(
+  data: Tour | AdminExperience | undefined,
+): data is AdminExperience {
+  return (
+    !!data &&
+    "title" in data &&
+    typeof (data as AdminExperience).title === "object"
+  );
+}
+
+function toFormLangValue(
+  value: { en: string; rw?: string; fr?: string; sw?: string } | undefined,
+): MultiLangValue {
+  if (!value) return emptyLangValue();
+  return {
+    en: value.en ?? "",
+    rw: value.rw ?? "",
+    fr: value.fr ?? "",
+    sw: value.sw ?? "",
+  };
+}
+
+function toFormList(
+  items: string[] | undefined,
+): { id: string; text: MultiLangValue }[] {
+  if (!items?.length) return [];
+  return items.map((item) => ({
+    id: Math.random().toString(36).substr(2, 9),
+    text: { en: item, rw: "", fr: "", sw: "" },
+  }));
+}
+
+function deriveFormStatus(
+  data: AdminExperience,
+): "available" | "limited" | "sold-out" | "upcoming" {
+  if (!data.isActive) return "upcoming";
+  if (data.isFeatured) return "limited";
+  return "available";
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -112,7 +164,7 @@ const categoryLabels: Record<string, string> = {
 };
 
 interface TourFormProps {
-  initialData?: Tour;
+  initialData?: Tour | AdminExperience;
   mode: "create" | "edit";
 }
 
@@ -126,84 +178,147 @@ export function TourForm({ initialData, mode }: TourFormProps) {
   const [accommodationsLimit] = useState(5);
 
   // Form states
-  const [name, setName] = useState(
-    initialData?.name
-      ? { en: initialData.name, rw: "", fr: "", sw: "" }
-      : emptyLangValue(),
+  const [name, setName] = useState<MultiLangValue>(
+    isAdminExperience(initialData)
+      ? toFormLangValue(initialData.title)
+      : initialData?.name
+        ? { en: initialData.name, rw: "", fr: "", sw: "" }
+        : emptyLangValue(),
   );
-  const [description, setDescription] = useState(
-    initialData?.description
-      ? { en: initialData.description, rw: "", fr: "", sw: "" }
-      : emptyLangValue(),
+  const [description, setDescription] = useState<MultiLangValue>(
+    isAdminExperience(initialData)
+      ? toFormLangValue(initialData.shortDescription)
+      : initialData?.description
+        ? { en: initialData.description, rw: "", fr: "", sw: "" }
+        : emptyLangValue(),
   );
-  const [longDescription, setLongDescription] = useState(
-    initialData?.longDescription
-      ? { en: initialData.longDescription, rw: "", fr: "", sw: "" }
-      : emptyLangValue(),
+  const [longDescription, setLongDescription] = useState<MultiLangValue>(
+    isAdminExperience(initialData)
+      ? toFormLangValue(initialData.fullOverview)
+      : initialData?.longDescription
+        ? { en: initialData.longDescription, rw: "", fr: "", sw: "" }
+        : emptyLangValue(),
   );
 
   const [highlights, setHighlights] = useState<
     { id: string; text: MultiLangValue }[]
   >(
-    initialData?.highlights?.map((h) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      text: { en: h, rw: "", fr: "", sw: "" },
-    })) || [],
+    isAdminExperience(initialData)
+      ? toFormList(initialData.highlights)
+      : initialData?.highlights?.map((h) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          text: { en: h, rw: "", fr: "", sw: "" },
+        })) || [],
   );
   const [requirements, setRequirements] = useState<
     { id: string; text: MultiLangValue }[]
   >(
-    initialData?.requirements?.map((r) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      text: { en: r, rw: "", fr: "", sw: "" },
-    })) || [],
+    isAdminExperience(initialData)
+      ? toFormList(initialData.requirements)
+      : initialData?.requirements?.map((r) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          text: { en: r, rw: "", fr: "", sw: "" },
+        })) || [],
   );
   const [included, setIncluded] = useState<
     { id: string; text: MultiLangValue }[]
   >(
-    initialData?.includes?.map((i) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      text: { en: i, rw: "", fr: "", sw: "" },
-    })) || [],
+    isAdminExperience(initialData)
+      ? toFormList(initialData.inclusions)
+      : (initialData as Tour | undefined)?.includes?.map((i) => ({
+          id: Math.random().toString(36).substr(2, 9),
+          text: { en: i, rw: "", fr: "", sw: "" },
+        })) || [],
   );
+  // ExperienceSlot (booking slots) ≠ form time-slot templates; not prefilled from backend
   const [timeSlots, setTimeSlots] = useState<
     { id: string; time: string; capacity: string }[]
   >(
-    initialData?.timeSlots?.map((ts) => ({
-      id: ts.id,
-      time: ts.time,
-      capacity: ts.capacity.toString(),
-    })) || [],
+    isAdminExperience(initialData)
+      ? []
+      : (initialData as Tour | undefined)?.timeSlots?.map((ts) => ({
+          id: ts.id,
+          time: ts.time,
+          capacity: ts.capacity.toString(),
+        })) || [],
   );
 
-  const [policy, setPolicy] = useState(
-    initialData?.cancellationPolicy
-      ? { en: initialData.cancellationPolicy, rw: "", fr: "", sw: "" }
-      : emptyLangValue(),
+  const [policy, setPolicy] = useState<MultiLangValue>(
+    isAdminExperience(initialData)
+      ? toFormLangValue(initialData.cancellationPolicy)
+      : initialData?.cancellationPolicy
+        ? {
+            en: (initialData as Tour).cancellationPolicy,
+            rw: "",
+            fr: "",
+            sw: "",
+          }
+        : emptyLangValue(),
   );
-  const [category, setCategory] = useState(initialData?.category || "");
-  const [duration, setDuration] = useState(initialData?.duration || "");
-  const [price, setPrice] = useState(initialData?.price?.toString() || "");
+  const [category, setCategory] = useState(
+    isAdminExperience(initialData)
+      ? (BACKEND_TO_FORM_TYPE_MAP[initialData.type] ?? "")
+      : (initialData as Tour | undefined)?.category || "",
+  );
+  const [duration, setDuration] = useState(
+    isAdminExperience(initialData)
+      ? (initialData.expectedDuration ?? "")
+      : (initialData as Tour | undefined)?.duration || "",
+  );
+  const [price, setPrice] = useState(
+    isAdminExperience(initialData)
+      ? String(initialData.priceRwf || "")
+      : (initialData as Tour | undefined)?.price?.toString() || "",
+  );
   const [groupPrice, setGroupPrice] = useState(
-    initialData?.groupPrice?.toString() || "",
+    isAdminExperience(initialData)
+      ? initialData.pricePerGroupRwf
+        ? String(initialData.pricePerGroupRwf)
+        : ""
+      : (initialData as Tour | undefined)?.groupPrice?.toString() || "",
   );
   const [maxParticipants, setMaxParticipants] = useState(
-    initialData?.maxParticipants?.toString() || "",
+    isAdminExperience(initialData)
+      ? String(initialData.capacity || "")
+      : (initialData as Tour | undefined)?.maxParticipants?.toString() || "",
   );
   const [minParticipants, setMinParticipants] = useState(
-    initialData?.minParticipants?.toString() || "1",
+    isAdminExperience(initialData)
+      ? String(initialData.minParticipants || "1")
+      : (initialData as Tour | undefined)?.minParticipants?.toString() || "1",
   );
-  const [status, setStatus] = useState(initialData?.status || "available");
-  const [marketSector, setMarketSector] = useState("");
-  const [location, setLocation] = useState(initialData?.location || "");
-  const [heroImageUrl, setHeroImageUrl] = useState(initialData?.image || "");
+  const [status, setStatus] = useState(
+    isAdminExperience(initialData)
+      ? deriveFormStatus(initialData)
+      : (initialData as Tour | undefined)?.status || "available",
+  );
+  const [marketSector, setMarketSector] = useState(
+    isAdminExperience(initialData) ? (initialData.marketSector ?? "") : "",
+  );
+  const [location, setLocation] = useState(
+    isAdminExperience(initialData)
+      ? (initialData.destination ?? "")
+      : (initialData as Tour | undefined)?.location || "",
+  );
+  const [heroImageUrl, setHeroImageUrl] = useState(
+    isAdminExperience(initialData)
+      ? (initialData.heroImage ?? "")
+      : (initialData as Tour | undefined)?.image || "",
+  );
   const [galleryDraft, setGalleryDraft] = useState("");
   const [galleryUrls, setGalleryUrls] = useState<string[]>(
-    initialData?.gallery ?? [],
+    isAdminExperience(initialData)
+      ? (initialData.gallery ?? [])
+      : ((initialData as Tour | undefined)?.gallery ?? []),
   );
   const [selectedAccommodations, setSelectedAccommodations] = useState<
     string[]
-  >(initialData?.accommodation?.map((a) => a.id) || []);
+  >(
+    isAdminExperience(initialData)
+      ? (initialData.linkedAccommodationIds ?? [])
+      : (initialData as Tour | undefined)?.accommodation?.map((a) => a.id) ||
+          [],
+  );
 
   // Fetch accommodations from backend
   const { data: accommodationsData, isLoading: accommodationsLoading } =
@@ -216,7 +331,7 @@ export function TourForm({ initialData, mode }: TourFormProps) {
       ],
       queryFn: async () => {
         try {
-          return await fetchAccommodations({
+          return await fetchAdminAccommodations({
             page: accommodationsPage,
             limit: accommodationsLimit,
             search: accommodationsSearch || undefined,
@@ -393,7 +508,67 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           });
         }
       } else {
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        const adminData = initialData as AdminExperience;
+        const validAccommodationIds = selectedAccommodations.filter((id) =>
+          UUID_RE.test(id),
+        );
+
+        const languages = Array.from(
+          new Set(
+            [
+              normalizedName.en ? "en" : "",
+              normalizedName.rw ||
+              normalizedDescription.rw ||
+              normalizedLongDescription.rw
+                ? "rw"
+                : "",
+              normalizedName.fr ||
+              normalizedDescription.fr ||
+              normalizedLongDescription.fr
+                ? "fr"
+                : "",
+              normalizedName.sw ||
+              normalizedDescription.sw ||
+              normalizedLongDescription.sw
+                ? "sw"
+                : "",
+            ].filter(Boolean),
+          ),
+        );
+
+        await updateAdminExperience(adminData.id, {
+          title: normalizedName,
+          type: backendType,
+          shortDescription: normalizedDescription,
+          fullOverview: normalizedLongDescription,
+          cancellationPolicy: normalizedPolicy.en
+            ? normalizedPolicy
+            : undefined,
+          heroImage: heroImageUrl.trim() || undefined,
+          gallery: galleryUrls,
+          highlights: toEnglishList(highlights),
+          requirements: toEnglishList(requirements),
+          inclusions: toEnglishList(included),
+          priceRwf: Number.parseFloat(price || "0") || 0,
+          pricePerGroupRwf: Number.parseFloat(groupPrice || "0") || 0,
+          capacity: Number.parseInt(maxParticipants || "20", 10) || 20,
+          minParticipants: Number.parseInt(minParticipants || "1", 10) || 1,
+          expectedDuration: duration.trim() || undefined,
+          durationMinutes: parseDurationMinutes(duration),
+          marketSector: marketSector.trim() || undefined,
+          destination: location.trim() || undefined,
+          linkedAccommodationIds: validAccommodationIds,
+          isActive: status !== "upcoming",
+          isFeatured: status === "limited",
+          languageSupport: languages.length > 0 ? languages : ["en"],
+        });
+
+        if (timeSlots.length > 0) {
+          toast.warning("Time slots not persisted", {
+            description:
+              "Backend update DTO does not accept time slots. Ask the backend developer to add time slot support.",
+          });
+        }
       }
 
       toast.success(
@@ -443,7 +618,11 @@ export function TourForm({ initialData, mode }: TourFormProps) {
             </Link>
             {mode === "create"
               ? "Create New Agritourism Experience"
-              : `Edit: ${initialData?.name}`}
+              : `Edit: ${
+                  isAdminExperience(initialData)
+                    ? initialData.title.en
+                    : ((initialData as Tour | undefined)?.name ?? "")
+                }`}
           </h1>
         </div>
 

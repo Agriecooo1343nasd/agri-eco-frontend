@@ -56,9 +56,9 @@ export async function fetchAccommodations(
   if (params.sort) searchParams.append("sort", params.sort);
   if (params.order) searchParams.append("order", params.order);
 
-  const response = await apiClient.get<ApiSuccessResponse<AdminAccommodation[]>>(
-    `/accommodations?${searchParams.toString()}`,
-  );
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminAccommodation[]>
+  >(`/accommodations?${searchParams.toString()}`);
 
   return {
     data: response.data.data ?? [],
@@ -89,9 +89,9 @@ export async function fetchAdminAccommodations(
   if (params.sort) searchParams.append("sort", params.sort);
   if (params.order) searchParams.append("order", params.order);
 
-  const response = await apiClient.get<ApiSuccessResponse<AdminAccommodation[]>>(
-    `/accommodations/admin?${searchParams.toString()}`,
-  );
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminAccommodation[]>
+  >(`/accommodations/admin?${searchParams.toString()}`);
 
   return {
     data: response.data.data ?? [],

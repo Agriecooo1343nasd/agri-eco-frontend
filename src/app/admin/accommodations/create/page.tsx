@@ -108,16 +108,11 @@ export default function CreateAccommodationPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            className="h-10 px-5 rounded-xl border-border/50 font-semibold text-muted-foreground"
             onClick={() => router.back()}
           >
             Discard
           </Button>
-          <Button
-            className="h-10 px-6 rounded-xl shadow-lg shadow-primary/20 font-bold gap-2"
-            onClick={handlePublish}
-            disabled={isSubmitting}
-          >
+          <Button onClick={handlePublish} disabled={isSubmitting}>
             {isSubmitting ? (
               <div className="h-4 w-4 border-2 border-background border-t-transparent rounded-full animate-spin" />
             ) : (
