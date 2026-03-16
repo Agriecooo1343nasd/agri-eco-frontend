@@ -7,49 +7,127 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-}
+import {
+  ADMIN_ROLES,
+  normalizeAuthUser,
+  type AuthRole,
+  type AuthSession,
+  type AuthUser,
+  type LegacyAuthUser,
+} from "@/lib/auth-types";
+import {
+  AUTH_CHANGED_EVENT,
+  clearStoredAuthSession,
+  readStoredAuthSession,
+  writeStoredAuthSession,
+} from "@/lib/auth-storage";
+import { clearSession, setSession } from "@/store/auth-slice";
+import { useAppDispatch } from "@/store/hooks";
 
 interface AuthContextType {
-  user: User | null;
-  login: (userData: User) => void;
+  user: AuthUser | null;
+  tokens: {
+    accessToken?: string;
+    refreshToken?: string;
+  } | null;
+  login: (payload: LegacyAuthUser | AuthSession) => void;
+  setAuthSession: (payload: LegacyAuthUser | AuthSession) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  isInitialized: boolean;
+  role: AuthRole | null;
+  isAdmin: boolean;
+  hasRole: (roles: AuthRole | AuthRole[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizeSession(payload: LegacyAuthUser | AuthSession): AuthSession {
+  if ("user" in payload) {
+    return {
+      accessToken: payload.accessToken,
+      refreshToken: payload.refreshToken,
+      user: normalizeAuthUser(payload.user),
+    };
+  }
+
+  return {
+    user: normalizeAuthUser(payload),
+  };
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const dispatch = useAppDispatch();
+  const [session, setLocalSession] = useState<AuthSession | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("agrueco_user");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsInitialized(true);
-  }, []);
+    const hydrateSession = () => {
+      const savedSession = readStoredAuthSession();
+      setLocalSession(savedSession);
+      dispatch(savedSession ? setSession(savedSession) : clearSession());
+      setIsInitialized(true);
+    };
 
-  const login = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem("agrueco_user", JSON.stringify(userData));
+    hydrateSession();
+
+    window.addEventListener(AUTH_CHANGED_EVENT, hydrateSession);
+    window.addEventListener("storage", hydrateSession);
+
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, hydrateSession);
+      window.removeEventListener("storage", hydrateSession);
+    };
+  }, [dispatch]);
+
+  const setAuthSession = (payload: LegacyAuthUser | AuthSession) => {
+    const nextSession = normalizeSession(payload);
+    writeStoredAuthSession(nextSession);
+    setLocalSession(nextSession);
+    dispatch(setSession(nextSession));
+  };
+
+  const login = (payload: LegacyAuthUser | AuthSession) => {
+    setAuthSession(payload);
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem("agrueco_user");
+    clearStoredAuthSession();
+    setLocalSession(null);
+    dispatch(clearSession());
   };
 
+  const user = session?.user ?? null;
+  const tokens = session
+    ? {
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      }
+    : null;
   const isAuthenticated = !!user;
+  const role = user?.role ?? null;
+  const isAdmin = !!role && ADMIN_ROLES.includes(role);
+
+  const hasRole = (roles: AuthRole | AuthRole[]) => {
+    if (!role) return false;
+    return Array.isArray(roles) ? roles.includes(role) : roles === role;
+  };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        tokens,
+        login,
+        setAuthSession,
+        logout,
+        isAuthenticated,
+        isInitialized,
+        role,
+        isAdmin,
+        hasRole,
+      }}
+    >
       {isInitialized ? (
         children
       ) : (

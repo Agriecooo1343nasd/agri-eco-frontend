@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import { Merriweather, Nunito_Sans } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/context/AuthContext";
-import { CartProvider } from "@/context/CartContext";
-import { PricingProvider } from "@/context/PricingContext";
+import { AppProviders } from "@/components/providers/AppProviders";
 import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
 
 const merriweather = Merriweather({
   variable: "--font-merriweather",
@@ -36,16 +33,10 @@ export default function RootLayout({
         className={`${merriweather.variable} ${nunitoSans.variable} antialiased font-body transition-colors duration-300`}
         suppressHydrationWarning
       >
-        <AuthProvider>
-          <PricingProvider>
-            <CartProvider>
-              <TooltipProvider>
-                {children}
-                <Toaster position="top-center" richColors />
-              </TooltipProvider>
-            </CartProvider>
-          </PricingProvider>
-        </AuthProvider>
+        <AppProviders>
+          {children}
+          <Toaster position="top-center" richColors closeButton />
+        </AppProviders>
       </body>
     </html>
   );
