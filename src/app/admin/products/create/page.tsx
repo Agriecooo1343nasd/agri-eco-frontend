@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -83,7 +83,6 @@ export default function CreateProduct() {
   const router = useRouter();
   const { formatPrice } = usePricing();
 
-  const [isDirty, setIsDirty] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
 
   const [name, setName] = useState("");
@@ -120,18 +119,13 @@ export default function CreateProduct() {
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (
-      name ||
-      shortDesc ||
-      longDesc ||
-      price ||
-      activeCategory ||
-      batches.some((b) => b.batchNumber || b.quantity > 0)
-    ) {
-      setIsDirty(true);
-    }
-  }, [name, shortDesc, longDesc, price, activeCategory, batches]);
+  const isDirty =
+    !!name ||
+    !!shortDesc ||
+    !!longDesc ||
+    !!price ||
+    !!activeCategory ||
+    batches.some((b) => b.batchNumber || b.quantity > 0);
 
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && tagInput.trim()) {
@@ -182,8 +176,12 @@ export default function CreateProduct() {
         quantity: 0,
       },
     ]);
-  }; 
-  const updateBatch = (batchId: string, field: keyof Batch, value: any) => {
+  };
+  const updateBatch = <K extends keyof Batch>(
+    batchId: string,
+    field: K,
+    value: Batch[K],
+  ) => {
     setBatches(
       batches.map((b) => (b.id === batchId ? { ...b, [field]: value } : b)),
     );

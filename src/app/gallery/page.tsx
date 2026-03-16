@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Expand, GalleryVerticalEnd } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -195,11 +196,13 @@ export default function GalleryPage() {
                     className="group relative w-full aspect-square overflow-hidden rounded-xl border border-border bg-card cursor-zoom-in shadow-sm hover:shadow-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     aria-label={`Open image: ${img.caption || "Gallery image"}`}
                   >
-                    <img
+                    <Image
                       src={img.url}
                       alt={img.caption || "Gallery image"}
+                      fill
+                      unoptimized
+                      sizes="(min-width: 1280px) 16vw, (min-width: 1024px) 20vw, (min-width: 640px) 30vw, 46vw"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
                     />
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 py-5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
                       <div className="flex items-center justify-between gap-2">
@@ -288,9 +291,13 @@ export default function GalleryPage() {
               </DialogHeader>
               <div className="mt-2 space-y-3">
                 <div className="w-full overflow-hidden rounded-2xl border border-border bg-black/5">
-                  <img
+                  <Image
                     src={selectedImage.url}
                     alt={selectedImage.caption || "Gallery image"}
+                    width={1200}
+                    height={900}
+                    unoptimized
+                    sizes="(min-width: 1024px) 70vw, 95vw"
                     className="w-full h-full max-h-[70vh] object-contain bg-black/5"
                   />
                 </div>
