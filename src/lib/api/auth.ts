@@ -1,6 +1,11 @@
 import { apiClient } from "@/lib/api/client";
 import type { ApiSuccessResponse } from "@/lib/api/types";
-import { normalizeAuthUser, type AuthSession } from "@/lib/auth-types";
+import {
+  AUTH_ROLES,
+  normalizeAuthUser,
+  type AuthRole,
+  type AuthSession,
+} from "@/lib/auth-types";
 
 export interface RegisterPayload {
   firstName?: string;
@@ -44,6 +49,16 @@ interface BackendAuthData {
   refreshToken: string;
 }
 
+function toAuthRole(value?: string): AuthRole | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  return (Object.values(AUTH_ROLES) as string[]).includes(value)
+    ? (value as AuthRole)
+    : undefined;
+}
+
 function toSession(data: BackendAuthData): AuthSession {
   return {
     user: normalizeAuthUser({
@@ -54,7 +69,7 @@ function toSession(data: BackendAuthData): AuthSession {
         data.user.email,
       email: data.user.email,
       avatar: data.user.avatar,
-      role: data.user.role,
+      role: toAuthRole(data.user.role),
       firstName: data.user.firstName,
       lastName: data.user.lastName,
       username: data.user.username,

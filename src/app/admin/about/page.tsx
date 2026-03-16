@@ -320,7 +320,7 @@ export default function AdminAboutPage() {
                 {paginatedTeam.map((member) => (
                   <div
                     key={member.id}
-                    className="min-w-[240px] max-w-[260px] bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col"
+                    className="min-w-60 max-w-65 bg-card border border-border rounded-xl overflow-hidden shadow-sm flex flex-col"
                   >
                     <div className="relative h-40 w-full overflow-hidden">
                       <img
@@ -501,7 +501,7 @@ export default function AdminAboutPage() {
               {paginatedGallery.map((image) => (
                 <div
                   key={image.id}
-                  className="min-w-[180px] max-w-[220px] rounded-xl border border-border overflow-hidden bg-card flex flex-col"
+                  className="min-w-45 max-w-55 rounded-xl border border-border overflow-hidden bg-card flex flex-col"
                 >
                   <div className="h-28 w-full overflow-hidden">
                     <img

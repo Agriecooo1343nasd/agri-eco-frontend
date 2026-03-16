@@ -353,7 +353,7 @@ export default function CreateProduct() {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="w-[300px] p-0 rounded-sm border-border"
+                          className="w-75 p-0 rounded-sm border-border"
                           align="start"
                         >
                           <Command className="rounded-sm">
@@ -452,7 +452,7 @@ export default function CreateProduct() {
                       </label>
                       <Textarea
                         placeholder="Detailed product information, origin, organic certifications..."
-                        className="min-h-[160px] rounded-sm bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
+                        className="min-h-40 rounded-sm bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
                         value={longDesc}
                         onChange={(e) => setLongDesc(e.target.value)}
                       />

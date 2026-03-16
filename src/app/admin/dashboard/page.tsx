@@ -6,7 +6,6 @@ import {
   Users,
   TrendingUp,
   ArrowUpRight,
-  ArrowDownRight,
   Package,
   Eye,
   Map,
@@ -17,11 +16,20 @@ import {
   Activity,
   Globe,
   Maximize2,
-  Filter,
   CalendarDays,
   Leaf,
+  AlertTriangle,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  fetchDashboardOverview,
+  fetchRevenueChart,
+  fetchTopProducts,
+  fetchRecentOrders,
+  fetchLowStockProducts,
+  type DashboardPeriod,
+} from "@/lib/api/dashboard";
 import {
   Select,
   SelectContent,
@@ -69,113 +77,26 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 
-/* ---- Mock data ---- */
-const stats = [
-  {
-    title: "Total Revenue",
-    value: "124,780,00 RWF",
-    change: "+12.5%",
-    up: true,
-    icon: DollarSign,
-    color: "bg-primary/10 text-primary",
-    period: "vs last month",
-  },
-  {
-    title: "Total Orders",
-    value: "3,248",
-    change: "+8.2%",
-    up: true,
-    icon: ShoppingCart,
-    color: "bg-chart-2/20 text-chart-2",
-    period: "vs last month",
-  },
-  {
-    title: "Active Members",
-    value: "5,642",
-    change: "+15.1%",
-    up: true,
-    icon: Users,
-    color: "bg-chart-3/20 text-chart-3",
-    period: "vs last month",
-  },
-  {
-    title: "Conversion Rate",
-    value: "4.24%",
-    change: "+0.8%",
-    up: true,
-    icon: TrendingUp,
-    color: "bg-chart-4/20 text-chart-4",
-    period: "vs last month",
-  },
-];
+/* ── Helpers ──────────────────────────────────────────────── */
+function formatRWF(n: number) {
+  return `${Math.round(n).toLocaleString()} RWF`;
+}
 
-const moduleStats = [
-  {
-    title: "Products",
-    value: "248",
-    subtitle: "12 categories",
-    icon: Package,
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    title: "Tours & Experiences",
-    value: "18",
-    subtitle: "6 active bookings",
-    icon: Map,
-    color: "bg-chart-2/20 text-chart-2",
-  },
-  {
-    title: "Education Programs",
-    value: "12",
-    subtitle: "342 enrollments",
-    icon: GraduationCap,
-    color: "bg-chart-3/20 text-chart-3",
-  },
-  {
-    title: "Artisans",
-    value: "34",
-    subtitle: "156 products",
-    icon: Palette,
-    color: "bg-chart-4/20 text-chart-4",
-  },
-  {
-    title: "Partners",
-    value: "22",
-    subtitle: "12.4M RWF commissions",
-    icon: Handshake,
-    color: "bg-chart-5/20 text-chart-5",
-  },
-  {
-    title: "Bookings",
-    value: "89",
-    subtitle: "24 pending",
-    icon: CalendarCheck,
-    color: "bg-primary/10 text-primary",
-  },
-];
+function formatDate(iso: string) {
+  const diffDays = Math.floor(
+    (Date.now() - new Date(iso).getTime()) / 86_400_000,
+  );
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return `${diffDays} days ago`;
+}
 
-const revenueData = [
-  { month: "Jan", revenue: 12200, orders: 280, tours: 3400, education: 1200 },
-  { month: "Feb", revenue: 14100, orders: 320, tours: 4100, education: 1800 },
-  { month: "Mar", revenue: 13800, orders: 300, tours: 3800, education: 2200 },
-  { month: "Apr", revenue: 18200, orders: 410, tours: 5200, education: 2800 },
-  { month: "May", revenue: 16900, orders: 380, tours: 4900, education: 3100 },
-  { month: "Jun", revenue: 21100, orders: 460, tours: 6100, education: 3400 },
-  { month: "Jul", revenue: 19800, orders: 440, tours: 5800, education: 3800 },
-  { month: "Aug", revenue: 22400, orders: 490, tours: 6400, education: 4200 },
-  { month: "Sep", revenue: 20600, orders: 450, tours: 5600, education: 3600 },
-  { month: "Oct", revenue: 24100, orders: 520, tours: 7200, education: 4800 },
-  { month: "Nov", revenue: 26800, orders: 580, tours: 8100, education: 5200 },
-  { month: "Dec", revenue: 28400, orders: 620, tours: 9000, education: 5600 },
-];
-
+/* ── Static chart configs ─────────────────────────────────── */
 const revenueConfig: ChartConfig = {
-  revenue: { label: "Products", color: "var(--primary)", icon: Package },
-  tours: { label: "Tours", color: "var(--chart-2)", icon: Map },
-  education: {
-    label: "Education",
-    color: "var(--chart-3)",
-    icon: GraduationCap,
+  revenue: {
+    label: "Revenue (Products)",
+    color: "var(--primary)",
+    icon: Package,
   },
 };
 
@@ -183,6 +104,16 @@ const ordersConfig: ChartConfig = {
   orders: { label: "Orders", color: "var(--chart-4)", icon: ShoppingCart },
 };
 
+// TODO(backend): visitor/traffic analytics not yet available.
+// Needs: GET /dashboard/visitor-stats returning [{day, visitors, pageViews}]
+// (or a third-party analytics integration)
+const visitorConfig: ChartConfig = {
+  visitors: { label: "Visitors", color: "var(--primary)", icon: Users },
+  pageViews: { label: "Page Views", color: "var(--chart-3)", icon: Eye },
+};
+
+// TODO(backend): category sales breakdown not available from dashboard endpoints.
+// Needs: GET /dashboard/sales-by-category returning [{category, revenue, percentage}]
 const categoryData = [
   { name: "Fruits", value: 28, color: "hsl(142, 64%, 32%)", icon: Leaf },
   { name: "Vegetables", value: 24, color: "hsl(45, 100%, 51%)", icon: Leaf },
@@ -209,6 +140,9 @@ const categoryConfig: ChartConfig = Object.fromEntries(
   ]),
 );
 
+// TODO(backend): revenue stream breakdown not available from any dashboard endpoint.
+// Needs: GET /dashboard/revenue-by-stream returning [{stream, revenue, percentage}]
+// covering product / tour / education / partnership splits
 const revenueByStream = [
   {
     name: "Product Sales",
@@ -247,82 +181,8 @@ const revenueStreamConfig: ChartConfig = Object.fromEntries(
   ]),
 );
 
-const recentOrders = [
-  {
-    id: "#ORD-2401",
-    customer: "Alice M.",
-    total: "67,500 RWF",
-    status: "Delivered",
-    items: 5,
-    date: "Today",
-  },
-  {
-    id: "#ORD-2400",
-    customer: "Bob K.",
-    total: "124,000 RWF",
-    status: "Processing",
-    items: 8,
-    date: "Today",
-  },
-  {
-    id: "#ORD-2399",
-    customer: "Clara N.",
-    total: "42,300 RWF",
-    status: "Shipped",
-    items: 3,
-    date: "Yesterday",
-  },
-  {
-    id: "#ORD-2398",
-    customer: "David O.",
-    total: "89,900 RWF",
-    status: "Pending",
-    items: 6,
-    date: "Yesterday",
-  },
-  {
-    id: "#ORD-2397",
-    customer: "Eva P.",
-    total: "156,200 RWF",
-    status: "Delivered",
-    items: 10,
-    date: "2 days ago",
-  },
-];
-
-const topProducts = [
-  {
-    name: "Organic Strawberries",
-    sold: 342,
-    revenue: "2,732,000 RWF",
-    progress: 90,
-  },
-  {
-    name: "Fresh Organic Apples",
-    sold: 287,
-    revenue: "1,432,000 RWF",
-    progress: 75,
-  },
-  {
-    name: "Raw Organic Honey",
-    sold: 198,
-    revenue: "2,572,000 RWF",
-    progress: 65,
-  },
-  {
-    name: "Baby Spinach Leaves",
-    sold: 176,
-    revenue: "702,000 RWF",
-    progress: 58,
-  },
-  {
-    name: "Farm Fresh Carrots",
-    sold: 154,
-    revenue: "461,000 RWF",
-    progress: 50,
-  },
-];
-
+// TODO(backend): tour bookings not available from dashboard endpoints.
+// Needs: GET /dashboard/recent-bookings returning [{id, tour, guest, date, status, amount}]
 const recentBookings = [
   {
     id: "#BK-301",
@@ -358,6 +218,8 @@ const recentBookings = [
   },
 ];
 
+// TODO(backend): education / training stats not available from dashboard endpoints.
+// Needs: GET /dashboard/training-stats returning [{program, enrolled, completed, rating}]
 const trainingStats = [
   {
     program: "Organic Farming Basics",
@@ -380,6 +242,8 @@ const trainingStats = [
   },
 ];
 
+// TODO(backend): visitor / traffic data not yet available.
+// Needs: GET /dashboard/visitor-stats or a third-party analytics integration
 const visitorData = [
   { day: "Mon", visitors: 1240, pageViews: 4200 },
   { day: "Tue", visitors: 1380, pageViews: 4800 },
@@ -396,17 +260,31 @@ const timeRangeLabels: Record<string, string> = {
   "12months": "Last 12 months",
 };
 
-const visitorConfig: ChartConfig = {
-  visitors: { label: "Visitors", color: "var(--primary)", icon: Users },
-  pageViews: { label: "Page Views", color: "var(--chart-3)", icon: Eye },
+// Maps the frontend time-range selector to the backend period query param
+const periodMap: Record<string, DashboardPeriod> = {
+  "7days": "daily",
+  "30days": "weekly",
+  "12months": "monthly",
 };
 
+// Covers both backend lowercase statuses and legacy mocked capitalised ones
 const statusColor: Record<string, string> = {
-  Delivered: "bg-primary/10 text-primary border-primary/20",
-  Processing: "bg-chart-2/20 text-chart-2 border-chart-2/30",
-  Shipped: "bg-chart-3/20 text-chart-3 border-chart-3/30",
+  pending: "bg-muted text-muted-foreground border-border",
   Pending: "bg-muted text-muted-foreground border-border",
+  confirmed: "bg-primary/10 text-primary border-primary/20",
   Confirmed: "bg-primary/10 text-primary border-primary/20",
+  processing: "bg-chart-2/20 text-chart-2 border-chart-2/30",
+  Processing: "bg-chart-2/20 text-chart-2 border-chart-2/30",
+  shipped: "bg-chart-3/20 text-chart-3 border-chart-3/30",
+  Shipped: "bg-chart-3/20 text-chart-3 border-chart-3/30",
+  out_for_delivery: "bg-chart-3/20 text-chart-3 border-chart-3/30",
+  delivered: "bg-primary/10 text-primary border-primary/20",
+  Delivered: "bg-primary/10 text-primary border-primary/20",
+  cancelled: "bg-destructive/10 text-destructive border-destructive/20",
+  Cancelled: "bg-destructive/10 text-destructive border-destructive/20",
+  returned: "bg-muted text-muted-foreground border-border",
+  refunded: "bg-muted text-muted-foreground border-border",
+  completed: "bg-chart-3/20 text-chart-3 border-chart-3/30",
   Completed: "bg-chart-3/20 text-chart-3 border-chart-3/30",
 };
 
@@ -415,13 +293,168 @@ export default function AdminDashboardPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const filteredRevenueData =
-    timeRange === "7days"
-      ? revenueData.slice(-3)
-      : timeRange === "30days"
-        ? revenueData.slice(-6)
-        : revenueData;
+  const period: DashboardPeriod = periodMap[timeRange] ?? "monthly";
 
+  /* ── Server queries ─────────────────────────────────────── */
+  const { data: overview } = useQuery({
+    queryKey: ["dashboard-overview"],
+    queryFn: fetchDashboardOverview,
+  });
+
+  const { data: revenueChartData } = useQuery({
+    queryKey: ["dashboard-revenue", period],
+    queryFn: () => fetchRevenueChart(period),
+  });
+
+  const { data: topProductsRaw } = useQuery({
+    queryKey: ["dashboard-top-products"],
+    queryFn: () => fetchTopProducts(5),
+  });
+
+  const { data: recentOrdersRaw } = useQuery({
+    queryKey: ["dashboard-recent-orders"],
+    queryFn: () => fetchRecentOrders(5),
+  });
+
+  const { data: lowStockRaw } = useQuery({
+    queryKey: ["dashboard-low-stock"],
+    queryFn: () => fetchLowStockProducts(10),
+  });
+
+  /* ── Derived display data ───────────────────────────────── */
+
+  // TODO(backend): the overview endpoint has no period-over-period comparison values,
+  // so % change figures like "+12.5% vs last month" are unavailable.
+  // Add a `comparison` object to GET /dashboard/overview, or a separate
+  // GET /dashboard/overview?compare=prev_month endpoint.
+  const kpiStats = useMemo(
+    () => [
+      {
+        title: "Total Revenue",
+        value: overview ? formatRWF(overview.totalRevenue) : "—",
+        change: overview
+          ? `${formatRWF(overview.monthlyRevenue)} this month`
+          : "—",
+        icon: DollarSign,
+        color: "bg-primary/10 text-primary",
+        period: "all time",
+      },
+      {
+        title: "Total Orders",
+        value: overview ? overview.totalOrders.toLocaleString() : "—",
+        change: overview ? `${overview.pendingOrders} pending` : "—",
+        icon: ShoppingCart,
+        color: "bg-chart-2/20 text-chart-2",
+        period: "all time",
+      },
+      {
+        title: "Total Customers",
+        value: overview ? overview.totalCustomers.toLocaleString() : "—",
+        // TODO(backend): no growth % without comparison period in overview response
+        change: "—",
+        icon: Users,
+        color: "bg-chart-3/20 text-chart-3",
+        period: "all time",
+      },
+      // TODO(backend): Conversion Rate is not derivable from current backend metrics
+      {
+        title: "Conversion Rate",
+        value: "—",
+        change: "—",
+        icon: TrendingUp,
+        color: "bg-chart-4/20 text-chart-4",
+        period: "no data",
+      },
+    ],
+    [overview],
+  );
+
+  // Module stats — only the Products card is integrable from the overview endpoint.
+  // TODO(backend): add tours, education, artisan, partner and booking aggregate counts to
+  // GET /dashboard/overview (or expose a new GET /dashboard/modules-summary endpoint)
+  const moduleStats = useMemo(
+    () => [
+      {
+        title: "Products",
+        value: overview ? overview.totalProducts.toString() : "—",
+        subtitle: overview
+          ? `${overview.totalCategories} categories`
+          : "loading…",
+        icon: Package,
+        color: "bg-primary/10 text-primary",
+      },
+      {
+        title: "Tours & Experiences",
+        value: "—",
+        subtitle: "not in API",
+        icon: Map,
+        color: "bg-chart-2/20 text-chart-2",
+      },
+      {
+        title: "Education Programs",
+        value: "—",
+        subtitle: "not in API",
+        icon: GraduationCap,
+        color: "bg-chart-3/20 text-chart-3",
+      },
+      {
+        title: "Artisans",
+        value: "—",
+        subtitle: "not in API",
+        icon: Palette,
+        color: "bg-chart-4/20 text-chart-4",
+      },
+      {
+        title: "Partners",
+        value: "—",
+        subtitle: "not in API",
+        icon: Handshake,
+        color: "bg-chart-5/20 text-chart-5",
+      },
+      {
+        title: "Bookings",
+        value: overview ? overview.pendingOrders.toString() : "—",
+        subtitle: "pending orders",
+        icon: CalendarCheck,
+        color: "bg-primary/10 text-primary",
+      },
+    ],
+    [overview],
+  );
+
+  // Revenue / orders chart — live from GET /dashboard/revenue-chart
+  const chartData = revenueChartData?.data ?? [];
+
+  // Top products — live from GET /dashboard/top-products
+  const topProducts = useMemo(() => {
+    if (!topProductsRaw?.length) return [];
+    const maxSold = topProductsRaw[0].soldCount || 1;
+    return topProductsRaw.map((p) => ({
+      name: p.name,
+      sold: p.soldCount,
+      revenue: formatRWF(p.soldCount * p.sellingPrice),
+      progress: Math.round((p.soldCount / maxSold) * 100),
+    }));
+  }, [topProductsRaw]);
+
+  // Recent orders — live from GET /dashboard/recent-orders
+  const recentOrders = useMemo(
+    () =>
+      (recentOrdersRaw ?? []).map((o) => ({
+        id: `#${o.id.slice(0, 8).toUpperCase()}`,
+        customer: o.user?.username ?? o.user?.email ?? "Unknown",
+        total: formatRWF(o.totalAmount),
+        status: o.status,
+        items: o.items?.length ?? 0,
+        date: formatDate(o.createdAt),
+      })),
+    [recentOrdersRaw],
+  );
+
+  // Low stock — live from GET /dashboard/low-stock
+  const lowStock = lowStockRaw ?? [];
+
+  // Visitor data is still mocked — no analytics endpoint yet
   const filteredVisitorData =
     timeRange === "7days"
       ? visitorData.slice(-3)
@@ -438,7 +471,7 @@ export default function AdminDashboardPage() {
             Dashboard
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Welcome back! Here's a complete overview of your platform.
+            Welcome back! Here&apos;s a complete overview of your platform.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -453,9 +486,9 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* KPI Stats cards */}
+      {/* KPI Stats cards — live from GET /dashboard/overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
+        {kpiStats.map((stat) => (
           <Card
             key={stat.title}
             className="hover:shadow-md transition-shadow border-l-4 border-l-primary/60"
@@ -468,16 +501,8 @@ export default function AdminDashboardPage() {
                     {stat.value}
                   </p>
                   <div className="flex items-center gap-1 text-xs">
-                    {stat.up ? (
-                      <ArrowUpRight className="h-3 w-3 text-primary" />
-                    ) : (
-                      <ArrowDownRight className="h-3 w-3 text-destructive" />
-                    )}
-                    <span
-                      className={stat.up ? "text-primary" : "text-destructive"}
-                    >
-                      {stat.change}
-                    </span>
+                    <ArrowUpRight className="h-3 w-3 text-primary" />
+                    <span className="text-primary">{stat.change}</span>
                     <span className="text-muted-foreground">{stat.period}</span>
                   </div>
                 </div>
@@ -490,7 +515,7 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* Module Overview Cards */}
+      {/* Module Overview Cards — Products live; others TODO(backend) */}
       <div>
         <h2 className="text-lg font-semibold font-heading text-foreground mb-3">
           System Modules Overview
@@ -531,7 +556,7 @@ export default function AdminDashboardPage() {
             </div>
             <div className="flex items-center gap-2">
               <Select value={timeRange} onValueChange={setTimeRange}>
-                <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectTrigger className="w-35 h-8 text-xs">
                   <CalendarDays className="mr-2 h-3.5 w-3.5" />
                   <SelectValue placeholder="Select range" />
                 </SelectTrigger>
@@ -565,17 +590,15 @@ export default function AdminDashboardPage() {
               <TabsTrigger value="visitors">Site Traffic</TabsTrigger>
             </TabsList>
 
+            {/* Revenue — live from GET /dashboard/revenue-chart */}
             <TabsContent value="overview">
-              <ChartContainer
-                config={revenueConfig}
-                className="h-[320px] w-full"
-              >
-                <AreaChart data={filteredRevenueData}>
+              <ChartContainer config={revenueConfig} className="h-80 w-full">
+                <AreaChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-border"
                   />
-                  <XAxis dataKey="month" className="text-xs" />
+                  <XAxis dataKey="period" className="text-xs" />
                   <YAxis
                     className="text-xs"
                     tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
@@ -594,30 +617,6 @@ export default function AdminDashboardPage() {
                         stopOpacity={0}
                       />
                     </linearGradient>
-                    <linearGradient id="tourGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="var(--chart-2)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--chart-2)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                    <linearGradient id="eduGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="var(--chart-3)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--chart-3)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
                   </defs>
                   <Area
                     type="monotone"
@@ -625,40 +624,26 @@ export default function AdminDashboardPage() {
                     stroke="var(--primary)"
                     fill="url(#revGrad)"
                     strokeWidth={2}
-                    name="Products"
+                    name="Revenue"
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="tours"
-                    stroke="var(--chart-2)"
-                    fill="url(#tourGrad)"
-                    strokeWidth={2}
-                    name="Tours"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="education"
-                    stroke="var(--chart-3)"
-                    fill="url(#eduGrad)"
-                    strokeWidth={2}
-                    name="Education"
-                  />
+                  {/* TODO(backend): tours & education revenue series were removed —
+                      the revenue-chart endpoint only returns product-orders revenue.
+                      Add `tours` and `education` numeric fields to the
+                      GET /dashboard/revenue-chart response to restore those lines. */}
                   <ChartLegend content={<ChartLegendContent />} />
                 </AreaChart>
               </ChartContainer>
             </TabsContent>
 
+            {/* Orders — live from GET /dashboard/revenue-chart (orders field) */}
             <TabsContent value="orders">
-              <ChartContainer
-                config={ordersConfig}
-                className="h-[320px] w-full"
-              >
-                <BarChart data={filteredRevenueData}>
+              <ChartContainer config={ordersConfig} className="h-80 w-full">
+                <BarChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-border"
                   />
-                  <XAxis dataKey="month" className="text-xs" />
+                  <XAxis dataKey="period" className="text-xs" />
                   <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar
@@ -672,11 +657,9 @@ export default function AdminDashboardPage() {
               </ChartContainer>
             </TabsContent>
 
+            {/* Site Traffic — TODO(backend): mocked until analytics endpoint available */}
             <TabsContent value="visitors">
-              <ChartContainer
-                config={visitorConfig}
-                className="h-[320px] w-full"
-              >
+              <ChartContainer config={visitorConfig} className="h-80 w-full">
                 <LineChart data={filteredVisitorData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -707,7 +690,10 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Revenue Streams + Category Breakdown */}
+      {/* TODO(backend): Both Revenue Streams and Sales by Category are mocked.
+          Required new endpoints:
+            • GET /dashboard/revenue-by-stream  → [{stream, revenue, percentage}]
+            • GET /dashboard/sales-by-category  → [{category, revenue, percentage}] */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Revenue by Stream */}
         <Card>
@@ -722,7 +708,7 @@ export default function AdminDashboardPage() {
           <CardContent>
             <ChartContainer
               config={revenueStreamConfig}
-              className="h-[240px] w-full"
+              className="h-60 w-full"
             >
               <PieChart>
                 <ChartTooltip content={<ChartTooltipContent />} />
@@ -767,7 +753,7 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Categories Pie */}
+        {/* Sales by Category */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-heading">
@@ -776,10 +762,7 @@ export default function AdminDashboardPage() {
             <CardDescription>Product category breakdown</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer
-              config={categoryConfig}
-              className="h-[240px] w-full"
-            >
+            <ChartContainer config={categoryConfig} className="h-60 w-full">
               <PieChart>
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Pie
@@ -814,7 +797,10 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      {/* Tours & Education Stats */}
+      {/* TODO(backend): Tours & Education rows are fully mocked.
+          Required new endpoints:
+            • GET /dashboard/recent-bookings  → [{id, tour, guest, date, status, amount}]
+            • GET /dashboard/training-stats   → [{program, enrolled, completed, rating}] */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Recent Bookings */}
         <Card>
@@ -901,9 +887,9 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      {/* Bottom row - Orders & Top Products */}
+      {/* Bottom row — Recent Orders & Top Products (live from backend) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent orders */}
+        {/* Recent orders — live from GET /dashboard/recent-orders */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -940,7 +926,7 @@ export default function AdminDashboardPage() {
                     </p>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${statusColor[order.status]}`}
+                      className={`text-[10px] ${statusColor[order.status] ?? ""}`}
                     >
                       {order.status}
                     </Badge>
@@ -951,7 +937,7 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Top products */}
+        {/* Top products — live from GET /dashboard/top-products */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-heading">Top Products</CardTitle>
@@ -982,8 +968,52 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
+      {/* Low Stock Alert — live from GET /dashboard/low-stock */}
+      {lowStock.length > 0 && (
+        <Card className="border-destructive/30">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-lg font-heading flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                Low Stock Alert
+              </CardTitle>
+              <CardDescription>
+                Products with ≤ 10 units remaining — restock soon
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {lowStock.map((product) => (
+                <div
+                  key={product.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-destructive/5 border border-destructive/20"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {product.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {product.category?.name ?? "Uncategorised"}
+                      {product.sku ? ` · ${product.sku}` : ""}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-destructive border-destructive/40 bg-destructive/10"
+                  >
+                    {product.stock} left
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Fullscreen chart dialog */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-[95vw] w-[1200px] h-[80vh] flex flex-col p-6">
+        <DialogContent className="max-w-[95vw] w-300 h-[80vh] flex flex-col p-6">
           <DialogHeader className="mb-4">
             <div className="flex items-center justify-between pr-8">
               <div>
@@ -1010,12 +1040,12 @@ export default function AdminDashboardPage() {
               className="h-full w-full"
             >
               {activeTab === "overview" && (
-                <AreaChart data={filteredRevenueData}>
+                <AreaChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-border"
                   />
-                  <XAxis dataKey="month" className="text-xs" />
+                  <XAxis dataKey="period" className="text-xs" />
                   <YAxis
                     className="text-xs"
                     tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
@@ -1040,42 +1070,6 @@ export default function AdminDashboardPage() {
                         stopOpacity={0}
                       />
                     </linearGradient>
-                    <linearGradient
-                      id="tourGradFull"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="5%"
-                        stopColor="var(--chart-2)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--chart-2)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                    <linearGradient
-                      id="eduGradFull"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="5%"
-                        stopColor="var(--chart-3)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--chart-3)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
                   </defs>
                   <Area
                     type="monotone"
@@ -1083,35 +1077,20 @@ export default function AdminDashboardPage() {
                     stroke="var(--primary)"
                     fill="url(#revGradFull)"
                     strokeWidth={2}
-                    name="Products"
+                    name="Revenue"
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="tours"
-                    stroke="var(--chart-2)"
-                    fill="url(#tourGradFull)"
-                    strokeWidth={2}
-                    name="Tours"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="education"
-                    stroke="var(--chart-3)"
-                    fill="url(#eduGradFull)"
-                    strokeWidth={2}
-                    name="Education"
-                  />
+                  {/* TODO(backend): tours & education series not in revenue-chart endpoint */}
                   <ChartLegend content={<ChartLegendContent />} />
                 </AreaChart>
               )}
 
               {activeTab === "orders" && (
-                <BarChart data={filteredRevenueData}>
+                <BarChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-border"
                   />
-                  <XAxis dataKey="month" className="text-xs" />
+                  <XAxis dataKey="period" className="text-xs" />
                   <YAxis className="text-xs" />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar

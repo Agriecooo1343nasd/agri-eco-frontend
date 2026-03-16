@@ -51,7 +51,7 @@ const AboutPage = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-100 flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image
             src="/assets/hero.png"
@@ -134,7 +134,7 @@ const AboutPage = () => {
                   height={1000}
                   unoptimized
                   sizes="(min-width: 1024px) 40vw, 90vw"
-                  className="w-full aspect-[4/5] object-cover"
+                  className="w-full aspect-4/5 object-cover"
                 />
               </div>
               <div className="absolute -bottom-10 -left-10 z-20 bg-primary text-white p-8 rounded-xl hidden md:block animate-bounce-subtle">
@@ -220,7 +220,7 @@ const AboutPage = () => {
             {teamMembers.map((member, i) => (
               <div
                 key={i}
-                className="group flex flex-col items-center text-center min-w-[260px] snap-start lg:min-w-0"
+                className="group flex flex-col items-center text-center min-w-65 snap-start lg:min-w-0"
               >
                 <div className="relative w-full aspect-square mb-6 rounded-3xl overflow-hidden shadow-lg">
                   <Image
@@ -231,7 +231,7 @@ const AboutPage = () => {
                     sizes="(min-width: 1024px) 22vw, 70vw"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
-                  <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0 text-white text-xs leading-relaxed italic">
+                  <div className="absolute inset-x-0 bottom-0 p-6 bg-linear-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0 text-white text-xs leading-relaxed italic">
                     &quot;{member.bio}&quot;
                   </div>
                 </div>
@@ -288,7 +288,7 @@ const AboutPage = () => {
                 <Link href="/contact">Get Directions</Link>
               </Button>
             </div>
-            <div className="h-[450px] bg-card rounded-[40px] overflow-hidden border-8 border-card shadow-2xl relative">
+            <div className="h-112.5 bg-card rounded-[40px] overflow-hidden border-8 border-card shadow-2xl relative">
               {/* Simulated Map */}
               <iframe
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d31913.43572886738!2d29.61053075!3d-1.4988451!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x19dc183617349911%3A0xe549557b44760826!2sMusanze!5e0!3m2!1sen!2srw!4v1709560000000!5m2!1sen!2srw"
@@ -363,7 +363,7 @@ const AboutPage = () => {
                     height={800}
                     unoptimized
                     sizes="(min-width: 1024px) 60vw, 95vw"
-                    className="w-full h-full max-h-[480px] object-contain bg-black/5"
+                    className="w-full h-full max-h-120 object-contain bg-black/5"
                   />
                 </div>
                 {selectedImage.caption && (

@@ -376,7 +376,7 @@ export default function UpdateProduct({
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="w-[300px] p-0 border-border"
+                          className="w-75 p-0 border-border"
                           align="start"
                         >
                           <Command className="rounded-2xl">
@@ -476,7 +476,7 @@ export default function UpdateProduct({
                       </label>
                       <Textarea
                         placeholder="Detailed product information, origin, organic certifications..."
-                        className="min-h-[160px] bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
+                        className="min-h-40 bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
                         value={longDesc}
                         onChange={(e) => setLongDesc(e.target.value)}
                       />

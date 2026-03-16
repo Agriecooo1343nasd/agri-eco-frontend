@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { loginRequest } from "@/lib/api/auth";
+import { ADMIN_ROLES } from "@/lib/auth-types";
 import { isValidEmail } from "@/lib/auth-validation";
 import { toast } from "sonner";
 
@@ -40,10 +41,7 @@ const LoginPage = () => {
         return;
       }
 
-      if (
-        session.user.role === "admin" ||
-        session.user.role === "super_admin"
-      ) {
+      if (session.user.role && ADMIN_ROLES.includes(session.user.role)) {
         router.push("/admin");
         return;
       }
