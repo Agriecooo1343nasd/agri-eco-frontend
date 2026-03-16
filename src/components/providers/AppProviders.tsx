@@ -2,17 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 import { Provider as ReduxProvider } from "react-redux";
-import {
-  MutationCache,
-  QueryCache,
-  QueryClient,
-  QueryClientProvider,
-} from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { PricingProvider } from "@/context/PricingContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { showApiErrorToast } from "@/lib/api/error";
 import { store } from "@/store";
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -40,16 +34,6 @@ export function AppProviders({ children }: { children: ReactNode }) {
             retry: false,
           },
         },
-        queryCache: new QueryCache({
-          onError: (error) => {
-            showApiErrorToast(error);
-          },
-        }),
-        mutationCache: new MutationCache({
-          onError: (error) => {
-            showApiErrorToast(error);
-          },
-        }),
       }),
   );
 

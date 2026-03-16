@@ -2,46 +2,75 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { loginRequest } from "@/lib/api/auth";
+import { isValidEmail } from "@/lib/auth-validation";
 import { toast } from "sonner";
 
 const LoginPage = () => {
-  const [emailOrPhone, setEmailOrPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailOrPhone || !password) {
-      toast.error("Missing fields", {
-        description: "Please fill in all required fields.",
-      });
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      // For demo purposes, we'll log in with any credentials
-      login({
-        id: "1",
-        name: "John Doe",
-        email: emailOrPhone.includes("@")
-          ? emailOrPhone
-          : `${emailOrPhone}@example.com`,
-      });
+  const loginMutation = useMutation({
+    mutationFn: loginRequest,
+    onSuccess: (session) => {
+      login(session);
       toast.success("Login successful", {
         description: "Welcome back to Agri-Eco!",
       });
+
+      const requestedRedirect = searchParams.get("redirect");
+      const safeRedirect =
+        requestedRedirect && requestedRedirect.startsWith("/")
+          ? requestedRedirect
+          : null;
+
+      if (safeRedirect) {
+        router.push(safeRedirect);
+        return;
+      }
+
+      if (
+        session.user.role === "admin" ||
+        session.user.role === "super_admin"
+      ) {
+        router.push("/admin");
+        return;
+      }
+
       router.push("/");
-    }, 1500);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setFormError(null);
+
+    if (!email.trim() || !password) {
+      setFormError("Please fill in all required fields.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setFormError("Please enter a valid email address.");
+      return;
+    }
+
+    loginMutation.mutate({ email: email.trim(), password });
   };
+
+  const loading = loginMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,14 +97,14 @@ const LoginPage = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Email or Phone Number *
+                Email Address *
               </label>
               <input
-                type="text"
-                value={emailOrPhone}
-                onChange={(e) => setEmailOrPhone(e.target.value)}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
-                placeholder="john@example.com or 078XXXXXXX"
+                placeholder="john@example.com"
               />
             </div>
             <div>
@@ -133,6 +162,12 @@ const LoginPage = () => {
                 </>
               )}
             </button>
+
+            {formError && (
+              <p className="text-sm text-destructive text-center">
+                {formError}
+              </p>
+            )}
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">

@@ -2,48 +2,67 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, KeyRound } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { resetPasswordRequest } from "@/lib/api/auth";
+import { getPasswordHelpText, isStrongPassword } from "@/lib/auth-validation";
 import { toast } from "sonner";
 
 const ResetPasswordPage = () => {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token")?.trim() || "";
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!password || !confirmPassword) {
-      toast.error("Missing fields", {
-        description: "Please fill in both fields.",
-      });
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error("Passwords don't match", {
-        description: "Please make sure your passwords match.",
-      });
-      return;
-    }
-    if (password.length < 8) {
-      toast.error("Password too short", {
-        description: "Password must be at least 8 characters.",
-      });
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  const resetPasswordMutation = useMutation({
+    mutationFn: resetPasswordRequest,
+    onSuccess: () => {
       setSuccess(true);
       toast.success("Password reset!", {
         description: "Your password has been updated successfully.",
       });
-    }, 1500);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setFormError(null);
+
+    if (!token) {
+      setFormError("Open this page from the password reset email link.");
+      return;
+    }
+
+    if (!password || !confirmPassword) {
+      setFormError("Please fill in both fields.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setFormError("Please make sure your passwords match.");
+      return;
+    }
+    if (!isStrongPassword(password)) {
+      setFormError(getPasswordHelpText());
+      return;
+    }
+
+    resetPasswordMutation.mutate({
+      token,
+      newPassword: password,
+      confirmPassword,
+    });
   };
+
+  const loading = resetPasswordMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,6 +82,11 @@ const ResetPasswordPage = () => {
                 ? "You can now sign in with your new password"
                 : "Enter your new password below"}
             </p>
+            {!token && !success && (
+              <p className="text-xs text-destructive mt-2">
+                Reset token missing. Please use the link sent to your email.
+              </p>
+            )}
           </div>
 
           {!success ? (
@@ -124,6 +148,12 @@ const ResetPasswordPage = () => {
               >
                 {loading ? "Updating..." : "Reset Password"}
               </button>
+
+              {formError && (
+                <p className="text-sm text-destructive text-center">
+                  {formError}
+                </p>
+              )}
             </form>
           ) : (
             <div className="text-center">

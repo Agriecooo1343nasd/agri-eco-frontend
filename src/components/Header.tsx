@@ -88,7 +88,7 @@ const Header = () => {
   const [searchScope, setSearchScope] = useState<SearchScope>("products");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { cartCount, wishlistItems } = useCart();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -266,6 +266,15 @@ const Header = () => {
                     </p>
                   </div>
                   <div className="py-2">
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <span className="text-base"></span> Go to Dashboard
+                      </Link>
+                    )}
                     <Link
                       href="/account"
                       onClick={() => setUserMenuOpen(false)}

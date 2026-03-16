@@ -3,32 +3,47 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Mail, ArrowLeft } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { forgotPasswordRequest } from "@/lib/api/auth";
+import { isValidEmail } from "@/lib/auth-validation";
 import { toast } from "sonner";
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) {
-      toast.error("Email required", {
-        description: "Please enter your email address.",
-      });
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+  const forgotPasswordMutation = useMutation({
+    mutationFn: forgotPasswordRequest,
+    onSuccess: () => {
       setSent(true);
       toast.success("Email sent!", {
         description: "Check your inbox for the password reset link.",
       });
-    }, 1500);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    setFormError(null);
+
+    if (!email.trim()) {
+      setFormError("Please enter your email address.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setFormError("Please provide a valid email address.");
+      return;
+    }
+
+    forgotPasswordMutation.mutate({ email: email.trim().toLowerCase() });
   };
+
+  const loading = forgotPasswordMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background">
@@ -71,6 +86,12 @@ const ForgotPasswordPage = () => {
               >
                 {loading ? "Sending..." : "Send Reset Link"}
               </button>
+
+              {formError && (
+                <p className="text-sm text-destructive text-center">
+                  {formError}
+                </p>
+              )}
             </form>
           ) : (
             <div className="text-center space-y-4">

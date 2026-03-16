@@ -21,6 +21,7 @@ import {
   readStoredAuthSession,
   writeStoredAuthSession,
 } from "@/lib/auth-storage";
+import { logoutRequest } from "@/lib/api/auth";
 import { clearSession, setSession } from "@/store/auth-slice";
 import { useAppDispatch } from "@/store/hooks";
 
@@ -92,6 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    void logoutRequest().catch(() => undefined);
     clearStoredAuthSession();
     setLocalSession(null);
     dispatch(clearSession());
