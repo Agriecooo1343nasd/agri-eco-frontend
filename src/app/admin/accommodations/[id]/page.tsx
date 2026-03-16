@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter, useParams } from "next/navigation";
 import {
   ChevronLeft,
   Edit,
@@ -11,49 +11,73 @@ import {
   Users,
   DollarSign,
   Tag,
-  Check,
   Calendar,
   MapPin,
   Loader2,
   ArrowRight,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { accommodations, Accommodation } from "@/data/accommodations";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { languages } from "@/i18n/config";
+import {
+  deleteAdminAccommodation,
+  fetchAccommodationById,
+  toAbsoluteAccommodationImage,
+} from "@/lib/api/accommodations";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+function getLocalizedText(value?: {
+  en?: string;
+  rw?: string;
+  fr?: string;
+  sw?: string;
+}) {
+  if (!value) return "Untitled";
+  return value.en || value.rw || value.fr || value.sw || "Untitled";
+}
 
 export default function ViewAccommodationPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
+  const queryClient = useQueryClient();
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
-  const [loading, setLoading] = useState(true);
-  const [accommodation, setAccommodation] = useState<Accommodation | null>(
-    null,
-  );
+  const accommodationQuery = useQuery({
+    queryKey: ["admin-accommodation", id],
+    queryFn: () => fetchAccommodationById(id),
+    enabled: Boolean(id),
+    retry: 1,
+  });
 
-  useEffect(() => {
-    // Simulate fetching data
-    const data = accommodations.find((a) => a.id === id);
-    if (data) {
-      setAccommodation(data);
-      setLoading(false);
-    } else {
-      toast.error("Accommodation not found");
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAdminAccommodation(id),
+    onSuccess: () => {
+      toast.success("Accommodation deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-accommodations"] });
       router.push("/admin/accommodations");
-    }
-  }, [id, router]);
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete accommodation", {
+        description: error.message || "Please try again.",
+      });
+    },
+  });
 
-  if (loading || !accommodation) {
+  if (accommodationQuery.isLoading) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
@@ -64,16 +88,35 @@ export default function ViewAccommodationPage() {
     );
   }
 
+  if (accommodationQuery.isError || !accommodationQuery.data) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
+        <p className="text-sm font-medium text-muted-foreground text-center max-w-md">
+          {accommodationQuery.error instanceof Error
+            ? accommodationQuery.error.message
+            : "Accommodation not found."}
+        </p>
+        <Link href="/admin/accommodations">
+          <Button variant="outline">Back to Accommodations</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const accommodation = accommodationQuery.data;
+
   const statusColors: Record<string, string> = {
     available: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
     maintenance: "bg-amber-500/10 text-amber-600 border-amber-500/20",
     occupied: "bg-green-500/10 text-green-600 border-green-500/20",
-    hidden: "bg-gray-500/10 text-gray-600 border-gray-500/20",
   };
+
+  const mainImage = toAbsoluteAccommodationImage(
+    accommodation.mainImage || accommodation.gallery?.[0],
+  );
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-700">
-      {/* Header section with actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-border/50">
         <div className="flex items-center gap-4">
           <Link href="/admin/accommodations">
@@ -100,7 +143,7 @@ export default function ViewAccommodationPage() {
               </span>
             </div>
             <h1 className="text-3xl font-heading font-bold tracking-tight text-foreground">
-              {accommodation.name}
+              {getLocalizedText(accommodation.name)}
             </h1>
           </div>
         </div>
@@ -108,7 +151,6 @@ export default function ViewAccommodationPage() {
           <Link href={`/admin/accommodations/${accommodation.id}/edit`}>
             <Button
               variant="outline"
-              className="h-11 px-6 rounded-xl border-border/50 font-bold gap-2"
             >
               <Edit className="h-4 w-4" />
               <span>Edit Property</span>
@@ -118,6 +160,7 @@ export default function ViewAccommodationPage() {
             variant="ghost"
             size="icon"
             className="h-11 w-11 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={() => setConfirmDeleteOpen(true)}
           >
             <Trash2 className="h-5 w-5" />
           </Button>
@@ -125,14 +168,12 @@ export default function ViewAccommodationPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Details & Content */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Main Hero Image */}
           <div className="aspect-[16/7] rounded-2xl overflow-hidden border border-border/50 bg-muted relative group shadow-2xl">
-            {accommodation.images[0] ? (
+            {mainImage ? (
               <img
-                src={accommodation.images[0]}
-                alt={accommodation.name}
+                src={mainImage}
+                alt={getLocalizedText(accommodation.name)}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
             ) : (
@@ -146,7 +187,6 @@ export default function ViewAccommodationPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </div>
 
-          {/* Description & Languages */}
           <Card className="border-border/50 shadow-sm overflow-hidden bg-card/50 backdrop-blur-sm">
             <CardHeader className="border-b border-border/50 bg-muted/20">
               <CardTitle className="text-lg font-heading">
@@ -155,34 +195,34 @@ export default function ViewAccommodationPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/50">
-                {languages.map((lang) => (
-                  <div key={lang.code} className="p-6 space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                        {lang.code}
-                      </span>
-                      <span className="text-xs font-semibold text-muted-foreground">
-                        {lang.label}
-                      </span>
+                {languages.map((lang) => {
+                  const langCode = lang.code as "en" | "rw" | "fr" | "sw";
+                  return (
+                    <div key={lang.code} className="p-6 space-y-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                          {lang.code}
+                        </span>
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {lang.label}
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-foreground mb-1">
+                          {accommodation.name?.[langCode] || "—"}
+                        </h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed italic">
+                          {accommodation.description?.[langCode] ||
+                            "No description provided for this language."}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-foreground mb-1">
-                        {accommodation.translatedName[lang.code] || "—"}
-                      </h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed italic">
-                        "
-                        {accommodation.description[lang.code] ||
-                          "No description provided for this language."}
-                        "
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
 
-          {/* Amenities Grid */}
           <Card className="border-border/50 shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-heading">
@@ -191,9 +231,9 @@ export default function ViewAccommodationPage() {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {accommodation.amenities.map((amenity, i) => (
+                {(accommodation.amenities ?? []).map((amenity, i) => (
                   <div
-                    key={i}
+                    key={`${amenity}-${i}`}
                     className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/10 group hover:border-primary/30 transition-colors"
                   >
                     <div className="h-2 w-2 rounded-full bg-primary/40 group-hover:bg-primary transition-colors" />
@@ -205,7 +245,6 @@ export default function ViewAccommodationPage() {
           </Card>
         </div>
 
-        {/* Right Column: Key Stats & Quick Info */}
         <div className="space-y-6">
           <Card className="border-border/50 shadow-xl overflow-hidden bg-primary/5 border-primary/20 ring-1 ring-primary/10">
             <CardHeader className="pb-4">
@@ -225,7 +264,10 @@ export default function ViewAccommodationPage() {
                     </span>
                   </div>
                   <span className="font-bold text-lg">
-                    {accommodation.pricePerNight.toLocaleString()} RWF
+                    {Number(
+                      accommodation.ratePerNightRwf || 0,
+                    ).toLocaleString()}{" "}
+                    RWF
                   </span>
                 </div>
 
@@ -239,7 +281,7 @@ export default function ViewAccommodationPage() {
                     </span>
                   </div>
                   <span className="font-bold text-lg">
-                    {accommodation.capacity} Adults
+                    {accommodation.maxGuests} Guests
                   </span>
                 </div>
 
@@ -253,7 +295,7 @@ export default function ViewAccommodationPage() {
                     </span>
                   </div>
                   <span className="font-bold text-sm capitalize">
-                    {accommodation.type.replace("-", " ")}
+                    {accommodation.category}
                   </span>
                 </div>
               </div>
@@ -267,21 +309,20 @@ export default function ViewAccommodationPage() {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Created On</span>
                     <span className="font-medium">
-                      {accommodation.createdAt}
+                      {new Date(accommodation.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      Last Performance Update
+                    <span className="text-muted-foreground">Updated On</span>
+                    <span className="font-medium">
+                      {new Date(accommodation.updatedAt).toLocaleDateString()}
                     </span>
-                    <span className="font-medium italic">Never</span>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Quick Action Link to Tours */}
           <Card className="border-border/50 shadow-sm border-dashed bg-muted/10">
             <CardContent className="p-6 text-center space-y-4">
               <div className="h-12 w-12 rounded-full bg-background border border-border/50 shadow-inner flex items-center justify-center mx-auto">
@@ -290,8 +331,8 @@ export default function ViewAccommodationPage() {
               <div>
                 <h4 className="font-bold text-sm">Tour Integration</h4>
                 <p className="text-[11px] text-muted-foreground mt-1 px-2 leading-relaxed">
-                  This stay can be linked to any experience during the tour
-                  creation process.
+                  This stay can be linked to any experience during tour
+                  creation.
                 </p>
               </div>
               <Link href="/admin/tours/create-tour">
@@ -306,6 +347,27 @@ export default function ViewAccommodationPage() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Accommodation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this accommodation and cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate()}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
