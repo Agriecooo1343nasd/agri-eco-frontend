@@ -21,11 +21,14 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -246,45 +249,48 @@ export default function AdminAccommodationsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <select
-                className="h-11 px-4 text-sm rounded-xl border-border/50 bg-background/50 focus:ring-1 focus:ring-primary outline-none transition-all"
+              <Select
                 value={categoryFilter}
-                onChange={(e) => {
-                  setCategoryFilter(
-                    e.target.value as AccommodationCategory | "all",
-                  );
+                onValueChange={(value) => {
+                  setCategoryFilter(value as AccommodationCategory | "all");
                   setPage(1);
                 }}
               >
-                <option value="all">All Categories</option>
-                <option value="standard">Standard</option>
-                <option value="premium">Premium</option>
-                <option value="family">Family</option>
-                <option value="luxury">Luxury</option>
-                <option value="eco">Eco</option>
-              </select>
+                <SelectTrigger className="h-11 min-w-[170px] rounded-xl border-border/50 bg-background/50">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="family">Family</SelectItem>
+                  <SelectItem value="luxury">Luxury</SelectItem>
+                  <SelectItem value="eco">Eco</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <select
-                className="h-11 px-4 text-sm rounded-xl border-border/50 bg-background/50 focus:ring-1 focus:ring-primary outline-none transition-all"
+              <Select
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(
-                    e.target.value as AccommodationStatus | "all",
-                  );
+                onValueChange={(value) => {
+                  setStatusFilter(value as AccommodationStatus | "all");
                   setPage(1);
                 }}
               >
-                <option value="all">All Status</option>
-                <option value="available">Available</option>
-                <option value="maintenance">Maintenance</option>
-                <option value="occupied">Occupied</option>
-              </select>
+                <SelectTrigger className="h-11 min-w-[150px] rounded-xl border-border/50 bg-background/50">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="occupied">Occupied</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <select
-                className="h-11 px-4 text-sm rounded-xl border-border/50 bg-background/50 focus:ring-1 focus:ring-primary outline-none transition-all"
+              <Select
                 value={`${sort}:${order}`}
-                onChange={(e) => {
-                  const [nextSort, nextOrder] = e.target.value.split(":") as [
+                onValueChange={(value) => {
+                  const [nextSort, nextOrder] = value.split(":") as [
                     "ratePerNightRwf" | "maxGuests" | "createdAt",
                     "asc" | "desc",
                   ];
@@ -293,12 +299,23 @@ export default function AdminAccommodationsPage() {
                   setPage(1);
                 }}
               >
-                <option value="createdAt:desc">Newest</option>
-                <option value="createdAt:asc">Oldest</option>
-                <option value="ratePerNightRwf:asc">Price Low to High</option>
-                <option value="ratePerNightRwf:desc">Price High to Low</option>
-                <option value="maxGuests:desc">Capacity High to Low</option>
-              </select>
+                <SelectTrigger className="h-11 min-w-[190px] rounded-xl border-border/50 bg-background/50">
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt:desc">Newest</SelectItem>
+                  <SelectItem value="createdAt:asc">Oldest</SelectItem>
+                  <SelectItem value="ratePerNightRwf:asc">
+                    Price Low to High
+                  </SelectItem>
+                  <SelectItem value="ratePerNightRwf:desc">
+                    Price High to Low
+                  </SelectItem>
+                  <SelectItem value="maxGuests:desc">
+                    Capacity High to Low
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
