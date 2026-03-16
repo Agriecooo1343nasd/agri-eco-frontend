@@ -11,11 +11,11 @@ import {
   Calendar,
   ChevronRight,
   Facebook,
-  Twitter,
   Instagram,
   Linkedin,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -53,9 +53,12 @@ const AboutPage = () => {
       {/* Hero Section */}
       <section className="relative h-[400px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <img
+          <Image
             src="/assets/hero.png"
             alt="About Agri-Eco"
+            fill
+            priority
+            sizes="100vw"
             className="w-full h-full object-cover brightness-50"
           />
         </div>
@@ -92,7 +95,7 @@ const AboutPage = () => {
                 Agri-Eco started with a simple belief: that healthy, organic
                 food should be accessible to everyone, not just a luxury. What
                 began as a 5-acre family farm in the heart of the countryside
-                has blossomed into Rwanda's leading network of organic
+                has blossomed into Rwanda&apos;s leading network of organic
                 producers.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
@@ -124,9 +127,13 @@ const AboutPage = () => {
             </div>
             <div className="flex-1 relative">
               <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
-                <img
+                <Image
                   src="https://images.unsplash.com/photo-1589923188900-85dae523342b?q=80&w=800&auto=format&fit=crop"
                   alt="Farm scene"
+                  width={800}
+                  height={1000}
+                  unoptimized
+                  sizes="(min-width: 1024px) 40vw, 90vw"
                   className="w-full aspect-[4/5] object-cover"
                 />
               </div>
@@ -216,13 +223,16 @@ const AboutPage = () => {
                 className="group flex flex-col items-center text-center min-w-[260px] snap-start lg:min-w-0"
               >
                 <div className="relative w-full aspect-square mb-6 rounded-3xl overflow-hidden shadow-lg">
-                  <img
+                  <Image
                     src={member.image}
                     alt={member.name}
+                    fill
+                    unoptimized
+                    sizes="(min-width: 1024px) 22vw, 70vw"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   />
                   <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0 text-white text-xs leading-relaxed italic">
-                    "{member.bio}"
+                    &quot;{member.bio}&quot;
                   </div>
                 </div>
                 <h3 className="text-xl font-black text-foreground mb-1 font-heading">
@@ -312,12 +322,15 @@ const AboutPage = () => {
             <button
               key={img.id}
               type="button"
-              className="aspect-square group overflow-hidden cursor-zoom-in min-w-[45%] md:min-w-0 snap-start focus:outline-none"
+              className="relative aspect-square group overflow-hidden cursor-zoom-in min-w-[45%] md:min-w-0 snap-start focus:outline-none"
               onClick={() => handleOpenImage(img)}
             >
-              <img
+              <Image
                 src={img.url}
                 alt={img.caption || "Gallery image"}
+                fill
+                unoptimized
+                sizes="(min-width: 1024px) 16vw, 45vw"
                 className="w-full h-full object-cover group-hover:scale-125 transition-transform duration-1000 brightness-90 group-hover:brightness-110"
               />
             </button>
@@ -343,9 +356,13 @@ const AboutPage = () => {
               </DialogHeader>
               <div className="mt-2 space-y-3">
                 <div className="w-full overflow-hidden rounded-2xl border border-border bg-black/5">
-                  <img
+                  <Image
                     src={selectedImage.url}
                     alt={selectedImage.caption || "Gallery image"}
+                    width={1200}
+                    height={800}
+                    unoptimized
+                    sizes="(min-width: 1024px) 60vw, 95vw"
                     className="w-full h-full max-h-[480px] object-contain bg-black/5"
                   />
                 </div>

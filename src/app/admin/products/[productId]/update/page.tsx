@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -88,95 +88,72 @@ export default function UpdateProduct({
   const { formatPrice } = usePricing();
 
   const existingProduct = baseProducts.find((p) => p.id === Number(productId));
+  const mockStatus: "Active" | "Draft" =
+    Number(productId) % 4 === 0 ? "Draft" : "Active";
 
-  const [isDirty, setIsDirty] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [initialStatus, setInitialStatus] = useState<
-    "Active" | "Draft" | "Inactive"
-  >("Draft");
-  const [isActivated, setIsActivated] = useState(false);
+  const [initialStatus] = useState<"Active" | "Draft" | "Inactive">(mockStatus);
+  const [isActivated, setIsActivated] = useState(mockStatus === "Active");
 
-  const [name, setName] = useState("");
-  const [shortDesc, setShortDesc] = useState("");
-  const [longDesc, setLongDesc] = useState("");
-  const [unit, setUnit] = useState("kg");
-  const [activeCategory, setActiveCategory] = useState("");
+  const [name, setName] = useState(existingProduct?.name ?? "");
+  const [shortDesc, setShortDesc] = useState(
+    existingProduct?.shortDescription ?? "",
+  );
+  const [longDesc, setLongDesc] = useState(
+    existingProduct?.longDescription ?? "",
+  );
+  const [unit, setUnit] = useState(existingProduct?.unit || "kg");
+  const [activeCategory, setActiveCategory] = useState(
+    existingProduct?.category ?? "",
+  );
   const [searchCategory, setSearchCategory] = useState("");
   const [categories, setCategories] = useState(CATEGORIES);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
-  const [price, setPrice] = useState("");
-  const [oldPrice, setOldPrice] = useState("");
+  const [price, setPrice] = useState(existingProduct?.price?.toString() ?? "");
+  const [oldPrice, setOldPrice] = useState(
+    existingProduct?.oldPrice?.toString() || "",
+  );
   const [weight, setWeight] = useState("");
   const [dimensions, setDimensions] = useState("");
 
   const [shelfLife, setShelfLife] = useState("");
   const [storage, setStorage] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(
+    existingProduct?.category
+      ? [existingProduct.category, "Fresh", "Organic"]
+      : [],
+  );
   const [tagInput, setTagInput] = useState("");
-  const [features, setFeatures] = useState<string[]>([]);
-  const [benefits, setBenefits] = useState<string[]>([]);
-
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (existingProduct) {
-      setName(existingProduct.name);
-      setShortDesc(existingProduct.shortDescription || "");
-      setLongDesc(existingProduct.longDescription || "");
-      setUnit(existingProduct.unit || "kg");
-      setActiveCategory(existingProduct.category || "");
-      setPrice(existingProduct.price.toString());
-      setOldPrice(existingProduct.oldPrice?.toString() || "");
-
-      const mockStatus = Number(productId) % 4 === 0 ? "Draft" : "Active";
-      setInitialStatus(mockStatus);
-      setIsActivated(mockStatus === "Active");
-
-      setPreviews([existingProduct.image, ...(existingProduct.images || [])]);
-      setFeatures([
-        "Organic Certified",
-        "Local Farm Sourced",
-        "Pesticide Free",
-      ]);
-      setBenefits([
-        "High in Nutrients",
-        "Supports Local Economy",
-        "Better Flavor",
-      ]);
-      setTags([existingProduct.category, "Fresh", "Organic"]);
-      setBatches([
-        {
-          id: "b1",
-          batchNumber: `B-${Number(productId)}-01`,
-          manufactureDate: "2024-02-01",
-          expiryDate: "2024-05-01",
-          quantity: existingProduct.stock || 50,
-        },
-      ]);
-      setIsLoading(false);
-    } else {
-      setIsLoading(false);
-    }
-  }, [existingProduct, productId]);
-
-  useEffect(() => {
-    if (!isLoading) setIsDirty(true);
-  }, [
-    name,
-    shortDesc,
-    longDesc,
-    price,
-    activeCategory,
-    batches,
-    shelfLife,
-    storage,
-    weight,
-    dimensions,
-    images,
+  const [features, setFeatures] = useState<string[]>([
+    "Organic Certified",
+    "Local Farm Sourced",
+    "Pesticide Free",
   ]);
+  const [benefits, setBenefits] = useState<string[]>([
+    "High in Nutrients",
+    "Supports Local Economy",
+    "Better Flavor",
+  ]);
+
+  const [batches, setBatches] = useState<Batch[]>(
+    existingProduct
+      ? [
+          {
+            id: "b1",
+            batchNumber: `B-${Number(productId)}-01`,
+            manufactureDate: "2024-02-01",
+            expiryDate: "2024-05-01",
+            quantity: existingProduct.stock || 50,
+          },
+        ]
+      : [],
+  );
+  const [images, setImages] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>(
+    existingProduct
+      ? [existingProduct.image, ...(existingProduct.images || [])]
+      : [],
+  );
 
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && tagInput.trim()) {
@@ -228,7 +205,11 @@ export default function UpdateProduct({
       },
     ]);
   };
-  const updateBatch = (batchId: string, field: keyof Batch, value: any) => {
+  const updateBatch = <K extends keyof Batch>(
+    batchId: string,
+    field: K,
+    value: Batch[K],
+  ) => {
     setBatches(
       batches.map((b) => (b.id === batchId ? { ...b, [field]: value } : b)),
     );
@@ -257,12 +238,6 @@ export default function UpdateProduct({
     router.push("/admin/products");
   };
 
-  if (isLoading)
-    return (
-      <div className="flex items-center justify-center h-screen">
-        Loading product details...
-      </div>
-    );
   if (!existingProduct)
     return (
       <div className="p-8 text-center text-red-500 font-bold">
