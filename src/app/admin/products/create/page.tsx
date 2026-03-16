@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Upload,
@@ -20,7 +22,20 @@ import {
   Trash2,
   Leaf,
   CalendarDays,
+  Film,
 } from "lucide-react";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { showApiErrorToast } from "@/lib/api/error";
+import {
+  createAdminProduct,
+  createCategoryForAdmin,
+  fetchCategoriesForAdmin,
+  type CreateAdminProductPayload,
+  type InventoryBatchPayload,
+} from "@/lib/api/products";
+import { usePricing } from "@/context/PricingContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,170 +70,547 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
-import { usePricing } from "@/context/PricingContext";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
 
-interface Batch {
+interface BatchRow {
   id: string;
   batchNumber: string;
   manufactureDate: string;
   expiryDate: string;
   quantity: number;
+  costPrice: number;
+  supplier: string;
 }
 
-const CATEGORIES = [
-  "Fruits",
-  "Vegetables",
-  "Dairy",
-  "Organic Honey",
-  "Green Tea",
-  "Grains",
-  "Oils",
-  "Spices",
+interface LocalDraftShape {
+  isActivated: boolean;
+  name: string;
+  sku: string;
+  shortDesc: string;
+  longDesc: string;
+  unit: UnitValue;
+  activeCategoryId: string;
+  price: string;
+  oldPrice: string;
+  costPrice: string;
+  lowStockThreshold: string;
+  weight: string;
+  dimensions: string;
+  shelfLife: string;
+  storage: string;
+  requiresRefrigeration: boolean;
+  tags: string[];
+  features: string[];
+  benefits: string[];
+  batches: BatchRow[];
+}
+
+type UnitValue =
+  | "kg"
+  | "g"
+  | "piece"
+  | "bunch"
+  | "pack"
+  | "dozen"
+  | "lb"
+  | "piece";
+
+const DRAFT_STORAGE_KEY = "admin-products-create-local-draft-v2";
+
+const UNIT_OPTIONS: Array<{ value: UnitValue; label: string }> = [
+  { value: "kg", label: "Kilograms (kg)" },
+  { value: "g", label: "Grams (g)" },
+  { value: "piece", label: "Pieces" },
+  { value: "bunch", label: "Bunch" },
+  { value: "pack", label: "Pack" },
+  { value: "dozen", label: "Dozen" },
+  { value: "lb", label: "Pounds (lb)" },
+  { value: "piece", label: "Pieces" },
 ];
 
-export default function CreateProduct() {
+const EMPTY_BATCH = (): BatchRow => ({
+  id: crypto.randomUUID(),
+  batchNumber: "",
+  manufactureDate: "",
+  expiryDate: "",
+  quantity: 0,
+  costPrice: 0,
+  supplier: "",
+});
+
+function parseBatchDate(value: string): Date | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function toIsoStartOfDay(value?: string): string | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString();
+}
+
+function parseDimensions(
+  input: string,
+): { length: number; width: number; height: number } | undefined {
+  const cleaned = input.trim().toLowerCase().replace(/cm/g, "");
+  if (!cleaned) return undefined;
+
+  const parts = cleaned
+    .split(/[x×]/)
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
+  if (parts.length !== 3) return undefined;
+
+  return {
+    length: parts[0],
+    width: parts[1],
+    height: parts[2],
+  };
+}
+
+function readInitialLocalDraft(): LocalDraftShape | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const rawDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+  if (!rawDraft) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawDraft) as LocalDraftShape;
+  } catch {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    return null;
+  }
+}
+
+export default function CreateProductPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { formatPrice } = usePricing();
 
-  const [isActivated, setIsActivated] = useState(false);
+  const initialDraft = useMemo(() => readInitialLocalDraft(), []);
 
-  const [name, setName] = useState("");
-  const [shortDesc, setShortDesc] = useState("");
-  const [longDesc, setLongDesc] = useState("");
-  const [unit, setUnit] = useState("kg");
-  const [activeCategory, setActiveCategory] = useState("");
+  const [isActivated, setIsActivated] = useState(
+    initialDraft?.isActivated ?? false,
+  );
+  const [name, setName] = useState(initialDraft?.name ?? "");
+  const [sku, setSku] = useState(initialDraft?.sku ?? "");
+  const [shortDesc, setShortDesc] = useState(initialDraft?.shortDesc ?? "");
+  const [longDesc, setLongDesc] = useState(initialDraft?.longDesc ?? "");
+  const [unit, setUnit] = useState<UnitValue>(initialDraft?.unit ?? "kg");
+
+  const [activeCategoryId, setActiveCategoryId] = useState(
+    initialDraft?.activeCategoryId ?? "",
+  );
   const [searchCategory, setSearchCategory] = useState("");
-  const [categories, setCategories] = useState(CATEGORIES);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
-  const [price, setPrice] = useState("");
-  const [oldPrice, setOldPrice] = useState("");
-  const [weight, setWeight] = useState("");
-  const [dimensions, setDimensions] = useState("");
+  const [price, setPrice] = useState(initialDraft?.price ?? "");
+  const [oldPrice, setOldPrice] = useState(initialDraft?.oldPrice ?? "");
+  const [costPrice, setCostPrice] = useState(initialDraft?.costPrice ?? "");
+  const [lowStockThreshold, setLowStockThreshold] = useState(
+    initialDraft?.lowStockThreshold ?? "10",
+  );
 
-  const [shelfLife, setShelfLife] = useState("");
-  const [storage, setStorage] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [weight, setWeight] = useState(initialDraft?.weight ?? "");
+  const [dimensions, setDimensions] = useState(initialDraft?.dimensions ?? "");
+  const [shelfLife, setShelfLife] = useState(initialDraft?.shelfLife ?? "");
+  const [storage, setStorage] = useState(initialDraft?.storage ?? "");
+  const [requiresRefrigeration, setRequiresRefrigeration] = useState(
+    initialDraft?.requiresRefrigeration ?? false,
+  );
+
+  const [tags, setTags] = useState<string[]>(initialDraft?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
-  const [features, setFeatures] = useState<string[]>([""]);
-  const [benefits, setBenefits] = useState<string[]>([""]);
-
-  const [batches, setBatches] = useState<Batch[]>([
-    {
-      id: "b1",
-      batchNumber: "BATCH-001",
-      manufactureDate: "",
-      expiryDate: "",
-      quantity: 0,
-    },
-  ]);
+  const [features, setFeatures] = useState<string[]>(
+    initialDraft?.features?.length ? initialDraft.features : [""],
+  );
+  const [benefits, setBenefits] = useState<string[]>(
+    initialDraft?.benefits?.length ? initialDraft.benefits : [""],
+  );
+  const [batches, setBatches] = useState<BatchRow[]>(
+    initialDraft?.batches?.length ? initialDraft.batches : [EMPTY_BATCH()],
+  );
 
   const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [videos, setVideos] = useState<File[]>([]);
+  const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
+
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const categoriesQuery = useQuery({
+    queryKey: ["admin-product-categories"],
+    queryFn: fetchCategoriesForAdmin,
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: createCategoryForAdmin,
+    onSuccess: (category) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-product-categories"] });
+      setActiveCategoryId(category.id);
+      setSearchCategory("");
+      setIsCategoryOpen(false);
+      toast.success("Category created", {
+        description: `${category.name} is now available for products.`,
+      });
+    },
+    onError: showApiErrorToast,
+  });
+
+  const createProductMutation = useMutation({
+    mutationFn: ({
+      payload,
+      files,
+    }: {
+      payload: CreateAdminProductPayload;
+      files: { images?: File[]; videos?: File[] };
+    }) => createAdminProduct(payload, files),
+    onSuccess: (created) => {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast.success(isActivated ? "Product published" : "Draft saved", {
+        description: `${created.name} has been successfully ${isActivated ? "published" : "saved as draft"}.`,
+      });
+      router.push("/admin/products");
+    },
+    onError: showApiErrorToast,
+  });
+
+  const categories = useMemo(
+    () => categoriesQuery.data?.data ?? [],
+    [categoriesQuery.data?.data],
+  );
+  const activeCategory =
+    categories.find((c) => c.id === activeCategoryId) ?? null;
+
+  const filteredCategories = useMemo(() => {
+    const query = searchCategory.trim().toLowerCase();
+    if (!query) return categories;
+    return categories.filter((category) =>
+      category.name.toLowerCase().includes(query),
+    );
+  }, [categories, searchCategory]);
 
   const isDirty =
     !!name ||
+    !!sku ||
     !!shortDesc ||
     !!longDesc ||
     !!price ||
-    !!activeCategory ||
-    batches.some((b) => b.batchNumber || b.quantity > 0);
+    !!activeCategoryId ||
+    tags.length > 0 ||
+    features.some((item) => item.trim()) ||
+    benefits.some((item) => item.trim()) ||
+    batches.some((b) => b.batchNumber || b.quantity > 0 || b.costPrice > 0);
 
-  const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && tagInput.trim()) {
-      e.preventDefault();
-      if (!tags.includes(tagInput.trim())) setTags([...tags, tagInput.trim()]);
-      setTagInput("");
-    }
-  };
-  const removeTag = (t: string) => setTags(tags.filter((tag) => tag !== t));
+  useEffect(() => {
+    if (!initialDraft) return;
+
+    toast.message("Local draft restored", {
+      description:
+        "Your unfinished product form has been restored from this browser.",
+    });
+  }, [initialDraft]);
+
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+      videoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [imagePreviews, videoPreviews]);
 
   const addFeature = () => setFeatures([...features, ""]);
-  const updateFeature = (i: number, val: string) => {
+  const updateFeature = (index: number, value: string) => {
     const next = [...features];
-    next[i] = val;
+    next[index] = value;
     setFeatures(next);
   };
-  const removeFeature = (i: number) =>
-    setFeatures(features.filter((_, idx) => idx !== i));
+  const removeFeature = (index: number) =>
+    setFeatures(features.filter((_, i) => i !== index));
 
   const addBenefit = () => setBenefits([...benefits, ""]);
-  const updateBenefit = (i: number, val: string) => {
+  const updateBenefit = (index: number, value: string) => {
     const next = [...benefits];
-    next[i] = val;
+    next[index] = value;
     setBenefits(next);
   };
-  const removeBenefit = (i: number) =>
-    setBenefits(benefits.filter((_, idx) => idx !== i));
+  const removeBenefit = (index: number) =>
+    setBenefits(benefits.filter((_, i) => i !== index));
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setImages([...images, ...files]);
-    const newPreviews = files.map((f) => URL.createObjectURL(f));
-    setPreviews([...previews, ...newPreviews]);
-  };
-  const removeImage = (i: number) => {
-    setImages(images.filter((_, idx) => idx !== i));
-    setPreviews(previews.filter((_, idx) => idx !== i));
+  const handleAddTag = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+
+    const value = tagInput.trim();
+    if (!value) return;
+    if (tags.includes(value)) {
+      setTagInput("");
+      return;
+    }
+
+    setTags([...tags, value]);
+    setTagInput("");
   };
 
-  const addBatch = () => {
-    setBatches([
-      ...batches,
-      {
-        id: Date.now().toString(),
-        batchNumber: "",
-        manufactureDate: "",
-        expiryDate: "",
-        quantity: 0,
-      },
-    ]);
+  const removeTag = (value: string) => {
+    setTags(tags.filter((tag) => tag !== value));
   };
-  const updateBatch = <K extends keyof Batch>(
+
+  const addBatch = () => setBatches([...batches, EMPTY_BATCH()]);
+  const removeBatch = (batchId: string) =>
+    setBatches(batches.filter((batch) => batch.id !== batchId));
+
+  const updateBatch = <K extends keyof BatchRow>(
     batchId: string,
     field: K,
-    value: Batch[K],
+    value: BatchRow[K],
   ) => {
     setBatches(
-      batches.map((b) => (b.id === batchId ? { ...b, [field]: value } : b)),
+      batches.map((batch) =>
+        batch.id === batchId ? { ...batch, [field]: value } : batch,
+      ),
     );
   };
-  const removeBatch = (batchId: string) => {
-    setBatches(batches.filter((b) => b.id !== batchId));
+
+  const handleImagesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(event.target.files ?? []);
+    if (!picked.length) return;
+
+    const next = [...images, ...picked].slice(0, 10);
+    const limited = next.length < images.length + picked.length;
+
+    if (limited) {
+      toast.warning("Image limit reached", {
+        description: "A product can include up to 10 images.",
+      });
+    }
+
+    const previews = next.map((file) => URL.createObjectURL(file));
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    setImages(next);
+    setImagePreviews(previews);
+    event.target.value = "";
   };
 
-  const parseBatchDate = (value: string): Date | undefined => {
-    if (!value) return undefined;
-    const parsed = new Date(`${value}T00:00:00`);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  const handleVideosUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(event.target.files ?? []);
+    if (!picked.length) return;
+
+    const next = [...videos, ...picked].slice(0, 3);
+    const limited = next.length < videos.length + picked.length;
+
+    if (limited) {
+      toast.warning("Video limit reached", {
+        description: "A product can include up to 3 videos.",
+      });
+    }
+
+    const previews = next.map((file) => URL.createObjectURL(file));
+    videoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setVideos(next);
+    setVideoPreviews(previews);
+    event.target.value = "";
   };
 
-  const createCategory = () => {
-    if (searchCategory && !categories.includes(searchCategory)) {
-      setCategories([...categories, searchCategory]);
-      setActiveCategory(searchCategory);
+  const removeImage = (index: number) => {
+    const nextFiles = images.filter((_, i) => i !== index);
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    setImages(nextFiles);
+    setImagePreviews(nextFiles.map((file) => URL.createObjectURL(file)));
+  };
+
+  const removeVideo = (index: number) => {
+    const nextFiles = videos.filter((_, i) => i !== index);
+    videoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setVideos(nextFiles);
+    setVideoPreviews(nextFiles.map((file) => URL.createObjectURL(file)));
+  };
+
+  const createCategory = async () => {
+    const value = searchCategory.trim();
+    if (!value) return;
+
+    const existing = categories.find(
+      (category) => category.name.toLowerCase() === value.toLowerCase(),
+    );
+    if (existing) {
+      setActiveCategoryId(existing.id);
       setIsCategoryOpen(false);
-      toast.success("New Category Added", {
-        description: `Added "${searchCategory}" to categories.`,
-      });
+      return;
     }
+
+    await createCategoryMutation.mutateAsync({ name: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isActivated) {
-      toast.success("Product Published Successfully", {
-        description: `"${name}" is now live on the marketplace.`,
-      });
-    } else {
-      toast.success("Draft Saved", {
-        description: `Your progress on "${name || "Unnamed Product"}" has been saved.`,
-      });
+  const serializeLocalDraft = (): LocalDraftShape => ({
+    isActivated,
+    name,
+    sku,
+    shortDesc,
+    longDesc,
+    unit,
+    activeCategoryId,
+    price,
+    oldPrice,
+    costPrice,
+    lowStockThreshold,
+    weight,
+    dimensions,
+    shelfLife,
+    storage,
+    requiresRefrigeration,
+    tags,
+    features,
+    benefits,
+    batches,
+  });
+
+  const saveDraftLocally = () => {
+    localStorage.setItem(
+      DRAFT_STORAGE_KEY,
+      JSON.stringify(serializeLocalDraft()),
+    );
+    toast.success("Draft saved locally", {
+      description:
+        "Incomplete product data was saved in this browser. Complete required fields to save it to backend.",
+    });
+  };
+
+  const getRequiredValidationMessage = () => {
+    if (!name.trim()) return "Product name is required.";
+    if (!sku.trim()) return "SKU is required.";
+    if (!activeCategoryId) return "Category is required.";
+    if (!price || Number(price) < 0)
+      return "Selling price is required and must be non-negative.";
+    if (!longDesc.trim() && !shortDesc.trim()) {
+      return "Provide at least one description (short or long).";
     }
-    router.push("/admin/products");
+    return null;
+  };
+
+  const toPayloadBatches = (): InventoryBatchPayload[] =>
+    batches
+      .filter(
+        (batch) =>
+          batch.batchNumber.trim() ||
+          batch.quantity > 0 ||
+          batch.costPrice > 0 ||
+          batch.expiryDate ||
+          batch.manufactureDate ||
+          batch.supplier.trim(),
+      )
+      .map((batch) => ({
+        batchId: batch.batchNumber.trim(),
+        quantity: Number(batch.quantity || 0),
+        costPrice: Number(batch.costPrice || 0),
+        expiryDate: toIsoStartOfDay(batch.expiryDate),
+        receivedDate: toIsoStartOfDay(batch.manufactureDate),
+        supplier: batch.supplier.trim() || undefined,
+        status: "active" as const,
+      }))
+      .filter((batch) => batch.batchId);
+
+  const buildCreatePayload = (): CreateAdminProductPayload => {
+    const sellingPrice = Number(price || 0);
+    const originalPrice = Number(oldPrice || 0);
+    const parsedCostPrice = Number(costPrice || 0);
+
+    const cleanedFeatures = features
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const cleanedBenefits = benefits
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const shipping = {
+      weight: weight ? Number(weight) : undefined,
+      dimensions: parseDimensions(dimensions),
+      shelfLife: shelfLife.trim() || undefined,
+      storageCondition: storage.trim() || undefined,
+      requiresRefrigeration,
+    };
+
+    const batchesPayload = toPayloadBatches();
+    const totalBatchQty = batchesPayload.reduce(
+      (acc, batch) => acc + batch.quantity,
+      0,
+    );
+
+    return {
+      name: name.trim(),
+      sku: sku.trim(),
+      description: (longDesc.trim() || shortDesc.trim()).trim(),
+      shortDescription: shortDesc.trim() || undefined,
+      category: activeCategoryId,
+      tags: tags.map((tag) => tag.trim()).filter(Boolean),
+      sellingPrice,
+      originalPrice: originalPrice > 0 ? originalPrice : sellingPrice,
+      costPrice: parsedCostPrice > 0 ? parsedCostPrice : 0,
+      unit,
+      measurementUnit: unit,
+      stock: totalBatchQty,
+      lowStockThreshold: Number(lowStockThreshold || 10),
+      trackInventory: true,
+      features: cleanedFeatures,
+      benefits: cleanedBenefits,
+      marketingHooks: cleanedFeatures.map((label) => ({
+        label,
+        isActive: true,
+      })),
+      healthBenefits: cleanedBenefits.map((title) => ({ title })),
+      nutrition: [],
+      shipping,
+      certifications: [],
+      isActive: isActivated,
+      isFeatured: false,
+      isOnSale:
+        (originalPrice > 0 ? originalPrice : sellingPrice) > sellingPrice,
+      batches: batchesPayload,
+    };
+  };
+
+  const onSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setFormError(null);
+
+    const requiredError = getRequiredValidationMessage();
+
+    if (!isActivated && requiredError) {
+      saveDraftLocally();
+      return;
+    }
+
+    if (requiredError) {
+      setFormError(requiredError);
+      return;
+    }
+
+    const invalidBatch = toPayloadBatches().find(
+      (batch) =>
+        !batch.batchId ||
+        !Number.isFinite(batch.quantity) ||
+        !Number.isFinite(batch.costPrice),
+    );
+    if (invalidBatch) {
+      setFormError(
+        "Each batch requires batch name/number, quantity, and cost price.",
+      );
+      return;
+    }
+
+    await createProductMutation.mutateAsync({
+      payload: buildCreatePayload(),
+      files: {
+        images,
+        videos,
+      },
+    });
   };
 
   const buttonLabel = isActivated
@@ -227,9 +619,13 @@ export default function CreateProduct() {
       ? "Save Draft"
       : "Publish Product";
 
+  const busy =
+    createProductMutation.isPending ||
+    createCategoryMutation.isPending ||
+    categoriesQuery.isLoading;
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 pb-20 ">
-      {/* Top Bar */}
+    <form onSubmit={onSubmit} className="space-y-8 pb-20">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div className="space-y-1">
           <Button
@@ -238,7 +634,7 @@ export default function CreateProduct() {
             onClick={() => router.push("/admin/products")}
             type="button"
           >
-            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />{" "}
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             Back to Products
           </Button>
           <h1 className="text-3xl font-black font-heading text-foreground tracking-tight">
@@ -260,45 +656,50 @@ export default function CreateProduct() {
           <Button
             type="submit"
             className="rounded-sm h-11 px-8 font-medium gap-2 shadow-lg shadow-primary/20"
+            disabled={busy}
           >
             <Save className="h-4 w-4" />
-            {buttonLabel}
+            {createProductMutation.isPending ? "Saving..." : buttonLabel}
           </Button>
         </div>
       </div>
 
+      {formError && (
+        <div className="rounded-sm border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+          {formError}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Left Column */}
         <div className="xl:col-span-2 space-y-8">
           <Tabs defaultValue="general" className="w-full">
             <TabsList className="bg-white border p-1 rounded-sm h-auto flex-wrap justify-start gap-1">
               <TabsTrigger
                 value="general"
-                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white transition-all"
+                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white"
               >
                 General
               </TabsTrigger>
               <TabsTrigger
                 value="inventory"
-                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white transition-all"
+                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white"
               >
                 Inventory & Batches
               </TabsTrigger>
               <TabsTrigger
                 value="logistics"
-                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white transition-all"
+                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white"
               >
                 Logistics & Media
               </TabsTrigger>
               <TabsTrigger
                 value="marketing"
-                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white transition-all"
+                className="rounded-sm font-medium py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-white"
               >
                 Features & Benefits
               </TabsTrigger>
             </TabsList>
 
-            {/* General Tab */}
             <TabsContent value="general" className="mt-6 space-y-6">
               <Card className="rounded-sm border-border shadow-soft overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
@@ -311,23 +712,37 @@ export default function CreateProduct() {
                         General Information
                       </CardTitle>
                       <CardDescription className="font-medium">
-                        Define the core identity of the organic product.
+                        Define identity, pricing, and classification.
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-8 space-y-8">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                      Product Name <span className="text-destructive">*</span>
-                    </label>
-                    <Input
-                      placeholder="e.g. Pure Mountain Honey"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Product Name <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        placeholder="e.g. Pure Mountain Honey"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        SKU <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        placeholder="e.g. HNY-ORG-001"
+                        value={sku}
+                        onChange={(e) => setSku(e.target.value.toUpperCase())}
+                        required
+                      />
+                    </div>
                   </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
@@ -347,13 +762,13 @@ export default function CreateProduct() {
                             )}
                           >
                             {activeCategory
-                              ? activeCategory
+                              ? activeCategory.name
                               : "Select or create category..."}
                             <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="w-[300px] p-0 rounded-sm border-border"
+                          className="w-75 p-0 rounded-sm border-border"
                           align="start"
                         >
                           <Command className="rounded-sm">
@@ -372,6 +787,7 @@ export default function CreateProduct() {
                                     type="button"
                                     size="sm"
                                     onClick={createCategory}
+                                    disabled={createCategoryMutation.isPending}
                                   >
                                     <Plus className="h-3 w-3 mr-2" />
                                     Create New Category
@@ -379,16 +795,12 @@ export default function CreateProduct() {
                                 </div>
                               </CommandEmpty>
                               <CommandGroup>
-                                {categories.map((c) => (
+                                {filteredCategories.map((category) => (
                                   <CommandItem
-                                    key={c}
-                                    value={c}
-                                    onSelect={(currentValue) => {
-                                      setActiveCategory(
-                                        currentValue === activeCategory
-                                          ? ""
-                                          : currentValue,
-                                      );
+                                    key={category.id}
+                                    value={category.name}
+                                    onSelect={() => {
+                                      setActiveCategoryId(category.id);
                                       setIsCategoryOpen(false);
                                     }}
                                     className="py-3 px-4 rounded-sm m-1"
@@ -396,12 +808,14 @@ export default function CreateProduct() {
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        activeCategory === c
+                                        activeCategoryId === category.id
                                           ? "opacity-100"
                                           : "opacity-0",
                                       )}
                                     />
-                                    <span className="font-medium">{c}</span>
+                                    <span className="font-medium">
+                                      {category.name}
+                                    </span>
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
@@ -412,47 +826,45 @@ export default function CreateProduct() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Measurement Unit{" "}
-                        <span className="text-destructive">*</span>
+                        Unit <span className="text-destructive">*</span>
                       </label>
-                      <Select value={unit} onValueChange={setUnit}>
+                      <Select
+                        value={unit}
+                        onValueChange={(v) => setUnit(v as UnitValue)}
+                      >
                         <SelectTrigger className="h-14 rounded-sm bg-muted/20 border-border font-medium">
-                          <SelectValue placeholder="Select Unit" />
+                          <SelectValue placeholder="Select unit" />
                         </SelectTrigger>
                         <SelectContent className="rounded-sm border-border">
-                          <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                          <SelectItem value="g">Grams (g)</SelectItem>
-                          <SelectItem value="lb">Pounds (lb)</SelectItem>
-                          <SelectItem value="oz">Ounces (oz)</SelectItem>
-                          <SelectItem value="pack">Packets / Units</SelectItem>
-                          <SelectItem value="liter">Liters (L)</SelectItem>
+                          {UNIT_OPTIONS.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
+
                   <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Short Description{" "}
-                        <span className="text-destructive">*</span>
+                        Short Description
                       </label>
                       <Input
                         placeholder="Brief summary for product cards..."
                         value={shortDesc}
                         onChange={(e) => setShortDesc(e.target.value)}
-                        required
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                         Long Description{" "}
-                        <span className="text-muted-foreground ml-2 text-[10px] italic">
-                          (Optional)
-                        </span>
+                        <span className="text-destructive">*</span>
                       </label>
                       <Textarea
                         placeholder="Detailed product information, origin, organic certifications..."
-                        className="min-h-[160px] rounded-sm bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
+                        className="min-h-40 rounded-sm bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
                         value={longDesc}
                         onChange={(e) => setLongDesc(e.target.value)}
                       />
@@ -472,13 +884,13 @@ export default function CreateProduct() {
                         Pricing Strategy
                       </CardTitle>
                       <CardDescription className="font-medium">
-                        Set your competitive prices and discounts.
+                        Set market and internal cost pricing.
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                         Selling Price{" "}
@@ -494,10 +906,7 @@ export default function CreateProduct() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Original/Old Price{" "}
-                        <span className="text-muted-foreground ml-2 text-[10px] italic">
-                          (Optional)
-                        </span>
+                        Original Price
                       </label>
                       <Input
                         type="number"
@@ -506,12 +915,22 @@ export default function CreateProduct() {
                         onChange={(e) => setOldPrice(e.target.value)}
                       />
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Cost Price
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={costPrice}
+                        onChange={(e) => setCostPrice(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* Inventory Tab */}
             <TabsContent value="inventory" className="mt-6 space-y-6">
               <Card className="rounded-sm border-border shadow-soft overflow-hidden">
                 <CardHeader className="bg-muted/30 border-b border-border p-8 pb-4">
@@ -522,10 +941,10 @@ export default function CreateProduct() {
                       </div>
                       <div>
                         <CardTitle className="font-heading font-black text-xl">
-                          Inventory Management
+                          Inventory & Batches
                         </CardTitle>
                         <CardDescription className="font-medium">
-                          Track product batches and availability.
+                          Set threshold and define stock batches.
                         </CardDescription>
                       </div>
                     </div>
@@ -540,30 +959,50 @@ export default function CreateProduct() {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="p-8">
-                  <div className="bg-white border rounded-sm overflow-hidden shadow-sm">
-                    <table className="w-full text-left text-sm">
+                <CardContent className="p-8 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Low Stock Threshold
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="10"
+                        value={lowStockThreshold}
+                        onChange={(e) => setLowStockThreshold(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-white border rounded-sm overflow-x-auto shadow-sm">
+                    <table className="min-w-[900px] w-full text-left text-sm">
                       <thead className="bg-muted/50 border-b">
                         <tr>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
-                            Batch Name / #
+                          <th className="px-4 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                            Batch ID
                           </th>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
-                            Mfg Date
+                          <th className="px-4 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                            Received Date
                           </th>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                          <th className="px-4 py-4 font-medium text-muted-foreground uppercase text-[10px]">
                             Expiry Date
                           </th>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
-                            Qty Available
+                          <th className="px-4 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                            Quantity
                           </th>
-                          <th className="px-6 py-4 text-right"></th>
+                          <th className="px-4 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                            Cost Price
+                          </th>
+                          <th className="px-4 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                            Supplier
+                          </th>
+                          <th className="px-4 py-4 text-right" />
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {batches.map((batch) => (
                           <tr key={batch.id}>
-                            <td className="px-6 py-3">
+                            <td className="px-4 py-3">
                               <Input
                                 placeholder="e.g. B-2026-A"
                                 value={batch.batchNumber}
@@ -574,10 +1013,10 @@ export default function CreateProduct() {
                                     e.target.value,
                                   )
                                 }
-                                className="h-10 border-none shadow-none focus-visible:ring-0 font-medium p-0"
+                                className="h-10"
                               />
                             </td>
-                            <td className="px-6 py-3">
+                            <td className="px-4 py-3">
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button
@@ -621,7 +1060,7 @@ export default function CreateProduct() {
                                 </PopoverContent>
                               </Popover>
                             </td>
-                            <td className="px-6 py-3">
+                            <td className="px-4 py-3">
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button
@@ -659,17 +1098,19 @@ export default function CreateProduct() {
                                       )
                                     }
                                     disabled={(date) => {
-                                      const mfgDate = parseBatchDate(
+                                      const receivedDate = parseBatchDate(
                                         batch.manufactureDate,
                                       );
-                                      return mfgDate ? date < mfgDate : false;
+                                      return receivedDate
+                                        ? date < receivedDate
+                                        : false;
                                     }}
                                     initialFocus
                                   />
                                 </PopoverContent>
                               </Popover>
                             </td>
-                            <td className="px-6 py-3">
+                            <td className="px-4 py-3">
                               <Input
                                 type="number"
                                 placeholder="0"
@@ -678,13 +1119,42 @@ export default function CreateProduct() {
                                   updateBatch(
                                     batch.id,
                                     "quantity",
-                                    parseInt(e.target.value),
+                                    Number(e.target.value || 0),
                                   )
                                 }
-                                className="h-10 w-24 border-none shadow-none focus-visible:ring-0 font-black p-0 text-base"
+                                className="h-10"
                               />
                             </td>
-                            <td className="px-6 py-3 text-right">
+                            <td className="px-4 py-3">
+                              <Input
+                                type="number"
+                                placeholder="0.00"
+                                value={batch.costPrice || ""}
+                                onChange={(e) =>
+                                  updateBatch(
+                                    batch.id,
+                                    "costPrice",
+                                    Number(e.target.value || 0),
+                                  )
+                                }
+                                className="h-10"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <Input
+                                placeholder="Supplier"
+                                value={batch.supplier}
+                                onChange={(e) =>
+                                  updateBatch(
+                                    batch.id,
+                                    "supplier",
+                                    e.target.value,
+                                  )
+                                }
+                                className="h-10"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-right">
                               {batches.length > 1 && (
                                 <Button
                                   type="button"
@@ -701,35 +1171,27 @@ export default function CreateProduct() {
                         ))}
                       </tbody>
                     </table>
-                    {batches.length === 0 && (
-                      <div className="p-8 text-center text-muted-foreground italic text-sm">
-                        No batches added yet. Click &quot;+ Add New Batch&quot;
-                        to start.
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
+
               <div className="bg-primary/5 border border-primary/10 rounded-sm p-6 flex gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-sm flex items-center justify-center text-primary shrink-0">
                   <AlertCircle className="h-5 w-5" />
                 </div>
                 <div>
                   <h5 className="font-black text-sm text-primary mb-1 uppercase tracking-tight">
-                    Smart Batch Tracking
+                    Batch notes
                   </h5>
                   <p className="text-xs font-medium text-muted-foreground leading-relaxed italic">
-                    Each batch represents a specific production run. Our system
-                    automatically follows the{" "}
-                    <strong>First-Expiring First-Out (FEFO)</strong> principle,
-                    ensuring that batches closest to expiry are sold first to
-                    minimize waste.
+                    Backend accepts per-batch quantity, cost price, supplier,
+                    receivedDate and expiryDate. Empty batch rows are ignored
+                    when sending.
                   </p>
                 </div>
               </div>
             </TabsContent>
 
-            {/* Logistics Tab */}
             <TabsContent value="logistics" className="mt-6 space-y-6">
               <Card className="rounded-sm border-border shadow-soft">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
@@ -742,47 +1204,26 @@ export default function CreateProduct() {
                         Logistics & Shipping
                       </CardTitle>
                       <CardDescription className="font-medium">
-                        Define handling, storage, and size metrics.
+                        Define handling, storage and physical attributes.
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-8 space-y-8">
+                <CardContent className="p-8 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Shelf Life (Months){" "}
-                        <span className="text-muted-foreground ml-2 text-[10px] italic">
-                          (Optional)
-                        </span>
+                        Shelf Life
                       </label>
                       <Input
-                        placeholder="e.g. 12"
+                        placeholder="e.g. 12 months"
                         value={shelfLife}
                         onChange={(e) => setShelfLife(e.target.value)}
                       />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Storage Condition{" "}
-                        <span className="text-muted-foreground ml-2 text-[10px] italic">
-                          (Optional)
-                        </span>
-                      </label>
-                      <Input
-                        placeholder="e.g. Store in cool, dry place"
-                        value={storage}
-                        onChange={(e) => setStorage(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Gross Weight ({unit}){" "}
-                        <span className="text-muted-foreground ml-2 text-[10px] italic">
-                          (Optional)
-                        </span>
+                        Gross Weight ({unit})
                       </label>
                       <Input
                         type="number"
@@ -792,23 +1233,46 @@ export default function CreateProduct() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                      Dimensions (LxWxH in cm){" "}
-                      <span className="text-muted-foreground ml-2 text-[10px] italic">
-                        (Optional)
-                      </span>
-                    </label>
-                    <Input
-                      placeholder="e.g. 10 x 5 x 15"
-                      value={dimensions}
-                      onChange={(e) => setDimensions(e.target.value)}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Storage Condition
+                      </label>
+                      <Input
+                        placeholder="e.g. Store in cool, dry place"
+                        value={storage}
+                        onChange={(e) => setStorage(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Dimensions (L x W x H cm)
+                      </label>
+                      <Input
+                        placeholder="e.g. 10 x 5 x 15"
+                        value={dimensions}
+                        onChange={(e) => setDimensions(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="requiresRefrigeration"
+                      checked={requiresRefrigeration}
+                      onCheckedChange={(checked) =>
+                        setRequiresRefrigeration(Boolean(checked))
+                      }
                     />
+                    <label
+                      htmlFor="requiresRefrigeration"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Requires refrigeration
+                    </label>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Media Section */}
               <Card className="rounded-sm border-border shadow-soft">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
                   <div className="flex items-center gap-3">
@@ -820,58 +1284,107 @@ export default function CreateProduct() {
                         Product Media
                       </CardTitle>
                       <CardDescription className="font-medium">
-                        Upload high-quality images of your organic product.
+                        Uploads are sent in multipart as images and videos on
+                        create endpoint.
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-8">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {previews.map((src, i) => (
-                      <div
-                        key={i}
-                        className="group relative aspect-square rounded-sm overflow-hidden border border-border bg-muted/10"
-                      >
-                        <img
-                          src={src}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                          alt={`Product ${i + 1}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(i)}
-                          className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full flex items-center justify-center text-destructive opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-90"
+                <CardContent className="p-8 space-y-8">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
+                      Images (max 10)
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                      {imagePreviews.map((src, index) => (
+                        <div
+                          key={index}
+                          className="group relative aspect-square rounded-sm overflow-hidden border border-border bg-muted/10"
                         >
-                          <X className="h-4 w-4" />
-                        </button>
-                        {i === 0 && (
-                          <div className="absolute inset-x-0 bottom-0 bg-primary text-white text-[9px] font-black uppercase text-center py-1">
-                            Main Image
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <label className="aspect-square rounded-sm border-2 border-dashed border-border bg-muted/10 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 hover:border-primary/30 transition-all group">
-                      <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                        <Plus className="h-5 w-5" />
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground group-hover:text-primary">
-                        Upload Photo
-                      </span>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
+                          <Image
+                            src={src}
+                            width={400}
+                            height={400}
+                            unoptimized
+                            className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                            alt={`Product ${index + 1}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full flex items-center justify-center text-destructive opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-90"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          {index === 0 && (
+                            <div className="absolute inset-x-0 bottom-0 bg-primary text-white text-[9px] font-black uppercase text-center py-1">
+                              Main Image
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <label className="aspect-square rounded-sm border-2 border-dashed border-border bg-muted/10 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 hover:border-primary/30 transition-all group">
+                        <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
+                          <Plus className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground group-hover:text-primary">
+                          Upload Photo
+                        </span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={handleImagesUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
+                      Videos (max 3)
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {videoPreviews.map((src, index) => (
+                        <div
+                          key={index}
+                          className="group relative rounded-sm overflow-hidden border border-border bg-muted/10 p-3 flex items-center gap-3"
+                        >
+                          <Film className="h-5 w-5 text-muted-foreground" />
+                          <video
+                            src={src}
+                            controls
+                            className="h-20 w-full rounded-sm bg-black"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeVideo(index)}
+                            className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full flex items-center justify-center text-destructive opacity-0 group-hover:opacity-100 transition-all shadow-md"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <label className="rounded-sm border-2 border-dashed border-border bg-muted/10 flex items-center justify-center gap-2 cursor-pointer hover:bg-primary/5 hover:border-primary/30 transition-all p-6 min-h-24">
+                        <Film className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Upload Video
+                        </span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,video/x-matroska"
+                          onChange={handleVideosUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* Marketing Tab */}
             <TabsContent value="marketing" className="mt-6 space-y-6">
               <Card className="rounded-sm border-border shadow-soft">
                 <CardHeader className="bg-muted/30 border-b border-border p-8">
@@ -881,10 +1394,10 @@ export default function CreateProduct() {
                     </div>
                     <div>
                       <CardTitle className="font-heading font-black text-xl">
-                        Marketing Hooks
+                        Features & Benefits
                       </CardTitle>
                       <CardDescription className="font-medium">
-                        Features, benefits, and discoverability tags.
+                        Hooks for merchandising and customer education.
                       </CardDescription>
                     </div>
                   </div>
@@ -905,19 +1418,21 @@ export default function CreateProduct() {
                       </Button>
                     </div>
                     <div className="space-y-3">
-                      {features.map((f, i) => (
-                        <div key={i} className="flex gap-2">
+                      {features.map((feature, index) => (
+                        <div key={index} className="flex gap-2">
                           <Input
                             placeholder="e.g. 100% Raw and Unfiltered"
-                            value={f}
-                            onChange={(e) => updateFeature(i, e.target.value)}
+                            value={feature}
+                            onChange={(e) =>
+                              updateFeature(index, e.target.value)
+                            }
                           />
                           {features.length > 1 && (
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              onClick={() => removeFeature(i)}
+                              onClick={() => removeFeature(index)}
                             >
                               <Trash2 className="h-5 w-5" />
                             </Button>
@@ -926,6 +1441,7 @@ export default function CreateProduct() {
                       ))}
                     </div>
                   </div>
+
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
@@ -936,27 +1452,26 @@ export default function CreateProduct() {
                         variant="ghost"
                         size="sm"
                         onClick={addBenefit}
-                        className="text-primary font-black hover:bg-primary/5 text-xs"
                       >
                         + Add Benefit
                       </Button>
                     </div>
                     <div className="space-y-3">
-                      {benefits.map((b, i) => (
-                        <div key={i} className="flex gap-2">
+                      {benefits.map((benefit, index) => (
+                        <div key={index} className="flex gap-2">
                           <Input
-                            placeholder="e.g. Boosts Immune System"
-                            value={b}
-                            onChange={(e) => updateBenefit(i, e.target.value)}
-                            className="h-12 rounded-sm border-border bg-muted/20 focus:bg-white transition-all font-medium"
+                            placeholder="e.g. Boosts immune system"
+                            value={benefit}
+                            onChange={(e) =>
+                              updateBenefit(index, e.target.value)
+                            }
                           />
                           {benefits.length > 1 && (
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              onClick={() => removeBenefit(i)}
-                              className="text-muted-foreground h-12 w-12 rounded-sm hover:bg-red-50 hover:text-red-500 shrink-0"
+                              onClick={() => removeBenefit(index)}
                             >
                               <Trash2 className="h-5 w-5" />
                             </Button>
@@ -965,22 +1480,23 @@ export default function CreateProduct() {
                       ))}
                     </div>
                   </div>
+
                   <div className="space-y-4">
                     <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                       Search Tags (SEO)
                     </label>
                     <div className="p-4 bg-muted/20 rounded-sm border border-border border-dashed focus-within:border-primary/30 transition-colors">
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {tags.map((t) => (
+                        {tags.map((tag) => (
                           <Badge
-                            key={t}
+                            key={tag}
                             variant="secondary"
                             className="rounded-lg py-1 pl-3 pr-1 text-xs font-medium gap-1 group"
                           >
-                            {t}
+                            {tag}
                             <X
                               className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-red-500 transition-colors"
-                              onClick={() => removeTag(t)}
+                              onClick={() => removeTag(tag)}
                             />
                           </Badge>
                         ))}
@@ -999,13 +1515,14 @@ export default function CreateProduct() {
                       />
                     </div>
                   </div>
+
                   <div className="pt-6 border-t border-border">
                     <div className="flex items-center gap-4 bg-primary/5 p-6 rounded-[24px] border border-primary/10">
                       <Checkbox
                         id="activate"
                         checked={isActivated}
                         onCheckedChange={(checked) =>
-                          setIsActivated(checked as boolean)
+                          setIsActivated(Boolean(checked))
                         }
                         className="h-6 w-6 rounded-lg border-primary data-[state=checked]:bg-primary"
                       />
@@ -1017,9 +1534,9 @@ export default function CreateProduct() {
                           Activate Product
                         </label>
                         <p className="text-xs font-medium text-muted-foreground leading-relaxed">
-                          Checking this will validate the product data and
-                          switch it from <strong>Draft</strong> to{" "}
-                          <strong>Active</strong> status upon saving.
+                          Active means publish now. If unchecked, this will be
+                          saved as an inactive draft (if required create fields
+                          are provided).
                         </p>
                       </div>
                     </div>
@@ -1030,13 +1547,15 @@ export default function CreateProduct() {
           </Tabs>
         </div>
 
-        {/* Right Column */}
         <div className="space-y-8">
           <Card className="rounded-sm border-border shadow-soft overflow-hidden sticky top-8">
             <div className="aspect-video bg-muted/30 relative">
-              {previews[0] ? (
-                <img
-                  src={previews[0]}
+              {imagePreviews[0] ? (
+                <Image
+                  src={imagePreviews[0]}
+                  width={800}
+                  height={450}
+                  unoptimized
                   className="w-full h-full object-cover"
                   alt="Preview"
                 />
@@ -1051,7 +1570,7 @@ export default function CreateProduct() {
               {activeCategory && (
                 <div className="absolute top-4 left-4">
                   <Badge className="bg-white/90 backdrop-blur-md text-primary hover:bg-white text-[10px] font-black uppercase px-3 py-1 shadow-sm">
-                    {activeCategory}
+                    {activeCategory.name}
                   </Badge>
                 </div>
               )}
@@ -1096,45 +1615,49 @@ export default function CreateProduct() {
                   <Check
                     className={cn(
                       "h-3 w-3",
-                      name && activeCategory && unit && shortDesc
+                      name && sku && activeCategoryId && (shortDesc || longDesc)
                         ? "text-primary"
                         : "text-muted-foreground opacity-30",
                     )}
-                  />{" "}
+                  />
                   General info set
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                   <Check
                     className={cn(
                       "h-3 w-3",
-                      batches[0]?.batchNumber && batches[0]?.quantity > 0
+                      batches.some(
+                        (batch) => batch.batchNumber && batch.quantity > 0,
+                      )
                         ? "text-primary"
                         : "text-muted-foreground opacity-30",
                     )}
-                  />{" "}
+                  />
                   Inventory batches set
                 </div>
                 <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                   <Check
                     className={cn(
                       "h-3 w-3",
-                      previews.length > 0
+                      imagePreviews.length > 0
                         ? "text-primary"
                         : "text-muted-foreground opacity-30",
                     )}
-                  />{" "}
+                  />
                   Media uploaded
                 </div>
               </div>
               <Button
                 type="submit"
                 className="w-full h-14 rounded-sm font-medium text-lg gap-3 shadow-xl shadow-primary/20 group"
+                disabled={busy}
               >
                 <Save className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                {buttonLabel}
+                {createProductMutation.isPending ? "Saving..." : buttonLabel}
               </Button>
             </CardContent>
           </Card>
+
           <div className="p-8 bg-black rounded-[40px] text-white relative overflow-hidden">
             <div className="relative z-10">
               <Leaf className="h-10 w-10 text-primary mb-6" />
@@ -1142,8 +1665,9 @@ export default function CreateProduct() {
                 Quality Assurance
               </h4>
               <p className="text-white/60 text-sm font-medium leading-relaxed italic">
-                By publishing this product, you confirm it meets the Agri-Eco
-                high standards for organic production.
+                Publishing confirms the product meets Agri-Eco standards. Drafts
+                can be stored locally or saved as inactive in backend when
+                required fields are complete.
               </p>
             </div>
             <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-primary/20 rounded-full blur-3xl" />

@@ -255,7 +255,7 @@ export default function ViewProduct({
                   </div>
                 )}
               </div>
-              <div className="lg:col-span-4 p-4 lg:p-6 bg-muted/5 border-l border-border flex flex-col gap-4 overflow-y-auto max-h-[100%]">
+              <div className="lg:col-span-4 p-4 lg:p-6 bg-muted/5 border-l border-border flex flex-col gap-4 overflow-y-auto max-h-full">
                 <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                   Product Gallery
                 </h4>
@@ -489,7 +489,7 @@ export default function ViewProduct({
             <TabsContent value="reviews" className="mt-6">
               <Card className="rounded-[32px] border-border shadow-soft p-8">
                 <div className="flex flex-col md:flex-row gap-8 mb-10 pb-10 border-b border-border">
-                  <div className="flex flex-col items-center justify-center p-8 bg-primary/5 rounded-[24px] border border-primary/10 text-center min-w-[200px]">
+                  <div className="flex flex-col items-center justify-center p-8 bg-primary/5 rounded-[24px] border border-primary/10 text-center min-w-50">
                     <p className="text-5xl font-black text-primary mb-2">
                       {mockDetails.rating}
                     </p>

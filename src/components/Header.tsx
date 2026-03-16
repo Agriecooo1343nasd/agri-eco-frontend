@@ -16,6 +16,7 @@ import {
   Map,
   GraduationCap,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
@@ -88,7 +89,7 @@ const Header = () => {
   const [searchScope, setSearchScope] = useState<SearchScope>("products");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { cartCount, wishlistItems } = useCart();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -170,9 +171,11 @@ const Header = () => {
         <div className="container flex items-center justify-between py-3 gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <img
+            <Image
               src="/assets/logo/logo.png"
               alt="Agri-Eco Logo"
+              width={180}
+              height={56}
               className="h-14 w-auto object-contain"
             />
           </Link>
@@ -256,7 +259,7 @@ const Header = () => {
               </button>
 
               {isAuthenticated && userMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-xl z-[100] overflow-hidden">
+                <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-xl z-100 overflow-hidden">
                   <div className="p-4 border-b border-border bg-muted/20">
                     <p className="text-sm font-bold text-foreground truncate">
                       {user?.name}
@@ -266,6 +269,15 @@ const Header = () => {
                     </p>
                   </div>
                   <div className="py-2">
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <span className="text-base"></span> Go to Dashboard
+                      </Link>
+                    )}
                     <Link
                       href="/account"
                       onClick={() => setUserMenuOpen(false)}

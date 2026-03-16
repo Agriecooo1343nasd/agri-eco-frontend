@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Plus,
@@ -46,78 +47,27 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { products as baseProducts } from "@/data/products";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
 import Link from "next/link";
-
-/* ---- Extended product type for admin ---- */
-interface AdminProduct {
-  id: string;
-  name: string;
-  image: string;
-  category: string;
-  price: number;
-  oldPrice?: number;
-  stock: number;
-  sold: number;
-  status: "Active" | "Draft" | "Inactive";
-  createdAt: string;
-  unit: string;
-}
-
-/* ---- Generate admin product list from base products ---- */
-const adminProducts: AdminProduct[] = baseProducts.map((p, i) => ({
-  id: p.id.toString(),
-  name: p.name,
-  image: p.image,
-  category: p.category,
-  price: p.price,
-  oldPrice: p.oldPrice,
-  stock: [120, 45, 200, 78, 156, 89, 34, 210, 67, 143][i] ?? 100,
-  sold: [342, 187, 256, 98, 214, 176, 312, 64, 198, 145][i] ?? 50,
-  status:
-    (
-      [
-        "Active",
-        "Active",
-        "Active",
-        "Draft",
-        "Active",
-        "Active",
-        "Active",
-        "Inactive",
-        "Active",
-        "Active",
-      ] as const
-    )[i] ?? "Active",
-  createdAt:
-    [
-      "2025-08-12",
-      "2025-09-03",
-      "2025-07-22",
-      "2025-11-15",
-      "2025-06-18",
-      "2025-10-01",
-      "2025-05-30",
-      "2025-12-05",
-      "2025-04-14",
-      "2025-08-28",
-    ][i] ?? "2025-01-01",
-  unit: p.unit,
-}));
-
-// Duplicate some to have more data for pagination demo
-const allProducts: AdminProduct[] = [
-  ...adminProducts,
-  ...adminProducts.map((p) => ({
-    ...p,
-    id: p.id + "-bulk",
-    name: p.name + " (Bulk)",
-    stock: p.stock + 50,
-    sold: p.sold + 20,
-  })),
-];
+import {
+  fetchAdminProducts,
+  fetchCategoriesForAdmin,
+  deleteAdminProduct,
+  toAbsoluteMediaUrl,
+  type AdminProduct,
+  type AdminProductSort,
+} from "@/lib/api/products";
 
 type SortKey = "name" | "price" | "stock" | "sold" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -132,58 +82,64 @@ const statusStyles: Record<string, string> = {
 
 export default function AdminProductsPage() {
   const { formatPrice } = usePricing();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-
-  /* ---- Filtering ---- */
-  const filtered = useMemo(() => {
-    let list = [...allProducts];
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q),
-      );
-    }
-    if (statusFilter !== "all") {
-      list = list.filter((p) => p.status === statusFilter);
-    }
-    if (categoryFilter !== "all") {
-      list = list.filter((p) => p.category === categoryFilter);
-    }
-    return list;
-  }, [search, statusFilter, categoryFilter]);
-
-  /* ---- Sorting ---- */
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    list.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "price") cmp = a.price - b.price;
-      else if (sortKey === "stock") cmp = a.stock - b.stock;
-      else if (sortKey === "sold") cmp = a.sold - b.sold;
-      else if (sortKey === "createdAt")
-        cmp = a.createdAt.localeCompare(b.createdAt);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return list;
-  }, [filtered, sortKey, sortDir]);
-
-  /* ---- Pagination ---- */
-  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
-  const currentPage = Math.min(page, totalPages);
-  const paginated = sorted.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE,
+  const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(
+    null,
   );
 
-  const categories = [...new Set(allProducts.map((p) => p.category))];
+  const apiSortKey: AdminProductSort =
+    sortKey === "price"
+      ? "sellingPrice"
+      : sortKey === "sold"
+        ? "soldCount"
+        : sortKey;
+
+  const statusQuery =
+    statusFilter === "active"
+      ? "true"
+      : statusFilter === "inactive"
+        ? "false"
+        : undefined;
+
+  const productsQuery = useQuery({
+    queryKey: [
+      "admin-products",
+      page,
+      search,
+      statusFilter,
+      categoryFilter,
+      sortKey,
+      sortDir,
+    ],
+    queryFn: () =>
+      fetchAdminProducts({
+        page,
+        limit: ITEMS_PER_PAGE,
+        search,
+        category: categoryFilter !== "all" ? categoryFilter : undefined,
+        isActive: statusQuery,
+        sort: apiSortKey,
+        order: sortDir,
+      }),
+  });
+
+  const categoriesQuery = useQuery({
+    queryKey: ["admin-product-categories"],
+    queryFn: fetchCategoriesForAdmin,
+  });
+
+  const rows = productsQuery.data?.data ?? [];
+  const pagination = productsQuery.data?.pagination;
+  const totalPages = pagination?.pages ?? 1;
+  const totalItems = pagination?.total ?? 0;
+  const currentPage = pagination?.page ?? page;
+  const categoryOptions = categoriesQuery.data?.data ?? [];
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -209,10 +165,25 @@ export default function AdminProductsPage() {
     );
   }
 
-  function handleAction(action: string, product: AdminProduct) {
-    toast.success(`${action} Product`, {
-      description: `Action initiated for "${product.name}".`,
-    });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteAdminProduct(id),
+    onSuccess: () => {
+      toast.success("Product removed", {
+        description: `"${productToDelete?.name}" has been permanently deleted.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      setProductToDelete(null);
+    },
+    onError: () => {
+      toast.error("Failed to delete", {
+        description: "Something went wrong. Please try again.",
+      });
+      setProductToDelete(null);
+    },
+  });
+
+  function handleDeleteRequest(product: AdminProduct) {
+    setProductToDelete(product);
   }
 
   /* ---- Pagination range ---- */
@@ -236,6 +207,50 @@ export default function AdminProductsPage() {
     return pages;
   }
 
+  const statusLabel = (product: AdminProduct) => {
+    if (product.isActive) {
+      return "Active";
+    }
+
+    // Backend does not expose a draft lifecycle status in product list.
+    // We preserve the frontend Draft badge with a safe local heuristic.
+    return product.soldCount === 0 ? "Draft" : "Inactive";
+  };
+
+  const categoryName = (product: AdminProduct) =>
+    product.category?.name ?? "Uncategorized";
+
+  const primaryImage = (product: AdminProduct) => {
+    const image =
+      product.images?.find((entry) => entry.isPrimary) ?? product.images?.[0];
+
+    return toAbsoluteMediaUrl(image?.url);
+  };
+
+  const mapUiRows = useMemo(
+    () =>
+      rows
+        .map((product) => ({
+          ...product,
+          uiStatus: statusLabel(product),
+          uiCategory: categoryName(product),
+          uiImage: primaryImage(product),
+          uiPrice: Number(product.sellingPrice),
+          uiOldPrice:
+            Number(product.originalPrice) > Number(product.sellingPrice)
+              ? Number(product.originalPrice)
+              : undefined,
+        }))
+        .filter((product) => {
+          if (statusFilter === "draft") {
+            return product.uiStatus === "Draft";
+          }
+
+          return true;
+        }),
+    [rows, statusFilter],
+  );
+
   return (
     <div className="space-y-6 text-xs">
       {/* Header */}
@@ -245,7 +260,7 @@ export default function AdminProductsPage() {
             Product Inventory
           </h1>
           <p className="text-muted-foreground text-sm mt-1 font-medium">
-            Manage your commodity catalog ({sorted.length} total products)
+            Manage your commodity catalog ({totalItems} total products)
           </p>
         </div>
         <Link href="/admin/products/create">
@@ -263,7 +278,7 @@ export default function AdminProductsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search products by name or category..."
+                placeholder="Search products by name or SKU..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -280,7 +295,7 @@ export default function AdminProductsPage() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="w-[130px] h-9 text-xs font-bold">
+                <SelectTrigger className="w-32.5 h-9 text-xs font-bold">
                   <Filter className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -288,13 +303,13 @@ export default function AdminProductsPage() {
                   <SelectItem value="all" className="text-xs">
                     All Status
                   </SelectItem>
-                  <SelectItem value="Active" className="text-xs">
+                  <SelectItem value="active" className="text-xs">
                     Active
                   </SelectItem>
-                  <SelectItem value="Draft" className="text-xs">
+                  <SelectItem value="draft" className="text-xs">
                     Draft
                   </SelectItem>
-                  <SelectItem value="Inactive" className="text-xs">
+                  <SelectItem value="inactive" className="text-xs">
                     Inactive
                   </SelectItem>
                 </SelectContent>
@@ -306,16 +321,16 @@ export default function AdminProductsPage() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="w-[140px] h-9 text-xs font-bold">
+                <SelectTrigger className="w-35 h-9 text-xs font-bold">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-xs">
                     All Categories
                   </SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c} className="text-xs">
-                      {c}
+                  {categoryOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -331,7 +346,7 @@ export default function AdminProductsPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-[70px] text-[10px] font-bold uppercase tracking-wider text-center">
+                <TableHead className="w-17.5 text-[10px] font-bold uppercase tracking-wider text-center">
                   Preview
                 </TableHead>
                 <TableHead
@@ -388,11 +403,20 @@ export default function AdminProductsPage() {
                     <SortIndicator column="createdAt" />
                   </div>
                 </TableHead>
-                <TableHead className="w-[60px] text-right"></TableHead>
+                <TableHead className="w-15 text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginated.length === 0 ? (
+              {productsQuery.isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={10}
+                    className="text-center py-12 text-muted-foreground font-bold"
+                  >
+                    Loading products...
+                  </TableCell>
+                </TableRow>
+              ) : mapUiRows.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={10}
@@ -402,11 +426,11 @@ export default function AdminProductsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                paginated.map((product) => {
-                  const discount = product.oldPrice
+                mapUiRows.map((product) => {
+                  const discount = product.uiOldPrice
                     ? Math.round(
-                        ((product.oldPrice - product.price) /
-                          product.oldPrice) *
+                        ((product.uiOldPrice - product.uiPrice) /
+                          product.uiOldPrice) *
                           100,
                       )
                     : null;
@@ -419,7 +443,7 @@ export default function AdminProductsPage() {
                       <TableCell className="text-center">
                         <div className="w-10 h-10 rounded-lg overflow-hidden border border-border mx-auto shadow-sm">
                           <img
-                            src={product.image}
+                            src={product.uiImage}
                             alt={product.name}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                           />
@@ -440,17 +464,17 @@ export default function AdminProductsPage() {
                           variant="outline"
                           className="text-[10px] font-bold py-0 px-2 bg-muted/30 border-muted-foreground/20"
                         >
-                          {product.category}
+                          {product.uiCategory}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-bold text-foreground text-[11px]">
-                            {formatPrice(product.price)}
+                            {formatPrice(product.uiPrice)}
                           </span>
-                          {product.oldPrice && (
+                          {product.uiOldPrice && (
                             <span className="text-[10px] text-muted-foreground line-through font-bold opacity-60">
-                              {formatPrice(product.oldPrice)}
+                              {formatPrice(product.uiOldPrice)}
                             </span>
                           )}
                         </div>
@@ -482,18 +506,19 @@ export default function AdminProductsPage() {
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="text-[11px] font-bold text-foreground">
-                            {product.sold} sales
+                            {product.soldCount} sales
                           </span>
                           <span className="text-[9px] text-muted-foreground font-bold">
-                            {formatPrice(product.sold * product.price)} earn
+                            {formatPrice(product.soldCount * product.uiPrice)}{" "}
+                            earn
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge
-                          className={`${statusStyles[product.status]} border text-[10px] font-bold py-0 px-2 shadow-none`}
+                          className={`${statusStyles[product.uiStatus]} border text-[10px] font-bold py-0 px-2 shadow-none`}
                         >
-                          {product.status}
+                          {product.uiStatus}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -534,7 +559,7 @@ export default function AdminProductsPage() {
                             </Link>
                             <DropdownMenuItem
                               className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              onClick={() => handleAction("Delete", product)}
+                              onClick={() => handleDeleteRequest(product)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Remove Item
@@ -551,6 +576,44 @@ export default function AdminProductsPage() {
         </CardContent>
       </Card>
 
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={productToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setProductToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to permanently delete{" "}
+              <span className="font-semibold text-foreground">
+                {productToDelete?.name}
+              </span>
+              . This action cannot be undone and will remove all associated data
+              including images, batches, and inventory records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (productToDelete) {
+                  deleteMutation.mutate(productToDelete.id);
+                }
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Yes, delete it"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
@@ -558,10 +621,9 @@ export default function AdminProductsPage() {
             Showing{" "}
             <span className="text-foreground font-bold">
               {(currentPage - 1) * ITEMS_PER_PAGE + 1}–
-              {Math.min(currentPage * ITEMS_PER_PAGE, sorted.length)}
+              {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)}
             </span>{" "}
-            of{" "}
-            <span className="text-foreground font-bold">{sorted.length}</span>{" "}
+            of <span className="text-foreground font-bold">{totalItems}</span>{" "}
             entries
           </p>
           <Pagination className="justify-center sm:justify-end">

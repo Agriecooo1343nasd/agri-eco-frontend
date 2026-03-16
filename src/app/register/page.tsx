@@ -4,8 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { registerRequest } from "@/lib/api/auth";
+import {
+  getPasswordHelpText,
+  isStrongPassword,
+  isValidEmail,
+  isValidPhone,
+} from "@/lib/auth-validation";
 import { toast } from "sonner";
 
 const RegisterPage = () => {
@@ -18,10 +26,21 @@ const RegisterPage = () => {
     confirmPassword: "",
     location: "",
   });
+  const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+
+  const registerMutation = useMutation({
+    mutationFn: registerRequest,
+    onSuccess: () => {
+      toast.success("Account created!", {
+        description:
+          "Your account is ready. Please sign in with your email and password.",
+      });
+      router.push("/login");
+    },
+  });
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -29,46 +48,56 @@ const RegisterPage = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    setFormError(null);
+
     if (
       !form.username ||
       !form.email ||
-      !form.phone ||
       !form.password ||
       !form.confirmPassword
     ) {
-      toast.error("Missing fields", {
-        description: "Please fill in all required fields.",
-      });
+      setFormError("Please fill in all required fields.");
       return;
     }
+
+    if (!isValidEmail(form.email)) {
+      setFormError("Please provide a valid email address.");
+      return;
+    }
+
+    if (!isValidPhone(form.phone)) {
+      setFormError(
+        "Use a valid phone format (digits, spaces, +, -, or parentheses).",
+      );
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
-      toast.error("Passwords don't match", {
-        description: "Please make sure your passwords match.",
-      });
+      setFormError("Please make sure your passwords match.");
       return;
     }
-    if (form.password.length < 8) {
-      toast.error("Password too short", {
-        description: "Password must be at least 8 characters.",
-      });
+
+    if (!isStrongPassword(form.password)) {
+      setFormError(getPasswordHelpText());
       return;
     }
+
     if (!agreed) {
-      toast.error("Terms required", {
-        description: "Please agree to the terms and conditions.",
-      });
+      setFormError("Please agree to the terms and conditions.");
       return;
     }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Account created!", {
-        description:
-          "Welcome to Agri-Eco! Please check your email to verify your account.",
-      });
-      router.push("/login");
-    }, 1500);
+
+    registerMutation.mutate({
+      username: form.username.trim(),
+      email: form.email.trim().toLowerCase(),
+      phone: form.phone.trim() || undefined,
+      password: form.password,
+      confirmPassword: form.confirmPassword,
+    });
   };
+
+  const loading = registerMutation.isPending;
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,7 +149,10 @@ const RegisterPage = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Phone Number *
+                Phone Number{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
               </label>
               <input
                 name="phone"
@@ -208,13 +240,9 @@ const RegisterPage = () => {
               />
               <span>
                 I agree to the{" "}
-                <span className="text-primary font-semibold font-bold">
-                  Terms of Service
-                </span>{" "}
+                <span className="text-primary font-bold">Terms of Service</span>{" "}
                 and{" "}
-                <span className="text-primary font-semibold font-bold">
-                  Privacy Policy
-                </span>
+                <span className="text-primary font-bold">Privacy Policy</span>
               </span>
             </label>
 
@@ -231,6 +259,12 @@ const RegisterPage = () => {
                 </>
               )}
             </button>
+
+            {formError && (
+              <p className="text-sm text-destructive text-center">
+                {formError}
+              </p>
+            )}
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
