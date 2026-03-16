@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -12,11 +12,13 @@ import {
   Users,
   DollarSign,
   Tag,
-  ImageIcon,
+  Image as ImageIcon,
   Check,
   Info,
   Loader2,
+  Upload,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,88 +39,244 @@ import {
 import {
   MultiLangInput,
   emptyLangValue,
+  type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
-import { accommodations, Accommodation } from "@/data/accommodations";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  fetchAccommodationById,
+  updateAdminAccommodation,
+  deleteAdminAccommodation,
+  toAbsoluteAccommodationImage,
+  type AccommodationCategory,
+  type AccommodationStatus,
+} from "@/lib/api/accommodations";
+import { uploadSingleImage, uploadMultipleImages } from "@/lib/api/uploads";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+const categories: AccommodationCategory[] = [
+  "standard",
+  "premium",
+  "family",
+  "luxury",
+  "eco",
+];
+
+const statuses: AccommodationStatus[] = [
+  "available",
+  "maintenance",
+  "occupied",
+];
+
+const normalizeLang = (value: MultiLangValue): MultiLangValue => ({
+  en: value.en.trim(),
+  rw: value.rw.trim(),
+  fr: value.fr.trim(),
+  sw: value.sw.trim(),
+});
 
 export default function EditAccommodationPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const mainImageInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Form states
   const [name, setName] = useState(emptyLangValue());
   const [description, setDescription] = useState(emptyLangValue());
-  const [type, setType] = useState("standard");
+  const [category, setCategory] = useState<AccommodationCategory>("standard");
   const [price, setPrice] = useState("");
-  const [capacity, setCapacity] = useState("");
-  const [status, setStatus] = useState("available");
+  const [maxGuests, setMaxGuests] = useState("");
+  const [status, setStatus] = useState<AccommodationStatus>("available");
   const [amenities, setAmenities] = useState<string[]>([]);
   const [newAmenity, setNewAmenity] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
+  const [mainImagePath, setMainImagePath] = useState("");
+  const [galleryPaths, setGalleryPaths] = useState<string[]>([]);
+  const [uploadingMain, setUploadingMain] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  const accommodationQuery = useQuery({
+    queryKey: ["admin-accommodation", id],
+    queryFn: () => fetchAccommodationById(id),
+    enabled: Boolean(id),
+    retry: 1,
+  });
 
   useEffect(() => {
-    // Simulate fetching data
-    const accommodation = accommodations.find((a) => a.id === id);
-    if (accommodation) {
-      setName(accommodation.translatedName);
-      setDescription(accommodation.description);
-      setType(accommodation.type);
-      setPrice(accommodation.pricePerNight.toString());
-      setCapacity(accommodation.capacity.toString());
-      setStatus(accommodation.status);
-      setAmenities(accommodation.amenities);
-      setLoading(false);
-    } else {
-      toast.error("Accommodation not found");
+    if (!accommodationQuery.data) return;
+    const acc = accommodationQuery.data;
+    setName({
+      en: acc.name.en ?? "",
+      rw: acc.name.rw ?? "",
+      fr: acc.name.fr ?? "",
+      sw: acc.name.sw ?? "",
+    });
+    setDescription({
+      en: acc.description.en ?? "",
+      rw: acc.description.rw ?? "",
+      fr: acc.description.fr ?? "",
+      sw: acc.description.sw ?? "",
+    });
+    setCategory(acc.category);
+    setPrice(String(acc.ratePerNightRwf || ""));
+    setMaxGuests(String(acc.maxGuests || ""));
+    setStatus(acc.status);
+    setAmenities(acc.amenities ?? []);
+    setIsActive(acc.isActive);
+    setMainImagePath(acc.mainImage ?? "");
+    setGalleryPaths(acc.gallery ?? []);
+  }, [accommodationQuery.data]);
+
+  const updateMutation = useMutation({
+    mutationFn: () => {
+      const normalizedName = normalizeLang(name);
+      const normalizedDescription = normalizeLang(description);
+      const parsedRate = Number.parseFloat(price || "0");
+      const parsedGuests = Number.parseInt(maxGuests || "1", 10);
+
+      if (!normalizedName.en) {
+        throw new Error("English property name is required");
+      }
+      if (!normalizedDescription.en) {
+        throw new Error("English description is required");
+      }
+      if (!Number.isFinite(parsedRate) || parsedRate <= 0) {
+        throw new Error("Rate per night must be a positive number");
+      }
+      if (!Number.isFinite(parsedGuests) || parsedGuests < 1) {
+        throw new Error("Max guests must be at least 1");
+      }
+
+      return updateAdminAccommodation(id, {
+        name: normalizedName,
+        description: normalizedDescription,
+        category,
+        status,
+        ratePerNightRwf: parsedRate,
+        maxGuests: parsedGuests,
+        amenities,
+        mainImage: mainImagePath || undefined,
+        gallery: galleryPaths,
+        isActive,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Accommodation updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-accommodations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-accommodation", id] });
       router.push("/admin/accommodations");
-    }
-  }, [id, router]);
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update accommodation", {
+        description: error.message || "Please try again.",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAdminAccommodation(id),
+    onSuccess: () => {
+      toast.success("Accommodation deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["admin-accommodations"] });
+      router.push("/admin/accommodations");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete accommodation", {
+        description: error.message || "Please try again.",
+      });
+    },
+  });
 
   const handleAddAmenity = () => {
-    if (newAmenity.trim()) {
-      setAmenities([...amenities, newAmenity.trim()]);
-      setNewAmenity("");
+    const trimmed = newAmenity.trim();
+    if (!trimmed) return;
+    if (amenities.includes(trimmed)) {
+      toast.warning("Amenity already added");
+      return;
     }
+    setAmenities((prev) => [...prev, trimmed]);
+    setNewAmenity("");
   };
 
   const handleRemoveAmenity = (index: number) => {
-    setAmenities(amenities.filter((_, i) => i !== index));
+    setAmenities((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
+  const handleUploadMainImage = async (file?: File) => {
+    if (!file) return;
+    setUploadingMain(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      toast.success("Accommodation updated successfully!");
-      router.push("/admin/accommodations");
+      const uploaded = await uploadSingleImage(file);
+      setMainImagePath(uploaded.path);
+      toast.success("Main image uploaded");
     } catch (error) {
-      toast.error("Failed to update accommodation");
+      toast.error("Main image upload failed", {
+        description: error instanceof Error ? error.message : "Please retry.",
+      });
     } finally {
-      setIsSubmitting(false);
+      setUploadingMain(false);
     }
   };
 
-  if (loading) {
+  const handleUploadGalleryImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingGallery(true);
+    try {
+      const uploaded = await uploadMultipleImages(Array.from(files));
+      setGalleryPaths((prev) => [...prev, ...uploaded.map((f) => f.path)]);
+      toast.success(`${uploaded.length} gallery image(s) uploaded`);
+    } catch (error) {
+      toast.error("Gallery upload failed", {
+        description: error instanceof Error ? error.message : "Please retry.",
+      });
+    } finally {
+      setUploadingGallery(false);
+    }
+  };
+
+  if (accommodationQuery.isLoading) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 text-primary animate-spin" />
         <p className="text-sm font-medium text-muted-foreground tracking-widest uppercase">
-          Initializing Stay Data...
+          Loading stay data...
         </p>
       </div>
     );
   }
 
+  if (accommodationQuery.isError || !accommodationQuery.data) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
+        <p className="text-sm font-medium text-muted-foreground text-center max-w-md">
+          {accommodationQuery.error instanceof Error
+            ? accommodationQuery.error.message
+            : "Accommodation not found."}
+        </p>
+        <Link href="/admin/accommodations">
+          <Button variant="outline">Back to Accommodations</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const isSubmitting = updateMutation.isPending;
+
   return (
     <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Sticky Header */}
       <div className="sticky top-0 z-30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-background/80 backdrop-blur-md pb-4 pt-2 border-b border-border/50">
         <div className="flex items-center gap-4">
           <Link href="/admin/accommodations">
@@ -149,9 +307,18 @@ export default function EditAccommodationPage() {
             Discard Changes
           </Button>
           <Button
+            variant="destructive"
+            className="h-10 px-5 rounded-xl gap-2"
+            onClick={() => setConfirmDeleteOpen(true)}
+            disabled={deleteMutation.isPending}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+          <Button
             className="h-10 px-6 rounded-xl shadow-lg shadow-primary/20 font-bold gap-2"
-            onClick={handleSave}
-            disabled={isSubmitting}
+            onClick={() => updateMutation.mutate()}
+            disabled={isSubmitting || uploadingMain || uploadingGallery}
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -164,9 +331,7 @@ export default function EditAccommodationPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Form Area */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Identity Card */}
           <Card className="shadow-sm border-border/50 overflow-hidden">
             <div className="h-1.5 bg-primary/20 w-full" />
             <CardHeader className="pb-4">
@@ -203,7 +368,6 @@ export default function EditAccommodationPage() {
             </CardContent>
           </Card>
 
-          {/* Amenities & Features */}
           <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 mb-1">
@@ -246,11 +410,12 @@ export default function EditAccommodationPage() {
               <div className="flex flex-wrap gap-2 pt-2">
                 {amenities.map((item, index) => (
                   <div
-                    key={index}
+                    key={`${item}-${index}`}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/20 text-primary text-sm font-medium animate-in zoom-in-95 duration-200"
                   >
                     <span>{item}</span>
                     <button
+                      type="button"
                       onClick={() => handleRemoveAmenity(index)}
                       className="p-0.5 hover:bg-primary/10 rounded-full transition-colors"
                     >
@@ -258,14 +423,20 @@ export default function EditAccommodationPage() {
                     </button>
                   </div>
                 ))}
+                {amenities.length === 0 && (
+                  <div className="w-full py-8 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-muted/20">
+                    <Info className="h-6 w-6 mb-2 opacity-50" />
+                    <p className="text-xs font-medium">
+                      No amenities added yet
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Sidebar Info Area */}
         <div className="space-y-6">
-          {/* Status & Categorization Card */}
           <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-heading">
@@ -277,16 +448,19 @@ export default function EditAccommodationPage() {
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Unit Category
                 </Label>
-                <Select value={type} onValueChange={setType}>
+                <Select
+                  value={category}
+                  onValueChange={(v) => setCategory(v as AccommodationCategory)}
+                >
                   <SelectTrigger className="font-medium h-11 rounded-xl">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="standard">Standard Unit</SelectItem>
-                    <SelectItem value="premium">Premium Suite</SelectItem>
-                    <SelectItem value="family">Family Farmhouse</SelectItem>
-                    <SelectItem value="eco-lodge">Eco Lodge</SelectItem>
-                    <SelectItem value="campsite">Grounded Campsite</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c.charAt(0).toUpperCase() + c.slice(1)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -295,42 +469,39 @@ export default function EditAccommodationPage() {
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Inventory Status
                 </Label>
-                <Select value={status} onValueChange={setStatus}>
+                <Select
+                  value={status}
+                  onValueChange={(v) => setStatus(v as AccommodationStatus)}
+                >
                   <SelectTrigger className="font-medium h-11 rounded-xl">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Live / Bookable
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="maintenance">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-amber-500" />
-                        Under Maintenance
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="occupied">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                        Currently Occupied
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="hidden">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-gray-400" />
-                        Archived / Internal
-                      </div>
-                    </SelectItem>
+                    {statuses.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-border p-3">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Active Listing
+                </Label>
+                <Button
+                  type="button"
+                  variant={isActive ? "default" : "outline"}
+                  className="h-8 px-3"
+                  onClick={() => setIsActive((prev) => !prev)}
+                >
+                  {isActive ? "Active" : "Inactive"}
+                </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Pricing & Capacity Card */}
           <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-heading">
@@ -364,48 +535,120 @@ export default function EditAccommodationPage() {
                     type="number"
                     placeholder="2"
                     className="pl-10 h-11 rounded-xl font-bold"
-                    value={capacity}
-                    onChange={(e) => setCapacity(e.target.value)}
+                    value={maxGuests}
+                    onChange={(e) => setMaxGuests(e.target.value)}
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Gallery Card */}
           <Card className="shadow-sm border-border/50">
             <CardHeader className="pb-4">
               <CardTitle className="text-base font-heading">
                 Stay Gallery
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:bg-muted/30 transition-colors cursor-pointer group">
+            <CardContent className="pt-0 space-y-4">
+              <input
+                ref={mainImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleUploadMainImage(e.target.files?.[0])}
+              />
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleUploadGalleryImages(e.target.files)}
+              />
+
+              <button
+                type="button"
+                onClick={() => mainImageInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-border rounded-xl p-8 text-center hover:bg-muted/30 transition-colors group"
+                disabled={uploadingMain}
+              >
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform text-muted-foreground">
-                  <ImageIcon className="h-6 w-6" />
+                  {uploadingMain ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <Upload className="h-6 w-6" />
+                  )}
                 </div>
                 <p className="text-sm font-semibold text-foreground">
                   Upload Main Image
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Aspect ratio 4:3 recommended
+                  {mainImagePath
+                    ? "Main image uploaded"
+                    : "Aspect ratio 4:3 recommended"}
                 </p>
-              </div>
+              </button>
 
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="aspect-square rounded-lg bg-muted border border-border flex items-center justify-center hover:bg-muted/50 transition-colors cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4 text-muted-foreground/50" />
-                  </div>
-                ))}
-              </div>
+              {mainImagePath ? (
+                <img
+                  src={toAbsoluteAccommodationImage(mainImagePath)}
+                  alt="Main preview"
+                  className="h-28 w-full rounded-xl object-cover border border-border"
+                />
+              ) : null}
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={uploadingGallery}
+              >
+                {uploadingGallery ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImageIcon className="h-4 w-4" />
+                )}
+                {uploadingGallery ? "Uploading..." : "Upload Gallery Images"}
+              </Button>
+
+              {galleryPaths.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {galleryPaths.slice(0, 9).map((path, index) => (
+                    <img
+                      key={`${path}-${index}`}
+                      src={toAbsoluteAccommodationImage(path)}
+                      alt={`Gallery ${index + 1}`}
+                      className="aspect-square rounded-lg object-cover border border-border"
+                    />
+                  ))}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Accommodation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this accommodation and cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteMutation.mutate()}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
