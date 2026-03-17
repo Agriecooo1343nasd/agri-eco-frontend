@@ -53,6 +53,7 @@ import {
   type AdminExperience,
   type ExperienceType,
 } from "@/lib/api/experiences";
+import { uploadMultipleImages, uploadSingleImage } from "@/lib/api/uploads";
 import {
   fetchAdminAccommodations,
   type AdminAccommodation,
@@ -171,6 +172,7 @@ interface TourFormProps {
 export function TourForm({ initialData, mode }: TourFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
   // Accommodations search & pagination
   const [accommodationsPage, setAccommodationsPage] = useState(1);
@@ -439,6 +441,13 @@ export function TourForm({ initialData, mode }: TourFormProps) {
     setIsSubmitting(true);
 
     try {
+      if (status === "sold-out") {
+        toast.warning("Sold-out status is not persisted in backend", {
+          description:
+            "Backend currently stores only isActive/isFeatured. This record will be saved as active without sold-out state.",
+        });
+      }
+
       if (mode === "create") {
         const validAccommodationIds = selectedAccommodations.filter((id) =>
           UUID_RE.test(id),
@@ -566,7 +575,7 @@ export function TourForm({ initialData, mode }: TourFormProps) {
         if (timeSlots.length > 0) {
           toast.warning("Time slots not persisted", {
             description:
-              "Backend update DTO does not accept time slots. Ask the backend developer to add time slot support.",
+              "Backend update DTO does not accept time slots.",
           });
         }
       }
@@ -590,6 +599,56 @@ export function TourForm({ initialData, mode }: TourFormProps) {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleHeroFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingMedia(true);
+    try {
+      const uploaded = await uploadSingleImage(file);
+      setHeroImageUrl(uploaded.path);
+      toast.success("Hero image uploaded");
+    } catch (error) {
+      toast.error("Hero image upload failed", {
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setIsUploadingMedia(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleGalleryFilesUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    setIsUploadingMedia(true);
+    try {
+      const uploaded = await uploadMultipleImages(files);
+      const paths = uploaded.map((item) => item.path).filter(Boolean);
+
+      if (paths.length > 0) {
+        setGalleryUrls((prev) => [...prev, ...paths]);
+        toast.success("Gallery images uploaded", {
+          description: `${paths.length} file(s) uploaded successfully.`,
+        });
+      }
+    } catch (error) {
+      toast.error("Gallery upload failed", {
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setIsUploadingMedia(false);
+      event.target.value = "";
     }
   };
 
@@ -637,7 +696,7 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           <Button
             className="shadow-sm gap-2"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploadingMedia}
           >
             {isSubmitting ? (
               mode === "create" ? (
@@ -645,6 +704,8 @@ export function TourForm({ initialData, mode }: TourFormProps) {
               ) : (
                 "Saving..."
               )
+            ) : isUploadingMedia ? (
+              "Uploading media..."
             ) : (
               <>
                 <Save className="h-4 w-4" />{" "}
@@ -1319,12 +1380,21 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Hero Image URL
                 </Label>
-                <Input
-                  value={heroImageUrl}
-                  onChange={(e) => setHeroImageUrl(e.target.value)}
-                  placeholder="https://example.com/hero-image.jpg"
-                  className="font-medium"
-                />
+                <div className="space-y-2">
+                  <Input
+                    value={heroImageUrl}
+                    onChange={(e) => setHeroImageUrl(e.target.value)}
+                    placeholder="https://example.com/hero-image.jpg"
+                    className="font-medium"
+                  />
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleHeroFileUpload}
+                    className="font-medium"
+                    disabled={isUploadingMedia}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1351,12 +1421,20 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                     Add
                   </Button>
                 </div>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleGalleryFilesUpload}
+                  className="font-medium"
+                  disabled={isUploadingMedia}
+                />
               </div>
 
               <div className="rounded-lg border border-border bg-muted/10 p-3">
                 <p className="text-[11px] font-medium text-muted-foreground">
-                  Backend currently accepts image URLs for experience media.
-                  File upload for experiences is not available yet.
+                  Media file upload now uses the authenticated upload API and
+                  stores returned /uploads paths in hero/gallery fields.
                 </p>
               </div>
 
