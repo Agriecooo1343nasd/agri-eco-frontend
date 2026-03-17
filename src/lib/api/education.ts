@@ -80,6 +80,42 @@ export interface AdminSchoolVisit {
   createdAt: string;
 }
 
+export interface AdminSchoolVisitSettings {
+  id: string;
+  sectionHeading: MultiLangText;
+  sectionSubheading: MultiLangText;
+  inclusions: { text: MultiLangText; sortOrder: number }[];
+  subjects: {
+    name: MultiLangText;
+    description?: MultiLangText;
+    sortOrder: number;
+  }[];
+  gradeLevels: { label: MultiLangText; sortOrder: number }[];
+  duration: string;
+  pricePerStudent: number;
+  minStudents: number;
+  maxStudents: number;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface UpsertAdminSchoolVisitSettingsPayload {
+  sectionHeading: MultiLangText;
+  sectionSubheading: MultiLangText;
+  inclusions: { text: MultiLangText; sortOrder: number }[];
+  subjects: {
+    name: MultiLangText;
+    description?: MultiLangText;
+    sortOrder: number;
+  }[];
+  gradeLevels: { label: MultiLangText; sortOrder: number }[];
+  duration: string;
+  pricePerStudent: number;
+  minStudents: number;
+  maxStudents: number;
+  isActive: boolean;
+}
+
 interface ListResult<T> {
   data: T[];
   pagination: ApiPagination;
@@ -227,6 +263,28 @@ export async function updateAdminTrainingProgram(
 
   if (!response.data.data) {
     throw new Error("Missing updated training program response data");
+  }
+
+  return response.data.data;
+}
+
+export async function fetchAdminSchoolVisitSettings(): Promise<AdminSchoolVisitSettings | null> {
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminSchoolVisitSettings | null>
+  >("/school-visits/admin/settings");
+
+  return response.data.data ?? null;
+}
+
+export async function updateAdminSchoolVisitSettings(
+  payload: UpsertAdminSchoolVisitSettingsPayload,
+): Promise<AdminSchoolVisitSettings> {
+  const response = await apiClient.put<
+    ApiSuccessResponse<AdminSchoolVisitSettings>
+  >("/school-visits/admin/settings", payload);
+
+  if (!response.data.data) {
+    throw new Error("Missing updated school visit settings response data");
   }
 
   return response.data.data;

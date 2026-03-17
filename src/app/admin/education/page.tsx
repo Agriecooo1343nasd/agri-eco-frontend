@@ -98,6 +98,7 @@ function visitToUi(visit: AdminSchoolVisit): SchoolVisit {
 export default function AdminEducationPage() {
   const { formatPrice } = usePricing();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<"programs" | "visits">("programs");
   const [visitsUiOverride, setVisitsUiOverride] = useState<
     Record<string, SchoolVisit["status"]>
   >({});
@@ -126,6 +127,7 @@ export default function AdminEducationPage() {
 
   const visitsQuery = useQuery({
     queryKey: ["admin-school-visits"],
+    enabled: activeTab === "visits",
     queryFn: () =>
       fetchAdminSchoolVisits({
         page: 1,
@@ -133,6 +135,7 @@ export default function AdminEducationPage() {
         sort: "createdAt",
         order: "desc",
       }),
+    staleTime: 60_000,
   });
 
   const enrollmentCountByProgram = useMemo(() => {
@@ -197,13 +200,12 @@ export default function AdminEducationPage() {
     0,
   );
 
-  const isLoadingAny =
-    programsQuery.isLoading ||
-    enrollmentsQuery.isLoading ||
-    visitsQuery.isLoading;
+  const isLoadingAny = programsQuery.isLoading || enrollmentsQuery.isLoading;
 
   const hasFetchError =
-    programsQuery.isError || enrollmentsQuery.isError || visitsQuery.isError;
+    programsQuery.isError ||
+    enrollmentsQuery.isError ||
+    (activeTab === "visits" && visitsQuery.isError);
 
   const handleVisitStatusChange = (
     visitId: string,
@@ -277,7 +279,11 @@ export default function AdminEducationPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="programs" className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as "programs" | "visits")}
+        className="space-y-6"
+      >
         <div className="flex items-center justify-between">
           <TabsList className="bg-muted/50 p-1 h-auto gap-1 border border-border">
             <TabsTrigger
@@ -439,7 +445,7 @@ export default function AdminEducationPage() {
         </TabsContent>
 
         <TabsContent value="visits">
-          <div className="border border-border rounded-xl overflow-hidden bg-card shadow-sm">
+          <div className="border border-border rounded-sm overflow-hidden bg-card shadow-sm">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -466,58 +472,95 @@ export default function AdminEducationPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {schoolVisitRows.map((v) => (
-                    <TableRow
-                      key={v.id}
-                      className="hover:bg-muted/30 transition-colors"
-                    >
-                      <TableCell>
-                        <p className="font-bold text-foreground text-[11px] mb-0.5">
-                          {v.schoolName}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-semibold italic truncate max-w-[150px]">
-                          {v.curriculumAlignment}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-[10px] font-bold text-foreground">
-                          {v.contactPerson}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-medium underline underline-offset-2">
-                          {v.email}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-[11px] font-bold text-foreground flex items-center gap-1.5 h-12">
-                        <Users className="h-3.5 w-3.5 text-primary" />{" "}
-                        {v.studentCount} students
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] font-bold py-0 px-2 uppercase tracking-tighter bg-accent/20 border-accent/20"
-                        >
-                          {v.gradeLevel}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[10px] font-bold text-primary flex items-center h-12 gap-1.5">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {v.preferredDate}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusBadge[v.status]} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
-                        >
-                          {v.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <SchoolVisitActions
-                          visit={v}
-                          onStatusChange={handleVisitStatusChange}
-                        />
+                  {visitsQuery.isLoading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-xs text-muted-foreground py-8"
+                      >
+                        Loading school visits...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
+
+                  {!visitsQuery.isLoading && visitsQuery.isError && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-xs text-destructive py-8"
+                      >
+                        Failed to load school visits.
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {!visitsQuery.isLoading &&
+                    !visitsQuery.isError &&
+                    schoolVisitRows.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-center text-xs text-muted-foreground py-8"
+                        >
+                          No visit is found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                  {!visitsQuery.isLoading &&
+                    !visitsQuery.isError &&
+                    schoolVisitRows.map((v) => (
+                      <TableRow
+                        key={v.id}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        <TableCell>
+                          <p className="font-bold text-foreground text-[11px] mb-0.5">
+                            {v.schoolName}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-semibold italic truncate max-w-40">
+                            {v.curriculumAlignment}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-[10px] font-bold text-foreground">
+                            {v.contactPerson}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-medium underline underline-offset-2">
+                            {v.email}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-[11px] font-bold text-foreground flex items-center gap-1.5 h-12">
+                          <Users className="h-3.5 w-3.5 text-primary" />{" "}
+                          {v.studentCount} students
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-bold py-0 px-2 uppercase tracking-tighter bg-accent/20 border-accent/20"
+                          >
+                            {v.gradeLevel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[10px] font-bold text-primary flex items-center h-12 gap-1.5">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {v.preferredDate}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusBadge[v.status]} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
+                          >
+                            {v.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <SchoolVisitActions
+                            visit={v}
+                            onStatusChange={handleVisitStatusChange}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
