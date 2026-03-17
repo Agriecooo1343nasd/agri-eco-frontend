@@ -3,6 +3,12 @@ import type { ApiSuccessResponse } from "@/lib/api/types";
 
 export type DashboardPeriod = "monthly" | "weekly" | "daily";
 
+export interface KPIComparison {
+  current: number;
+  previous: number;
+  change: number | null;
+}
+
 export interface DashboardOverview {
   totalCustomers: number;
   totalProducts: number;
@@ -12,12 +18,26 @@ export interface DashboardOverview {
   monthlyRevenue: number;
   totalCategories: number;
   unreadMessages: number;
+  conversionRate: number;
+  estimatedVisitors: number;
+  comparisons: {
+    revenue: KPIComparison;
+    orders: KPIComparison;
+    customers: KPIComparison;
+  };
 }
 
 export interface RevenueChartItem {
   period: string;
-  revenue: number;
-  orders: number;
+  revenue?: number;
+  orders?: number;
+  productRevenue?: number;
+  productOrders?: number;
+  tourRevenue?: number;
+  tourBookings?: number;
+  trainingRevenue?: number;
+  trainingEnrollments?: number;
+  totalRevenue?: number;
 }
 
 export interface RevenueChart {
@@ -74,6 +94,111 @@ export interface LowStockProduct {
   category?: { name: string };
 }
 
+// ─── New Endpoints ───────────────────────────────────────
+
+export interface ModulesSummary {
+  tours: number;
+  education: number;
+  artisans: number;
+  partners: number;
+  totalBookings: number;
+  totalEnrollments: number;
+}
+
+export interface RevenueStream {
+  name: string;
+  value: number;
+  percentage: number;
+}
+
+export interface RevenueByStream {
+  total: number;
+  streams: RevenueStream[];
+}
+
+export interface SalesCategory {
+  id: string;
+  name: string;
+  revenue: number;
+  unitsSold: number;
+  percentage: number;
+}
+
+export interface SalesByCategory {
+  total: number;
+  categories: SalesCategory[];
+}
+
+export interface RecentBooking {
+  id: string;
+  referenceNumber: string;
+  fullName: string;
+  email: string;
+  participants: number;
+  date: string;
+  timeSlot: string;
+  status: string;
+  paymentStatus: string;
+  amountRwf: number;
+  createdAt: string;
+  experience?: {
+    id: string;
+    title: string;
+    type: string;
+  };
+}
+
+export interface TrainingEnrollmentStats {
+  status: string;
+  count: number;
+}
+
+export interface TrainingEnrollment {
+  id: string;
+  fullName: string;
+  email: string;
+  status: string;
+  createdAt: string;
+  trainingProgramId: string;
+  program?: {
+    id: string;
+    title: string;
+  };
+}
+
+export interface TrainingStats {
+  totalPrograms: number;
+  totalEnrollments: number;
+  byStatus: {
+    pending: number;
+    approved: number;
+    rejected: number;
+    completed: number;
+  };
+  totalRevenue: number;
+  recentEnrollments: TrainingEnrollment[];
+}
+
+export interface ViewByCategory {
+  category: string;
+  views: number;
+}
+
+export interface TopViewedProduct {
+  id: string;
+  name: string;
+  slug: string;
+  viewCount: number;
+  images?: string[];
+}
+
+export interface VisitorStats {
+  totalPageViews: number;
+  topViewedProducts: TopViewedProduct[];
+  viewsByCategory: ViewByCategory[];
+  note: string;
+}
+
 export async function fetchDashboardOverview(): Promise<DashboardOverview> {
   const res = await apiClient.get<ApiSuccessResponse<DashboardOverview>>(
     "/dashboard/overview",
@@ -125,6 +250,52 @@ export async function fetchLowStockProducts(
 ): Promise<LowStockProduct[]> {
   const res = await apiClient.get<ApiSuccessResponse<LowStockProduct[]>>(
     `/dashboard/low-stock?threshold=${threshold}`,
+  );
+  return res.data.data!;
+}
+
+// ─── New Endpoints ───────────────────────────────────────
+
+export async function fetchModulesSummary(): Promise<ModulesSummary> {
+  const res = await apiClient.get<ApiSuccessResponse<ModulesSummary>>(
+    "/dashboard/modules-summary",
+  );
+  return res.data.data!;
+}
+
+export async function fetchRevenueByStream(): Promise<RevenueByStream> {
+  const res = await apiClient.get<ApiSuccessResponse<RevenueByStream>>(
+    "/dashboard/revenue-by-stream",
+  );
+  return res.data.data!;
+}
+
+export async function fetchSalesByCategory(): Promise<SalesByCategory> {
+  const res = await apiClient.get<ApiSuccessResponse<SalesByCategory>>(
+    "/dashboard/sales-by-category",
+  );
+  return res.data.data!;
+}
+
+export async function fetchRecentBookings(
+  limit = 10,
+): Promise<RecentBooking[]> {
+  const res = await apiClient.get<ApiSuccessResponse<RecentBooking[]>>(
+    `/dashboard/recent-bookings?limit=${limit}`,
+  );
+  return res.data.data!;
+}
+
+export async function fetchTrainingStats(): Promise<TrainingStats> {
+  const res = await apiClient.get<ApiSuccessResponse<TrainingStats>>(
+    "/dashboard/training-stats",
+  );
+  return res.data.data!;
+}
+
+export async function fetchVisitorStats(): Promise<VisitorStats> {
+  const res = await apiClient.get<ApiSuccessResponse<VisitorStats>>(
+    "/dashboard/visitor-stats",
   );
   return res.data.data!;
 }
