@@ -63,6 +63,9 @@ import { cn } from "@/lib/utils";
 import {
   fetchAdminProductById,
   updateAdminProduct,
+  deleteAdminProductBatch,
+  deleteAdminProductImage,
+  uploadAdminProductMedia,
   fetchCategoriesForAdmin,
   toAbsoluteMediaUrl,
   type CreateAdminProductPayload,
@@ -75,6 +78,9 @@ interface Batch {
   manufactureDate: string;
   expiryDate: string;
   quantity: number;
+  status: "active" | "expired" | "depleted";
+  supplier?: string;
+  persisted?: boolean;
 }
 
 const toIsoDateTime = (value?: string) => {
@@ -156,8 +162,7 @@ export default function UpdateProduct() {
   const [features, setFeatures] = useState<string[]>([]);
   const [benefits, setBenefits] = useState<string[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [isActivated, setIsActivated] = useState(false);
   const [initialStatus, setInitialStatus] = useState<
     "Active" | "Draft" | "Inactive"
@@ -169,6 +174,12 @@ export default function UpdateProduct() {
     categories.find((c) => c.name === activeCategory)?.name ??
     product?.category?.name ??
     "";
+  const mediaPreviews = existingImageUrls.map((url) => ({
+    key: `existing-${url}`,
+    src: toAbsoluteMediaUrl(url),
+    existing: true as const,
+    rawUrl: url,
+  }));
 
   // Pre-populate fields from backend
   useEffect(() => {
@@ -190,6 +201,9 @@ export default function UpdateProduct() {
         manufactureDate: toDateInput(batch.receivedDate),
         expiryDate: toDateInput(batch.expiryDate),
         quantity: Number(batch.quantity) || 0,
+        status: batch.status ?? "active",
+        supplier: batch.supplier,
+        persisted: true,
       })),
     );
     setWeight(
@@ -204,7 +218,7 @@ export default function UpdateProduct() {
         ? `${product.shipping.dimensions.length} x ${product.shipping.dimensions.width} x ${product.shipping.dimensions.height}`
         : "",
     );
-    setPreviews((product.images ?? []).map((img) => toAbsoluteMediaUrl(img.url)));
+    setExistingImageUrls((product.images ?? []).map((img) => img.url));
     setIsActivated(product.isActive ?? false);
     setInitialStatus(product.isActive ? "Active" : "Draft");
   }, [product]);
@@ -226,6 +240,67 @@ export default function UpdateProduct() {
       toast.error("Update failed", { description: err.message || "" });
     },
   });
+
+  const deleteBatchMutation = useMutation({
+    mutationFn: ({ batchId }: { batchId: string; localId: string }) =>
+      deleteAdminProductBatch(productId, batchId),
+    onSuccess: (_, variables) => {
+      setBatches((prev) =>
+        prev.filter((batch) => batch.id !== variables.localId),
+      );
+      toast.success("Batch deleted");
+    },
+    onError: (err: Error) => {
+      toast.error("Unable to delete batch", {
+        description: err.message || "Please try again.",
+      });
+    },
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: (url: string) => deleteAdminProductImage(productId, url),
+    onSuccess: (updatedProduct, removedUrl) => {
+      if (updatedProduct.images?.length) {
+        setExistingImageUrls(updatedProduct.images.map((img) => img.url));
+      } else {
+        setExistingImageUrls((prev) =>
+          prev.filter((url) => url !== removedUrl),
+        );
+      }
+      toast.success("Image removed");
+    },
+    onError: (err: Error) => {
+      toast.error("Unable to remove image", {
+        description: err.message || "Please try again.",
+      });
+    },
+  });
+
+  const uploadImageMutation = useMutation({
+    mutationFn: (files: File[]) =>
+      uploadAdminProductMedia(productId, { images: files }),
+    onSuccess: (updatedProduct) => {
+      setExistingImageUrls((updatedProduct.images ?? []).map((img) => img.url));
+      toast.success("Image uploaded");
+    },
+    onError: (err: Error) => {
+      toast.error("Unable to upload image", {
+        description: err.message || "Please try again.",
+      });
+    },
+  });
+
+  const persistPartialUpdate = async (
+    payload: Partial<CreateAdminProductPayload>,
+  ) => {
+    try {
+      await updateAdminProduct(productId, payload);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Please try again.";
+      throw new Error(message);
+    }
+  };
 
   // Submit handler
   // Duplicate handleSubmit removed. Only keep one definition.
@@ -250,7 +325,21 @@ export default function UpdateProduct() {
       setTagInput("");
     }
   };
-  const removeTag = (t: string) => setTags(tags.filter((tag) => tag !== t));
+  const removeTag = async (t: string) => {
+    const previous = tags;
+    const next = tags.filter((tag) => tag !== t);
+    setTags(next);
+
+    try {
+      await persistPartialUpdate({ tags: next });
+    } catch (error) {
+      setTags(previous);
+      toast.error("Unable to remove tag", {
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      });
+    }
+  };
 
   const addFeature = () => setFeatures([...features, ""]);
   const updateFeature = (i: number, val: string) => {
@@ -258,8 +347,21 @@ export default function UpdateProduct() {
     next[i] = val;
     setFeatures(next);
   };
-  const removeFeature = (i: number) =>
-    setFeatures(features.filter((_, idx) => idx !== i));
+  const removeFeature = async (i: number) => {
+    const previous = features;
+    const next = features.filter((_, idx) => idx !== i);
+    setFeatures(next);
+
+    try {
+      await persistPartialUpdate({ features: next });
+    } catch (error) {
+      setFeatures(previous);
+      toast.error("Unable to remove feature", {
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      });
+    }
+  };
 
   const addBenefit = () => setBenefits([...benefits, ""]);
   const updateBenefit = (i: number, val: string) => {
@@ -267,18 +369,31 @@ export default function UpdateProduct() {
     next[i] = val;
     setBenefits(next);
   };
-  const removeBenefit = (i: number) =>
-    setBenefits(benefits.filter((_, idx) => idx !== i));
+  const removeBenefit = async (i: number) => {
+    const previous = benefits;
+    const next = benefits.filter((_, idx) => idx !== i);
+    setBenefits(next);
+
+    try {
+      await persistPartialUpdate({ benefits: next });
+    } catch (error) {
+      setBenefits(previous);
+      toast.error("Unable to remove benefit", {
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+      });
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setImages([...images, ...files]);
-    const newPreviews = files.map((f) => URL.createObjectURL(f));
-    setPreviews([...previews, ...newPreviews]);
+    if (files.length === 0) return;
+    uploadImageMutation.mutate(files);
+    e.target.value = "";
   };
-  const removeImage = (i: number) => {
-    setImages(images.filter((_, idx) => idx !== i));
-    setPreviews(previews.filter((_, idx) => idx !== i));
+
+  const removeExistingImage = (url: string) => {
+    deleteImageMutation.mutate(url);
   };
 
   const addBatch = () => {
@@ -290,6 +405,7 @@ export default function UpdateProduct() {
         manufactureDate: "",
         expiryDate: "",
         quantity: 0,
+        status: "active",
       },
     ]);
   };
@@ -302,8 +418,16 @@ export default function UpdateProduct() {
       batches.map((b) => (b.id === batchId ? { ...b, [field]: value } : b)),
     );
   };
-  const removeBatch = (batchId: string) => {
-    setBatches(batches.filter((b) => b.id !== batchId));
+  const removeBatch = (batch: Batch) => {
+    if (batch.persisted) {
+      deleteBatchMutation.mutate({
+        batchId: batch.batchNumber,
+        localId: batch.id,
+      });
+      return;
+    }
+
+    setBatches(batches.filter((b) => b.id !== batch.id));
   };
 
   const createCategory = () => {
@@ -417,6 +541,8 @@ export default function UpdateProduct() {
         costPrice: 0,
         expiryDate: toIsoDateTime(batch.expiryDate),
         receivedDate: toIsoDateTime(batch.manufactureDate),
+        status: batch.status,
+        supplier: batch.supplier,
       })),
       shipping:
         weight || shelfLife || storage || parsedDimensions
@@ -429,7 +555,7 @@ export default function UpdateProduct() {
           : undefined,
       isActive: isActivated,
     };
-    updateMutation.mutate({ payload, files: { images } });
+    updateMutation.mutate({ payload });
   };
 
   const buttonLabel = isActivated ? "Update Product" : "Save Changes";
@@ -847,244 +973,285 @@ export default function UpdateProduct() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-8">
-                  <div className="bg-white border rounded-sm overflow-hidden shadow-sm">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-muted/50 border-b">
-                        <tr>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
-                            Batch Name / #
-                          </th>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
-                            Mfg Date
-                          </th>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
-                            Expiry Date
-                          </th>
-                          <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
-                            Qty Available
-                          </th>
-                          <th className="px-6 py-4 text-right"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {batches.map((batch, batchIndex) => (
-                          <tr key={batch.id}>
-                            <td className="px-6 py-3 align-top">
-                              <Input
-                                id={`field-batch_${batchIndex}_batchNumber`}
-                                placeholder="e.g. B-2026-A"
-                                value={batch.batchNumber}
-                                onChange={(e) => {
-                                  updateBatch(
-                                    batch.id,
-                                    "batchNumber",
-                                    e.target.value,
-                                  );
-                                  if (
-                                    fieldErrors[
-                                      `batch_${batchIndex}_batchNumber`
-                                    ]
-                                  )
-                                    setFieldErrors((prev) => {
-                                      const next = { ...prev };
-                                      delete next[
-                                        `batch_${batchIndex}_batchNumber`
-                                      ];
-                                      return next;
-                                    });
-                                }}
-                                className={cn(
-                                  "h-10 border-none shadow-none focus-visible:ring-0 font-medium p-0",
-                                  fieldErrors[
-                                    `batch_${batchIndex}_batchNumber`
-                                  ] && "ring-1 ring-destructive rounded",
-                                )}
-                              />
-                              {fieldErrors[
-                                `batch_${batchIndex}_batchNumber`
-                              ] && (
-                                <p className="text-destructive text-[10px] mt-1 font-medium">
-                                  {
-                                    fieldErrors[
-                                      `batch_${batchIndex}_batchNumber`
-                                    ]
-                                  }
-                                </p>
-                              )}
-                            </td>
-                            <td className="px-6 py-3">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className={cn(
-                                      "h-10 justify-start px-0 text-left font-medium hover:bg-transparent",
-                                      !batch.manufactureDate &&
-                                        "text-muted-foreground",
-                                    )}
-                                  >
-                                    <CalendarDays className="mr-2 h-4 w-4" />
-                                    {batch.manufactureDate
-                                      ? format(
-                                          new Date(
-                                            `${batch.manufactureDate}T00:00:00`,
-                                          ),
-                                          "PPP",
-                                        )
-                                      : "Select mfg date"}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  className="w-auto p-0"
-                                  align="start"
-                                >
-                                  <CalendarComponent
-                                    mode="single"
-                                    selected={
-                                      batch.manufactureDate
-                                        ? new Date(
-                                            `${batch.manufactureDate}T00:00:00`,
-                                          )
-                                        : undefined
-                                    }
-                                    onSelect={(date: Date | undefined) =>
-                                      updateBatch(
-                                        batch.id,
-                                        "manufactureDate",
-                                        date ? format(date, "yyyy-MM-dd") : "",
-                                      )
-                                    }
-                                    disabled={(date: Date) => date > new Date()}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            </td>
-                            <td className="px-6 py-3 align-top">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    id={`field-batch_${batchIndex}_expiryDate`}
-                                    type="button"
-                                    variant="ghost"
-                                    className={cn(
-                                      "h-10 justify-start px-0 text-left font-medium text-red-500 hover:bg-transparent",
-                                      !batch.expiryDate &&
-                                        "text-muted-foreground",
+                  <div className="overflow-x-auto">
+                    <div className="bg-white border rounded-sm overflow-hidden shadow-sm min-w-[920px]">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-muted/50 border-b">
+                          <tr>
+                            <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                              Batch Name / #
+                            </th>
+                            <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                              Mfg Date
+                            </th>
+                            <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                              Expiry Date
+                            </th>
+                            <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                              Qty Available
+                            </th>
+                            <th className="px-6 py-4 font-medium text-muted-foreground uppercase text-[10px]">
+                              Status
+                            </th>
+                            <th className="px-6 py-4 text-right"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {batches.map((batch, batchIndex) => (
+                            <tr key={batch.id}>
+                              <td className="px-6 py-3 align-top">
+                                <Input
+                                  id={`field-batch_${batchIndex}_batchNumber`}
+                                  placeholder="e.g. B-2026-A"
+                                  value={batch.batchNumber}
+                                  onChange={(e) => {
+                                    updateBatch(
+                                      batch.id,
+                                      "batchNumber",
+                                      e.target.value,
+                                    );
+                                    if (
                                       fieldErrors[
-                                        `batch_${batchIndex}_expiryDate`
-                                      ] &&
-                                        "text-destructive underline decoration-dashed",
-                                    )}
-                                  >
-                                    <CalendarDays className="mr-2 h-4 w-4" />
-                                    {batch.expiryDate
-                                      ? format(
-                                          new Date(
-                                            `${batch.expiryDate}T00:00:00`,
-                                          ),
-                                          "PPP",
-                                        )
-                                      : "Select expiry date"}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  className="w-auto p-0"
-                                  align="start"
-                                >
-                                  <CalendarComponent
-                                    mode="single"
-                                    selected={
-                                      batch.expiryDate
-                                        ? new Date(
-                                            `${batch.expiryDate}T00:00:00`,
-                                          )
-                                        : undefined
+                                        `batch_${batchIndex}_batchNumber`
+                                      ]
+                                    )
+                                      setFieldErrors((prev) => {
+                                        const next = { ...prev };
+                                        delete next[
+                                          `batch_${batchIndex}_batchNumber`
+                                        ];
+                                        return next;
+                                      });
+                                  }}
+                                  className={cn(
+                                    "h-10 border-none shadow-none focus-visible:ring-0 font-medium p-0",
+                                    batch.persisted &&
+                                      "text-muted-foreground cursor-not-allowed",
+                                    fieldErrors[
+                                      `batch_${batchIndex}_batchNumber`
+                                    ] && "ring-1 ring-destructive rounded",
+                                  )}
+                                  readOnly={batch.persisted}
+                                />
+                                {fieldErrors[
+                                  `batch_${batchIndex}_batchNumber`
+                                ] && (
+                                  <p className="text-destructive text-[10px] mt-1 font-medium">
+                                    {
+                                      fieldErrors[
+                                        `batch_${batchIndex}_batchNumber`
+                                      ]
                                     }
-                                    onSelect={(date: Date | undefined) => {
-                                      updateBatch(
-                                        batch.id,
-                                        "expiryDate",
-                                        date ? format(date, "yyyy-MM-dd") : "",
-                                      );
-                                      if (
-                                        date &&
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-6 py-3">
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className={cn(
+                                        "h-10 justify-start px-0 text-left font-medium hover:bg-transparent",
+                                        !batch.manufactureDate &&
+                                          "text-muted-foreground",
+                                      )}
+                                    >
+                                      <CalendarDays className="mr-2 h-4 w-4" />
+                                      {batch.manufactureDate
+                                        ? format(
+                                            new Date(
+                                              `${batch.manufactureDate}T00:00:00`,
+                                            ),
+                                            "PPP",
+                                          )
+                                        : "Select mfg date"}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    className="w-auto p-0"
+                                    align="start"
+                                  >
+                                    <CalendarComponent
+                                      mode="single"
+                                      selected={
+                                        batch.manufactureDate
+                                          ? new Date(
+                                              `${batch.manufactureDate}T00:00:00`,
+                                            )
+                                          : undefined
+                                      }
+                                      onSelect={(date: Date | undefined) =>
+                                        updateBatch(
+                                          batch.id,
+                                          "manufactureDate",
+                                          date
+                                            ? format(date, "yyyy-MM-dd")
+                                            : "",
+                                        )
+                                      }
+                                      disabled={(date: Date) =>
+                                        date > new Date()
+                                      }
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </td>
+                              <td className="px-6 py-3 align-top">
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      id={`field-batch_${batchIndex}_expiryDate`}
+                                      type="button"
+                                      variant="ghost"
+                                      className={cn(
+                                        "h-10 justify-start px-0 text-left font-medium text-red-500 hover:bg-transparent",
+                                        !batch.expiryDate &&
+                                          "text-muted-foreground",
                                         fieldErrors[
                                           `batch_${batchIndex}_expiryDate`
-                                        ]
-                                      )
-                                        setFieldErrors((prev) => {
-                                          const next = { ...prev };
-                                          delete next[
-                                            `batch_${batchIndex}_expiryDate`
-                                          ];
-                                          return next;
-                                        });
-                                    }}
-                                    disabled={(date: Date) => {
-                                      if (!batch.manufactureDate) {
-                                        return false;
+                                        ] &&
+                                          "text-destructive underline decoration-dashed",
+                                      )}
+                                    >
+                                      <CalendarDays className="mr-2 h-4 w-4" />
+                                      {batch.expiryDate
+                                        ? format(
+                                            new Date(
+                                              `${batch.expiryDate}T00:00:00`,
+                                            ),
+                                            "PPP",
+                                          )
+                                        : "Select expiry date"}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    className="w-auto p-0"
+                                    align="start"
+                                  >
+                                    <CalendarComponent
+                                      mode="single"
+                                      selected={
+                                        batch.expiryDate
+                                          ? new Date(
+                                              `${batch.expiryDate}T00:00:00`,
+                                            )
+                                          : undefined
                                       }
-                                      return (
-                                        date <
-                                        new Date(
-                                          `${batch.manufactureDate}T00:00:00`,
+                                      onSelect={(date: Date | undefined) => {
+                                        updateBatch(
+                                          batch.id,
+                                          "expiryDate",
+                                          date
+                                            ? format(date, "yyyy-MM-dd")
+                                            : "",
+                                        );
+                                        if (
+                                          date &&
+                                          fieldErrors[
+                                            `batch_${batchIndex}_expiryDate`
+                                          ]
                                         )
-                                      );
-                                    }}
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                              {fieldErrors[
-                                `batch_${batchIndex}_expiryDate`
-                              ] && (
-                                <p className="text-destructive text-[10px] mt-1 font-medium">
-                                  {
-                                    fieldErrors[
-                                      `batch_${batchIndex}_expiryDate`
-                                    ]
+                                          setFieldErrors((prev) => {
+                                            const next = { ...prev };
+                                            delete next[
+                                              `batch_${batchIndex}_expiryDate`
+                                            ];
+                                            return next;
+                                          });
+                                      }}
+                                      disabled={(date: Date) => {
+                                        if (!batch.manufactureDate) {
+                                          return false;
+                                        }
+                                        return (
+                                          date <
+                                          new Date(
+                                            `${batch.manufactureDate}T00:00:00`,
+                                          )
+                                        );
+                                      }}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                                {fieldErrors[
+                                  `batch_${batchIndex}_expiryDate`
+                                ] && (
+                                  <p className="text-destructive text-[10px] mt-1 font-medium">
+                                    {
+                                      fieldErrors[
+                                        `batch_${batchIndex}_expiryDate`
+                                      ]
+                                    }
+                                  </p>
+                                )}
+                              </td>
+                              <td className="px-6 py-3">
+                                <Input
+                                  type="number"
+                                  placeholder="0"
+                                  value={batch.quantity || ""}
+                                  onChange={(e) => {
+                                    const parsed = Number.parseInt(
+                                      e.target.value,
+                                      10,
+                                    );
+                                    updateBatch(
+                                      batch.id,
+                                      "quantity",
+                                      Number.isNaN(parsed) ? 0 : parsed,
+                                    );
+                                  }}
+                                  className="h-10 w-24 border-none shadow-none focus-visible:ring-0 font-black p-0 text-base"
+                                />
+                              </td>
+                              <td className="px-6 py-3">
+                                <Select
+                                  value={batch.status}
+                                  onValueChange={(value) =>
+                                    updateBatch(
+                                      batch.id,
+                                      "status",
+                                      value as Batch["status"],
+                                    )
                                   }
-                                </p>
-                              )}
-                            </td>
-                            <td className="px-6 py-3">
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={batch.quantity || ""}
-                                onChange={(e) => {
-                                  const parsed = Number.parseInt(
-                                    e.target.value,
-                                    10,
-                                  );
-                                  updateBatch(
-                                    batch.id,
-                                    "quantity",
-                                    Number.isNaN(parsed) ? 0 : parsed,
-                                  );
-                                }}
-                                className="h-10 w-24 border-none shadow-none focus-visible:ring-0 font-black p-0 text-base"
-                              />
-                            </td>
-                            <td className="px-6 py-3 text-right">
-                              {batches.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeBatch(batch.id)}
-                                  className="h-8 w-8 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50"
                                 >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                  <SelectTrigger className="h-9 w-32">
+                                    <SelectValue placeholder="Status" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="active">
+                                      Active
+                                    </SelectItem>
+                                    <SelectItem value="expired">
+                                      Expired
+                                    </SelectItem>
+                                    <SelectItem value="depleted">
+                                      Depleted
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="px-6 py-3 text-right">
+                                {batches.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeBatch(batch)}
+                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1186,19 +1353,19 @@ export default function UpdateProduct() {
                 </CardHeader>
                 <CardContent className="p-8">
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {previews.map((src, i) => (
+                    {mediaPreviews.map((image, i) => (
                       <div
-                        key={src + i}
+                        key={image.key}
                         className="group relative aspect-square rounded-2xl overflow-hidden border border-border bg-muted/10"
                       >
                         <img
-                          src={src}
+                          src={image.src}
                           className="w-full h-full object-cover transition-transform group-hover:scale-110"
                           alt="Product Image"
                         />
                         <button
                           type="button"
-                          onClick={() => removeImage(i)}
+                          onClick={() => removeExistingImage(image.rawUrl)}
                           className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full flex items-center justify-center text-destructive opacity-0 group-hover:opacity-100 transition-all shadow-md active:scale-90"
                         >
                           <X className="h-4 w-4" />
@@ -1391,9 +1558,9 @@ export default function UpdateProduct() {
         <div className="space-y-8">
           <Card className="rounded-md border-border shadow-soft overflow-hidden sticky top-8">
             <div className="aspect-video bg-muted/30 relative">
-              {previews[0] ? (
+              {mediaPreviews[0] ? (
                 <img
-                  src={previews[0]}
+                  src={mediaPreviews[0].src}
                   className="w-full h-full object-cover"
                   alt="Preview"
                 />

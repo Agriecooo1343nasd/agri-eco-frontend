@@ -80,6 +80,12 @@ const statusStyles: Record<string, string> = {
   Inactive: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
+const statusLabelMap = {
+  active: "Active",
+  draft: "Draft",
+  inactive: "Inactive",
+} as const;
+
 export default function AdminProductsPage() {
   const { formatPrice } = usePricing();
   const queryClient = useQueryClient();
@@ -208,12 +214,15 @@ export default function AdminProductsPage() {
   }
 
   const statusLabel = (product: AdminProduct) => {
+    if (product.status) {
+      return statusLabelMap[product.status];
+    }
+
     if (product.isActive) {
       return "Active";
     }
 
-    // Backend does not expose a draft lifecycle status in product list.
-    // We preserve the frontend Draft badge with a safe local heuristic.
+    // Fallback for older API payloads.
     return product.soldCount === 0 ? "Draft" : "Inactive";
   };
 
@@ -236,6 +245,7 @@ export default function AdminProductsPage() {
           uiCategory: categoryName(product),
           uiImage: primaryImage(product),
           uiPrice: Number(product.sellingPrice),
+          uiStockLevel: Number(product.stockLevel ?? product.stock ?? 0),
           uiOldPrice:
             Number(product.originalPrice) > Number(product.sellingPrice)
               ? Number(product.originalPrice)
@@ -493,14 +503,14 @@ export default function AdminProductsPage() {
                       <TableCell>
                         <span
                           className={`text-[11px] font-bold ${
-                            product.stock < 50
+                            product.uiStockLevel < 50
                               ? "text-destructive"
-                              : product.stock < 100
+                              : product.uiStockLevel < 100
                                 ? "text-amber-600"
                                 : "text-primary"
                           }`}
                         >
-                          {product.stock} units
+                          {product.uiStockLevel} units
                         </span>
                       </TableCell>
                       <TableCell>
