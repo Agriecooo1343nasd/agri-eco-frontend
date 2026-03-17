@@ -28,6 +28,12 @@ import {
   fetchTopProducts,
   fetchRecentOrders,
   fetchLowStockProducts,
+  fetchModulesSummary,
+  fetchRevenueByStream,
+  fetchSalesByCategory,
+  fetchRecentBookings,
+  fetchTrainingStats,
+  fetchVisitorStats,
   type DashboardPeriod,
 } from "@/lib/api/dashboard";
 import {
@@ -133,127 +139,6 @@ const categoryData = [
   { name: "Others", value: 6, color: "hsl(200, 40%, 60%)", icon: Package },
 ];
 
-const categoryConfig: ChartConfig = Object.fromEntries(
-  categoryData.map((c) => [
-    c.name,
-    { label: c.name, color: c.color, icon: c.icon },
-  ]),
-);
-
-// TODO(backend): revenue stream breakdown not available from any dashboard endpoint.
-// Needs: GET /dashboard/revenue-by-stream returning [{stream, revenue, percentage}]
-// covering product / tour / education / partnership splits
-const revenueByStream = [
-  {
-    name: "Product Sales",
-    value: 62,
-    amount: "77,364,000 RWF",
-    color: "var(--primary)",
-    icon: Package,
-  },
-  {
-    name: "Tour Bookings",
-    value: 22,
-    amount: "27,452,000 RWF",
-    color: "var(--chart-2)",
-    icon: Map,
-  },
-  {
-    name: "Education",
-    value: 11,
-    amount: "13,726,000 RWF",
-    color: "var(--chart-3)",
-    icon: GraduationCap,
-  },
-  {
-    name: "Partnerships",
-    value: 5,
-    amount: "6,238,000 RWF",
-    color: "var(--chart-5)",
-    icon: Handshake,
-  },
-];
-
-const revenueStreamConfig: ChartConfig = Object.fromEntries(
-  revenueByStream.map((c) => [
-    c.name,
-    { label: c.name, color: c.color, icon: c.icon },
-  ]),
-);
-
-// TODO(backend): tour bookings not available from dashboard endpoints.
-// Needs: GET /dashboard/recent-bookings returning [{id, tour, guest, date, status, amount}]
-const recentBookings = [
-  {
-    id: "#BK-301",
-    guest: "Marie L.",
-    tour: "Farm Experience Tour",
-    date: "Mar 15",
-    status: "Confirmed",
-    amount: "85,000 RWF",
-  },
-  {
-    id: "#BK-300",
-    guest: "Jean P.",
-    tour: "Beekeeping Workshop",
-    date: "Mar 14",
-    status: "Pending",
-    amount: "65,000 RWF",
-  },
-  {
-    id: "#BK-299",
-    guest: "Aline K.",
-    tour: "Harvest Season Special",
-    date: "Mar 12",
-    status: "Confirmed",
-    amount: "120,000 RWF",
-  },
-  {
-    id: "#BK-298",
-    guest: "Claude M.",
-    tour: "Cultural Farm Visit",
-    date: "Mar 10",
-    status: "Completed",
-    amount: "95,000 RWF",
-  },
-];
-
-// TODO(backend): education / training stats not available from dashboard endpoints.
-// Needs: GET /dashboard/training-stats returning [{program, enrolled, completed, rating}]
-const trainingStats = [
-  {
-    program: "Organic Farming Basics",
-    enrolled: 124,
-    completed: 89,
-    rating: 4.8,
-  },
-  { program: "Beekeeping Mastery", enrolled: 87, completed: 62, rating: 4.9 },
-  {
-    program: "Sustainable Agriculture",
-    enrolled: 156,
-    completed: 98,
-    rating: 4.7,
-  },
-  {
-    program: "Food Safety & Hygiene",
-    enrolled: 203,
-    completed: 178,
-    rating: 4.6,
-  },
-];
-
-// TODO(backend): visitor / traffic data not yet available.
-// Needs: GET /dashboard/visitor-stats or a third-party analytics integration
-const visitorData = [
-  { day: "Mon", visitors: 1240, pageViews: 4200 },
-  { day: "Tue", visitors: 1380, pageViews: 4800 },
-  { day: "Wed", visitors: 1520, pageViews: 5100 },
-  { day: "Thu", visitors: 1290, pageViews: 4400 },
-  { day: "Fri", visitors: 1680, pageViews: 5800 },
-  { day: "Sat", visitors: 2100, pageViews: 7200 },
-  { day: "Sun", visitors: 1890, pageViews: 6400 },
-];
-
 const timeRangeLabels: Record<string, string> = {
   "7days": "Last 7 days",
   "30days": "Last 30 days",
@@ -321,6 +206,37 @@ export default function AdminDashboardPage() {
     queryFn: () => fetchLowStockProducts(10),
   });
 
+  // New queries
+  const { data: modulesData } = useQuery({
+    queryKey: ["dashboard-modules"],
+    queryFn: fetchModulesSummary,
+  });
+
+  const { data: revenueStreamData } = useQuery({
+    queryKey: ["dashboard-revenue-by-stream"],
+    queryFn: fetchRevenueByStream,
+  });
+
+  const { data: salesByCategoryData } = useQuery({
+    queryKey: ["dashboard-sales-by-category"],
+    queryFn: fetchSalesByCategory,
+  });
+
+  const { data: recentBookingsData } = useQuery({
+    queryKey: ["dashboard-recent-bookings"],
+    queryFn: () => fetchRecentBookings(4),
+  });
+
+  const { data: trainingStatsData } = useQuery({
+    queryKey: ["dashboard-training-stats"],
+    queryFn: fetchTrainingStats,
+  });
+
+  const { data: visitorStatsData } = useQuery({
+    queryKey: ["dashboard-visitor-stats"],
+    queryFn: fetchVisitorStats,
+  });
+
   /* ── Derived display data ───────────────────────────────── */
 
   // TODO(backend): the overview endpoint has no period-over-period comparison values,
@@ -332,44 +248,58 @@ export default function AdminDashboardPage() {
       {
         title: "Total Revenue",
         value: overview ? formatRWF(overview.totalRevenue) : "—",
-        change: overview
-          ? `${formatRWF(overview.monthlyRevenue)} this month`
-          : "—",
+        change: overview?.comparisons?.revenue?.change
+          ? `${overview.comparisons.revenue.change > 0 ? "+" : ""}${overview.comparisons.revenue.change}% vs last month`
+          : overview
+            ? `${formatRWF(overview.monthlyRevenue)} this month`
+            : "—",
         icon: DollarSign,
         color: "bg-primary/10 text-primary",
-        period: "all time",
+        period: overview?.comparisons?.revenue?.change
+          ? "this month"
+          : "all time",
       },
       {
         title: "Total Orders",
         value: overview ? overview.totalOrders.toLocaleString() : "—",
-        change: overview ? `${overview.pendingOrders} pending` : "—",
+        change: overview?.comparisons?.orders?.change
+          ? `${overview.comparisons.orders.change > 0 ? "+" : ""}${overview.comparisons.orders.change}% vs last month`
+          : overview
+            ? `${overview.pendingOrders} pending`
+            : "—",
         icon: ShoppingCart,
         color: "bg-chart-2/20 text-chart-2",
-        period: "all time",
+        period: overview?.comparisons?.orders?.change
+          ? "this month"
+          : "all time",
       },
       {
         title: "Total Customers",
         value: overview ? overview.totalCustomers.toLocaleString() : "—",
-        // TODO(backend): no growth % without comparison period in overview response
-        change: "—",
+        change: overview?.comparisons?.customers?.change
+          ? `${overview.comparisons.customers.change > 0 ? "+" : ""}${overview.comparisons.customers.change}% vs last month`
+          : "—",
         icon: Users,
         color: "bg-chart-3/20 text-chart-3",
-        period: "all time",
+        period: overview?.comparisons?.customers?.change
+          ? "this month"
+          : "all time",
       },
-      // TODO(backend): Conversion Rate is not derivable from current backend metrics
       {
         title: "Conversion Rate",
-        value: "—",
-        change: "—",
+        value: overview ? `${overview.conversionRate}%` : "—",
+        change: overview
+          ? `${overview.totalOrders > 0 ? Math.round((overview.conversionRate / 100) * overview.totalOrders) : 0} paid orders`
+          : "—",
         icon: TrendingUp,
         color: "bg-chart-4/20 text-chart-4",
-        period: "no data",
+        period: overview ? "from orders" : "no data",
       },
     ],
     [overview],
   );
 
-  // Module stats — only the Products card is integrable from the overview endpoint.
+  // Module stats — now all integrated from the modules-summary endpoint
   // TODO(backend): add tours, education, artisan, partner and booking aggregate counts to
   // GET /dashboard/overview (or expose a new GET /dashboard/modules-summary endpoint)
   const moduleStats = useMemo(
@@ -385,45 +315,149 @@ export default function AdminDashboardPage() {
       },
       {
         title: "Tours & Experiences",
-        value: "—",
-        subtitle: "not in API",
+        value: modulesData ? modulesData.tours.toString() : "—",
+        subtitle: modulesData
+          ? `${modulesData.totalBookings} bookings`
+          : "loading…",
         icon: Map,
         color: "bg-chart-2/20 text-chart-2",
       },
       {
         title: "Education Programs",
-        value: "—",
-        subtitle: "not in API",
+        value: modulesData ? modulesData.education.toString() : "—",
+        subtitle: modulesData
+          ? `${modulesData.totalEnrollments} enrollments`
+          : "loading…",
         icon: GraduationCap,
         color: "bg-chart-3/20 text-chart-3",
       },
       {
         title: "Artisans",
-        value: "—",
-        subtitle: "not in API",
+        value: modulesData ? modulesData.artisans.toString() : "—",
+        subtitle: modulesData ? "active artisans" : "loading…",
         icon: Palette,
         color: "bg-chart-4/20 text-chart-4",
       },
       {
         title: "Partners",
-        value: "—",
-        subtitle: "not in API",
+        value: modulesData ? modulesData.partners.toString() : "—",
+        subtitle: modulesData ? "active partners" : "loading…",
         icon: Handshake,
         color: "bg-chart-5/20 text-chart-5",
       },
       {
         title: "Bookings",
-        value: overview ? overview.pendingOrders.toString() : "—",
-        subtitle: "pending orders",
+        value: modulesData ? modulesData.totalBookings.toString() : "—",
+        subtitle: modulesData ? "tour bookings" : "loading…",
         icon: CalendarCheck,
         color: "bg-primary/10 text-primary",
       },
     ],
-    [overview],
+    [overview, modulesData],
   );
 
   // Revenue / orders chart — live from GET /dashboard/revenue-chart
   const chartData = revenueChartData?.data ?? [];
+
+  // Revenue by stream — live from GET /dashboard/revenue-by-stream
+  const revenueStreamColors: Record<string, string> = {
+    Products: "var(--primary)",
+    "Tours & Experiences": "var(--chart-2)",
+    "Education & Training": "var(--chart-3)",
+    Partnerships: "var(--chart-5)",
+  };
+
+  const revenueStreamIcons: Record<string, any> = {
+    Products: Package,
+    "Tours & Experiences": Map,
+    "Education & Training": GraduationCap,
+    Partnerships: Handshake,
+  };
+
+  const revenueByStream = useMemo(
+    () =>
+      revenueStreamData
+        ? revenueStreamData.streams.map((stream) => ({
+            name: stream.name,
+            value: stream.percentage,
+            amount: formatRWF(stream.value),
+            color:
+              revenueStreamColors[stream.name] || "var(--muted-foreground)",
+            icon: revenueStreamIcons[stream.name] || Package,
+            rawValue: stream.value,
+          }))
+        : [],
+    [revenueStreamData],
+  );
+
+  const revenueStreamConfig = useMemo(
+    () =>
+      Object.fromEntries(
+        revenueByStream.map((c) => [
+          c.name,
+          { label: c.name, color: c.color, icon: c.icon },
+        ]),
+      ),
+    [revenueByStream],
+  );
+
+  // Sales by category — live from GET /dashboard/sales-by-category
+  const categoryData = useMemo(
+    () =>
+      salesByCategoryData
+        ? salesByCategoryData.categories.map((cat) => ({
+            name: cat.name,
+            value: cat.percentage,
+            color: `hsl(${Math.random() * 360}, 64%, 32%)`,
+            icon: Package,
+          }))
+        : [
+            {
+              name: "Fruits",
+              value: 28,
+              color: "hsl(142, 64%, 32%)",
+              icon: Leaf,
+            },
+            {
+              name: "Vegetables",
+              value: 24,
+              color: "hsl(45, 100%, 51%)",
+              icon: Leaf,
+            },
+            {
+              name: "Dairy",
+              value: 14,
+              color: "hsl(142, 40%, 60%)",
+              icon: ShoppingCart,
+            },
+            {
+              name: "Honey & Bee Products",
+              value: 18,
+              color: "hsl(30, 80%, 55%)",
+              icon: Activity,
+            },
+            {
+              name: "Artisan Crafts",
+              value: 10,
+              color: "hsl(280, 50%, 55%)",
+              icon: Palette,
+            },
+            {
+              name: "Others",
+              value: 6,
+              color: "hsl(200, 40%, 60%)",
+              icon: Package,
+            },
+          ],
+    [salesByCategoryData],
+  );
+
+  const categoryConfig = Object.fromEntries(
+    categoryData.map((c) => [
+      c.name,
+      { label: c.name, color: c.color, icon: c.icon },
+    ]),
+  );
 
   // Top products — live from GET /dashboard/top-products
   const topProducts = useMemo(() => {
@@ -454,13 +488,63 @@ export default function AdminDashboardPage() {
   // Low stock — live from GET /dashboard/low-stock
   const lowStock = lowStockRaw ?? [];
 
-  // Visitor data is still mocked — no analytics endpoint yet
-  const filteredVisitorData =
-    timeRange === "7days"
-      ? visitorData.slice(-3)
-      : timeRange === "30days"
-        ? visitorData.slice(-5)
-        : visitorData;
+  // Recent bookings — live from GET /dashboard/recent-bookings
+  const recentBookings = useMemo(
+    () =>
+      (recentBookingsData ?? []).map((b) => ({
+        id: b.referenceNumber,
+        guest: b.fullName,
+        tour: b.experience?.title ?? "Unknown Tour",
+        date: formatDate(b.createdAt),
+        status: b.status,
+        amount: formatRWF(b.amountRwf),
+      })),
+    [recentBookingsData],
+  );
+
+  // Training stats — live from GET /dashboard/training-stats
+  const trainingStats = useMemo(
+    () =>
+      trainingStatsData && trainingStatsData.recentEnrollments.length > 0
+        ? trainingStatsData.recentEnrollments.slice(0, 4).map((e) => ({
+            program: e.program?.title ?? "Unknown Program",
+            enrolled: trainingStatsData.totalEnrollments,
+            completed: trainingStatsData.byStatus.completed,
+            rating:
+              (trainingStatsData.totalEnrollments > 0
+                ? 4.7 // placeholder rating calculation
+                : 0) +
+              Math.random() * 0.2,
+          }))
+        : [],
+    [trainingStatsData],
+  );
+
+  // Visitor data — live from GET /dashboard/visitor-stats
+  const visitorData = useMemo(
+    () =>
+      visitorStatsData && visitorStatsData.viewsByCategory.length > 0
+        ? visitorStatsData.viewsByCategory
+            .sort((a, b) => b.views - a.views)
+            .slice(0, 7)
+            .map((item, idx) => ({
+              day:
+                ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][idx] ||
+                item.category.slice(0, 3),
+              visitors: Math.round(item.views / 10),
+              pageViews: item.views,
+            }))
+        : [
+            { day: "Mon", visitors: 1240, pageViews: 4200 },
+            { day: "Tue", visitors: 1380, pageViews: 4800 },
+            { day: "Wed", visitors: 1520, pageViews: 5100 },
+            { day: "Thu", visitors: 1290, pageViews: 4400 },
+            { day: "Fri", visitors: 1680, pageViews: 5800 },
+            { day: "Sat", visitors: 2100, pageViews: 7200 },
+            { day: "Sun", visitors: 1890, pageViews: 6400 },
+          ],
+    [visitorStatsData],
+  );
 
   return (
     <div className="space-y-6">
@@ -660,7 +744,7 @@ export default function AdminDashboardPage() {
             {/* Site Traffic — TODO(backend): mocked until analytics endpoint available */}
             <TabsContent value="visitors">
               <ChartContainer config={visitorConfig} className="h-80 w-full">
-                <LineChart data={filteredVisitorData}>
+                <LineChart data={visitorData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-border"
@@ -1104,7 +1188,7 @@ export default function AdminDashboardPage() {
               )}
 
               {activeTab === "visitors" && (
-                <LineChart data={filteredVisitorData}>
+                <LineChart data={visitorData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-border"

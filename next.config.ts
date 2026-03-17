@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const LOCAL_API_BASE_URL = "http://localhost:5000/api/v1";
 const REMOTE_API_BASE_URL = "http://194.163.182.85:5000/api/v1";
+const LOCAL_API_ORIGIN = "http://localhost:5000";
+const REMOTE_API_ORIGIN = "http://194.163.182.85:5000";
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
@@ -9,6 +11,25 @@ function trimTrailingSlash(value: string): string {
 
 function toApiOrigin(apiBaseUrl: string): string {
   return trimTrailingSlash(apiBaseUrl).replace(/\/api\/v1\/?$/, "");
+}
+
+function resolveProxyOrigin(): string {
+  const configuredProxyOrigin = process.env.API_PROXY_TARGET?.trim();
+  if (configuredProxyOrigin) {
+    return trimTrailingSlash(configuredProxyOrigin);
+  }
+
+  const publicBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (
+    publicBaseUrl?.startsWith("http://") ||
+    publicBaseUrl?.startsWith("https://")
+  ) {
+    return toApiOrigin(publicBaseUrl);
+  }
+
+  return process.env.NODE_ENV === "development"
+    ? LOCAL_API_ORIGIN
+    : REMOTE_API_ORIGIN;
 }
 
 const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
@@ -19,13 +40,18 @@ const apiBaseUrl = configuredBaseUrl
     : REMOTE_API_BASE_URL;
 
 const mediaOrigin = toApiOrigin(apiBaseUrl);
+const proxyOrigin = resolveProxyOrigin();
 
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/api/v1/:path*",
+        destination: `${proxyOrigin}/api/v1/:path*`,
+      },
+      {
         source: "/uploads/:path*",
-        destination: `${mediaOrigin}/uploads/:path*`,
+        destination: `${proxyOrigin || mediaOrigin}/uploads/:path*`,
       },
     ];
   },
