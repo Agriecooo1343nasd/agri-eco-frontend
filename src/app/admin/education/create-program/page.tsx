@@ -49,6 +49,10 @@ import {
   type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
 import { MediaUploader } from "@/components/admin/MediaUploader";
+import {
+  createAdminTrainingProgram,
+  type CreateAdminTrainingProgramPayload,
+} from "@/lib/api/education";
 
 const emptyModule = (): ProgramModule => ({
   id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -85,9 +89,43 @@ const steps = [
   { label: "Review & Publish", icon: Check },
 ];
 
+const MEDIA_SOURCE_MAX_CHARS = 96;
+
+const formatMediaSourceLabel = (
+  source: string,
+  maxChars = MEDIA_SOURCE_MAX_CHARS,
+): string => {
+  const value = source.trim();
+  if (value.length <= maxChars) return value;
+
+  const headChars = Math.max(30, Math.floor(maxChars * 0.7));
+  const tailChars = Math.max(12, maxChars - headChars - 3);
+  return `${value.slice(0, headChars)}...${value.slice(-tailChars)}`;
+};
+
+function MediaSourceLink({ source }: { source: string }) {
+  return (
+    <div className="mt-2 rounded-md border border-border/70 bg-background/80 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Source
+      </p>
+      <a
+        href={source}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={source}
+        className="mt-1 block w-full max-w-130 truncate text-xs text-primary underline"
+      >
+        {formatMediaSourceLabel(source)}
+      </a>
+    </div>
+  );
+}
+
 export default function CreateProgramPage() {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form state — multi-lang fields
   const [formTitle, setFormTitle] = useState<MultiLangValue>(emptyLangValue());
@@ -123,6 +161,9 @@ export default function CreateProgramPage() {
   // Modules
   const [modules, setModules] = useState<ProgramModule[]>([]);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const [expandedQuizQuestions, setExpandedQuizQuestions] = useState<
+    Record<string, boolean>
+  >({});
 
   // Certificate
   const [certTemplate, setCertTemplate] = useState<CertificateTemplate>({
@@ -251,27 +292,28 @@ export default function CreateProgramPage() {
   };
 
   const addQuizQuestion = (moduleId: string) => {
+    const newQ: ModuleQuizQuestion = {
+      id: `qq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      question: emptyLangValue(),
+      options: [
+        emptyLangValue(),
+        emptyLangValue(),
+        emptyLangValue(),
+        emptyLangValue(),
+      ],
+      correctIndex: 0,
+      explanation: emptyLangValue(),
+    };
     setModules(
       modules.map((m) => {
         if (m.id !== moduleId || !m.quiz) return m;
-        const newQ: ModuleQuizQuestion = {
-          id: `qq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          question: emptyLangValue(),
-          options: [
-            emptyLangValue(),
-            emptyLangValue(),
-            emptyLangValue(),
-            emptyLangValue(),
-          ],
-          correctIndex: 0,
-          explanation: emptyLangValue(),
-        };
         return {
           ...m,
           quiz: { ...m.quiz, questions: [...m.quiz.questions, newQ] },
         };
       }),
     );
+    setExpandedQuizQuestions((prev) => ({ ...prev, [newQ.id]: true }));
   };
 
   const updateQuizQuestionML = (
@@ -358,17 +400,153 @@ export default function CreateProgramPage() {
     );
   };
 
-  const handleSubmit = () => {
-    if (!formTitle.en || !formDesc.en) {
+  const toOptionalMultiLang = (
+    value?: MultiLangValue,
+  ): CreateAdminTrainingProgramPayload["shortDescription"] => {
+    if (!value) {
+      return undefined;
+    }
+
+    const en = value.en.trim();
+    if (!en) {
+      return undefined;
+    }
+
+    const rw = value.rw?.trim();
+    const fr = value.fr?.trim();
+    const sw = value.sw?.trim();
+
+    return {
+      en,
+      ...(rw ? { rw } : {}),
+      ...(fr ? { fr } : {}),
+      ...(sw ? { sw } : {}),
+    };
+  };
+
+  const toRequiredMultiLang = (
+    value: MultiLangValue,
+  ): CreateAdminTrainingProgramPayload["title"] => {
+    const rw = value.rw?.trim();
+    const fr = value.fr?.trim();
+    const sw = value.sw?.trim();
+
+    return {
+      en: value.en.trim(),
+      ...(rw ? { rw } : {}),
+      ...(fr ? { fr } : {}),
+      ...(sw ? { sw } : {}),
+    };
+  };
+
+  const parseDurationWeeks = (value: string): number => {
+    const matched = value.match(/\d+/);
+    if (!matched) {
+      return 4;
+    }
+
+    const weeks = Number.parseInt(matched[0], 10);
+    if (!Number.isFinite(weeks) || weeks < 1) {
+      return 4;
+    }
+
+    return weeks;
+  };
+
+  const buildCreatePayload = (
+    mode: "draft" | "publish",
+  ): { payload: CreateAdminTrainingProgramPayload; hasLocalImage: boolean } => {
+    const topics = formTopics
+      .split(",")
+      .map((topic) => topic.trim())
+      .filter(Boolean)
+      .map((topic, index) => ({
+        name: { en: topic },
+        sortOrder: index,
+      }));
+
+    const curriculum = modules.map((module, index) => ({
+      order: index + 1,
+      title: toRequiredMultiLang(module.title),
+      description: toOptionalMultiLang(module.description),
+      duration: toOptionalMultiLang(module.duration),
+      contentBlocks: module.contentBlocks.map((block) => ({
+        type: block.type,
+        title: toOptionalMultiLang(block.title),
+        content: toOptionalMultiLang(block.content),
+        caption: toOptionalMultiLang(block.caption),
+      })),
+      quiz: module.quiz,
+    }));
+
+    const imageValue = formImageUrl.trim();
+    const hasLocalImage = imageValue.startsWith("data:");
+    const persistedImage =
+      imageValue && !hasLocalImage ? imageValue : undefined;
+    const isPublished = mode === "publish";
+
+    return {
+      payload: {
+        title: toRequiredMultiLang(formTitle),
+        shortDescription: toOptionalMultiLang(formDesc),
+        fullDescription: toRequiredMultiLang(formLongDesc),
+        heroImage: persistedImage,
+        coverImage: persistedImage,
+        type: formType,
+        level: formLevel,
+        priceRwf: Number.parseFloat(formPrice || "0") || 0,
+        durationWeeks: parseDurationWeeks(formDuration),
+        capacity: Number.parseInt(formMaxParticipants || "30", 10) || 30,
+        language: formLanguage.trim() || "en",
+        isPublished,
+        isFeatured: false,
+        curriculum,
+        topics,
+        startDate: formStartDate
+          ? new Date(`${formStartDate}T00:00:00.000Z`).toISOString()
+          : undefined,
+      },
+      hasLocalImage,
+    };
+  };
+
+  const handleSubmit = async (mode: "draft" | "publish") => {
+    if (!formTitle.en.trim() || !formLongDesc.en.trim()) {
       toast.error("Missing required fields", {
-        description: "Please fill in the title and description.",
+        description:
+          "Please fill in the English title and full description before saving.",
       });
       return;
     }
-    toast.success("Program Created!", {
-      description: `"${formTitle.en}" has been created successfully.`,
-    });
-    router.push("/admin/education");
+
+    setIsSubmitting(true);
+
+    try {
+      const { payload, hasLocalImage } = buildCreatePayload(mode);
+      await createAdminTrainingProgram(payload);
+
+      if (hasLocalImage) {
+        toast.warning("Program saved without uploaded image", {
+          description:
+            "The current image is local-only. Use the URL tab for an image that can be persisted.",
+        });
+      }
+
+      toast.success(mode === "publish" ? "Program Created" : "Draft Saved", {
+        description: `"${formTitle.en.trim()}" has been ${
+          mode === "publish" ? "created" : "saved as draft"
+        }.`,
+      });
+      router.push("/admin/education");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to save program";
+      toast.error(mode === "publish" ? "Create failed" : "Save failed", {
+        description: message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const blockTypeIcon = (type: string) => {
@@ -411,7 +589,10 @@ export default function CreateProgramPage() {
         <Button
           variant="outline"
           className="gap-2 hidden sm:flex"
-          onClick={() => toast.success("Draft Saved")}
+          onClick={() => {
+            void handleSubmit("draft");
+          }}
+          disabled={isSubmitting}
         >
           <Save className="h-4 w-4" /> Save Draft
         </Button>
@@ -923,47 +1104,82 @@ export default function CreateProgramPage() {
                                   />
                                 ) : block.type === "image" ||
                                   block.type === "video" ? (
-                                  <MediaUploader
-                                    label={
-                                      block.type === "image"
-                                        ? "Image Media"
-                                        : "Video Media"
-                                    }
-                                    value={block.content.en || ""}
-                                    onChange={(val: string) =>
-                                      updateContentBlockML(
-                                        mod.id,
-                                        block.id,
-                                        "content",
-                                        {
-                                          ...block.content,
-                                          en: val,
-                                        },
-                                      )
-                                    }
-                                  />
-                                ) : (
-                                  <div className="space-y-1">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                                      Download URL
-                                    </Label>
-                                    <Input
+                                  <>
+                                    <MediaUploader
+                                      label={
+                                        block.type === "image"
+                                          ? "Image Media"
+                                          : "Video Media"
+                                      }
                                       value={block.content.en || ""}
-                                      onChange={(e) =>
+                                      onChange={(val: string) =>
                                         updateContentBlockML(
                                           mod.id,
                                           block.id,
                                           "content",
                                           {
                                             ...block.content,
-                                            en: e.target.value,
+                                            en: val,
                                           },
                                         )
                                       }
-                                      placeholder="Download URL"
-                                      className="h-9 text-xs shadow-sm mt-1"
                                     />
-                                  </div>
+                                    {block.content.en && (
+                                      <div className="rounded-lg overflow-hidden border border-border bg-muted/20 mt-2">
+                                        {block.type === "image" ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img
+                                            src={block.content.en}
+                                            alt={block.title?.en || "Preview"}
+                                            className="w-full max-h-48 object-contain"
+                                          />
+                                        ) : (
+                                          <video
+                                            src={block.content.en}
+                                            controls
+                                            className="w-full max-h-48"
+                                          />
+                                        )}
+                                        <MediaSourceLink
+                                          source={block.content.en}
+                                        />
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                                        Download URL
+                                      </Label>
+                                      <Input
+                                        value={block.content.en || ""}
+                                        onChange={(e) =>
+                                          updateContentBlockML(
+                                            mod.id,
+                                            block.id,
+                                            "content",
+                                            {
+                                              ...block.content,
+                                              en: e.target.value,
+                                            },
+                                          )
+                                        }
+                                        placeholder="Download URL"
+                                        className="h-9 text-xs shadow-sm mt-1"
+                                      />
+                                    </div>
+                                    {block.content.en && (
+                                      <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20 mt-2">
+                                        <Download className="h-4 w-4 text-primary shrink-0" />
+                                        <div className="min-w-0">
+                                          <MediaSourceLink
+                                            source={block.content.en}
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                                 <MultiLangInput
                                   label="Caption"
@@ -1043,122 +1259,151 @@ export default function CreateProgramPage() {
                               {mod.quiz.questions.map((q, qi) => (
                                 <div
                                   key={q.id}
-                                  className="bg-card border border-border rounded-lg p-4 space-y-4 shadow-sm border-l-4 border-l-amber-500/30"
+                                  className="bg-card border border-border rounded-lg overflow-hidden shadow-sm border-l-4 border-l-amber-500/30"
                                 >
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">
-                                      Question {qi + 1}
-                                    </span>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={() =>
-                                        removeQuizQuestion(mod.id, q.id)
-                                      }
-                                    >
-                                      <Trash2 className="h-3 w-3 text-destructive" />
-                                    </Button>
-                                  </div>
-                                  <MultiLangInput
-                                    label="Question Text *"
-                                    value={q.question}
-                                    onChange={(v) =>
-                                      updateQuizQuestionML(
-                                        mod.id,
-                                        q.id,
-                                        "question",
-                                        v,
-                                      )
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedQuizQuestions((prev) => ({
+                                        ...prev,
+                                        [q.id]: !prev[q.id],
+                                      }))
                                     }
-                                    placeholder="Enter your question..."
-                                    type="textarea"
-                                    rows={2}
-                                  />
-                                  <div className="space-y-1">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                                      Question Image URL (optional)
-                                    </Label>
-                                    <Input
-                                      value={q.questionImage || ""}
-                                      onChange={(e) =>
-                                        updateQuizQuestion(
-                                          mod.id,
-                                          q.id,
-                                          "questionImage",
-                                          e.target.value,
-                                        )
-                                      }
-                                      placeholder="https://..."
-                                      className="h-9 text-xs shadow-sm mt-1"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                                      Answer Options
-                                    </Label>
-                                    <div className="space-y-3 mt-2">
-                                      {q.options.map((opt, oi) => (
-                                        <div
-                                          key={oi}
-                                          className="flex items-center gap-3"
-                                        >
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              updateQuizQuestion(
-                                                mod.id,
-                                                q.id,
-                                                "correctIndex",
-                                                oi,
-                                              )
-                                            }
-                                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 text-[10px] font-bold transition-all shadow-sm ${
-                                              q.correctIndex === oi
-                                                ? "border-primary bg-primary text-primary-foreground scale-110"
-                                                : "border-border text-muted-foreground hover:border-primary/50"
-                                            }`}
-                                          >
-                                            {String.fromCharCode(65 + oi)}
-                                          </button>
-                                          <MultiLangInput
-                                            label=""
-                                            value={opt}
-                                            onChange={(v) =>
-                                              updateQuizQuestionOption(
-                                                mod.id,
-                                                q.id,
-                                                oi,
-                                                v,
-                                              )
-                                            }
-                                            placeholder={`Option ${String.fromCharCode(65 + oi)}`}
-                                            className="flex-1"
-                                            hideLabel
-                                          />
-                                        </div>
-                                      ))}
+                                    className="w-full flex items-center justify-between p-3 text-left hover:bg-accent/30 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest shrink-0">
+                                        Question {qi + 1}
+                                      </span>
+                                      {q.question.en && (
+                                        <span className="text-xs text-muted-foreground truncate">
+                                          — {q.question.en}
+                                        </span>
+                                      )}
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground mt-2 font-medium italic opacity-70">
-                                      Click the letter to mark the correct
-                                      answer
-                                    </p>
-                                  </div>
-                                  <MultiLangInput
-                                    label="Explanation (shown after answering)"
-                                    value={q.explanation}
-                                    onChange={(v) =>
-                                      updateQuizQuestionML(
-                                        mod.id,
-                                        q.id,
-                                        "explanation",
-                                        v,
-                                      )
-                                    }
-                                    placeholder="Explain why this is the correct answer..."
-                                    type="textarea"
-                                    rows={2}
-                                  />
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeQuizQuestion(mod.id, q.id);
+                                        }}
+                                      >
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                      </Button>
+                                      {expandedQuizQuestions[q.id] ? (
+                                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                  </button>
+
+                                  {expandedQuizQuestions[q.id] && (
+                                    <div className="p-4 border-t border-border space-y-4">
+                                      <MultiLangInput
+                                        label="Question Text *"
+                                        value={q.question}
+                                        onChange={(v) =>
+                                          updateQuizQuestionML(
+                                            mod.id,
+                                            q.id,
+                                            "question",
+                                            v,
+                                          )
+                                        }
+                                        placeholder="Enter your question..."
+                                        type="textarea"
+                                        rows={2}
+                                      />
+                                      <div className="space-y-1">
+                                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                                          Question Image URL (optional)
+                                        </Label>
+                                        <Input
+                                          value={q.questionImage || ""}
+                                          onChange={(e) =>
+                                            updateQuizQuestion(
+                                              mod.id,
+                                              q.id,
+                                              "questionImage",
+                                              e.target.value,
+                                            )
+                                          }
+                                          placeholder="https://..."
+                                          className="h-9 text-xs shadow-sm mt-1"
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
+                                          Answer Options
+                                        </Label>
+                                        <div className="space-y-3 mt-2">
+                                          {q.options.map((opt, oi) => (
+                                            <div
+                                              key={oi}
+                                              className="flex items-center gap-3"
+                                            >
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  updateQuizQuestion(
+                                                    mod.id,
+                                                    q.id,
+                                                    "correctIndex",
+                                                    oi,
+                                                  )
+                                                }
+                                                className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 text-[10px] font-bold transition-all shadow-sm ${
+                                                  q.correctIndex === oi
+                                                    ? "border-primary bg-primary text-primary-foreground scale-110"
+                                                    : "border-border text-muted-foreground hover:border-primary/50"
+                                                }`}
+                                              >
+                                                {String.fromCharCode(65 + oi)}
+                                              </button>
+                                              <MultiLangInput
+                                                label=""
+                                                value={opt}
+                                                onChange={(v) =>
+                                                  updateQuizQuestionOption(
+                                                    mod.id,
+                                                    q.id,
+                                                    oi,
+                                                    v,
+                                                  )
+                                                }
+                                                placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                                                className="flex-1"
+                                                hideLabel
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground mt-2 font-medium italic opacity-70">
+                                          Click the letter to mark the correct
+                                          answer
+                                        </p>
+                                      </div>
+                                      <MultiLangInput
+                                        label="Explanation (shown after answering)"
+                                        value={q.explanation}
+                                        onChange={(v) =>
+                                          updateQuizQuestionML(
+                                            mod.id,
+                                            q.id,
+                                            "explanation",
+                                            v,
+                                          )
+                                        }
+                                        placeholder="Explain why this is the correct answer..."
+                                        type="textarea"
+                                        rows={2}
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1539,10 +1784,14 @@ export default function CreateProgramPage() {
           </Button>
         ) : (
           <Button
-            onClick={handleSubmit}
+            onClick={() => {
+              void handleSubmit("publish");
+            }}
+            disabled={isSubmitting}
             className="gap-2 h-10 px-10 text-xs font-bold shadow-lg shadow-primary/20 transition-all active:scale-95 bg-primary hover:bg-primary/90"
           >
-            <Check className="h-4 w-4" /> Publish Program Now
+            <Check className="h-4 w-4" />
+            {isSubmitting ? "Saving..." : "Publish Program Now"}
           </Button>
         )}
       </div>

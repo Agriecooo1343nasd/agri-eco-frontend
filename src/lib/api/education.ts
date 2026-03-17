@@ -8,6 +8,32 @@ export interface MultiLangText {
   sw?: string;
 }
 
+export interface AdminTrainingTopic {
+  name: MultiLangText;
+  description?: MultiLangText;
+  sortOrder?: number;
+}
+
+export interface CreateAdminTrainingProgramPayload {
+  title: MultiLangText;
+  shortDescription?: MultiLangText;
+  fullDescription: MultiLangText;
+  heroImage?: string;
+  coverImage?: string;
+  type: "course" | "certification" | "workshop";
+  level: "beginner" | "intermediate" | "advanced";
+  priceRwf: number;
+  durationWeeks: number;
+  capacity: number;
+  language: string;
+  isPublished: boolean;
+  isFeatured: boolean;
+  curriculum: Record<string, unknown>[];
+  topics: AdminTrainingTopic[];
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface AdminTrainingProgram {
   id: string;
   title: MultiLangText;
@@ -21,6 +47,17 @@ export interface AdminTrainingProgram {
   isFeatured: boolean;
   startDate?: string;
   createdAt: string;
+}
+
+export interface AdminTrainingProgramDetail extends AdminTrainingProgram {
+  fullDescription: MultiLangText;
+  heroImage?: string | null;
+  coverImage?: string | null;
+  language: string;
+  isFeatured: boolean;
+  curriculum: Record<string, unknown>[];
+  topics: AdminTrainingTopic[];
+  endDate?: string;
 }
 
 export interface AdminTrainingEnrollment {
@@ -150,4 +187,47 @@ export async function fetchAdminSchoolVisits(params?: {
     pagination:
       response.data.pagination ?? emptyPagination(params?.limit ?? 100),
   };
+}
+
+export async function createAdminTrainingProgram(
+  payload: CreateAdminTrainingProgramPayload,
+): Promise<AdminTrainingProgram> {
+  const response = await apiClient.post<
+    ApiSuccessResponse<AdminTrainingProgram>
+  >("/training-programs", payload);
+
+  if (!response.data.data) {
+    throw new Error("Missing created training program response data");
+  }
+
+  return response.data.data;
+}
+
+export async function fetchAdminTrainingProgramById(
+  id: string,
+): Promise<AdminTrainingProgramDetail> {
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminTrainingProgramDetail>
+  >(`/training-programs/admin/programs/${id}`);
+
+  if (!response.data.data) {
+    throw new Error("Training program not found");
+  }
+
+  return response.data.data;
+}
+
+export async function updateAdminTrainingProgram(
+  id: string,
+  payload: Partial<CreateAdminTrainingProgramPayload>,
+): Promise<AdminTrainingProgramDetail> {
+  const response = await apiClient.put<
+    ApiSuccessResponse<AdminTrainingProgramDetail>
+  >(`/training-programs/${id}`, payload);
+
+  if (!response.data.data) {
+    throw new Error("Missing updated training program response data");
+  }
+
+  return response.data.data;
 }
