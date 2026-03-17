@@ -155,8 +155,23 @@ export default function AdminToursPage() {
     null,
   );
 
+  const backendSort =
+    sortKey === "price"
+      ? "priceRwf"
+      : sortKey === "maxParticipants"
+        ? "capacity"
+        : sortKey === "createdAt"
+          ? "createdAt"
+          : undefined;
+
   const experiencesQuery = useQuery({
-    queryKey: ["admin-experiences", search, categoryFilter],
+    queryKey: [
+      "admin-experiences",
+      search,
+      categoryFilter,
+      backendSort,
+      sortDir,
+    ],
     queryFn: () =>
       fetchAdminExperiences({
         page: 1,
@@ -166,8 +181,8 @@ export default function AdminToursPage() {
           categoryFilter !== "all"
             ? (categoryFilter as ExperienceType)
             : undefined,
-        sort: "createdAt",
-        order: "desc",
+        sort: backendSort,
+        order: sortDir,
       }),
   });
 
@@ -188,29 +203,40 @@ export default function AdminToursPage() {
     },
   });
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
+  const setColumnSort = (key: SortKey, direction: SortDir) => {
+    setSortKey(key);
+    setSortDir(direction);
   };
 
   const renderSortIcon = (col: SortKey) => {
-    if (sortKey !== col) {
-      return (
-        <span className="ml-1 inline-flex flex-col opacity-30">
-          <ArrowUp className="h-3 w-3" />
-          <ArrowDown className="-mt-1 h-3 w-3" />
-        </span>
-      );
-    }
+    const isAscActive = sortKey === col && sortDir === "asc";
+    const isDescActive = sortKey === col && sortDir === "desc";
 
-    return sortDir === "asc" ? (
-      <ArrowUp className="ml-1 inline h-3 w-3" />
-    ) : (
-      <ArrowDown className="ml-1 inline h-3 w-3" />
+    return (
+      <span className="ml-1 inline-flex flex-col align-middle">
+        <button
+          type="button"
+          className={`leading-none ${isAscActive ? "text-foreground" : "text-muted-foreground/40 hover:text-foreground"}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            setColumnSort(col, "asc");
+          }}
+          aria-label={`Sort ${col} ascending`}
+        >
+          <ArrowUp className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          className={`-mt-1 leading-none ${isDescActive ? "text-foreground" : "text-muted-foreground/40 hover:text-foreground"}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            setColumnSort(col, "desc");
+          }}
+          aria-label={`Sort ${col} descending`}
+        >
+          <ArrowDown className="h-3 w-3" />
+        </button>
+      </span>
     );
   };
 
@@ -350,34 +376,22 @@ export default function AdminToursPage() {
                 <TableHead className="w-16 text-center text-[10px] font-bold uppercase tracking-wider">
                   Preview
                 </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => toggleSort("name")}
-                >
+                <TableHead className="select-none text-[10px] font-bold uppercase tracking-wider">
                   Experience Title {renderSortIcon("name")}
                 </TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">
                   Category
                 </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => toggleSort("price")}
-                >
+                <TableHead className="select-none text-[10px] font-bold uppercase tracking-wider">
                   Price {renderSortIcon("price")}
                 </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => toggleSort("maxParticipants")}
-                >
+                <TableHead className="select-none text-[10px] font-bold uppercase tracking-wider">
                   Capacity {renderSortIcon("maxParticipants")}
                 </TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">
                   Market Occupancy
                 </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => toggleSort("rating")}
-                >
+                <TableHead className="select-none text-[10px] font-bold uppercase tracking-wider">
                   Rating {renderSortIcon("rating")}
                 </TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">

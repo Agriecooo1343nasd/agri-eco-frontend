@@ -79,6 +79,7 @@ export interface AdminProduct {
   sellingPrice: number;
   originalPrice: number;
   stock: number;
+  stockLevel?: number;
   lowStockThreshold?: number;
   unit: string;
   tags?: string[];
@@ -90,6 +91,7 @@ export interface AdminProduct {
   isActive: boolean;
   isFeatured?: boolean;
   isOnSale?: boolean;
+  status?: "active" | "draft" | "inactive";
   averageRating?: number;
   soldCount: number;
   createdAt: string;
@@ -137,6 +139,12 @@ export interface InventoryBatchPayload {
   receivedDate?: string;
   supplier?: string;
   status?: "active" | "expired" | "depleted";
+}
+
+export interface UpdateBatchPayload {
+  status?: "active" | "expired" | "depleted";
+  expiryDate?: string;
+  supplier?: string;
 }
 
 export interface CreateAdminProductPayload {
@@ -260,6 +268,82 @@ export async function createCategoryForAdmin(
 
 export async function deleteAdminProduct(productId: string): Promise<void> {
   await apiClient.delete(`/products/${productId}`);
+}
+
+export async function updateAdminProductBatch(
+  productId: string,
+  batchId: string,
+  payload: UpdateBatchPayload,
+): Promise<AdminProduct> {
+  const response = await apiClient.patch<ApiSuccessResponse<AdminProduct>>(
+    `/products/${productId}/batches/${batchId}`,
+    payload,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated product response data");
+  }
+
+  return response.data.data;
+}
+
+export async function deleteAdminProductBatch(
+  productId: string,
+  batchId: string,
+): Promise<AdminProduct> {
+  const response = await apiClient.delete<ApiSuccessResponse<AdminProduct>>(
+    `/products/${productId}/batches/${batchId}`,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated product response data");
+  }
+
+  return response.data.data;
+}
+
+export async function deleteAdminProductImage(
+  productId: string,
+  url: string,
+): Promise<AdminProduct> {
+  const response = await apiClient.delete<ApiSuccessResponse<AdminProduct>>(
+    `/products/${productId}/media`,
+    {
+      data: { type: "image", url },
+    },
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated product response data");
+  }
+
+  return response.data.data;
+}
+
+export async function uploadAdminProductMedia(
+  productId: string,
+  files: { images?: File[]; videos?: File[] },
+): Promise<AdminProduct> {
+  const formData = new FormData();
+
+  for (const image of files.images ?? []) {
+    formData.append("images", image);
+  }
+
+  for (const video of files.videos ?? []) {
+    formData.append("videos", video);
+  }
+
+  const response = await apiClient.post<ApiSuccessResponse<AdminProduct>>(
+    `/products/${productId}/media`,
+    formData,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated product response data");
+  }
+
+  return response.data.data;
 }
 
 export async function createAdminProduct(

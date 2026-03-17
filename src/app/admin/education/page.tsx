@@ -1,17 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  trainingPrograms,
-  sampleSchoolVisits,
-  type SchoolVisit,
-  type TrainingProgram,
-} from "@/data/education";
+import { useQuery } from "@tanstack/react-query";
+import { type SchoolVisit } from "@/data/education";
 import {
   GraduationCap,
   School,
-  Search,
   Plus,
   Menu,
   Eye,
@@ -22,7 +17,6 @@ import {
   Calendar,
   Settings,
 } from "lucide-react"; // Icons import
-import { getML } from "@/components/admin/MultiLangInput";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,27 +34,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { SchoolVisitActions } from "@/components/admin/SchoolVisitActions";
 import { usePricing } from "@/context/PricingContext";
+import {
+  fetchAdminSchoolVisits,
+  fetchAdminTrainingEnrollments,
+  fetchAdminTrainingPrograms,
+  type AdminSchoolVisit,
+} from "@/lib/api/education";
 
 const statusBadge: Record<string, string> = {
   open: "bg-primary/10 text-primary border-primary/20",
@@ -69,25 +51,168 @@ const statusBadge: Record<string, string> = {
   completed: "bg-muted text-muted-foreground border-border",
   pending: "bg-amber-100 text-amber-700 border-amber-200",
   approved: "bg-primary/10 text-primary border-primary/20",
+  rejected: "bg-destructive/10 text-destructive border-destructive/20",
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
 };
+
+const typeLabel: Record<string, string> = {
+  workshop: "Workshop",
+  course: "Course",
+  certification: "Certification",
+};
+
+const levelLabel: Record<string, string> = {
+  beginner: "Beginner",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+};
+
+function formatDate(value?: string) {
+  if (!value) return "TBD";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function visitToUi(visit: AdminSchoolVisit): SchoolVisit {
+  return {
+    id: visit.id,
+    schoolName: visit.institutionName,
+    contactPerson: visit.contactName,
+    email: visit.email,
+    phone: visit.phone,
+    studentCount: visit.studentCount,
+    gradeLevel: `${visit.teacherCount} teachers`,
+    preferredDate: formatDate(visit.preferredDate),
+    status: visit.status === "rejected" ? "cancelled" : visit.status,
+    curriculumAlignment: visit.curriculumGoals || "Not provided",
+    specialNeeds: undefined,
+    createdAt: visit.createdAt,
+  };
+}
 
 export default function AdminEducationPage() {
   const { formatPrice } = usePricing();
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"programs" | "visits">("programs");
+  const [visitsUiOverride, setVisitsUiOverride] = useState<
+    Record<string, SchoolVisit["status"]>
+  >({});
 
-  const activePrograms = trainingPrograms.filter(
-    (p) => p.status === "open",
-  ).length;
-  const totalEnrolled = trainingPrograms.reduce((s, p) => s + p.enrolled, 0);
-  const pendingVisits = sampleSchoolVisits.filter(
+  const programsQuery = useQuery({
+    queryKey: ["admin-training-programs"],
+    queryFn: () =>
+      fetchAdminTrainingPrograms({
+        page: 1,
+        limit: 100,
+        sort: "createdAt",
+        order: "desc",
+      }),
+  });
+
+  const enrollmentsQuery = useQuery({
+    queryKey: ["admin-training-enrollments"],
+    queryFn: () =>
+      fetchAdminTrainingEnrollments({
+        page: 1,
+        limit: 100,
+        sort: "createdAt",
+        order: "desc",
+      }),
+  });
+
+  const visitsQuery = useQuery({
+    queryKey: ["admin-school-visits"],
+    enabled: activeTab === "visits",
+    queryFn: () =>
+      fetchAdminSchoolVisits({
+        page: 1,
+        limit: 100,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    staleTime: 60_000,
+  });
+
+  const enrollmentCountByProgram = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const enrollment of enrollmentsQuery.data?.data ?? []) {
+      const current = map.get(enrollment.trainingProgramId) ?? 0;
+      map.set(enrollment.trainingProgramId, current + 1);
+    }
+    return map;
+  }, [enrollmentsQuery.data?.data]);
+
+  const programRows = useMemo(() => {
+    return (programsQuery.data?.data ?? []).map((program) => {
+      const enrolled = enrollmentCountByProgram.get(program.id) ?? 0;
+      const capacity = Number(program.capacity || 0);
+
+      let status: "open" | "full" | "upcoming" | "completed";
+      if (!program.isPublished) {
+        status = "upcoming";
+      } else if (capacity > 0 && enrolled >= capacity) {
+        status = "full";
+      } else {
+        status = "open";
+      }
+
+      const progressPct =
+        capacity > 0 ? Math.min((enrolled / capacity) * 100, 100) : 0;
+
+      return {
+        id: program.id,
+        title: program.title?.en || "Untitled Program",
+        duration: `${program.durationWeeks || 0} weeks`,
+        type: program.type,
+        level: program.level,
+        enrolled,
+        capacity,
+        progressPct,
+        schedule: formatDate(program.startDate),
+        price: Number(program.priceRwf || 0),
+        status,
+      };
+    });
+  }, [programsQuery.data?.data, enrollmentCountByProgram]);
+
+  const schoolVisitRows = useMemo(
+    () =>
+      (visitsQuery.data?.data ?? []).map((visit) => {
+        const converted = visitToUi(visit);
+        const overridden = visitsUiOverride[converted.id];
+        return overridden ? { ...converted, status: overridden } : converted;
+      }),
+    [visitsQuery.data?.data, visitsUiOverride],
+  );
+
+  const activePrograms = programRows.filter((p) => p.status === "open").length;
+  const totalEnrolled = enrollmentsQuery.data?.pagination.total ?? 0;
+  const pendingVisits = schoolVisitRows.filter(
     (v) => v.status === "pending",
   ).length;
-  const totalStudents = sampleSchoolVisits.reduce(
-    (s, v) => s + v.studentCount,
+  const totalStudents = schoolVisitRows.reduce(
+    (sum, visit) => sum + visit.studentCount,
     0,
   );
+
+  const isLoadingAny = programsQuery.isLoading || enrollmentsQuery.isLoading;
+
+  const hasFetchError =
+    programsQuery.isError ||
+    enrollmentsQuery.isError ||
+    (activeTab === "visits" && visitsQuery.isError);
+
+  const handleVisitStatusChange = (
+    visitId: string,
+    newStatus: SchoolVisit["status"],
+  ) => {
+    setVisitsUiOverride((prev) => ({ ...prev, [visitId]: newStatus }));
+  };
 
   return (
     <div className="space-y-6 text-xs">
@@ -145,7 +270,7 @@ export default function AdminEducationPage() {
               />
             </div>
             <p className="text-2xl font-bold font-heading text-foreground mb-0.5">
-              {s.value}
+              {isLoadingAny ? "..." : s.value}
             </p>
             <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
               {s.label}
@@ -154,7 +279,11 @@ export default function AdminEducationPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="programs" className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as "programs" | "visits")}
+        className="space-y-6"
+      >
         <div className="flex items-center justify-between">
           <TabsList className="bg-muted/50 p-1 h-auto gap-1 border border-border">
             <TabsTrigger
@@ -213,17 +342,17 @@ export default function AdminEducationPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {trainingPrograms.map((p) => (
+                  {programRows.map((p) => (
                     <TableRow
                       key={p.id}
                       className="hover:bg-muted/30 transition-colors"
                     >
                       <TableCell>
                         <p className="font-bold text-foreground text-[11px] mb-0.5">
-                          {p.title.en}
+                          {p.title}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {p.duration.en}
+                          <Clock className="h-3 w-3" /> {p.duration}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -231,38 +360,37 @@ export default function AdminEducationPage() {
                           variant="outline"
                           className="capitalize text-[10px] font-bold py-0 px-2 tracking-tight bg-muted/50"
                         >
-                          {p.type}
+                          {typeLabel[p.type] ?? p.type}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <span className="text-[10px] font-bold capitalize text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/20">
-                          {p.level.en}
+                          {levelLabel[p.level] ?? p.level}
                         </span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-between text-[10px] font-bold mb-1 px-0.5">
                           <span>
-                            {p.enrolled} / {p.maxParticipants}
+                            {p.enrolled} / {p.capacity}
                           </span>
                           <span className="text-muted-foreground opacity-70">
-                            {Math.round((p.enrolled / p.maxParticipants) * 100)}
-                            %
+                            {Math.round(p.progressPct)}%
                           </span>
                         </div>
                         <div className="h-1.5 bg-muted rounded-full overflow-hidden w-24 border border-border">
                           <div
                             className="h-full bg-primary rounded-full shadow-sm"
                             style={{
-                              width: `${(p.enrolled / p.maxParticipants) * 100}%`,
+                              width: `${p.progressPct}%`,
                             }}
                           />
                         </div>
                       </TableCell>
                       <TableCell className="text-[10px] font-bold text-foreground">
-                        {p.startDate.en}
+                        {p.schedule}
                       </TableCell>
                       <TableCell className="font-bold text-foreground text-sm">
-                        {formatPrice(p.price)}
+                        {formatPrice(Number(p.price || 0))}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -317,7 +445,7 @@ export default function AdminEducationPage() {
         </TabsContent>
 
         <TabsContent value="visits">
-          <div className="border border-border rounded-xl overflow-hidden bg-card shadow-sm">
+          <div className="border border-border rounded-sm overflow-hidden bg-card shadow-sm">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -344,61 +472,114 @@ export default function AdminEducationPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sampleSchoolVisits.map((v) => (
-                    <TableRow
-                      key={v.id}
-                      className="hover:bg-muted/30 transition-colors"
-                    >
-                      <TableCell>
-                        <p className="font-bold text-foreground text-[11px] mb-0.5">
-                          {v.schoolName}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-semibold italic truncate max-w-[150px]">
-                          {v.curriculumAlignment}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-[10px] font-bold text-foreground">
-                          {v.contactPerson}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-medium underline underline-offset-2">
-                          {v.email}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-[11px] font-bold text-foreground flex items-center gap-1.5 h-12">
-                        <Users className="h-3.5 w-3.5 text-primary" />{" "}
-                        {v.studentCount} students
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] font-bold py-0 px-2 uppercase tracking-tighter bg-accent/20 border-accent/20"
-                        >
-                          {v.gradeLevel}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[10px] font-bold text-primary flex items-center h-12 gap-1.5">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {v.preferredDate}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusBadge[v.status]} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
-                        >
-                          {v.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <SchoolVisitActions visit={v} />
+                  {visitsQuery.isLoading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-xs text-muted-foreground py-8"
+                      >
+                        Loading school visits...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
+
+                  {!visitsQuery.isLoading && visitsQuery.isError && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center text-xs text-destructive py-8"
+                      >
+                        Failed to load school visits.
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {!visitsQuery.isLoading &&
+                    !visitsQuery.isError &&
+                    schoolVisitRows.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-center text-xs text-muted-foreground py-8"
+                        >
+                          No visit is found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                  {!visitsQuery.isLoading &&
+                    !visitsQuery.isError &&
+                    schoolVisitRows.map((v) => (
+                      <TableRow
+                        key={v.id}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        <TableCell>
+                          <p className="font-bold text-foreground text-[11px] mb-0.5">
+                            {v.schoolName}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-semibold italic truncate max-w-40">
+                            {v.curriculumAlignment}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-[10px] font-bold text-foreground">
+                            {v.contactPerson}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-medium underline underline-offset-2">
+                            {v.email}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-[11px] font-bold text-foreground flex items-center gap-1.5 h-12">
+                          <Users className="h-3.5 w-3.5 text-primary" />{" "}
+                          {v.studentCount} students
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-bold py-0 px-2 uppercase tracking-tighter bg-accent/20 border-accent/20"
+                          >
+                            {v.gradeLevel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[10px] font-bold text-primary flex items-center h-12 gap-1.5">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {v.preferredDate}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusBadge[v.status]} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
+                          >
+                            {v.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <SchoolVisitActions
+                            visit={v}
+                            onStatusChange={handleVisitStatusChange}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
           </div>
         </TabsContent>
       </Tabs>
+
+      {hasFetchError && (
+        <div className="rounded-md border border-destructive/25 bg-destructive/5 p-3 text-xs text-destructive">
+          Some education data could not be loaded from backend. Programs,
+          enrollments, or school visits endpoint may be unavailable.
+        </div>
+      )}
+
+      {!isLoadingAny && programRows.length === 0 && (
+        <div className="rounded-md border border-border bg-card p-4 text-xs text-muted-foreground">
+          No training programs returned by backend.
+        </div>
+      )}
     </div>
   );
 }
