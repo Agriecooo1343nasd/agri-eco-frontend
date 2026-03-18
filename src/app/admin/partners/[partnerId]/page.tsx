@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle,
@@ -11,7 +12,6 @@ import {
   Plus,
   ShieldAlert,
   Trash2,
-  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -34,173 +34,324 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { usePricing } from "@/context/PricingContext";
-import type {
-  Partner,
-  PartnerAgreement,
-  PartnerPayoutRecord,
-} from "@/data/community";
 import {
-  createPartnerAgreement,
-  createPayoutRecord,
-  getPartners,
-  savePartners,
-} from "@/lib/partner-store";
+  createAdminPartnerAgreement,
+  fetchAdminPartnerAgreements,
+  fetchAdminPartnerById,
+  fetchAdminPartnerCommissions,
+  terminateAdminPartner,
+  updateAdminPartner,
+  updateAdminPartnerAgreement,
+  type AdminPartner,
+  type AdminPartnerAgreement,
+  type UpsertAdminPartnerAgreementPayload,
+} from "@/lib/api/partners";
 
 const statusBadge: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
   pending: "bg-amber-100 text-amber-700 border-amber-200",
   inactive: "bg-muted text-muted-foreground border-border",
-  terminated: "bg-destructive/10 text-destructive border-destructive/20",
   expired: "bg-muted text-muted-foreground border-border",
+  terminated: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-const payoutStatusBadge: Record<string, string> = {
-  paid: "bg-primary/10 text-primary border-primary/20",
-  pending: "bg-amber-100 text-amber-700 border-amber-200",
-  failed: "bg-destructive/10 text-destructive border-destructive/20",
+const agreementStatuses = ["active", "expired", "terminated"] as const;
+
+type AgreementFormState = {
+  title: string;
+  description: string;
+  termsSummary: string;
+  status: "active" | "expired" | "terminated";
+  version: string;
+  effectiveDate: string;
+  endDate: string;
+  payoutCycle: "monthly" | "quarterly" | "biannual" | "annual";
+  commissionRate: string;
+  platformShareRate: string;
 };
 
-const emptyAgreementForm = {
+const emptyAgreementForm: AgreementFormState = {
   title: "",
+  description: "",
   termsSummary: "",
-  status: "active" as PartnerAgreement["status"],
+  status: "active",
   version: "v1.0",
-  effectiveDate: "",
+  effectiveDate: new Date().toISOString().slice(0, 10),
   endDate: "",
+  payoutCycle: "monthly",
   commissionRate: "",
-  partnerSharePercent: "",
-  platformSharePercent: "",
+  platformShareRate: "",
 };
+
+function formatDate(value?: string): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-RW", {
+    style: "currency",
+    currency: "RWF",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export default function PartnerProfilePage() {
   const params = useParams<{ partnerId: string }>();
   const router = useRouter();
-  const { formatPrice } = usePricing();
+  const queryClient = useQueryClient();
+  const partnerId = params.partnerId;
 
-  const [partners, setPartners] = useState<Partner[]>(() => getPartners());
   const [agreementFormOpen, setAgreementFormOpen] = useState(false);
-  const [editingAgreement, setEditingAgreement] = useState<PartnerAgreement | null>(null);
-  const [agreementForm, setAgreementForm] = useState({ ...emptyAgreementForm });
-  const partner = useMemo(
-    () => partners.find((entry) => entry.id === params.partnerId),
-    [partners, params.partnerId],
+  const [editingAgreement, setEditingAgreement] =
+    useState<AdminPartnerAgreement | null>(null);
+  const [agreementForm, setAgreementForm] =
+    useState<AgreementFormState>(emptyAgreementForm);
+  const [terminateOpen, setTerminateOpen] = useState(false);
+  const [terminateNotes, setTerminateNotes] = useState("");
+
+  const partnerQuery = useQuery({
+    queryKey: ["admin-partner", partnerId],
+    queryFn: () => fetchAdminPartnerById(partnerId),
+    enabled: Boolean(partnerId),
+  });
+
+  const agreementsQuery = useQuery({
+    queryKey: ["admin-partner-agreements", partnerId],
+    queryFn: () => fetchAdminPartnerAgreements(partnerId),
+    enabled: Boolean(partnerId),
+  });
+
+  const commissionsQuery = useQuery({
+    queryKey: ["admin-partner-commissions-summary", partnerId],
+    queryFn: () =>
+      fetchAdminPartnerCommissions(partnerId, {
+        page: 1,
+        limit: 1,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: Boolean(partnerId),
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({
+      id,
+      status,
+      notes,
+    }: {
+      id: string;
+      status: "active" | "pending" | "inactive";
+      notes?: string;
+    }) => updateAdminPartner(id, { status, notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-partner", partnerId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partner-stats"] });
+    },
+  });
+
+  const terminateMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      terminateAdminPartner(id, notes),
+    onSuccess: (partner) => {
+      toast.success("Partner terminated", {
+        description: `${partner.name} has been moved to inactive status.`,
+      });
+      setTerminateOpen(false);
+      setTerminateNotes("");
+      queryClient.invalidateQueries({ queryKey: ["admin-partner", partnerId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partner-stats"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-partner-commissions-summary", partnerId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to terminate partner", {
+        description: error.message || "Please try again.",
+      });
+    },
+  });
+
+  const saveAgreementMutation = useMutation({
+    mutationFn: ({
+      partnerId: targetPartnerId,
+      agreementId,
+      payload,
+    }: {
+      partnerId: string;
+      agreementId?: string;
+      payload: UpsertAdminPartnerAgreementPayload;
+    }) => {
+      if (agreementId) {
+        return updateAdminPartnerAgreement(
+          targetPartnerId,
+          agreementId,
+          payload,
+        );
+      }
+
+      return createAdminPartnerAgreement(targetPartnerId, payload);
+    },
+    onSuccess: () => {
+      toast.success(editingAgreement ? "Agreement updated" : "Agreement added");
+      setAgreementFormOpen(false);
+      setEditingAgreement(null);
+      setAgreementForm(emptyAgreementForm);
+      queryClient.invalidateQueries({
+        queryKey: ["admin-partner-agreements", partnerId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to save agreement", {
+        description: error.message || "Please review values and try again.",
+      });
+    },
+  });
+
+  const partner = partnerQuery.data;
+  const agreements = agreementsQuery.data ?? [];
+  const commissionSummary = commissionsQuery.data?.summary ?? {
+    total: 0,
+    pending: 0,
+    paid: 0,
+  };
+
+  const primaryAgreement = useMemo(
+    () =>
+      agreements.find((entry) => entry.status === "active") ?? agreements[0],
+    [agreements],
   );
 
-  const commitPartners = (next: Partner[]) => {
-    setPartners(next);
-    savePartners(next);
-  };
+  const handleSetStatus = (status: "active" | "pending") => {
+    if (!partner) {
+      return;
+    }
 
-  const updatePartnerInList = (updated: Partner) => {
-    commitPartners(partners.map((entry) => (entry.id === updated.id ? updated : entry)));
-  };
-
-  const setStatus = (status: Partner["status"], networkStatus: Partner["networkStatus"]) => {
-    if (!partner) return;
-    updatePartnerInList({ ...partner, status, networkStatus });
-    toast.success("Partner Updated", {
-      description: `${partner.businessName} status changed to ${status}.`,
-    });
+    updateStatusMutation.mutate(
+      { id: partner.id, status },
+      {
+        onSuccess: () => {
+          toast.success("Partner updated", {
+            description: `${partner.name} status changed to ${status}.`,
+          });
+        },
+        onError: (error: Error) => {
+          toast.error("Unable to update partner status", {
+            description: error.message || "Please try again.",
+          });
+        },
+      },
+    );
   };
 
   const openAddAgreement = () => {
     setEditingAgreement(null);
-    setAgreementForm({ ...emptyAgreementForm });
+    setAgreementForm({
+      ...emptyAgreementForm,
+      effectiveDate: new Date().toISOString().slice(0, 10),
+    });
     setAgreementFormOpen(true);
   };
 
-  const openEditAgreement = (agreement: PartnerAgreement) => {
+  const openEditAgreement = (agreement: AdminPartnerAgreement) => {
     setEditingAgreement(agreement);
     setAgreementForm({
       title: agreement.title,
-      termsSummary: agreement.termsSummary,
+      description: agreement.description || "",
+      termsSummary: agreement.termsSummary || "",
       status: agreement.status,
       version: agreement.version,
       effectiveDate: agreement.effectiveDate,
-      endDate: agreement.endDate || "",
-      commissionRate: agreement.commissionRate != null ? String(agreement.commissionRate) : "",
-      partnerSharePercent:
-        agreement.partnerSharePercent != null ? String(agreement.partnerSharePercent) : "",
-      platformSharePercent:
-        agreement.platformSharePercent != null ? String(agreement.platformSharePercent) : "",
+      endDate: agreement.endDate,
+      payoutCycle: agreement.payoutCycle,
+      commissionRate: String(agreement.commissionRate),
+      platformShareRate: String(agreement.platformShareRate),
     });
     setAgreementFormOpen(true);
   };
 
   const handleSaveAgreement = () => {
-    if (!partner || !agreementForm.title.trim() || !agreementForm.termsSummary.trim()) {
-      toast.error("Title and summary are required.");
+    if (!partner) {
       return;
     }
 
-    const partnerShare = agreementForm.partnerSharePercent
-      ? Number(agreementForm.partnerSharePercent)
-      : undefined;
-    const platformShare = agreementForm.platformSharePercent
-      ? Number(agreementForm.platformSharePercent)
-      : undefined;
-
-    if (partnerShare != null && platformShare != null && partnerShare + platformShare !== 100) {
-      toast.error("Partner share + platform share must equal 100%.");
+    if (
+      !agreementForm.title.trim() ||
+      !agreementForm.version.trim() ||
+      !agreementForm.effectiveDate ||
+      !agreementForm.endDate
+    ) {
+      toast.error("Missing required fields", {
+        description:
+          "Title, version, effective date, and end date are required.",
+      });
       return;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const effectiveDate = agreementForm.effectiveDate || today;
-    const commissionRate = agreementForm.commissionRate
-      ? Number(agreementForm.commissionRate)
-      : undefined;
+    const commissionRate = Number(agreementForm.commissionRate);
+    const platformShareRate = Number(agreementForm.platformShareRate);
 
-    let updatedAgreements: PartnerAgreement[];
-    if (editingAgreement) {
-      updatedAgreements = partner.agreements.map((agreement) =>
-        agreement.id === editingAgreement.id
-          ? {
-              ...agreement,
-              title: agreementForm.title.trim(),
-              termsSummary: agreementForm.termsSummary.trim(),
-              status: agreementForm.status,
-              version: agreementForm.version,
-              effectiveDate,
-              endDate: agreementForm.endDate || undefined,
-              commissionRate,
-              partnerSharePercent: partnerShare,
-              platformSharePercent: platformShare,
-              updatedAt: today,
-            }
-          : agreement,
-      );
-      toast.success("Agreement Updated");
-    } else {
-      const newAgreement: PartnerAgreement = {
-        ...createPartnerAgreement(agreementForm.title.trim(), agreementForm.termsSummary.trim()),
+    if (
+      Number.isNaN(commissionRate) ||
+      Number.isNaN(platformShareRate) ||
+      commissionRate < 0 ||
+      commissionRate > 100 ||
+      platformShareRate < 0 ||
+      platformShareRate > 100
+    ) {
+      toast.error("Invalid rates", {
+        description:
+          "Commission and platform share rates must be between 0 and 100.",
+      });
+      return;
+    }
+
+    saveAgreementMutation.mutate({
+      partnerId: partner.id,
+      agreementId: editingAgreement?.id,
+      payload: {
+        title: agreementForm.title.trim(),
+        description: agreementForm.description.trim() || undefined,
+        termsSummary: agreementForm.termsSummary.trim() || undefined,
         status: agreementForm.status,
-        version: agreementForm.version,
-        effectiveDate,
-        endDate: agreementForm.endDate || undefined,
+        version: agreementForm.version.trim(),
+        effectiveDate: agreementForm.effectiveDate,
+        endDate: agreementForm.endDate,
+        payoutCycle: agreementForm.payoutCycle,
         commissionRate,
-        partnerSharePercent: partnerShare,
-        platformSharePercent: platformShare,
-      };
-      updatedAgreements = [newAgreement, ...partner.agreements];
-      toast.success("Agreement Added");
-    }
-
-    updatePartnerInList({ ...partner, agreements: updatedAgreements });
-    setAgreementFormOpen(false);
-    setEditingAgreement(null);
+        platformShareRate,
+      },
+    });
   };
 
+  if (partnerQuery.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Button variant="outline" asChild>
+          <Link href="/admin/partners">
+            <ArrowLeft className="mr-1 h-4 w-4" /> Back to Partners
+          </Link>
+        </Button>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Loading partner profile...
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!partner) {
     return (
@@ -212,17 +363,19 @@ export default function PartnerProfilePage() {
         </Button>
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
-            Partner not found. It may have been removed from local data.
+            {partnerQuery.error instanceof Error
+              ? partnerQuery.error.message
+              : "Partner not found."}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  const payouts = partner.payouts ?? [];
-  const totalPaid = payouts
-    .filter((entry) => entry.status === "paid")
-    .reduce((sum, entry) => sum + entry.amount, 0);
+  const partnerShareRate =
+    primaryAgreement?.platformShareRate != null
+      ? Math.max(0, 100 - primaryAgreement.platformShareRate)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -233,10 +386,16 @@ export default function PartnerProfilePage() {
               <ArrowLeft className="mr-1 h-4 w-4" /> Back to Partners
             </Link>
           </Button>
-          <h1 className="mt-3 text-2xl font-heading font-bold">{partner.businessName}</h1>
-          <p className="text-xs capitalize text-muted-foreground">Partner Profile - {partner.type}</p>
+          <h1 className="mt-3 text-2xl font-heading font-bold">
+            {partner.name}
+          </h1>
+          <p className="text-xs capitalize text-muted-foreground">
+            Partner Profile - {partner.type.replace("_", " ")}
+          </p>
         </div>
-        <Badge className={`${statusBadge[partner.status]} border text-xs capitalize`}>
+        <Badge
+          className={`${statusBadge[partner.status]} border text-xs capitalize`}
+        >
           {partner.status}
         </Badge>
       </div>
@@ -244,36 +403,65 @@ export default function PartnerProfilePage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="space-y-2 p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact</h2>
-            <p className="text-sm font-semibold">{partner.contactPerson}</p>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Contact
+            </h2>
+            <p className="text-sm font-semibold">{partner.contactName}</p>
             <p className="text-xs">{partner.email}</p>
-            <p className="text-xs">{partner.phone}</p>
-            <p className="text-xs text-muted-foreground">{partner.aboutBusiness}</p>
+            <p className="text-xs">{partner.phone || "-"}</p>
+            <p className="text-xs text-muted-foreground">
+              {partner.notes || "No notes"}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="space-y-2 p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Finance</h2>
-            <p className="text-xs">Gross Revenue: <strong>{formatPrice(partner.grossRevenue)}</strong></p>
-            <p className="text-xs">Partner ({partner.partnerSharePercent}%): <strong>{formatPrice(partner.partnerEarnings)}</strong></p>
-            <p className="text-xs">Platform ({partner.platformSharePercent}%): <strong>{formatPrice(partner.platformEarnings)}</strong></p>
-            <p className="text-xs">Commission: {partner.commissionRate}%</p>
-            <p className="text-xs capitalize">Payout cycle: {partner.payoutCycle}</p>
-            <Badge className={`${payoutStatusBadge[partner.payoutStatus] ?? "bg-muted"} border text-[10px] capitalize`}>
-              {partner.payoutStatus}
-            </Badge>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Finance
+            </h2>
+            <p className="text-xs">
+              Paid Commissions:{" "}
+              <strong>{formatCurrency(commissionSummary.paid)}</strong>
+            </p>
+            <p className="text-xs">
+              Pending Commissions:{" "}
+              <strong>{formatCurrency(commissionSummary.pending)}</strong>
+            </p>
+            <p className="text-xs">
+              Total Commissions:{" "}
+              <strong>{formatCurrency(commissionSummary.total)}</strong>
+            </p>
+            <p className="text-xs">
+              Partner Revenue Share: {partner.revenueShareRate ?? 0}%
+            </p>
+            <p className="text-xs">
+              Agreement Commission: {primaryAgreement?.commissionRate ?? "-"}%
+            </p>
+            <p className="text-xs">
+              Platform Share (Agreement):{" "}
+              {primaryAgreement?.platformShareRate ?? "-"}%
+            </p>
+            <p className="text-xs">
+              Partner Share (Agreement):{" "}
+              {partnerShareRate != null ? `${partnerShareRate}%` : "-"}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="space-y-2 p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Operations</h2>
-            <p className="text-xs">Network: <strong>{partner.networkStatus}</strong></p>
-            <p className="text-xs">Bookings: <strong>{partner.totalBookings}</strong></p>
-            <p className="text-xs">Joined: {partner.joinedDate}</p>
-            <p className="text-xs">Contract Start: {partner.contractStartDate || "-"}</p>
-            <p className="text-xs">Contract End: {partner.contractEndDate || "-"}</p>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Operations
+            </h2>
+            <p className="text-xs">
+              Agreements: <strong>{agreements.length}</strong>
+            </p>
+            <p className="text-xs">Created: {formatDate(partner.createdAt)}</p>
+            <p className="text-xs">
+              Last Updated: {formatDate(partner.updatedAt)}
+            </p>
+            <p className="text-xs capitalize">Status: {partner.status}</p>
           </CardContent>
         </Card>
       </div>
@@ -283,18 +471,28 @@ export default function PartnerProfilePage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold">
               <FileText className="h-4 w-4" /> Agreements
-              <Badge variant="outline" className="text-[10px]">{partner.agreements.length}</Badge>
+              <Badge variant="outline" className="text-[10px]">
+                {agreements.length}
+              </Badge>
             </h2>
-            <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={openAddAgreement}>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={openAddAgreement}
+            >
               <Plus className="h-3.5 w-3.5" /> Add Agreement
             </Button>
           </div>
 
-          {partner.agreements.length === 0 ? (
+          {agreementsQuery.isLoading ? (
+            <p className="text-xs text-muted-foreground">
+              Loading agreements...
+            </p>
+          ) : agreements.length === 0 ? (
             <p className="text-xs text-muted-foreground">No agreements yet.</p>
           ) : (
             <div className="space-y-3">
-              {partner.agreements.map((agreement) => (
+              {agreements.map((agreement) => (
                 <div
                   key={agreement.id}
                   className="space-y-2 rounded-xl border border-border p-4"
@@ -318,13 +516,23 @@ export default function PartnerProfilePage() {
                     </Button>
                   </div>
 
-                  <p className="text-xs text-muted-foreground">{agreement.termsSummary}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {agreement.termsSummary || "No summary"}
+                  </p>
                   <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
                     <span>{agreement.version}</span>
-                    <span>Effective: {agreement.effectiveDate}</span>
-                    {agreement.endDate && <span>Ends: {agreement.endDate}</span>}
-                    <span>Updated: {agreement.updatedAt}</span>
+                    <span>
+                      Effective: {formatDate(agreement.effectiveDate)}
+                    </span>
+                    <span>Ends: {formatDate(agreement.endDate)}</span>
+                    <span>Updated: {formatDate(agreement.updatedAt)}</span>
                   </div>
+                  <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
+                    <span>Payout: {agreement.payoutCycle}</span>
+                    <span>Commission: {agreement.commissionRate}%</span>
+                    <span>Platform Share: {agreement.platformShareRate}%</span>
+                  </div>
+
                   <div className="flex flex-wrap gap-2 pt-2">
                     <Button
                       size="sm"
@@ -362,92 +570,285 @@ export default function PartnerProfilePage() {
         <CardContent className="space-y-3 p-5">
           <h2 className="text-sm font-semibold">Admin Actions</h2>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => setStatus("active", "verified")} className="gap-1.5 text-xs">
+            <Button
+              size="sm"
+              onClick={() => handleSetStatus("active")}
+              className="gap-1.5 text-xs"
+              disabled={
+                updateStatusMutation.isPending || partner.status === "active"
+              }
+            >
               <CheckCircle className="h-3.5 w-3.5" /> Activate
             </Button>
             <Button
               size="sm"
               variant="outline"
               className="gap-1.5 text-xs"
-              onClick={() => setStatus("active", "at-risk")}
+              onClick={() => handleSetStatus("pending")}
+              disabled={
+                updateStatusMutation.isPending || partner.status === "pending"
+              }
             >
-              <ShieldAlert className="h-3.5 w-3.5" /> Mark At Risk
+              <ShieldAlert className="h-3.5 w-3.5" /> Mark Pending
             </Button>
             <Button
               size="sm"
               variant="destructive"
               className="gap-1.5 text-xs"
-              onClick={() => setStatus("terminated", "suspended")}
+              disabled={
+                terminateMutation.isPending || partner.status === "inactive"
+              }
+              onClick={() => setTerminateOpen(true)}
             >
               <Trash2 className="h-3.5 w-3.5" /> Terminate
             </Button>
-            <Button size="sm" variant="ghost" className="text-xs" onClick={() => router.push("/admin/partners")}>Done</Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs"
+              onClick={() => router.push("/admin/partners")}
+            >
+              Done
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Dialog open={agreementFormOpen} onOpenChange={setAgreementFormOpen}>
+      <Dialog
+        open={agreementFormOpen}
+        onOpenChange={(open) => {
+          setAgreementFormOpen(open);
+          if (!open) {
+            setEditingAgreement(null);
+            setAgreementForm(emptyAgreementForm);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingAgreement ? "Edit Agreement" : "Add Agreement"}</DialogTitle>
+            <DialogTitle>
+              {editingAgreement ? "Edit Agreement" : "Add Agreement"}
+            </DialogTitle>
             <DialogDescription>
-              Update agreement terms and optional financial conditions for this partner.
+              Update agreement terms and financial settings for this partner.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label>Title</Label>
-              <Input value={agreementForm.title} onChange={(e) => setAgreementForm((p) => ({ ...p, title: e.target.value }))} />
+              <Label>Title *</Label>
+              <Input
+                value={agreementForm.title}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    title: event.target.value,
+                  }))
+                }
+              />
             </div>
             <div className="space-y-1">
-              <Label>Version</Label>
-              <Input value={agreementForm.version} onChange={(e) => setAgreementForm((p) => ({ ...p, version: e.target.value }))} />
+              <Label>Version *</Label>
+              <Input
+                value={agreementForm.version}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    version: event.target.value,
+                  }))
+                }
+              />
             </div>
             <div className="space-y-1">
               <Label>Status</Label>
               <Select
                 value={agreementForm.status}
-                onValueChange={(value: PartnerAgreement["status"]) => setAgreementForm((p) => ({ ...p, status: value }))}
+                onValueChange={(value: AgreementFormState["status"]) =>
+                  setAgreementForm((prev) => ({ ...prev, status: value }))
+                }
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="terminated">Terminated</SelectItem>
+                  {agreementStatuses.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Effective Date</Label>
-              <Input type="date" value={agreementForm.effectiveDate} onChange={(e) => setAgreementForm((p) => ({ ...p, effectiveDate: e.target.value }))} />
+              <Label>Payout Cycle *</Label>
+              <Select
+                value={agreementForm.payoutCycle}
+                onValueChange={(value: AgreementFormState["payoutCycle"]) =>
+                  setAgreementForm((prev) => ({ ...prev, payoutCycle: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">monthly</SelectItem>
+                  <SelectItem value="quarterly">quarterly</SelectItem>
+                  <SelectItem value="biannual">biannual</SelectItem>
+                  <SelectItem value="annual">annual</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <Label>End Date</Label>
-              <Input type="date" value={agreementForm.endDate} onChange={(e) => setAgreementForm((p) => ({ ...p, endDate: e.target.value }))} />
+              <Label>Effective Date *</Label>
+              <Input
+                type="date"
+                value={agreementForm.effectiveDate}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    effectiveDate: event.target.value,
+                  }))
+                }
+              />
             </div>
             <div className="space-y-1">
-              <Label>Commission %</Label>
-              <Input type="number" min="0" max="100" value={agreementForm.commissionRate} onChange={(e) => setAgreementForm((p) => ({ ...p, commissionRate: e.target.value }))} />
+              <Label>End Date *</Label>
+              <Input
+                type="date"
+                value={agreementForm.endDate}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    endDate: event.target.value,
+                  }))
+                }
+              />
             </div>
             <div className="space-y-1">
-              <Label>Partner Share %</Label>
-              <Input type="number" min="0" max="100" value={agreementForm.partnerSharePercent} onChange={(e) => setAgreementForm((p) => ({ ...p, partnerSharePercent: e.target.value }))} />
+              <Label>Commission Rate % *</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={agreementForm.commissionRate}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    commissionRate: event.target.value,
+                  }))
+                }
+              />
             </div>
             <div className="space-y-1">
-              <Label>Platform Share %</Label>
-              <Input type="number" min="0" max="100" value={agreementForm.platformSharePercent} onChange={(e) => setAgreementForm((p) => ({ ...p, platformSharePercent: e.target.value }))} />
+              <Label>Platform Share % *</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={agreementForm.platformShareRate}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    platformShareRate: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Description</Label>
+              <Textarea
+                value={agreementForm.description}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    description: event.target.value,
+                  }))
+                }
+                rows={2}
+              />
             </div>
             <div className="space-y-1 md:col-span-2">
               <Label>Terms Summary</Label>
-              <Textarea value={agreementForm.termsSummary} onChange={(e) => setAgreementForm((p) => ({ ...p, termsSummary: e.target.value }))} rows={4} />
+              <Textarea
+                value={agreementForm.termsSummary}
+                onChange={(event) =>
+                  setAgreementForm((prev) => ({
+                    ...prev,
+                    termsSummary: event.target.value,
+                  }))
+                }
+                rows={4}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAgreementFormOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveAgreement}>{editingAgreement ? "Save" : "Add"}</Button>
+            <Button
+              variant="outline"
+              onClick={() => setAgreementFormOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAgreement}
+              disabled={saveAgreementMutation.isPending}
+            >
+              {saveAgreementMutation.isPending
+                ? "Saving..."
+                : editingAgreement
+                  ? "Save"
+                  : "Add"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-</div>
+
+      <Dialog
+        open={terminateOpen}
+        onOpenChange={(open) => {
+          setTerminateOpen(open);
+          if (!open) {
+            setTerminateNotes("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Terminate Partner</DialogTitle>
+            <DialogDescription>
+              This will mark the partner as inactive and cancel pending
+              commissions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-xs">
+            <p>
+              Partner: <strong>{partner.name}</strong>
+            </p>
+            <Label>Notes (Optional)</Label>
+            <Textarea
+              rows={3}
+              value={terminateNotes}
+              onChange={(event) => setTerminateNotes(event.target.value)}
+              placeholder="Provide context for termination"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTerminateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() =>
+                terminateMutation.mutate({
+                  id: partner.id,
+                  notes: terminateNotes,
+                })
+              }
+              disabled={terminateMutation.isPending}
+            >
+              {terminateMutation.isPending ? "Terminating..." : "Terminate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
