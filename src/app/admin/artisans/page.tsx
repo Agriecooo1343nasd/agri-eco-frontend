@@ -1,12 +1,18 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { artisans as mockArtisans } from "@/data/community";
 import {
-  artisans,
-  artisanApplications,
-  type Artisan,
-  type ArtisanApplication,
-} from "@/data/community";
+  fetchAdminArtisanApplications,
+  fetchAdminArtisans,
+  fetchAdminArtisanStats,
+  reviewAdminArtisanApplication,
+  type AdminArtisanApplication,
+  type ReviewAdminArtisanApplicationPayload,
+  toAbsoluteArtisanImage,
+} from "@/lib/api/artisans";
 import {
   Users,
   Search,
@@ -25,11 +31,19 @@ import {
   Package,
   Trash2,
   Edit,
-  ImagePlus,
-  Save,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -53,49 +67,62 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MultiLangInput } from "@/components/admin/MultiLangInput";
 
 const statusColors: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
+  inactive: "bg-slate-500/10 text-slate-600 border-slate-500/20",
   pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
   approved: "bg-primary/10 text-primary border-primary/20",
   rejected: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-export default function AdminArtisansPage() {
-  const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("artisans");
-  const [viewApp, setViewApp] = useState<ArtisanApplication | null>(null);
-  const [viewArtisan, setViewArtisan] = useState<Artisan | null>(null);
-  const [addProductOpen, setAddProductOpen] = useState(false);
-  const [productArtisan, setProductArtisan] = useState<Artisan | null>(null);
-  const [reviewNotes, setReviewNotes] = useState("");
+const ITEMS_PER_PAGE = 10;
 
-  // Edit product dialog
-  const [editProductOpen, setEditProductOpen] = useState(false);
-  const [editProduct, setEditProduct] = useState<{
-    name: string;
-    price: string;
-    description: string;
-    category: string;
-    stock: string;
+const languageLabels: Record<string, string> = {
+  en: "English",
+  rw: "Kinyarwanda",
+  fr: "French",
+  sw: "Swahili",
+};
+
+function getProvidedTranslations(value?: {
+  en: string;
+  rw?: string;
+  fr?: string;
+  sw?: string;
+}) {
+  if (!value) {
+    return [] as Array<{ code: string; label: string; text: string }>;
+  }
+
+  return Object.entries(value)
+    .filter(([, text]) => typeof text === "string" && text.trim().length > 0)
+    .map(([code, text]) => ({
+      code,
+      label: languageLabels[code] ?? code.toUpperCase(),
+      text: (text ?? "").trim(),
+    }));
+}
+
+export default function AdminArtisansPage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [artisanPage, setArtisanPage] = useState(1);
+  const [applicationsPage, setApplicationsPage] = useState(1);
+  const [activeTab, setActiveTab] = useState("artisans");
+  const [viewApp, setViewApp] = useState<AdminArtisanApplication | null>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewIntent, setReviewIntent] = useState<{
+    application: AdminArtisanApplication;
+    status: ReviewAdminArtisanApplicationPayload["status"];
   } | null>(null);
-  const [editProductId, setEditProductId] = useState<string | number | null>(
-    null,
-  );
 
   // Delete product confirmation
   const [deleteProductOpen, setDeleteProductOpen] = useState(false);
@@ -105,103 +132,135 @@ export default function AdminArtisansPage() {
     artisanName: string;
   } | null>(null);
 
-  // New artisan dialog (for approved applications or manual)
-  const [createArtisanOpen, setCreateArtisanOpen] = useState(false);
-  const [newArtisan, setNewArtisan] = useState({
-    name: "",
-    specialty: "",
-    location: "",
-    description: "",
-    story: "",
-    email: "",
-    phone: "",
-    featured: false,
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      if (activeTab === "artisans") {
+        setArtisanPage(1);
+      }
+
+      if (activeTab === "applications") {
+        setApplicationsPage(1);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(id);
+  }, [activeTab, search]);
+
+  const statsQuery = useQuery({
+    queryKey: ["admin-artisan-stats"],
+    queryFn: fetchAdminArtisanStats,
   });
 
-  // New product form
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    price: "",
-    description: "",
-    category: "",
-    stock: "",
+  const artisansQuery = useQuery({
+    queryKey: ["admin-artisans", artisanPage, debouncedSearch],
+    queryFn: () =>
+      fetchAdminArtisans({
+        page: artisanPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch || undefined,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: activeTab === "artisans",
   });
 
-  const activeArtisans = artisans.filter((a) => a.status === "active");
-  const pendingApps = artisanApplications.filter((a) => a.status === "pending");
-  const allProducts = artisans.flatMap((a) =>
+  const applicationsQuery = useQuery({
+    queryKey: ["admin-artisan-applications", applicationsPage, debouncedSearch],
+    queryFn: () =>
+      fetchAdminArtisanApplications({
+        page: applicationsPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch || undefined,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: activeTab === "applications",
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: ReviewAdminArtisanApplicationPayload;
+    }) => reviewAdminArtisanApplication(id, payload),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.payload.status === "approved"
+          ? "Application approved"
+          : "Application rejected",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-artisans"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-artisan-applications"],
+      });
+      setReviewIntent(null);
+      setViewApp(null);
+      setReviewNotes("");
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to review application", {
+        description:
+          error.message || "Please retry or verify your admin authorization.",
+      });
+    },
+  });
+
+  const activeArtisansCount = statsQuery.data?.activeArtisans ?? 0;
+  const pendingApplicationsCount = statsQuery.data?.pendingApplications ?? 0;
+  const totalProductsCount = statsQuery.data?.totalProducts ?? 0;
+  const featuredArtisansCount = statsQuery.data?.featuredCount ?? 0;
+
+  const artisanRows = artisansQuery.data?.data ?? [];
+  const artisanPagination =
+    artisansQuery.data?.pagination ??
+    ({
+      total: 0,
+      page: 1,
+      limit: ITEMS_PER_PAGE,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    } as const);
+
+  const applicationRows = applicationsQuery.data?.data ?? [];
+  const applicationsPagination =
+    applicationsQuery.data?.pagination ??
+    ({
+      total: 0,
+      page: 1,
+      limit: ITEMS_PER_PAGE,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    } as const);
+
+  const allProducts = mockArtisans.flatMap((a) =>
     a.products.map((p) => ({ ...p, artisanName: a.name, artisanId: a.id })),
   );
 
-  const filteredArtisans = artisans.filter(
-    (a) =>
-      !search ||
-      a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.specialty.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const filteredApps = artisanApplications.filter(
-    (a) =>
-      !search ||
-      a.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      a.specialty.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const handleApprove = (app: ArtisanApplication) => {
-    toast.success("Application Approved", {
-      description: `${app.fullName} has been approved as an artisan.`,
-    });
-    setViewApp(null);
+  const requestReview = (
+    application: AdminArtisanApplication,
+    status: ReviewAdminArtisanApplicationPayload["status"],
+  ) => {
+    setReviewIntent({ application, status });
   };
 
-  const handleReject = (app: ArtisanApplication) => {
-    toast.error("Application Rejected", {
-      description: `${app.fullName}'s application has been rejected.`,
-    });
-    setViewApp(null);
-  };
-
-  const handleAddProduct = () => {
-    if (!newProduct.name || !newProduct.price) {
-      toast.error("Missing Fields", {
-        description: "Please fill in at least the product name and price.",
-      });
+  const submitReview = () => {
+    if (!reviewIntent) {
       return;
     }
-    toast.success("Product Added", {
-      description: `"${newProduct.name}" has been added to ${productArtisan?.name}'s catalog.`,
-    });
-    setNewProduct({
-      name: "",
-      price: "",
-      description: "",
-      category: "",
-      stock: "",
-    });
-    setAddProductOpen(false);
-  };
 
-  const handleCreateArtisan = () => {
-    if (!newArtisan.name || !newArtisan.specialty) {
-      toast.error("Missing Fields", {
-        description: "Please fill in at least the name and specialty.",
-      });
-      return;
-    }
-    toast.success("Artisan Created", {
-      description: `${newArtisan.name} has been added as an artisan.`,
+    reviewMutation.mutate({
+      id: reviewIntent.application.id,
+      payload: {
+        status: reviewIntent.status,
+        reviewNote: reviewNotes.trim() || undefined,
+      },
     });
-    setNewArtisan({
-      name: "",
-      specialty: "",
-      location: "",
-      description: "",
-      story: "",
-      email: "",
-      phone: "",
-      featured: false,
-    });
-    setCreateArtisanOpen(false);
   };
 
   return (
@@ -213,11 +272,14 @@ export default function AdminArtisansPage() {
             Artisan Management
           </h1>
           <p className="text-sm text-muted-foreground">
-            {activeArtisans.length} active artisans · {pendingApps.length}{" "}
-            pending applications · {allProducts.length} products
+            {activeArtisansCount} active artisans | {pendingApplicationsCount}{" "}
+            pending applications | {totalProductsCount} products
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setCreateArtisanOpen(true)}>
+        <Button
+          className="gap-2"
+          onClick={() => router.push("/admin/artisans/create")}
+        >
           <Plus className="h-4 w-4" /> Add Artisan
         </Button>
       </div>
@@ -227,25 +289,25 @@ export default function AdminArtisansPage() {
         {[
           {
             label: "Active Artisans",
-            value: activeArtisans.length,
+            value: activeArtisansCount,
             icon: Users,
             color: "text-primary",
           },
           {
             label: "Pending Applications",
-            value: pendingApps.length,
+            value: pendingApplicationsCount,
             icon: Clock,
             color: "text-amber-600",
           },
           {
             label: "Total Products",
-            value: allProducts.length,
+            value: totalProductsCount,
             icon: Package,
             color: "text-primary",
           },
           {
             label: "Featured Artisans",
-            value: artisans.filter((a) => a.featured).length,
+            value: featuredArtisansCount,
             icon: Star,
             color: "text-amber-500",
           },
@@ -273,9 +335,9 @@ export default function AdminArtisansPage() {
             className="gap-1.5 text-sm py-2 relative"
           >
             <Mail className="h-4 w-4" /> Applications
-            {pendingApps.length > 0 && (
+            {pendingApplicationsCount > 0 && (
               <span className="ml-1 bg-amber-500 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                {pendingApps.length}
+                {pendingApplicationsCount}
               </span>
             )}
           </TabsTrigger>
@@ -312,97 +374,159 @@ export default function AdminArtisansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredArtisans.map((a) => (
-                    <TableRow key={a.id} className="hover:bg-muted/30">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={a.image}
-                            alt={a.name}
-                            className="w-10 h-10 rounded-lg object-cover"
-                          />
-                          <div>
-                            <p className="font-medium text-foreground text-sm">
-                              {a.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {a.email}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {a.specialty}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {a.location}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-semibold text-sm">
-                        {a.products.length}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusColors[a.status]} border text-xs capitalize`}
-                        >
-                          {a.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {a.featured && (
-                          <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="gap-2"
-                              onClick={() => setViewArtisan(a)}
-                            >
-                              <Eye className="h-4 w-4" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2"
-                              onClick={() => {
-                                setProductArtisan(a);
-                                setAddProductOpen(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4" /> Add Product
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Edit className="h-4 w-4" /> Edit Artisan
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Star className="h-4 w-4" />{" "}
-                              {a.featured ? "Remove Featured" : "Mark Featured"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-destructive">
-                              <Trash2 className="h-4 w-4" /> Deactivate
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {artisansQuery.isLoading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        Loading artisans...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
+                  {!artisansQuery.isLoading && artisanRows.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No artisans found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {artisanRows.map((a) => {
+                    const status = a.isActive ? "active" : "inactive";
+
+                    return (
+                      <TableRow key={a.id} className="hover:bg-muted/30">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={toAbsoluteArtisanImage(a.image)}
+                              alt={a.name}
+                              className="w-10 h-10 rounded-lg object-cover"
+                            />
+                            <div>
+                              <p className="font-medium text-foreground text-sm">
+                                {a.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {a.email || "No email"}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {a.specialty}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {a.location || "N/A"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-semibold text-sm">
+                          {a.products?.length ?? 0}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusColors[status]} border text-xs capitalize`}
+                          >
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {a.isFeatured && (
+                            <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  router.push(`/admin/artisans/${a.id}`)
+                                }
+                              >
+                                <Eye className="h-4 w-4" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/artisans/${a.id}/add-product`,
+                                  )
+                                }
+                              >
+                                <Plus className="h-4 w-4" /> Add Product
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  router.push(`/admin/artisans/${a.id}/edit`)
+                                }
+                              >
+                                <Edit className="h-4 w-4" /> Edit Artisan
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="gap-2 text-destructive">
+                                <Trash2 className="h-4 w-4" /> Deactivate
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           </div>
+
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row mt-4">
+            <p className="text-xs font-medium text-muted-foreground">
+              Showing page {artisanPagination.page} of {artisanPagination.pages}{" "}
+              ( {artisanPagination.total} total artisans)
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={
+                  !artisanPagination.hasPrev || artisansQuery.isFetching
+                }
+                onClick={() => setArtisanPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={
+                  !artisanPagination.hasNext || artisansQuery.isFetching
+                }
+                onClick={() => setArtisanPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+
+          {artisansQuery.isError && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive mt-4">
+              Failed to load artisans. Please refresh or verify your admin
+              authorization.
+            </div>
+          )}
         </TabsContent>
 
         {/* Applications Tab */}
@@ -421,7 +545,28 @@ export default function AdminArtisansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredApps.map((app) => (
+                  {applicationsQuery.isLoading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        Loading applications...
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!applicationsQuery.isLoading &&
+                    applicationRows.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No applications found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  {applicationRows.map((app) => (
                     <TableRow key={app.id} className="hover:bg-muted/30">
                       <TableCell>
                         <div>
@@ -442,7 +587,9 @@ export default function AdminArtisansPage() {
                         {app.location}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {app.appliedDate}
+                        {app.createdAt
+                          ? new Date(app.createdAt).toLocaleDateString()
+                          : "N/A"}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -473,13 +620,13 @@ export default function AdminArtisansPage() {
                               <>
                                 <DropdownMenuItem
                                   className="gap-2"
-                                  onClick={() => handleApprove(app)}
+                                  onClick={() => requestReview(app, "approved")}
                                 >
                                   <CheckCircle className="h-4 w-4" /> Approve
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="gap-2 text-destructive"
-                                  onClick={() => handleReject(app)}
+                                  onClick={() => requestReview(app, "rejected")}
                                 >
                                   <XCircle className="h-4 w-4" /> Reject
                                 </DropdownMenuItem>
@@ -490,20 +637,47 @@ export default function AdminArtisansPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredApps.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center py-8 text-muted-foreground"
-                      >
-                        No applications found.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </div>
           </div>
+
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row mt-4">
+            <p className="text-xs font-medium text-muted-foreground">
+              Showing page {applicationsPagination.page} of{" "}
+              {applicationsPagination.pages} ({applicationsPagination.total}{" "}
+              total applications)
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={
+                  !applicationsPagination.hasPrev ||
+                  applicationsQuery.isFetching
+                }
+                onClick={() => setApplicationsPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={
+                  !applicationsPagination.hasNext ||
+                  applicationsQuery.isFetching
+                }
+                onClick={() => setApplicationsPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+
+          {applicationsQuery.isError && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive mt-4">
+              Failed to load applications. Please refresh or verify your admin
+              authorization.
+            </div>
+          )}
         </TabsContent>
 
         {/* Products Tab */}
@@ -562,7 +736,7 @@ export default function AdminArtisansPage() {
                           {p.price.toLocaleString()} RWF
                         </TableCell>
                         <TableCell className="text-sm">
-                          {p.stock ?? "—"}
+                          {p.stock ?? "â€”"}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -578,17 +752,11 @@ export default function AdminArtisansPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 className="gap-2"
-                                onClick={() => {
-                                  setEditProductId(p.id);
-                                  setEditProduct({
-                                    name: p.name,
-                                    price: String(p.price),
-                                    description: p.description,
-                                    category: p.category || "",
-                                    stock: String(p.stock ?? ""),
-                                  });
-                                  setEditProductOpen(true);
-                                }}
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/artisans/${p.artisanId}/products/${p.id}/edit`,
+                                  )
+                                }
                               >
                                 <Edit className="h-4 w-4" /> Edit
                               </DropdownMenuItem>
@@ -661,12 +829,15 @@ export default function AdminArtisansPage() {
                           {viewApp.location}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Applied: {viewApp.appliedDate}
-                        </span>
-                      </div>
+                      {viewApp.createdAt && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            Applied:{" "}
+                            {new Date(viewApp.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -687,10 +858,10 @@ export default function AdminArtisansPage() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">
-                          Experience
+                          Phone
                         </p>
                         <p className="text-sm text-foreground">
-                          {viewApp.experience}
+                          {viewApp.phone || "N/A"}
                         </p>
                       </div>
                       <div>
@@ -707,7 +878,7 @@ export default function AdminArtisansPage() {
                   </Card>
                 </div>
 
-                {/* Bio */}
+                {/* Short Description */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -715,28 +886,80 @@ export default function AdminArtisansPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {viewApp.bio}
-                    </p>
+                    {getProvidedTranslations(viewApp.shortDescription).length >
+                    0 ? (
+                      <div className="space-y-3">
+                        {getProvidedTranslations(viewApp.shortDescription).map(
+                          (entry) => (
+                            <div key={`short-${entry.code}`}>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                {entry.label}
+                              </p>
+                              <p className="text-sm text-foreground leading-relaxed mt-1">
+                                {entry.text}
+                              </p>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No short description provided.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
-                {/* Portfolio */}
+                {/* Full Story */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Portfolio Description
+                      Full Story
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {viewApp.portfolioDescription}
-                    </p>
+                    {getProvidedTranslations(viewApp.fullStory).length > 0 ? (
+                      <div className="space-y-3">
+                        {getProvidedTranslations(viewApp.fullStory).map(
+                          (entry) => (
+                            <div key={`story-${entry.code}`}>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                {entry.label}
+                              </p>
+                              <p className="text-sm text-foreground leading-relaxed mt-1">
+                                {entry.text}
+                              </p>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No full story provided.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
+                {viewApp.profileImage && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Profile Image
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <img
+                        src={toAbsoluteArtisanImage(viewApp.profileImage)}
+                        alt={viewApp.fullName}
+                        className="w-32 h-32 rounded-xl object-cover border border-border"
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Review Notes (if reviewed) */}
-                {viewApp.reviewNotes && (
+                {viewApp.reviewNote && (
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -745,11 +968,12 @@ export default function AdminArtisansPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-foreground">
-                        {viewApp.reviewNotes}
+                        {viewApp.reviewNote}
                       </p>
-                      {viewApp.reviewedDate && (
+                      {viewApp.reviewedAt && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          Reviewed on {viewApp.reviewedDate}
+                          Reviewed on{" "}
+                          {new Date(viewApp.reviewedAt).toLocaleString()}
                         </p>
                       )}
                     </CardContent>
@@ -773,13 +997,13 @@ export default function AdminArtisansPage() {
                       <Button
                         variant="outline"
                         className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
-                        onClick={() => handleReject(viewApp)}
+                        onClick={() => requestReview(viewApp, "rejected")}
                       >
                         <XCircle className="h-4 w-4" /> Reject Application
                       </Button>
                       <Button
                         className="gap-1.5"
-                        onClick={() => handleApprove(viewApp)}
+                        onClick={() => requestReview(viewApp, "approved")}
                       >
                         <CheckCircle className="h-4 w-4" /> Approve & Create
                         Artisan
@@ -793,453 +1017,56 @@ export default function AdminArtisansPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View Artisan Details Dialog */}
-      <Dialog open={!!viewArtisan} onOpenChange={() => setViewArtisan(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {viewArtisan && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-heading text-xl">
-                  {viewArtisan.name}
-                </DialogTitle>
-                <DialogDescription>
-                  {viewArtisan.specialty} · {viewArtisan.location}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-5 mt-4">
-                <div className="flex items-start gap-4">
-                  <img
-                    src={viewArtisan.image}
-                    alt={viewArtisan.name}
-                    className="w-24 h-24 rounded-xl object-cover"
-                  />
-                  <div className="flex-1 space-y-2">
-                    <p className="text-sm text-foreground">
-                      {viewArtisan.description}
-                    </p>
-                    <div className="flex gap-4 text-xs text-muted-foreground">
-                      {viewArtisan.email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {viewArtisan.email}
-                        </span>
-                      )}
-                      {viewArtisan.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {viewArtisan.phone}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        className={`${statusColors[viewArtisan.status]} border text-xs capitalize`}
-                      >
-                        {viewArtisan.status}
-                      </Badge>
-                      {viewArtisan.featured && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs gap-1 border-amber-500/30 text-amber-600"
-                        >
-                          <Star className="h-3 w-3 fill-amber-500" /> Featured
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-foreground text-sm">
-                      Products ({viewArtisan.products.length})
-                    </h3>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-xs"
-                      onClick={() => {
-                        setProductArtisan(viewArtisan);
-                        setAddProductOpen(true);
-                        setViewArtisan(null);
-                      }}
-                    >
-                      <Plus className="h-3 w-3" /> Add Product
-                    </Button>
-                  </div>
-                  <div className="grid gap-3">
-                    {viewArtisan.products.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl"
-                      >
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          className="w-12 h-12 rounded-lg object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {p.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {p.description}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-foreground">
-                            {p.price.toLocaleString()} RWF
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Stock: {p.stock ?? "—"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="font-semibold text-foreground text-sm mb-2">
-                    Story
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {viewArtisan.story}
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Product Dialog */}
-      <Dialog open={addProductOpen} onOpenChange={setAddProductOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-heading">
-              Add Product for {productArtisan?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Create a new product and assign it to this artisan's catalog.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <MultiLangInput
-              label="Product Name"
-              value={{ en: newProduct.name, rw: "", fr: "", sw: "" }}
-              onChange={(v) => setNewProduct((p) => ({ ...p, name: v.en }))}
-              placeholder="e.g., Handwoven Peace Basket"
-              required
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Price (RWF) *</Label>
-                <Input
-                  type="number"
-                  value={newProduct.price}
-                  onChange={(e) =>
-                    setNewProduct((p) => ({ ...p, price: e.target.value }))
-                  }
-                  placeholder="25000"
-                />
-              </div>
-              <div>
-                <Label>Stock</Label>
-                <Input
-                  type="number"
-                  value={newProduct.stock}
-                  onChange={(e) =>
-                    setNewProduct((p) => ({ ...p, stock: e.target.value }))
-                  }
-                  placeholder="10"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Category</Label>
-              <Select
-                value={newProduct.category}
-                onValueChange={(v) =>
-                  setNewProduct((p) => ({ ...p, category: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Baskets">Baskets</SelectItem>
-                  <SelectItem value="Sculptures">Sculptures</SelectItem>
-                  <SelectItem value="Pottery">Pottery</SelectItem>
-                  <SelectItem value="Kitchenware">Kitchenware</SelectItem>
-                  <SelectItem value="Candles">Candles</SelectItem>
-                  <SelectItem value="Skincare">Skincare</SelectItem>
-                  <SelectItem value="Textiles">Textiles</SelectItem>
-                  <SelectItem value="Jewelry">Jewelry</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <MultiLangInput
-              label="Description"
-              value={{ en: newProduct.description, rw: "", fr: "", sw: "" }}
-              onChange={(v) =>
-                setNewProduct((p) => ({ ...p, description: v.en }))
+      <AlertDialog
+        open={reviewIntent !== null}
+        onOpenChange={(open) => {
+          if (!open && !reviewMutation.isPending) {
+            setReviewIntent(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {reviewIntent?.status === "approved"
+                ? "Approve application?"
+                : "Reject application?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {reviewIntent?.status === "approved"
+                ? "This will approve the application and automatically create an artisan profile for the applicant."
+                : "This will reject the application."}{" "}
+              Please confirm that this is what you intended for
+              <span className="font-semibold text-foreground">
+                {` ${reviewIntent?.application.fullName ?? "this applicant"}`}
+              </span>
+              .
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reviewMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={
+                reviewIntent?.status === "rejected"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : undefined
               }
-              placeholder="Describe the product, materials used, crafting process..."
-              type="textarea"
-              rows={3}
-            />
-            <div>
-              <Label>Product Image</Label>
-              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                <ImagePlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Click to upload or drag & drop
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG up to 5MB
-                </p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddProductOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddProduct} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Add Product
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Artisan Dialog */}
-      <Dialog open={createArtisanOpen} onOpenChange={setCreateArtisanOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading">Add New Artisan</DialogTitle>
-            <DialogDescription>
-              Manually create an artisan profile. Fields here populate the
-              public artisan profile page.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label>Full Name *</Label>
-              <Input
-                value={newArtisan.name}
-                onChange={(e) =>
-                  setNewArtisan((a) => ({ ...a, name: e.target.value }))
-                }
-                placeholder="Artisan's full name"
-              />
-            </div>
-            <div>
-              <Label>Specialty *</Label>
-              <Input
-                value={newArtisan.specialty}
-                onChange={(e) =>
-                  setNewArtisan((a) => ({ ...a, specialty: e.target.value }))
-                }
-                placeholder="e.g., Basket Weaving, Pottery"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={newArtisan.email}
-                  onChange={(e) =>
-                    setNewArtisan((a) => ({ ...a, email: e.target.value }))
-                  }
-                  placeholder="email@example.com"
-                />
-              </div>
-              <div>
-                <Label>Phone</Label>
-                <Input
-                  value={newArtisan.phone}
-                  onChange={(e) =>
-                    setNewArtisan((a) => ({ ...a, phone: e.target.value }))
-                  }
-                  placeholder="+250 7XX XXX XXX"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Location *</Label>
-              <Input
-                value={newArtisan.location}
-                onChange={(e) =>
-                  setNewArtisan((a) => ({ ...a, location: e.target.value }))
-                }
-                placeholder="e.g., Musanze District"
-              />
-            </div>
-            <MultiLangInput
-              label="Short Description"
-              value={{ en: newArtisan.description, rw: "", fr: "", sw: "" }}
-              onChange={(v) =>
-                setNewArtisan((a) => ({ ...a, description: v.en }))
-              }
-              placeholder="Brief description shown on community listing..."
-              required
-              type="textarea"
-              rows={2}
-            />
-            <MultiLangInput
-              label="Full Story"
-              value={{ en: newArtisan.story, rw: "", fr: "", sw: "" }}
-              onChange={(v) => setNewArtisan((a) => ({ ...a, story: v.en }))}
-              placeholder="The artisan's background, journey, and craft philosophy..."
-              type="textarea"
-              rows={4}
-            />
-            <div>
-              <Label>Profile Image</Label>
-              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                <ImagePlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Click to upload profile photo
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG up to 5MB
-                </p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCreateArtisanOpen(false)}
+              disabled={reviewMutation.isPending}
+              onClick={submitReview}
             >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateArtisan} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Create Artisan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Product Dialog */}
-      <Dialog open={editProductOpen} onOpenChange={setEditProductOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-heading">Edit Product</DialogTitle>
-            <DialogDescription>
-              Update the product details below.
-            </DialogDescription>
-          </DialogHeader>
-          {editProduct && (
-            <div className="space-y-4 mt-2">
-              <MultiLangInput
-                label="Product Name"
-                value={{ en: editProduct.name, rw: "", fr: "", sw: "" }}
-                onChange={(v) =>
-                  setEditProduct((p) => (p ? { ...p, name: v.en } : p))
-                }
-                placeholder="Product name"
-                required
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Price (RWF) *</Label>
-                  <Input
-                    type="number"
-                    value={editProduct.price}
-                    onChange={(e) =>
-                      setEditProduct((p) =>
-                        p ? { ...p, price: e.target.value } : p,
-                      )
-                    }
-                    placeholder="25000"
-                  />
-                </div>
-                <div>
-                  <Label>Stock</Label>
-                  <Input
-                    type="number"
-                    value={editProduct.stock}
-                    onChange={(e) =>
-                      setEditProduct((p) =>
-                        p ? { ...p, stock: e.target.value } : p,
-                      )
-                    }
-                    placeholder="10"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Select
-                  value={editProduct.category}
-                  onValueChange={(v) =>
-                    setEditProduct((p) => (p ? { ...p, category: v } : p))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Baskets">Baskets</SelectItem>
-                    <SelectItem value="Sculptures">Sculptures</SelectItem>
-                    <SelectItem value="Pottery">Pottery</SelectItem>
-                    <SelectItem value="Kitchenware">Kitchenware</SelectItem>
-                    <SelectItem value="Candles">Candles</SelectItem>
-                    <SelectItem value="Skincare">Skincare</SelectItem>
-                    <SelectItem value="Textiles">Textiles</SelectItem>
-                    <SelectItem value="Jewelry">Jewelry</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <MultiLangInput
-                label="Description"
-                value={{ en: editProduct.description, rw: "", fr: "", sw: "" }}
-                onChange={(v) =>
-                  setEditProduct((p) => (p ? { ...p, description: v.en } : p))
-                }
-                placeholder="Product description..."
-                type="textarea"
-                rows={3}
-              />
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditProductOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (!editProduct?.name || !editProduct?.price) {
-                  toast.error("Missing Fields", {
-                    description:
-                      "Please fill in at least the product name and price.",
-                  });
-                  return;
-                }
-                toast.success("Product Updated", {
-                  description: `"${editProduct.name}" has been updated successfully.`,
-                });
-                setEditProductOpen(false);
-                setEditProduct(null);
-                setEditProductId(null);
-              }}
-              className="gap-1.5"
-            >
-              <Save className="h-4 w-4" /> Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {reviewMutation.isPending
+                ? reviewIntent?.status === "approved"
+                  ? "Approving..."
+                  : "Rejecting..."
+                : reviewIntent?.status === "approved"
+                  ? "Yes, approve"
+                  : "Yes, reject"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Product Confirmation Dialog */}
       <Dialog open={deleteProductOpen} onOpenChange={setDeleteProductOpen}>

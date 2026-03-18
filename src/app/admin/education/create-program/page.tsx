@@ -1517,7 +1517,7 @@ export default function CreateProgramPage() {
                 {/* Live Preview */}
                 <div>
                   <Label className="mb-3 block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Live Preview
+                    Live Previews
                   </Label>
                   <div
                     className="border-8 border-double rounded-2xl p-8 text-center space-y-4 bg-card shadow-lg relative overflow-hidden"

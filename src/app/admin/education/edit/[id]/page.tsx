@@ -1750,8 +1750,7 @@ export default function Page() {
                           className="h-12 object-contain"
                         />
                       ) : (
-                        <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                          <Leaf className="h-6 w-6 text-primary-foreground" />
+                        <div>
                         </div>
                       )}
                     </div>
@@ -1818,7 +1817,7 @@ export default function Page() {
             </h2>
             <div>
               <Label>
-                Status <NotPersistedBadge />
+                Status
               </Label>
               <Select
                 value={formStatus}
