@@ -2,11 +2,21 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const ADMIN_ROLES = new Set(["admin", "staff", "manager", "member"]);
 
+// Public pages under /admin that do not require authentication
+const ADMIN_PUBLIC_PATHS = new Set(["/admin/accept-invite"]);
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!pathname.startsWith("/admin")) {
     return NextResponse.next();
+  }
+
+  // Allow public admin pages through without auth checks
+  if (ADMIN_PUBLIC_PATHS.has(pathname)) {
+    const response = NextResponse.next();
+    response.headers.set("x-pathname", pathname);
+    return response;
   }
 
   const isAuthenticated =
@@ -23,7 +33,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.headers.set("x-pathname", pathname);
+  return response;
 }
 
 export const config = {
