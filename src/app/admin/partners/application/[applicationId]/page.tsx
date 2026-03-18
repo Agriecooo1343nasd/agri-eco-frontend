@@ -1,23 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import type { PartnerApplication } from "@/data/community";
 import {
-  createPartnerFromApplication,
-  getPartnerApplications,
-  getPartners,
-  savePartnerApplications,
-  savePartners,
-} from "@/lib/partner-store";
+  fetchAdminPartnerApplicationById,
+  reviewAdminPartnerApplication,
+  type AdminPartnerApplication,
+} from "@/lib/api/partners";
 
 const statusBadge: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -25,48 +23,78 @@ const statusBadge: Record<string, string> = {
   rejected: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
+const formatDate = (date?: string | Date) => {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
 export default function PartnerApplicationDetailPage() {
   const params = useParams<{ applicationId: string }>();
   const router = useRouter();
-  const [applications, setApplications] = useState<PartnerApplication[]>(() =>
-    getPartnerApplications(),
-  );
-  const [reviewNotes, setReviewNotes] = useState(() => {
-    const current = getPartnerApplications().find(
-      (entry) => entry.id === params.applicationId,
-    );
-    return current?.reviewNotes || "";
+  const queryClient = useQueryClient();
+  const [reviewNotes, setReviewNotes] = useState("");
+
+  const {
+    data: application,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["admin-partner-application", params.applicationId],
+    queryFn: () => fetchAdminPartnerApplicationById(params.applicationId),
   });
 
-  const application = useMemo(
-    () => applications.find((entry) => entry.id === params.applicationId),
-    [applications, params.applicationId],
-  );
+  const reviewMutation = useMutation({
+    mutationFn: async ({
+      status,
+      notes,
+    }: {
+      status: "approved" | "rejected";
+      notes: string;
+    }) => {
+      return reviewAdminPartnerApplication(params.applicationId, {
+        status,
+        reviewNote: notes || undefined,
+      });
+    },
+    onError: (err: any) => {
+      const message =
+        err?.response?.data?.message || "Failed to review application";
+      toast.error(message);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({
+        queryKey: ["admin-partner-applications"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-partner-application"],
+      });
+
+      if (result.status === "approved") {
+        toast.success("Application Approved", {
+          description: `${result.businessName} was approved and added as a partner.`,
+        });
+      } else {
+        toast.error("Application Rejected", {
+          description: `${result.businessName} was rejected.`,
+        });
+      }
+
+      setTimeout(() => {
+        router.push("/admin/partners/application");
+      }, 500);
+    },
+  });
 
   const handleApprove = () => {
     if (!application) return;
-
-    const approved: PartnerApplication = {
-      ...application,
+    reviewMutation.mutate({
       status: "approved",
-      reviewedDate: new Date().toISOString().slice(0, 10),
-      reviewNotes: reviewNotes || "Approved by admin.",
-    };
-
-    const nextApplications = applications.map((entry) =>
-      entry.id === application.id ? approved : entry,
-    );
-    setApplications(nextApplications);
-    savePartnerApplications(nextApplications);
-
-    const partners = getPartners();
-    const nextPartner = createPartnerFromApplication(approved);
-    savePartners([nextPartner, ...partners]);
-
-    toast.success("Application Approved", {
-      description: `${application.businessName} was approved and added as a partner.`,
+      notes: reviewNotes || "Approved by admin.",
     });
-    router.push("/admin/partners");
   };
 
   const handleReject = () => {
@@ -75,27 +103,21 @@ export default function PartnerApplicationDetailPage() {
       toast.error("Review notes are required for rejection.");
       return;
     }
-
-    const rejected: PartnerApplication = {
-      ...application,
+    reviewMutation.mutate({
       status: "rejected",
-      reviewedDate: new Date().toISOString().slice(0, 10),
-      reviewNotes,
-    };
-
-    const nextApplications = applications.map((entry) =>
-      entry.id === application.id ? rejected : entry,
-    );
-    setApplications(nextApplications);
-    savePartnerApplications(nextApplications);
-
-    toast.error("Application Rejected", {
-      description: `${application.businessName} was rejected.`,
+      notes: reviewNotes,
     });
-    router.push("/admin/partners");
   };
 
-  if (!application) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !application) {
     return (
       <div className="space-y-4">
         <Button variant="outline" size="sm" asChild>
@@ -105,7 +127,7 @@ export default function PartnerApplicationDetailPage() {
         </Button>
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
-            Application not found. It may have been removed from local data.
+            Application not found or failed to load.
           </CardContent>
         </Card>
       </div>
@@ -134,7 +156,7 @@ export default function PartnerApplicationDetailPage() {
             <h2 className="text-sm font-semibold">Applicant Information</h2>
             <p>
               <span className="text-muted-foreground">Contact:</span>{" "}
-              {application.contactPerson}
+              {application.contactName}
             </p>
             <p>
               <span className="text-muted-foreground">Email:</span>{" "}
@@ -142,15 +164,15 @@ export default function PartnerApplicationDetailPage() {
             </p>
             <p>
               <span className="text-muted-foreground">Phone:</span>{" "}
-              {application.phone}
+              {application.phone || "-"}
             </p>
             <p>
               <span className="text-muted-foreground">Type:</span>{" "}
-              {application.type}
+              {application.businessType}
             </p>
             <p>
               <span className="text-muted-foreground">Applied:</span>{" "}
-              {application.appliedDate}
+              {formatDate(application.createdAt)}
             </p>
             <Badge
               className={`${statusBadge[application.status]} text-[10px] capitalize`}
@@ -164,43 +186,70 @@ export default function PartnerApplicationDetailPage() {
           <CardContent className="p-4 space-y-2 text-xs">
             <h2 className="text-sm font-semibold">Business Summary</h2>
             <p className="text-muted-foreground leading-relaxed">
-              {application.aboutBusiness}
+              {application.description || "-"}
             </p>
-            {application.reviewedDate && (
-              <p>
-                <span className="text-muted-foreground">Reviewed:</span>{" "}
-                {application.reviewedDate}
-              </p>
+            {application.reviewedAt && (
+              <>
+                <p>
+                  <span className="text-muted-foreground">Reviewed:</span>{" "}
+                  {formatDate(application.reviewedAt)}
+                </p>
+                {application.reviewNote && (
+                  <p>
+                    <span className="text-muted-foreground">Note:</span>{" "}
+                    {application.reviewNote}
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="p-4 space-y-2">
-          <Label className="text-[11px]">Review Notes</Label>
-          <Textarea
-            rows={4}
-            className="text-xs"
-            value={reviewNotes}
-            onChange={(event) => setReviewNotes(event.target.value)}
-            placeholder="Add approval/rejection rationale"
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button className="text-xs" onClick={handleApprove}>
-              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve and Create
-              Partner
-            </Button>
-            <Button
-              variant="destructive"
+      {application.status === "pending" && (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <Label className="text-[11px]">Review Notes</Label>
+            <Textarea
+              rows={4}
               className="text-xs"
-              onClick={handleReject}
-            >
-              <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              value={reviewNotes}
+              onChange={(event) => setReviewNotes(event.target.value)}
+              placeholder="Add approval/rejection rationale"
+              disabled={reviewMutation.isPending}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="text-xs"
+                onClick={handleApprove}
+                disabled={reviewMutation.isPending}
+              >
+                {reviewMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                )}
+                {reviewMutation.isPending
+                  ? "Processing..."
+                  : "Approve and Create Partner"}
+              </Button>
+              <Button
+                variant="destructive"
+                className="text-xs"
+                onClick={handleReject}
+                disabled={reviewMutation.isPending}
+              >
+                {reviewMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                )}
+                {reviewMutation.isPending ? "Processing..." : "Reject"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

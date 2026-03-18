@@ -181,7 +181,7 @@ export default function AdminMembers() {
         ].map((stat, i) => (
           <Card key={i} className="border-border">
             <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-muted/30 flex items-center justify-center text-muted-foreground">
+              <div className="w-11 h-11 rounded-sm bg-muted/30 flex items-center justify-center text-muted-foreground">
                 <stat.icon className="h-5 w-5" />
               </div>
               <div className="space-y-1">

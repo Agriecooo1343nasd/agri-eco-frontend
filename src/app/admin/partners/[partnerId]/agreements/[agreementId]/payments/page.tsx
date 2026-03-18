@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Banknote, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -26,118 +27,156 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { usePricing } from "@/context/PricingContext";
-import type { Partner, PartnerPayoutRecord } from "@/data/community";
-import { createPayoutRecord, getPartners, savePartners } from "@/lib/partner-store";
+import {
+  createAdminAgreementPayout,
+  fetchAdminAgreementPayments,
+  fetchAdminPartnerAgreements,
+  fetchAdminPartnerById,
+  type AdminAgreementPayoutStatus,
+} from "@/lib/api/partners";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
-const payoutBadge: Record<string, string> = {
+const payoutBadge: Record<AdminAgreementPayoutStatus, string> = {
   paid: "bg-primary/10 text-primary border-primary/20",
   pending: "bg-amber-100 text-amber-700 border-amber-200",
-  failed: "bg-destructive/10 text-destructive border-destructive/20",
 };
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-RW", {
+    style: "currency",
+    currency: "RWF",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export default function AdminAgreementPaymentsPage() {
   const params = useParams<{ partnerId: string; agreementId: string }>();
-  const { formatPrice } = usePricing();
+  const queryClient = useQueryClient();
 
-  const [partners, setPartners] = useState<Partner[]>(() => getPartners());
+  const partnerId = params.partnerId;
+  const agreementId = params.agreementId;
+
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<"all" | AdminAgreementPayoutStatus>("all");
   const [payoutFormOpen, setPayoutFormOpen] = useState(false);
   const [payoutForm, setPayoutForm] = useState({
     amount: "",
     date: new Date().toISOString().slice(0, 10),
     period: "",
     notes: "",
-    status: "paid" as PartnerPayoutRecord["status"],
+    status: "paid" as AdminAgreementPayoutStatus,
   });
 
-  const partner = useMemo(
-    () => partners.find((entry) => entry.id === params.partnerId),
-    [partners, params.partnerId],
+  const partnerQuery = useQuery({
+    queryKey: ["admin-partner", partnerId],
+    queryFn: () => fetchAdminPartnerById(partnerId),
+    enabled: Boolean(partnerId),
+  });
+
+  const agreementsQuery = useQuery({
+    queryKey: ["admin-partner-agreements", partnerId],
+    queryFn: () => fetchAdminPartnerAgreements(partnerId),
+    enabled: Boolean(partnerId),
+  });
+
+  const paymentsQuery = useQuery({
+    queryKey: [
+      "admin-agreement-payments",
+      partnerId,
+      agreementId,
+      page,
+      statusFilter,
+    ],
+    queryFn: () =>
+      fetchAdminAgreementPayments(partnerId, agreementId, {
+        page,
+        limit: PAGE_SIZE,
+        sort: "date",
+        order: "desc",
+        status: statusFilter === "all" ? undefined : statusFilter,
+      }),
+    enabled: Boolean(partnerId && agreementId),
+  });
+
+  const recordPayoutMutation = useMutation({
+    mutationFn: () => {
+      const amount = Number(payoutForm.amount);
+
+      if (!payoutForm.period.trim() || !payoutForm.date || Number.isNaN(amount)) {
+        throw new Error("Amount, date, and period are required.");
+      }
+
+      if (amount < 0) {
+        throw new Error("Amount must be zero or greater.");
+      }
+
+      return createAdminAgreementPayout(partnerId, agreementId, {
+        amount,
+        period: payoutForm.period.trim(),
+        date: payoutForm.date,
+        status: payoutForm.status,
+        notes: payoutForm.notes.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Payout recorded");
+      setPayoutFormOpen(false);
+      setPayoutForm({
+        amount: "",
+        date: new Date().toISOString().slice(0, 10),
+        period: "",
+        notes: "",
+        status: "paid",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-agreement-payments", partnerId, agreementId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to record payout", {
+        description: error.message || "Please review values and try again.",
+      });
+    },
+  });
+
+  const partner = partnerQuery.data;
+  const agreement = useMemo(
+    () => agreementsQuery.data?.find((entry) => entry.id === agreementId) ?? null,
+    [agreementsQuery.data, agreementId],
   );
 
-  const agreement = partner?.agreements.find(
-    (entry) => entry.id === params.agreementId,
-  ) || null;
-
-  const payouts = useMemo(() => {
-    if (!partner || !agreement) return [];
-    return (partner.payouts ?? [])
-      .filter((entry) => entry.agreementId === agreement.id)
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [partner, agreement]);
-
-  const totalPages = Math.max(1, Math.ceil(payouts.length / PAGE_SIZE));
-
-  const paginatedPayouts = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return payouts.slice(start, start + PAGE_SIZE);
-  }, [payouts, page]);
-
-  const totalPaid = payouts
-    .filter((entry) => entry.status === "paid")
-    .reduce((sum, entry) => sum + entry.amount, 0);
-
-  const commitPartners = (next: Partner[]) => {
-    setPartners(next);
-    savePartners(next);
+  const result = paymentsQuery.data;
+  const payouts = result?.data ?? [];
+  const pagination = result?.pagination;
+  const summary = result?.summary ?? {
+    totalPaid: 0,
+    records: 0,
+    payoutCycle: agreement?.payoutCycle,
   };
 
-  const updatePartnerInList = (updated: Partner) => {
-    commitPartners(
-      partners.map((entry) => (entry.id === updated.id ? updated : entry)),
+  if (partnerQuery.isLoading || agreementsQuery.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Button variant="outline" asChild>
+          <Link href={`/admin/partners/${partnerId}`}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner
+          </Link>
+        </Button>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Loading agreement payouts...
+          </CardContent>
+        </Card>
+      </div>
     );
-  };
-
-  const handleRecordPayout = () => {
-    if (!partner || !agreement) return;
-
-    if (!payoutForm.amount || !payoutForm.period) {
-      toast.error("Amount and period are required.");
-      return;
-    }
-
-    const record = createPayoutRecord(
-      Number(payoutForm.amount),
-      payoutForm.period,
-      agreement.id,
-      agreement.title,
-      payoutForm.notes || undefined,
-    );
-    record.status = payoutForm.status;
-    record.date = payoutForm.date;
-
-    const updated: Partner = {
-      ...partner,
-      payouts: [record, ...(partner.payouts ?? [])],
-      lastPayoutDate:
-        payoutForm.status === "paid" ? payoutForm.date : partner.lastPayoutDate,
-    };
-
-    updatePartnerInList(updated);
-    setPayoutFormOpen(false);
-    setPayoutForm({
-      amount: "",
-      date: new Date().toISOString().slice(0, 10),
-      period: "",
-      notes: "",
-      status: "paid",
-    });
-
-    toast.success("Payout Recorded", {
-      description: `${formatPrice(
-        Number(payoutForm.amount),
-      )} for ${payoutForm.period} recorded.`,
-    });
-  };
+  }
 
   if (!partner || !agreement) {
     return (
       <div className="space-y-4">
         <Button variant="outline" asChild>
-          <Link href={`/admin/partners/${params.partnerId}`}>
+          <Link href={`/admin/partners/${partnerId}`}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner
           </Link>
         </Button>
@@ -159,11 +198,9 @@ export default function AdminAgreementPaymentsPage() {
               <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold font-heading mt-3">
-            Agreement Payouts
-          </h1>
+          <h1 className="text-2xl font-bold font-heading mt-3">Agreement Payouts</h1>
           <p className="text-xs text-muted-foreground">
-            {agreement.title} · {partner.businessName}
+            {agreement.title} - {partner.name}
           </p>
         </div>
         <Badge className="text-[10px] capitalize">{agreement.status}</Badge>
@@ -175,7 +212,7 @@ export default function AdminAgreementPaymentsPage() {
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Total Paid
             </p>
-            <p className="text-lg font-bold">{formatPrice(totalPaid)}</p>
+            <p className="text-lg font-bold">{formatCurrency(summary.totalPaid)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -183,7 +220,7 @@ export default function AdminAgreementPaymentsPage() {
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Records
             </p>
-            <p className="text-lg font-bold">{payouts.length}</p>
+            <p className="text-lg font-bold">{summary.records}</p>
           </CardContent>
         </Card>
         <Card>
@@ -192,7 +229,7 @@ export default function AdminAgreementPaymentsPage() {
               Payout Cycle
             </p>
             <p className="text-sm font-bold capitalize flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> {partner.payoutCycle}
+              <Clock className="h-3.5 w-3.5" /> {summary.payoutCycle ?? agreement.payoutCycle}
             </p>
           </CardContent>
         </Card>
@@ -200,35 +237,53 @@ export default function AdminAgreementPaymentsPage() {
 
       <Card>
         <CardContent className="p-5 space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <Banknote className="h-4 w-4" /> Agreement Payments
             </h2>
-            <Button
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => setPayoutFormOpen(true)}
-            >
-              Record Payout
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select
+                value={statusFilter}
+                onValueChange={(value: "all" | AdminAgreementPayoutStatus) => {
+                  setPage(1);
+                  setStatusFilter(value);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[140px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => setPayoutFormOpen(true)}
+              >
+                Record Payout
+              </Button>
+            </div>
           </div>
 
-          {paginatedPayouts.length === 0 ? (
+          {paymentsQuery.isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading payments...</p>
+          ) : payouts.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No payments recorded yet for this agreement.
             </p>
           ) : (
             <div className="space-y-2">
-              {paginatedPayouts.map((payout) => (
+              {payouts.map((payout) => (
                 <div
                   key={payout.id}
                   className="border border-border rounded-lg p-3 flex flex-wrap items-center justify-between gap-2"
                 >
                   <div className="space-y-0.5 min-w-0">
                     <p className="text-xs font-semibold">{payout.period}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {payout.date}
-                    </p>
+                    <p className="text-[11px] text-muted-foreground">{payout.date}</p>
                     {payout.notes && (
                       <p className="text-[11px] text-muted-foreground italic">
                         {payout.notes}
@@ -237,7 +292,7 @@ export default function AdminAgreementPaymentsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="text-sm font-bold text-foreground">
-                      {formatPrice(payout.amount)}
+                      {formatCurrency(payout.amount)}
                     </p>
                     <Badge
                       className={`text-[10px] capitalize border ${payoutBadge[payout.status]}`}
@@ -252,14 +307,14 @@ export default function AdminAgreementPaymentsPage() {
 
           <div className="flex items-center justify-between border-t border-border pt-3">
             <p className="text-xs text-muted-foreground">
-              Page {page} of {totalPages}
+              Page {pagination?.page ?? page} of {pagination?.pages ?? 1}
             </p>
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs"
-                disabled={page <= 1}
+                disabled={!pagination?.hasPrev}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               >
                 Previous
@@ -268,10 +323,8 @@ export default function AdminAgreementPaymentsPage() {
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs"
-                disabled={page >= totalPages}
-                onClick={() =>
-                  setPage((prev) => Math.min(totalPages, prev + 1))
-                }
+                disabled={!pagination?.hasNext}
+                onClick={() => setPage((prev) => prev + 1)}
               >
                 Next
               </Button>
@@ -290,7 +343,7 @@ export default function AdminAgreementPaymentsPage() {
           </DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label>Amount (RWF)</Label>
+              <Label>Amount (RWF) *</Label>
               <Input
                 type="number"
                 min="0"
@@ -301,7 +354,7 @@ export default function AdminAgreementPaymentsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Period</Label>
+              <Label>Period *</Label>
               <Input
                 value={payoutForm.period}
                 onChange={(e) =>
@@ -311,7 +364,7 @@ export default function AdminAgreementPaymentsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Date</Label>
+              <Label>Date *</Label>
               <Input
                 type="date"
                 value={payoutForm.date}
@@ -324,7 +377,7 @@ export default function AdminAgreementPaymentsPage() {
               <Label>Status</Label>
               <Select
                 value={payoutForm.status}
-                onValueChange={(value: PartnerPayoutRecord["status"]) =>
+                onValueChange={(value: AdminAgreementPayoutStatus) =>
                   setPayoutForm((p) => ({ ...p, status: value }))
                 }
               >
@@ -334,7 +387,6 @@ export default function AdminAgreementPaymentsPage() {
                 <SelectContent>
                   <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -353,11 +405,15 @@ export default function AdminAgreementPaymentsPage() {
             <Button variant="outline" onClick={() => setPayoutFormOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRecordPayout}>Record</Button>
+            <Button
+              onClick={() => recordPayoutMutation.mutate()}
+              disabled={recordPayoutMutation.isPending}
+            >
+              {recordPayoutMutation.isPending ? "Recording..." : "Record"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-

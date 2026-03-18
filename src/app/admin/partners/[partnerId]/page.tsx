@@ -37,6 +37,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   createAdminPartnerAgreement,
+  deleteAdminPartnerAgreement,
   fetchAdminPartnerAgreements,
   fetchAdminPartnerById,
   fetchAdminPartnerCommissions,
@@ -114,6 +115,8 @@ export default function PartnerProfilePage() {
 
   const [agreementFormOpen, setAgreementFormOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] =
+    useState<AdminPartnerAgreement | null>(null);
+  const [deletingAgreement, setDeletingAgreement] =
     useState<AdminPartnerAgreement | null>(null);
   const [agreementForm, setAgreementForm] =
     useState<AgreementFormState>(emptyAgreementForm);
@@ -216,6 +219,28 @@ export default function PartnerProfilePage() {
     onError: (error: Error) => {
       toast.error("Unable to save agreement", {
         description: error.message || "Please review values and try again.",
+      });
+    },
+  });
+
+  const deleteAgreementMutation = useMutation({
+    mutationFn: ({
+      partnerId: targetPartnerId,
+      agreementId,
+    }: {
+      partnerId: string;
+      agreementId: string;
+    }) => deleteAdminPartnerAgreement(targetPartnerId, agreementId),
+    onSuccess: () => {
+      toast.success("Agreement deleted");
+      setDeletingAgreement(null);
+      queryClient.invalidateQueries({
+        queryKey: ["admin-partner-agreements", partnerId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to delete agreement", {
+        description: error.message || "Please try again.",
       });
     },
   });
@@ -506,14 +531,24 @@ export default function PartnerProfilePage() {
                         {agreement.status}
                       </Badge>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 gap-1 text-xs"
-                      onClick={() => openEditAgreement(agreement)}
-                    >
-                      <Pencil className="h-3 w-3" /> Edit
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => openEditAgreement(agreement)}
+                      >
+                        <Pencil className="h-3 w-3" /> Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 text-xs text-destructive"
+                        onClick={() => setDeletingAgreement(agreement)}
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete
+                      </Button>
+                    </div>
                   </div>
 
                   <p className="text-xs text-muted-foreground">
@@ -796,6 +831,52 @@ export default function PartnerProfilePage() {
                 : editingAgreement
                   ? "Save"
                   : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deletingAgreement)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingAgreement(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Delete Agreement</DialogTitle>
+            <DialogDescription>
+              This removes the agreement permanently. Agreements with related
+              payouts or inputs cannot be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-xs">
+            Agreement: <strong>{deletingAgreement?.title}</strong>
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeletingAgreement(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteAgreementMutation.isPending || !deletingAgreement}
+              onClick={() => {
+                if (!partner || !deletingAgreement) {
+                  return;
+                }
+
+                deleteAgreementMutation.mutate({
+                  partnerId: partner.id,
+                  agreementId: deletingAgreement.id,
+                });
+              }}
+            >
+              {deleteAgreementMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

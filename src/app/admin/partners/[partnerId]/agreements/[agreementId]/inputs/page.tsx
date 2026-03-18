@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Boxes, HandCoins } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, HandCoins } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,123 +27,159 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { usePricing } from "@/context/PricingContext";
-import type { Partner, PartnerInputRecord } from "@/data/community";
-import { createPartnerInputRecord, getPartners, savePartners } from "@/lib/partner-store";
+import {
+  createAdminAgreementInput,
+  fetchAdminAgreementInputs,
+  fetchAdminPartnerAgreements,
+  fetchAdminPartnerById,
+  type AdminAgreementInputCategory,
+  type AdminAgreementInputType,
+} from "@/lib/api/partners";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
-const kindBadge: Record<PartnerInputRecord["kind"], string> = {
+const kindBadge: Record<AdminAgreementInputType, string> = {
   financial: "bg-primary/10 text-primary border-primary/20",
-  "in-kind": "bg-muted text-muted-foreground border-border",
+  in_kind: "bg-muted text-muted-foreground border-border",
 };
 
-const storageBadge: Record<PartnerInputRecord["storageCategory"], string> = {
+const categoryBadge: Record<AdminAgreementInputCategory, string> = {
   capital: "bg-emerald-100 text-emerald-700 border-emerald-200",
   operations: "bg-sky-100 text-sky-700 border-sky-200",
-  marketing: "bg-purple-100 text-purple-700 border-purple-200",
-  community: "bg-amber-100 text-amber-700 border-amber-200",
-  other: "bg-muted text-muted-foreground border-border",
+  marketing: "bg-amber-100 text-amber-700 border-amber-200",
+  logistics: "bg-violet-100 text-violet-700 border-violet-200",
 };
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-RW", {
+    style: "currency",
+    currency: "RWF",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export default function AdminAgreementInputsPage() {
   const params = useParams<{ partnerId: string; agreementId: string }>();
-  const { formatPrice } = usePricing();
-  const [partners, setPartners] = useState<Partner[]>(() => getPartners());
+  const queryClient = useQueryClient();
+
+  const partnerId = params.partnerId;
+  const agreementId = params.agreementId;
+
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState({
-    kind: "financial" as PartnerInputRecord["kind"],
+    type: "financial" as AdminAgreementInputType,
     amount: "",
     date: new Date().toISOString().slice(0, 10),
-    storageCategory: "capital" as PartnerInputRecord["storageCategory"],
+    category: "capital" as AdminAgreementInputCategory,
     description: "",
     notes: "",
   });
 
-  const partner = useMemo(
-    () => partners.find((entry) => entry.id === params.partnerId),
-    [partners, params.partnerId],
+  const partnerQuery = useQuery({
+    queryKey: ["admin-partner", partnerId],
+    queryFn: () => fetchAdminPartnerById(partnerId),
+    enabled: Boolean(partnerId),
+  });
+
+  const agreementsQuery = useQuery({
+    queryKey: ["admin-partner-agreements", partnerId],
+    queryFn: () => fetchAdminPartnerAgreements(partnerId),
+    enabled: Boolean(partnerId),
+  });
+
+  const inputsQuery = useQuery({
+    queryKey: ["admin-agreement-inputs", partnerId, agreementId, page],
+    queryFn: () =>
+      fetchAdminAgreementInputs(partnerId, agreementId, {
+        page,
+        limit: PAGE_SIZE,
+        sort: "date",
+        order: "desc",
+      }),
+    enabled: Boolean(partnerId && agreementId),
+  });
+
+  const recordInputMutation = useMutation({
+    mutationFn: () => {
+      const amount = Number(form.amount);
+
+      if (!form.description.trim() || !form.date || Number.isNaN(amount)) {
+        throw new Error("Description, amount, and date are required.");
+      }
+
+      if (amount < 0) {
+        throw new Error("Amount must be zero or greater.");
+      }
+
+      return createAdminAgreementInput(partnerId, agreementId, {
+        description: form.description.trim(),
+        date: form.date,
+        type: form.type,
+        category: form.category,
+        amount,
+        notes: form.notes.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Input recorded");
+      setFormOpen(false);
+      setForm({
+        type: "financial",
+        amount: "",
+        date: new Date().toISOString().slice(0, 10),
+        category: "capital",
+        description: "",
+        notes: "",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-agreement-inputs", partnerId, agreementId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to record input", {
+        description: error.message || "Please review values and try again.",
+      });
+    },
+  });
+
+  const partner = partnerQuery.data;
+  const agreement = useMemo(
+    () => agreementsQuery.data?.find((entry) => entry.id === agreementId) ?? null,
+    [agreementsQuery.data, agreementId],
   );
 
-  const agreement = partner?.agreements.find((entry) => entry.id === params.agreementId) || null;
-
-  const inputs = useMemo(() => {
-    if (!partner || !agreement) return [];
-    return (partner.inputs ?? [])
-      .filter((entry) => entry.agreementId === agreement.id)
-      .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [partner, agreement]);
-
-  const totalPages = Math.max(1, Math.ceil(inputs.length / PAGE_SIZE));
-
-  const paginatedInputs = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return inputs.slice(start, start + PAGE_SIZE);
-  }, [inputs, page]);
-
-  const totalFinancial = inputs
-    .filter((entry) => entry.kind === "financial" && typeof entry.amount === "number")
-    .reduce((sum, entry) => sum + (entry.amount ?? 0), 0);
-
-  const commitPartners = (next: Partner[]) => {
-    setPartners(next);
-    savePartners(next);
+  const result = inputsQuery.data;
+  const inputs = result?.data ?? [];
+  const pagination = result?.pagination;
+  const summary = result?.summary ?? {
+    financialSupport: 0,
+    totalInputs: 0,
+    inputMix: {},
   };
 
-  const updatePartnerInList = (updated: Partner) => {
-    commitPartners(partners.map((entry) => (entry.id === updated.id ? updated : entry)));
-  };
-
-  const handleRecordInput = () => {
-    if (!partner || !agreement) return;
-
-    if (!form.description.trim()) {
-      toast.error("Description is required.");
-      return;
-    }
-
-    const amount =
-      form.kind === "financial" && form.amount ? Math.max(0, Number(form.amount)) : undefined;
-
-    const record = createPartnerInputRecord(
-      form.kind,
-      form.description.trim(),
-      form.storageCategory,
-      amount,
-      agreement.id,
-      agreement.title,
-      form.notes || undefined,
+  if (partnerQuery.isLoading || agreementsQuery.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Button variant="outline" asChild>
+          <Link href={`/admin/partners/${partnerId}`}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner
+          </Link>
+        </Button>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Loading agreement inputs...
+          </CardContent>
+        </Card>
+      </div>
     );
-    record.date = form.date;
-
-    const existingInputs = partner.inputs ?? [];
-    const updated: Partner = {
-      ...partner,
-      inputs: [record, ...existingInputs],
-    };
-
-    updatePartnerInList(updated);
-    setFormOpen(false);
-    setForm({
-      kind: "financial",
-      amount: "",
-      date: new Date().toISOString().slice(0, 10),
-      storageCategory: "capital",
-      description: "",
-      notes: "",
-    });
-
-    toast.success("Input Recorded", {
-      description: "Partner input has been recorded for this agreement.",
-    });
-  };
+  }
 
   if (!partner || !agreement) {
     return (
       <div className="space-y-4">
         <Button variant="outline" asChild>
-          <Link href={`/admin/partners/${params.partnerId}`}>
+          <Link href={`/admin/partners/${partnerId}`}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner
           </Link>
         </Button>
@@ -166,7 +203,7 @@ export default function AdminAgreementInputsPage() {
           </Button>
           <h1 className="text-2xl font-bold font-heading mt-3">Partner Inputs</h1>
           <p className="text-xs text-muted-foreground">
-            {agreement.title} · {partner.businessName}
+            {agreement.title} - {partner.name}
           </p>
         </div>
         <Badge className="text-[10px] capitalize">{agreement.status}</Badge>
@@ -178,7 +215,7 @@ export default function AdminAgreementInputsPage() {
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Financial Support
             </p>
-            <p className="text-lg font-bold">{formatPrice(totalFinancial)}</p>
+            <p className="text-lg font-bold">{formatCurrency(summary.financialSupport)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -186,7 +223,7 @@ export default function AdminAgreementInputsPage() {
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
               Total Inputs
             </p>
-            <p className="text-lg font-bold">{inputs.length}</p>
+            <p className="text-lg font-bold">{summary.totalInputs}</p>
           </CardContent>
         </Card>
         <Card>
@@ -195,9 +232,7 @@ export default function AdminAgreementInputsPage() {
               Input Mix
             </p>
             <p className="text-xs text-muted-foreground">
-              Financial:{" "}
-              {inputs.filter((entry) => entry.kind === "financial").length} · In-kind:{" "}
-              {inputs.filter((entry) => entry.kind === "in-kind").length}
+              Financial: {summary.inputMix.financial ?? 0} - In-kind: {summary.inputMix.in_kind ?? 0}
             </p>
           </CardContent>
         </Card>
@@ -214,13 +249,15 @@ export default function AdminAgreementInputsPage() {
             </Button>
           </div>
 
-          {paginatedInputs.length === 0 ? (
+          {inputsQuery.isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading inputs...</p>
+          ) : inputs.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No inputs recorded yet for this agreement.
             </p>
           ) : (
             <div className="space-y-2">
-              {paginatedInputs.map((input) => (
+              {inputs.map((input) => (
                 <div
                   key={input.id}
                   className="border border-border rounded-lg p-3 flex flex-wrap items-center justify-between gap-2"
@@ -229,29 +266,25 @@ export default function AdminAgreementInputsPage() {
                     <p className="text-xs font-semibold">{input.description}</p>
                     <p className="text-[11px] text-muted-foreground">{input.date}</p>
                     {input.notes && (
-                      <p className="text-[11px] text-muted-foreground italic">
-                        {input.notes}
-                      </p>
+                      <p className="text-[11px] text-muted-foreground italic">{input.notes}</p>
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1 min-w-[140px]">
                     <div className="flex items-center gap-2">
                       <Badge
-                        className={`text-[10px] capitalize border ${kindBadge[input.kind]}`}
+                        className={`text-[10px] capitalize border ${kindBadge[input.type]}`}
                       >
-                        {input.kind === "financial" ? "Financial" : "In-kind"}
+                        {input.type === "financial" ? "Financial" : "In-kind"}
                       </Badge>
                       <Badge
-                        className={`text-[10px] capitalize border ${storageBadge[input.storageCategory]}`}
+                        className={`text-[10px] capitalize border ${categoryBadge[input.category]}`}
                       >
-                        {input.storageCategory}
+                        {input.category}
                       </Badge>
                     </div>
-                    {typeof input.amount === "number" && (
-                      <p className="text-sm font-bold text-foreground">
-                        {formatPrice(input.amount)}
-                      </p>
-                    )}
+                    <p className="text-sm font-bold text-foreground">
+                      {formatCurrency(input.amount)}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -260,14 +293,14 @@ export default function AdminAgreementInputsPage() {
 
           <div className="flex items-center justify-between border-t border-border pt-3">
             <p className="text-xs text-muted-foreground">
-              Page {page} of {totalPages}
+              Page {pagination?.page ?? page} of {pagination?.pages ?? 1}
             </p>
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs"
-                disabled={page <= 1}
+                disabled={!pagination?.hasPrev}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               >
                 Previous
@@ -276,8 +309,8 @@ export default function AdminAgreementInputsPage() {
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs"
-                disabled={page >= totalPages}
-                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={!pagination?.hasNext}
+                onClick={() => setPage((prev) => prev + 1)}
               >
                 Next
               </Button>
@@ -291,17 +324,16 @@ export default function AdminAgreementInputsPage() {
           <DialogHeader>
             <DialogTitle>Record Partner Input</DialogTitle>
             <DialogDescription>
-              Capture financial or in-kind support linked to this agreement and how it is stored
-              in the business.
+              Capture financial or in-kind support provided by the partner for this agreement.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <Label>Input Type</Label>
+              <Label>Input Type *</Label>
               <Select
-                value={form.kind}
-                onValueChange={(value: PartnerInputRecord["kind"]) =>
-                  setForm((prev) => ({ ...prev, kind: value }))
+                value={form.type}
+                onValueChange={(value: AdminAgreementInputType) =>
+                  setForm((prev) => ({ ...prev, type: value }))
                 }
               >
                 <SelectTrigger>
@@ -309,12 +341,12 @@ export default function AdminAgreementInputsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="financial">Financial Support</SelectItem>
-                  <SelectItem value="in-kind">In-kind Support</SelectItem>
+                  <SelectItem value="in_kind">In-kind Support</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Date</Label>
+              <Label>Date *</Label>
               <Input
                 type="date"
                 value={form.date}
@@ -322,25 +354,20 @@ export default function AdminAgreementInputsPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Amount (RWF)</Label>
+              <Label>Amount (RWF) *</Label>
               <Input
                 type="number"
                 min="0"
                 value={form.amount}
                 onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
-                placeholder={
-                  form.kind === "financial"
-                    ? "Enter amount provided"
-                    : "Optional for in-kind support"
-                }
               />
             </div>
             <div className="space-y-1">
-              <Label>Stored As</Label>
+              <Label>Category *</Label>
               <Select
-                value={form.storageCategory}
-                onValueChange={(value: PartnerInputRecord["storageCategory"]) =>
-                  setForm((prev) => ({ ...prev, storageCategory: value }))
+                value={form.category}
+                onValueChange={(value: AdminAgreementInputCategory) =>
+                  setForm((prev) => ({ ...prev, category: value }))
                 }
               >
                 <SelectTrigger>
@@ -350,13 +377,12 @@ export default function AdminAgreementInputsPage() {
                   <SelectItem value="capital">Capital Investment</SelectItem>
                   <SelectItem value="operations">Operations Support</SelectItem>
                   <SelectItem value="marketing">Marketing / Promotion</SelectItem>
-                  <SelectItem value="community">Community / CSR</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="logistics">Logistics Support</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1 md:col-span-2">
-              <Label>Short Description</Label>
+              <Label>Description *</Label>
               <Textarea
                 value={form.description}
                 onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
@@ -365,12 +391,12 @@ export default function AdminAgreementInputsPage() {
               />
             </div>
             <div className="space-y-1 md:col-span-2">
-              <Label>Internal Notes</Label>
+              <Label>Notes</Label>
               <Textarea
                 value={form.notes}
                 onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
                 rows={3}
-                placeholder="How this input is booked or tracked internally."
+                placeholder="Optional internal notes"
               />
             </div>
           </div>
@@ -378,11 +404,15 @@ export default function AdminAgreementInputsPage() {
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleRecordInput}>Record</Button>
+            <Button
+              onClick={() => recordInputMutation.mutate()}
+              disabled={recordInputMutation.isPending}
+            >
+              {recordInputMutation.isPending ? "Recording..." : "Record"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-
