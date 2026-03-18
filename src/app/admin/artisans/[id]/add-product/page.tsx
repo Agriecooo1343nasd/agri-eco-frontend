@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { artisans } from "@/data/community";
 import {
   ArrowLeft,
   Plus,
@@ -24,36 +24,201 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
+  createAdminArtisanProduct,
+  fetchAdminArtisanById,
+  toAbsoluteArtisanImage,
+  type ArtisanMultiLangText,
+} from "@/lib/api/artisans";
+import { fetchCategoriesForAdmin } from "@/lib/api/products";
+import { uploadSingleImage } from "@/lib/api/uploads";
+import {
   MultiLangInput,
   emptyLangValue,
   type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
 
-const CATEGORIES = [
-  "Baskets",
-  "Sculptures",
-  "Pottery",
-  "Kitchenware",
-  "Candles",
-  "Skincare",
-  "Textiles",
-  "Jewelry",
-  "Other",
-];
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function toRequiredMultiLang(
+  value: MultiLangValue,
+): ArtisanMultiLangText | null {
+  const en = value.en.trim();
+  const rw = value.rw.trim();
+  const fr = value.fr.trim();
+  const sw = value.sw.trim();
+
+  if (!en) {
+    return null;
+  }
+
+  return {
+    en,
+    ...(rw ? { rw } : {}),
+    ...(fr ? { fr } : {}),
+    ...(sw ? { sw } : {}),
+  };
+}
+
+function toOptionalMultiLang(
+  value: MultiLangValue,
+): ArtisanMultiLangText | undefined {
+  const mapped = toRequiredMultiLang(value);
+  return mapped ?? undefined;
+}
 
 export default function AddProductPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  const artisan = artisans.find((a) => a.id === id);
+  const artisanQuery = useQuery({
+    queryKey: ["admin-artisan", id],
+    queryFn: () => fetchAdminArtisanById(id),
+  });
+
+  const categoriesQuery = useQuery({
+    queryKey: ["admin-product-categories"],
+    queryFn: fetchCategoriesForAdmin,
+  });
+
+  const createProductMutation = useMutation({
+    mutationFn: ({
+      artisanId,
+      payload,
+    }: {
+      artisanId: string;
+      payload: Parameters<typeof createAdminArtisanProduct>[1];
+    }) => createAdminArtisanProduct(artisanId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan-products"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan", id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan-stats"] });
+    },
+  });
 
   const [name, setName] = useState<MultiLangValue>(emptyLangValue());
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] =
     useState<MultiLangValue>(emptyLangValue());
-  const [saving, setSaving] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
+
+  const artisan = artisanQuery.data;
+
+  const handleImagePick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Invalid file type", {
+        description: "Please choose an image file (PNG, JPG, WEBP, ...).",
+      });
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Image too large", {
+        description: "Please choose an image up to 5MB.",
+      });
+      return;
+    }
+
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    const preview = URL.createObjectURL(file);
+    setSelectedImageFile(file);
+    setSelectedImagePreview(preview);
+  };
+
+  const handleAddProduct = async () => {
+    const mappedName = toRequiredMultiLang(name);
+
+    if (!mappedName) {
+      toast.error("Missing Fields", {
+        description: "Please fill in at least the product name (English).",
+      });
+      return;
+    }
+
+    const numericPrice = Number(price);
+    if (!price.trim() || Number.isNaN(numericPrice) || numericPrice <= 0) {
+      toast.error("Invalid Price", {
+        description: "Please enter a valid price in RWF.",
+      });
+      return;
+    }
+
+    const numericStock = stock.trim() ? Number(stock) : 0;
+    if (Number.isNaN(numericStock) || numericStock < 0) {
+      toast.error("Invalid Stock", {
+        description: "Stock must be zero or a positive integer.",
+      });
+      return;
+    }
+
+    try {
+      let uploadedImagePath = imageUrl.trim();
+
+      if (selectedImageFile) {
+        const uploaded = await uploadSingleImage(selectedImageFile);
+        uploadedImagePath = uploaded.path;
+      }
+
+      await createProductMutation.mutateAsync({
+        artisanId: id,
+        payload: {
+          name: mappedName,
+          description: toOptionalMultiLang(description),
+          price: numericPrice,
+          stock: Math.floor(numericStock),
+          categoryId: categoryId || undefined,
+          image: uploadedImagePath || undefined,
+        },
+      });
+
+      toast.success("Product Added", {
+        description: `"${mappedName.en}" has been added to ${artisan?.name ?? "the artisan"}'s catalog.`,
+      });
+
+      router.push(`/admin/artisans/${id}`);
+    } catch (error) {
+      toast.error("Unable to create product", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please retry or verify your admin authorization.",
+      });
+    }
+  };
+
+  if (artisanQuery.isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/admin/artisans")}
+            className="h-9 w-9"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl font-bold font-heading text-foreground">
+            Loading Artisan...
+          </h1>
+        </div>
+      </div>
+    );
+  }
 
   if (!artisan) {
     return (
@@ -71,50 +236,12 @@ export default function AddProductPage() {
             Artisan Not Found
           </h1>
         </div>
-        <div className="border border-border rounded-xl p-12 text-center bg-card">
-          <ShoppingBag className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">
-            No artisan found with this ID.
-          </p>
-          <Button
-            className="mt-4"
-            onClick={() => router.push("/admin/artisans")}
-          >
-            Back to Artisans
-          </Button>
-        </div>
       </div>
     );
   }
 
-  const handleAddProduct = () => {
-    if (!name.en.trim()) {
-      toast.error("Missing Fields", {
-        description: "Please fill in at least the product name (English).",
-      });
-      return;
-    }
-    if (!price.trim() || isNaN(Number(price)) || Number(price) <= 0) {
-      toast.error("Invalid Price", {
-        description: "Please enter a valid price in RWF.",
-      });
-      return;
-    }
-
-    setSaving(true);
-    // Placeholder: will call API on integration
-    setTimeout(() => {
-      setSaving(false);
-      toast.success("Product Added", {
-        description: `"${name.en}" has been added to ${artisan.name}'s catalog.`,
-      });
-      router.push(`/admin/artisans/${id}`);
-    }, 800);
-  };
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button
@@ -132,16 +259,19 @@ export default function AddProductPage() {
             <p className="text-sm text-muted-foreground">For {artisan.name}</p>
           </div>
         </div>
-        <Button onClick={handleAddProduct} disabled={saving} className="gap-2">
+        <Button
+          onClick={handleAddProduct}
+          disabled={createProductMutation.isPending}
+          className="gap-2"
+        >
           <Plus className="h-4 w-4" />
-          {saving ? "Adding..." : "Add Product"}
+          {createProductMutation.isPending ? "Adding..." : "Add Product"}
         </Button>
       </div>
 
-      {/* Artisan context strip */}
       <div className="flex items-center gap-3 p-3 bg-muted/30 border border-border rounded-xl">
         <img
-          src={artisan.image}
+          src={toAbsoluteArtisanImage(artisan.image)}
           alt={artisan.name}
           className="w-10 h-10 rounded-lg object-cover"
         />
@@ -152,9 +282,7 @@ export default function AddProductPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Product Form */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Product Details */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -200,14 +328,20 @@ export default function AddProductPage() {
                 <Label className="flex items-center gap-1.5">
                   <Tag className="h-3.5 w-3.5 text-muted-foreground" /> Category
                 </Label>
-                <Select value={category} onValueChange={setCategory}>
+                <Select
+                  value={categoryId || "none"}
+                  onValueChange={(value) =>
+                    setCategoryId(value === "none" ? "" : value)
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
+                    <SelectItem value="none">Uncategorized</SelectItem>
+                    {(categoriesQuery.data?.data ?? []).map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -225,37 +359,63 @@ export default function AddProductPage() {
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Product Image */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold">
                 Product Image
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+            <CardContent className="space-y-3">
+              {selectedImagePreview ? (
+                <img
+                  src={selectedImagePreview}
+                  alt="Selected product"
+                  className="w-full aspect-square object-cover rounded-xl border border-border"
+                />
+              ) : (
+                <div className="w-full aspect-square rounded-xl border border-border bg-muted/30 flex items-center justify-center text-muted-foreground text-xs">
+                  No image selected
+                </div>
+              )}
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                onClick={() => imageInputRef.current?.click()}
+              >
                 <ImagePlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  Click to upload or drag &amp; drop
+                  Click to upload or drag and drop
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   PNG, JPG up to 5MB
                 </p>
               </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImagePick}
+              />
+              <div>
+                <Label>Or use existing image URL</Label>
+                <Input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="/uploads/filename.jpg or https://..."
+                />
+              </div>
             </CardContent>
           </Card>
 
-          {/* Actions */}
           <div className="flex flex-col gap-2">
             <Button
               onClick={handleAddProduct}
-              disabled={saving}
+              disabled={createProductMutation.isPending}
               className="w-full gap-2"
             >
               <Plus className="h-4 w-4" />
-              {saving ? "Adding..." : "Add Product"}
+              {createProductMutation.isPending ? "Adding..." : "Add Product"}
             </Button>
             <Button
               variant="outline"
