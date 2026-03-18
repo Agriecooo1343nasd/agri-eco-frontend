@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { artisans as mockArtisans } from "@/data/community";
 import {
+  deleteAdminArtisanProduct,
   fetchAdminArtisanApplications,
+  fetchAdminArtisanProducts,
   fetchAdminArtisans,
   fetchAdminArtisanStats,
   reviewAdminArtisanApplication,
@@ -116,6 +117,7 @@ export default function AdminArtisansPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [artisanPage, setArtisanPage] = useState(1);
   const [applicationsPage, setApplicationsPage] = useState(1);
+  const [productsPage, setProductsPage] = useState(1);
   const [activeTab, setActiveTab] = useState("artisans");
   const [viewApp, setViewApp] = useState<AdminArtisanApplication | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
@@ -127,7 +129,8 @@ export default function AdminArtisansPage() {
   // Delete product confirmation
   const [deleteProductOpen, setDeleteProductOpen] = useState(false);
   const [deleteProductTarget, setDeleteProductTarget] = useState<{
-    id: string | number;
+    id: string;
+    artisanId: string;
     name: string;
     artisanName: string;
   } | null>(null);
@@ -141,6 +144,10 @@ export default function AdminArtisansPage() {
 
       if (activeTab === "applications") {
         setApplicationsPage(1);
+      }
+
+      if (activeTab === "products") {
+        setProductsPage(1);
       }
     }, 300);
 
@@ -178,6 +185,19 @@ export default function AdminArtisansPage() {
     enabled: activeTab === "applications",
   });
 
+  const productsQuery = useQuery({
+    queryKey: ["admin-artisan-products", productsPage, debouncedSearch],
+    queryFn: () =>
+      fetchAdminArtisanProducts({
+        page: productsPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch || undefined,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: activeTab === "products",
+  });
+
   const reviewMutation = useMutation({
     mutationFn: ({
       id,
@@ -203,6 +223,31 @@ export default function AdminArtisansPage() {
     },
     onError: (error: Error) => {
       toast.error("Unable to review application", {
+        description:
+          error.message || "Please retry or verify your admin authorization.",
+      });
+    },
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: ({
+      artisanId,
+      productId,
+    }: {
+      artisanId: string;
+      productId: string;
+    }) => deleteAdminArtisanProduct(artisanId, productId),
+    onSuccess: () => {
+      toast.success("Product deleted", {
+        description: "The artisan product has been removed.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan-products"] });
+      setDeleteProductOpen(false);
+      setDeleteProductTarget(null);
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to delete product", {
         description:
           error.message || "Please retry or verify your admin authorization.",
       });
@@ -238,9 +283,30 @@ export default function AdminArtisansPage() {
       hasPrev: false,
     } as const);
 
-  const allProducts = mockArtisans.flatMap((a) =>
-    a.products.map((p) => ({ ...p, artisanName: a.name, artisanId: a.id })),
-  );
+  const productRows = productsQuery.data?.data ?? [];
+  const productsPagination =
+    productsQuery.data?.pagination ??
+    ({
+      total: 0,
+      page: 1,
+      limit: ITEMS_PER_PAGE,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    } as const);
+
+  const getProductText = (value?: {
+    en: string;
+    rw?: string;
+    fr?: string;
+    sw?: string;
+  }) => {
+    if (!value) {
+      return "";
+    }
+
+    return value.en || value.rw || value.fr || value.sw || "";
+  };
 
   const requestReview = (
     application: AdminArtisanApplication,
@@ -696,47 +762,62 @@ export default function AdminArtisansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allProducts
-                    .filter(
-                      (p) =>
-                        !search ||
-                        p.name.toLowerCase().includes(search.toLowerCase()) ||
-                        p.artisanName
-                          .toLowerCase()
-                          .includes(search.toLowerCase()),
-                    )
-                    .map((p) => (
+                  {productsQuery.isLoading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        Loading products...
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!productsQuery.isLoading && productRows.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No products found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {productRows.map((p) => {
+                    const productName = getProductText(p.name) || "Untitled";
+                    const productDescription =
+                      getProductText(p.description) || "No description";
+                    const artisanName = p.artisan?.name || "Unknown artisan";
+
+                    return (
                       <TableRow key={p.id} className="hover:bg-muted/30">
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <img
-                              src={p.image}
-                              alt={p.name}
+                              src={toAbsoluteArtisanImage(p.image)}
+                              alt={productName}
                               className="w-10 h-10 rounded-lg object-cover"
                             />
                             <div>
                               <p className="font-medium text-foreground text-sm">
-                                {p.name}
+                                {productName}
                               </p>
                               <p className="text-xs text-muted-foreground line-clamp-1">
-                                {p.description}
+                                {productDescription}
                               </p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">
-                          {p.artisanName}
-                        </TableCell>
+                        <TableCell className="text-sm">{artisanName}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
-                            {p.category || "Uncategorized"}
+                            {p.category?.name || "Uncategorized"}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-semibold text-sm">
-                          {p.price.toLocaleString()} RWF
+                          {(Number(p.price) || 0).toLocaleString()} RWF
                         </TableCell>
                         <TableCell className="text-sm">
-                          {p.stock ?? "â€”"}
+                          {p.stock ?? "-"}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -754,22 +835,40 @@ export default function AdminArtisansPage() {
                                 className="gap-2"
                                 onClick={() =>
                                   router.push(
-                                    `/admin/artisans/${p.artisanId}/products/${p.id}/edit`,
+                                    `/admin/artisans/${p.artisan?.id ?? ""}/products/${p.id}`,
                                   )
                                 }
+                                disabled={!p.artisan?.id}
+                              >
+                                <Eye className="h-4 w-4" /> View
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/artisans/${p.artisan?.id ?? ""}/products/${p.id}/edit`,
+                                  )
+                                }
+                                disabled={!p.artisan?.id}
                               >
                                 <Edit className="h-4 w-4" /> Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="gap-2 text-destructive"
                                 onClick={() => {
+                                  if (!p.artisan?.id) {
+                                    return;
+                                  }
+
                                   setDeleteProductTarget({
                                     id: p.id,
-                                    name: p.name,
-                                    artisanName: p.artisanName,
+                                    artisanId: p.artisan.id,
+                                    name: productName,
+                                    artisanName,
                                   });
                                   setDeleteProductOpen(true);
                                 }}
+                                disabled={!p.artisan?.id}
                               >
                                 <Trash2 className="h-4 w-4" /> Delete
                               </DropdownMenuItem>
@@ -777,11 +876,47 @@ export default function AdminArtisansPage() {
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           </div>
+
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row mt-4">
+            <p className="text-xs font-medium text-muted-foreground">
+              Showing page {productsPagination.page} of{" "}
+              {productsPagination.pages} ({productsPagination.total} total
+              products)
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={
+                  !productsPagination.hasPrev || productsQuery.isFetching
+                }
+                onClick={() => setProductsPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={
+                  !productsPagination.hasNext || productsQuery.isFetching
+                }
+                onClick={() => setProductsPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+
+          {productsQuery.isError && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive mt-4">
+              Failed to load artisan products. Please refresh or verify your
+              admin authorization.
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -1069,7 +1204,18 @@ export default function AdminArtisansPage() {
       </AlertDialog>
 
       {/* Delete Product Confirmation Dialog */}
-      <Dialog open={deleteProductOpen} onOpenChange={setDeleteProductOpen}>
+      <Dialog
+        open={deleteProductOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleteProductMutation.isPending) {
+            setDeleteProductOpen(false);
+            setDeleteProductTarget(null);
+            return;
+          }
+
+          setDeleteProductOpen(open);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading text-destructive">
@@ -1103,15 +1249,22 @@ export default function AdminArtisansPage() {
             <Button
               variant="destructive"
               onClick={() => {
-                toast.success("Product Deleted", {
-                  description: `"${deleteProductTarget?.name}" has been removed.`,
+                if (!deleteProductTarget) {
+                  return;
+                }
+
+                deleteProductMutation.mutate({
+                  artisanId: deleteProductTarget.artisanId,
+                  productId: deleteProductTarget.id,
                 });
-                setDeleteProductOpen(false);
-                setDeleteProductTarget(null);
               }}
+              disabled={deleteProductMutation.isPending}
               className="gap-1.5"
             >
-              <Trash2 className="h-4 w-4" /> Delete Product
+              <Trash2 className="h-4 w-4" />
+              {deleteProductMutation.isPending
+                ? "Deleting..."
+                : "Delete Product"}
             </Button>
           </DialogFooter>
         </DialogContent>

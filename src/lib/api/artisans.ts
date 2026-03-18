@@ -9,6 +9,41 @@ export interface AdminArtisanProduct {
   stock?: number;
   categoryId?: string;
   image?: string;
+  artisan?: {
+    id: string;
+    name: string;
+    specialty?: string;
+  };
+  category?: {
+    id: string;
+    name?: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UpsertAdminArtisanProductPayload {
+  name: ArtisanMultiLangText;
+  description?: ArtisanMultiLangText;
+  price: number;
+  stock?: number;
+  categoryId?: string;
+  image?: string;
+}
+
+export interface FetchAdminArtisanProductsParams {
+  page?: number;
+  limit?: number;
+  artisanId?: string;
+  categoryId?: string;
+  search?: string;
+  sort?: "price" | "stock" | "createdAt";
+  order?: "asc" | "desc";
+}
+
+export interface FetchAdminArtisanProductsResult {
+  data: AdminArtisanProduct[];
+  pagination: ApiPagination;
 }
 
 export interface ArtisanMultiLangText {
@@ -111,7 +146,7 @@ export interface FetchAdminArtisansResult {
   pagination: ApiPagination;
 }
 
-function buildQuery(params: FetchAdminArtisansParams): string {
+function buildArtisansQuery(params: FetchAdminArtisansParams): string {
   const query = new URLSearchParams();
 
   if (params.page) query.set("page", String(params.page));
@@ -126,11 +161,28 @@ function buildQuery(params: FetchAdminArtisansParams): string {
   return queryString ? `?${queryString}` : "";
 }
 
+function buildArtisanProductsQuery(
+  params: FetchAdminArtisanProductsParams,
+): string {
+  const query = new URLSearchParams();
+
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.artisanId) query.set("artisanId", params.artisanId);
+  if (params.categoryId) query.set("categoryId", params.categoryId);
+  if (params.search?.trim()) query.set("search", params.search.trim());
+  if (params.sort) query.set("sort", params.sort);
+  if (params.order) query.set("order", params.order);
+
+  const queryString = query.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
 export async function fetchAdminArtisans(
   params: FetchAdminArtisansParams,
 ): Promise<FetchAdminArtisansResult> {
   const response = await apiClient.get<ApiSuccessResponse<AdminArtisan[]>>(
-    `/artisans/admin${buildQuery(params)}`,
+    `/artisans/admin${buildArtisansQuery(params)}`,
   );
 
   return {
@@ -248,6 +300,98 @@ export async function updateAdminArtisan(
   }
 
   return response.data.data;
+}
+
+export async function fetchAdminArtisanProducts(
+  params: FetchAdminArtisanProductsParams,
+): Promise<FetchAdminArtisanProductsResult> {
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminArtisanProduct[]>
+  >(`/artisans/admin/products${buildArtisanProductsQuery(params)}`);
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: params.limit ?? 10,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+}
+
+export async function fetchAdminArtisanProductById(
+  artisanId: string,
+  productId: string,
+): Promise<AdminArtisanProduct> {
+  let page = 1;
+  const limit = 100;
+
+  // Backend currently exposes list-only product endpoint for artisan products,
+  // so we resolve a single product by paging until a match is found.
+  while (page <= 20) {
+    const result = await fetchAdminArtisanProducts({
+      artisanId,
+      page,
+      limit,
+      sort: "createdAt",
+      order: "desc",
+    });
+
+    const match = result.data.find((entry) => entry.id === productId);
+    if (match) {
+      return match;
+    }
+
+    if (!result.pagination.hasNext) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  throw new Error("Artisan product not found");
+}
+
+export async function createAdminArtisanProduct(
+  artisanId: string,
+  payload: UpsertAdminArtisanProductPayload,
+): Promise<AdminArtisanProduct> {
+  const response = await apiClient.post<
+    ApiSuccessResponse<AdminArtisanProduct>
+  >(`/artisans/admin/${artisanId}/products`, payload);
+
+  if (!response.data.data) {
+    throw new Error("Missing created artisan product response data");
+  }
+
+  return response.data.data;
+}
+
+export async function updateAdminArtisanProduct(
+  artisanId: string,
+  productId: string,
+  payload: Partial<UpsertAdminArtisanProductPayload>,
+): Promise<AdminArtisanProduct> {
+  const response = await apiClient.put<ApiSuccessResponse<AdminArtisanProduct>>(
+    `/artisans/admin/${artisanId}/products/${productId}`,
+    payload,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated artisan product response data");
+  }
+
+  return response.data.data;
+}
+
+export async function deleteAdminArtisanProduct(
+  artisanId: string,
+  productId: string,
+): Promise<void> {
+  await apiClient.delete(`/artisans/admin/${artisanId}/products/${productId}`);
 }
 
 export function toAbsoluteArtisanImage(url?: string): string {
