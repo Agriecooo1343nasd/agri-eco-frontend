@@ -1,16 +1,16 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { artisans as mockArtisans } from "@/data/community";
 import {
-  artisans as mockArtisans,
-  artisanApplications,
-  type ArtisanApplication,
-} from "@/data/community";
-import {
+  fetchAdminArtisanApplications,
   fetchAdminArtisans,
   fetchAdminArtisanStats,
+  reviewAdminArtisanApplication,
+  type AdminArtisanApplication,
+  type ReviewAdminArtisanApplicationPayload,
   toAbsoluteArtisanImage,
 } from "@/lib/api/artisans";
 import {
@@ -34,6 +34,16 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -73,14 +83,46 @@ const statusColors: Record<string, string> = {
 
 const ITEMS_PER_PAGE = 10;
 
+const languageLabels: Record<string, string> = {
+  en: "English",
+  rw: "Kinyarwanda",
+  fr: "French",
+  sw: "Swahili",
+};
+
+function getProvidedTranslations(value?: {
+  en: string;
+  rw?: string;
+  fr?: string;
+  sw?: string;
+}) {
+  if (!value) {
+    return [] as Array<{ code: string; label: string; text: string }>;
+  }
+
+  return Object.entries(value)
+    .filter(([, text]) => typeof text === "string" && text.trim().length > 0)
+    .map(([code, text]) => ({
+      code,
+      label: languageLabels[code] ?? code.toUpperCase(),
+      text: (text ?? "").trim(),
+    }));
+}
+
 export default function AdminArtisansPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [artisanPage, setArtisanPage] = useState(1);
+  const [applicationsPage, setApplicationsPage] = useState(1);
   const [activeTab, setActiveTab] = useState("artisans");
-  const [viewApp, setViewApp] = useState<ArtisanApplication | null>(null);
+  const [viewApp, setViewApp] = useState<AdminArtisanApplication | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewIntent, setReviewIntent] = useState<{
+    application: AdminArtisanApplication;
+    status: ReviewAdminArtisanApplicationPayload["status"];
+  } | null>(null);
 
   // Delete product confirmation
   const [deleteProductOpen, setDeleteProductOpen] = useState(false);
@@ -93,11 +135,17 @@ export default function AdminArtisansPage() {
   useEffect(() => {
     const id = window.setTimeout(() => {
       setDebouncedSearch(search.trim());
-      setPage(1);
+      if (activeTab === "artisans") {
+        setArtisanPage(1);
+      }
+
+      if (activeTab === "applications") {
+        setApplicationsPage(1);
+      }
     }, 300);
 
     return () => window.clearTimeout(id);
-  }, [search]);
+  }, [activeTab, search]);
 
   const statsQuery = useQuery({
     queryKey: ["admin-artisan-stats"],
@@ -105,10 +153,10 @@ export default function AdminArtisansPage() {
   });
 
   const artisansQuery = useQuery({
-    queryKey: ["admin-artisans", page, debouncedSearch],
+    queryKey: ["admin-artisans", artisanPage, debouncedSearch],
     queryFn: () =>
       fetchAdminArtisans({
-        page,
+        page: artisanPage,
         limit: ITEMS_PER_PAGE,
         search: debouncedSearch || undefined,
         sort: "createdAt",
@@ -117,10 +165,52 @@ export default function AdminArtisansPage() {
     enabled: activeTab === "artisans",
   });
 
+  const applicationsQuery = useQuery({
+    queryKey: ["admin-artisan-applications", applicationsPage, debouncedSearch],
+    queryFn: () =>
+      fetchAdminArtisanApplications({
+        page: applicationsPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch || undefined,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: activeTab === "applications",
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: ReviewAdminArtisanApplicationPayload;
+    }) => reviewAdminArtisanApplication(id, payload),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.payload.status === "approved"
+          ? "Application approved"
+          : "Application rejected",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-artisans"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-artisan-applications"],
+      });
+      setReviewIntent(null);
+      setViewApp(null);
+      setReviewNotes("");
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to review application", {
+        description:
+          error.message || "Please retry or verify your admin authorization.",
+      });
+    },
+  });
+
   const activeArtisansCount = statsQuery.data?.activeArtisans ?? 0;
-  const pendingApplicationsCount =
-    statsQuery.data?.pendingApplications ??
-    artisanApplications.filter((a) => a.status === "pending").length;
+  const pendingApplicationsCount = statsQuery.data?.pendingApplications ?? 0;
   const totalProductsCount = statsQuery.data?.totalProducts ?? 0;
   const featuredArtisansCount = statsQuery.data?.featuredCount ?? 0;
 
@@ -136,30 +226,41 @@ export default function AdminArtisansPage() {
       hasPrev: false,
     } as const);
 
-  const pendingApps = artisanApplications.filter((a) => a.status === "pending");
+  const applicationRows = applicationsQuery.data?.data ?? [];
+  const applicationsPagination =
+    applicationsQuery.data?.pagination ??
+    ({
+      total: 0,
+      page: 1,
+      limit: ITEMS_PER_PAGE,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    } as const);
+
   const allProducts = mockArtisans.flatMap((a) =>
     a.products.map((p) => ({ ...p, artisanName: a.name, artisanId: a.id })),
   );
 
-  const filteredApps = artisanApplications.filter(
-    (a) =>
-      !search ||
-      a.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      a.specialty.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const handleApprove = (app: ArtisanApplication) => {
-    toast.success("Application Approved", {
-      description: `${app.fullName} has been approved as an artisan.`,
-    });
-    setViewApp(null);
+  const requestReview = (
+    application: AdminArtisanApplication,
+    status: ReviewAdminArtisanApplicationPayload["status"],
+  ) => {
+    setReviewIntent({ application, status });
   };
 
-  const handleReject = (app: ArtisanApplication) => {
-    toast.error("Application Rejected", {
-      description: `${app.fullName}'s application has been rejected.`,
+  const submitReview = () => {
+    if (!reviewIntent) {
+      return;
+    }
+
+    reviewMutation.mutate({
+      id: reviewIntent.application.id,
+      payload: {
+        status: reviewIntent.status,
+        reviewNote: reviewNotes.trim() || undefined,
+      },
     });
-    setViewApp(null);
   };
 
   return (
@@ -404,7 +505,7 @@ export default function AdminArtisansPage() {
                 disabled={
                   !artisanPagination.hasPrev || artisansQuery.isFetching
                 }
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => setArtisanPage((p) => Math.max(1, p - 1))}
               >
                 Previous
               </Button>
@@ -413,7 +514,7 @@ export default function AdminArtisansPage() {
                 disabled={
                   !artisanPagination.hasNext || artisansQuery.isFetching
                 }
-                onClick={() => setPage((p) => p + 1)}
+                onClick={() => setArtisanPage((p) => p + 1)}
               >
                 Next
               </Button>
@@ -444,7 +545,28 @@ export default function AdminArtisansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredApps.map((app) => (
+                  {applicationsQuery.isLoading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        Loading applications...
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!applicationsQuery.isLoading &&
+                    applicationRows.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={6}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No applications found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  {applicationRows.map((app) => (
                     <TableRow key={app.id} className="hover:bg-muted/30">
                       <TableCell>
                         <div>
@@ -465,7 +587,9 @@ export default function AdminArtisansPage() {
                         {app.location}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {app.appliedDate}
+                        {app.createdAt
+                          ? new Date(app.createdAt).toLocaleDateString()
+                          : "N/A"}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -496,13 +620,13 @@ export default function AdminArtisansPage() {
                               <>
                                 <DropdownMenuItem
                                   className="gap-2"
-                                  onClick={() => handleApprove(app)}
+                                  onClick={() => requestReview(app, "approved")}
                                 >
                                   <CheckCircle className="h-4 w-4" /> Approve
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="gap-2 text-destructive"
-                                  onClick={() => handleReject(app)}
+                                  onClick={() => requestReview(app, "rejected")}
                                 >
                                   <XCircle className="h-4 w-4" /> Reject
                                 </DropdownMenuItem>
@@ -513,20 +637,47 @@ export default function AdminArtisansPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredApps.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center py-8 text-muted-foreground"
-                      >
-                        No applications found.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </div>
           </div>
+
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row mt-4">
+            <p className="text-xs font-medium text-muted-foreground">
+              Showing page {applicationsPagination.page} of{" "}
+              {applicationsPagination.pages} ({applicationsPagination.total}{" "}
+              total applications)
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={
+                  !applicationsPagination.hasPrev ||
+                  applicationsQuery.isFetching
+                }
+                onClick={() => setApplicationsPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={
+                  !applicationsPagination.hasNext ||
+                  applicationsQuery.isFetching
+                }
+                onClick={() => setApplicationsPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+
+          {applicationsQuery.isError && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive mt-4">
+              Failed to load applications. Please refresh or verify your admin
+              authorization.
+            </div>
+          )}
         </TabsContent>
 
         {/* Products Tab */}
@@ -678,12 +829,15 @@ export default function AdminArtisansPage() {
                           {viewApp.location}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Applied: {viewApp.appliedDate}
-                        </span>
-                      </div>
+                      {viewApp.createdAt && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            Applied:{" "}
+                            {new Date(viewApp.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -704,10 +858,10 @@ export default function AdminArtisansPage() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">
-                          Experience
+                          Phone
                         </p>
                         <p className="text-sm text-foreground">
-                          {viewApp.experience}
+                          {viewApp.phone || "N/A"}
                         </p>
                       </div>
                       <div>
@@ -724,7 +878,7 @@ export default function AdminArtisansPage() {
                   </Card>
                 </div>
 
-                {/* Bio */}
+                {/* Short Description */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -732,28 +886,80 @@ export default function AdminArtisansPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {viewApp.bio}
-                    </p>
+                    {getProvidedTranslations(viewApp.shortDescription).length >
+                    0 ? (
+                      <div className="space-y-3">
+                        {getProvidedTranslations(viewApp.shortDescription).map(
+                          (entry) => (
+                            <div key={`short-${entry.code}`}>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                {entry.label}
+                              </p>
+                              <p className="text-sm text-foreground leading-relaxed mt-1">
+                                {entry.text}
+                              </p>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No short description provided.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
-                {/* Portfolio */}
+                {/* Full Story */}
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Portfolio Description
+                      Full Story
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {viewApp.portfolioDescription}
-                    </p>
+                    {getProvidedTranslations(viewApp.fullStory).length > 0 ? (
+                      <div className="space-y-3">
+                        {getProvidedTranslations(viewApp.fullStory).map(
+                          (entry) => (
+                            <div key={`story-${entry.code}`}>
+                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                {entry.label}
+                              </p>
+                              <p className="text-sm text-foreground leading-relaxed mt-1">
+                                {entry.text}
+                              </p>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No full story provided.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
+                {viewApp.profileImage && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Profile Image
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <img
+                        src={toAbsoluteArtisanImage(viewApp.profileImage)}
+                        alt={viewApp.fullName}
+                        className="w-32 h-32 rounded-xl object-cover border border-border"
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Review Notes (if reviewed) */}
-                {viewApp.reviewNotes && (
+                {viewApp.reviewNote && (
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -762,11 +968,12 @@ export default function AdminArtisansPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-foreground">
-                        {viewApp.reviewNotes}
+                        {viewApp.reviewNote}
                       </p>
-                      {viewApp.reviewedDate && (
+                      {viewApp.reviewedAt && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          Reviewed on {viewApp.reviewedDate}
+                          Reviewed on{" "}
+                          {new Date(viewApp.reviewedAt).toLocaleString()}
                         </p>
                       )}
                     </CardContent>
@@ -790,13 +997,13 @@ export default function AdminArtisansPage() {
                       <Button
                         variant="outline"
                         className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
-                        onClick={() => handleReject(viewApp)}
+                        onClick={() => requestReview(viewApp, "rejected")}
                       >
                         <XCircle className="h-4 w-4" /> Reject Application
                       </Button>
                       <Button
                         className="gap-1.5"
-                        onClick={() => handleApprove(viewApp)}
+                        onClick={() => requestReview(viewApp, "approved")}
                       >
                         <CheckCircle className="h-4 w-4" /> Approve & Create
                         Artisan
@@ -809,6 +1016,57 @@ export default function AdminArtisansPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={reviewIntent !== null}
+        onOpenChange={(open) => {
+          if (!open && !reviewMutation.isPending) {
+            setReviewIntent(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {reviewIntent?.status === "approved"
+                ? "Approve application?"
+                : "Reject application?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {reviewIntent?.status === "approved"
+                ? "This will approve the application and automatically create an artisan profile for the applicant."
+                : "This will reject the application."}{" "}
+              Please confirm that this is what you intended for
+              <span className="font-semibold text-foreground">
+                {` ${reviewIntent?.application.fullName ?? "this applicant"}`}
+              </span>
+              .
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reviewMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={
+                reviewIntent?.status === "rejected"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : undefined
+              }
+              disabled={reviewMutation.isPending}
+              onClick={submitReview}
+            >
+              {reviewMutation.isPending
+                ? reviewIntent?.status === "approved"
+                  ? "Approving..."
+                  : "Rejecting..."
+                : reviewIntent?.status === "approved"
+                  ? "Yes, approve"
+                  : "Yes, reject"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Product Confirmation Dialog */}
       <Dialog open={deleteProductOpen} onOpenChange={setDeleteProductOpen}>

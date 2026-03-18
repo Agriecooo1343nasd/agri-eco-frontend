@@ -36,6 +36,46 @@ export interface AdminArtisan {
   updatedAt?: string;
 }
 
+export type AdminArtisanApplicationStatus = "pending" | "approved" | "rejected";
+
+export interface AdminArtisanApplication {
+  id: string;
+  userId?: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  specialty: string;
+  location: string;
+  shortDescription?: ArtisanMultiLangText;
+  fullStory?: ArtisanMultiLangText;
+  profileImage?: string;
+  status: AdminArtisanApplicationStatus;
+  reviewedBy?: string;
+  reviewNote?: string;
+  reviewedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FetchAdminArtisanApplicationsParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: AdminArtisanApplicationStatus;
+  sort?: "fullName" | "createdAt";
+  order?: "asc" | "desc";
+}
+
+export interface FetchAdminArtisanApplicationsResult {
+  data: AdminArtisanApplication[];
+  pagination: ApiPagination;
+}
+
+export interface ReviewAdminArtisanApplicationPayload {
+  status: "approved" | "rejected";
+  reviewNote?: string;
+}
+
 export interface UpsertAdminArtisanPayload {
   name: string;
   email?: string;
@@ -128,6 +168,52 @@ export async function fetchAdminArtisanById(id: string): Promise<AdminArtisan> {
 
   if (!response.data.data) {
     throw new Error("Artisan not found");
+  }
+
+  return response.data.data;
+}
+
+export async function fetchAdminArtisanApplications(
+  params: FetchAdminArtisanApplicationsParams,
+): Promise<FetchAdminArtisanApplicationsResult> {
+  const query = new URLSearchParams();
+
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.search?.trim()) query.set("search", params.search.trim());
+  if (params.status) query.set("status", params.status);
+  if (params.sort) query.set("sort", params.sort);
+  if (params.order) query.set("order", params.order);
+
+  const queryString = query.toString();
+
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminArtisanApplication[]>
+  >(`/artisans/admin/applications${queryString ? `?${queryString}` : ""}`);
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: params.limit ?? 10,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+}
+
+export async function reviewAdminArtisanApplication(
+  id: string,
+  payload: ReviewAdminArtisanApplicationPayload,
+): Promise<AdminArtisanApplication> {
+  const response = await apiClient.patch<
+    ApiSuccessResponse<AdminArtisanApplication>
+  >(`/artisans/admin/applications/${id}/review`, payload);
+
+  if (!response.data.data) {
+    throw new Error("Missing reviewed application response data");
   }
 
   return response.data.data;
