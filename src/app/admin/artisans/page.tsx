@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   artisans,
   artisanApplications,
-  type Artisan,
   type ArtisanApplication,
 } from "@/data/community";
 import {
@@ -25,8 +25,6 @@ import {
   Package,
   Trash2,
   Edit,
-  ImagePlus,
-  Save,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,20 +51,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { MultiLangInput } from "@/components/admin/MultiLangInput";
 
 const statusColors: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
@@ -76,26 +65,11 @@ const statusColors: Record<string, string> = {
 };
 
 export default function AdminArtisansPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("artisans");
   const [viewApp, setViewApp] = useState<ArtisanApplication | null>(null);
-  const [viewArtisan, setViewArtisan] = useState<Artisan | null>(null);
-  const [addProductOpen, setAddProductOpen] = useState(false);
-  const [productArtisan, setProductArtisan] = useState<Artisan | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
-
-  // Edit product dialog
-  const [editProductOpen, setEditProductOpen] = useState(false);
-  const [editProduct, setEditProduct] = useState<{
-    name: string;
-    price: string;
-    description: string;
-    category: string;
-    stock: string;
-  } | null>(null);
-  const [editProductId, setEditProductId] = useState<string | number | null>(
-    null,
-  );
 
   // Delete product confirmation
   const [deleteProductOpen, setDeleteProductOpen] = useState(false);
@@ -104,28 +78,6 @@ export default function AdminArtisansPage() {
     name: string;
     artisanName: string;
   } | null>(null);
-
-  // New artisan dialog (for approved applications or manual)
-  const [createArtisanOpen, setCreateArtisanOpen] = useState(false);
-  const [newArtisan, setNewArtisan] = useState({
-    name: "",
-    specialty: "",
-    location: "",
-    description: "",
-    story: "",
-    email: "",
-    phone: "",
-    featured: false,
-  });
-
-  // New product form
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    price: "",
-    description: "",
-    category: "",
-    stock: "",
-  });
 
   const activeArtisans = artisans.filter((a) => a.status === "active");
   const pendingApps = artisanApplications.filter((a) => a.status === "pending");
@@ -161,49 +113,6 @@ export default function AdminArtisansPage() {
     setViewApp(null);
   };
 
-  const handleAddProduct = () => {
-    if (!newProduct.name || !newProduct.price) {
-      toast.error("Missing Fields", {
-        description: "Please fill in at least the product name and price.",
-      });
-      return;
-    }
-    toast.success("Product Added", {
-      description: `"${newProduct.name}" has been added to ${productArtisan?.name}'s catalog.`,
-    });
-    setNewProduct({
-      name: "",
-      price: "",
-      description: "",
-      category: "",
-      stock: "",
-    });
-    setAddProductOpen(false);
-  };
-
-  const handleCreateArtisan = () => {
-    if (!newArtisan.name || !newArtisan.specialty) {
-      toast.error("Missing Fields", {
-        description: "Please fill in at least the name and specialty.",
-      });
-      return;
-    }
-    toast.success("Artisan Created", {
-      description: `${newArtisan.name} has been added as an artisan.`,
-    });
-    setNewArtisan({
-      name: "",
-      specialty: "",
-      location: "",
-      description: "",
-      story: "",
-      email: "",
-      phone: "",
-      featured: false,
-    });
-    setCreateArtisanOpen(false);
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -213,11 +122,14 @@ export default function AdminArtisansPage() {
             Artisan Management
           </h1>
           <p className="text-sm text-muted-foreground">
-            {activeArtisans.length} active artisans · {pendingApps.length}{" "}
-            pending applications · {allProducts.length} products
+            {activeArtisans.length} active artisans Â· {pendingApps.length}{" "}
+            pending applications Â· {allProducts.length} products
           </p>
         </div>
-        <Button className="gap-2" onClick={() => setCreateArtisanOpen(true)}>
+        <Button
+          className="gap-2"
+          onClick={() => router.push("/admin/artisans/create")}
+        >
           <Plus className="h-4 w-4" /> Add Artisan
         </Button>
       </div>
@@ -371,20 +283,28 @@ export default function AdminArtisansPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
                               className="gap-2"
-                              onClick={() => setViewArtisan(a)}
+                              onClick={() =>
+                                router.push(`/admin/artisans/${a.id}`)
+                              }
                             >
                               <Eye className="h-4 w-4" /> View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="gap-2"
-                              onClick={() => {
-                                setProductArtisan(a);
-                                setAddProductOpen(true);
-                              }}
+                              onClick={() =>
+                                router.push(
+                                  `/admin/artisans/${a.id}/add-product`,
+                                )
+                              }
                             >
                               <Plus className="h-4 w-4" /> Add Product
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
+                            <DropdownMenuItem
+                              className="gap-2"
+                              onClick={() =>
+                                router.push(`/admin/artisans/${a.id}/edit`)
+                              }
+                            >
                               <Edit className="h-4 w-4" /> Edit Artisan
                             </DropdownMenuItem>
                             <DropdownMenuItem className="gap-2">
@@ -562,7 +482,7 @@ export default function AdminArtisansPage() {
                           {p.price.toLocaleString()} RWF
                         </TableCell>
                         <TableCell className="text-sm">
-                          {p.stock ?? "—"}
+                          {p.stock ?? "â€”"}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -578,17 +498,11 @@ export default function AdminArtisansPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 className="gap-2"
-                                onClick={() => {
-                                  setEditProductId(p.id);
-                                  setEditProduct({
-                                    name: p.name,
-                                    price: String(p.price),
-                                    description: p.description,
-                                    category: p.category || "",
-                                    stock: String(p.stock ?? ""),
-                                  });
-                                  setEditProductOpen(true);
-                                }}
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/artisans/${p.artisanId}/products/${p.id}/edit`,
+                                  )
+                                }
                               >
                                 <Edit className="h-4 w-4" /> Edit
                               </DropdownMenuItem>
@@ -790,454 +704,6 @@ export default function AdminArtisansPage() {
               </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* View Artisan Details Dialog */}
-      <Dialog open={!!viewArtisan} onOpenChange={() => setViewArtisan(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {viewArtisan && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-heading text-xl">
-                  {viewArtisan.name}
-                </DialogTitle>
-                <DialogDescription>
-                  {viewArtisan.specialty} · {viewArtisan.location}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-5 mt-4">
-                <div className="flex items-start gap-4">
-                  <img
-                    src={viewArtisan.image}
-                    alt={viewArtisan.name}
-                    className="w-24 h-24 rounded-xl object-cover"
-                  />
-                  <div className="flex-1 space-y-2">
-                    <p className="text-sm text-foreground">
-                      {viewArtisan.description}
-                    </p>
-                    <div className="flex gap-4 text-xs text-muted-foreground">
-                      {viewArtisan.email && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {viewArtisan.email}
-                        </span>
-                      )}
-                      {viewArtisan.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {viewArtisan.phone}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        className={`${statusColors[viewArtisan.status]} border text-xs capitalize`}
-                      >
-                        {viewArtisan.status}
-                      </Badge>
-                      {viewArtisan.featured && (
-                        <Badge
-                          variant="outline"
-                          className="text-xs gap-1 border-amber-500/30 text-amber-600"
-                        >
-                          <Star className="h-3 w-3 fill-amber-500" /> Featured
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-foreground text-sm">
-                      Products ({viewArtisan.products.length})
-                    </h3>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-xs"
-                      onClick={() => {
-                        setProductArtisan(viewArtisan);
-                        setAddProductOpen(true);
-                        setViewArtisan(null);
-                      }}
-                    >
-                      <Plus className="h-3 w-3" /> Add Product
-                    </Button>
-                  </div>
-                  <div className="grid gap-3">
-                    {viewArtisan.products.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl"
-                      >
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          className="w-12 h-12 rounded-lg object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {p.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {p.description}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-foreground">
-                            {p.price.toLocaleString()} RWF
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Stock: {p.stock ?? "—"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="font-semibold text-foreground text-sm mb-2">
-                    Story
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {viewArtisan.story}
-                  </p>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Product Dialog */}
-      <Dialog open={addProductOpen} onOpenChange={setAddProductOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-heading">
-              Add Product for {productArtisan?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Create a new product and assign it to this artisan's catalog.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <MultiLangInput
-              label="Product Name"
-              value={{ en: newProduct.name, rw: "", fr: "", sw: "" }}
-              onChange={(v) => setNewProduct((p) => ({ ...p, name: v.en }))}
-              placeholder="e.g., Handwoven Peace Basket"
-              required
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Price (RWF) *</Label>
-                <Input
-                  type="number"
-                  value={newProduct.price}
-                  onChange={(e) =>
-                    setNewProduct((p) => ({ ...p, price: e.target.value }))
-                  }
-                  placeholder="25000"
-                />
-              </div>
-              <div>
-                <Label>Stock</Label>
-                <Input
-                  type="number"
-                  value={newProduct.stock}
-                  onChange={(e) =>
-                    setNewProduct((p) => ({ ...p, stock: e.target.value }))
-                  }
-                  placeholder="10"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Category</Label>
-              <Select
-                value={newProduct.category}
-                onValueChange={(v) =>
-                  setNewProduct((p) => ({ ...p, category: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Baskets">Baskets</SelectItem>
-                  <SelectItem value="Sculptures">Sculptures</SelectItem>
-                  <SelectItem value="Pottery">Pottery</SelectItem>
-                  <SelectItem value="Kitchenware">Kitchenware</SelectItem>
-                  <SelectItem value="Candles">Candles</SelectItem>
-                  <SelectItem value="Skincare">Skincare</SelectItem>
-                  <SelectItem value="Textiles">Textiles</SelectItem>
-                  <SelectItem value="Jewelry">Jewelry</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <MultiLangInput
-              label="Description"
-              value={{ en: newProduct.description, rw: "", fr: "", sw: "" }}
-              onChange={(v) =>
-                setNewProduct((p) => ({ ...p, description: v.en }))
-              }
-              placeholder="Describe the product, materials used, crafting process..."
-              type="textarea"
-              rows={3}
-            />
-            <div>
-              <Label>Product Image</Label>
-              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                <ImagePlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Click to upload or drag & drop
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG up to 5MB
-                </p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddProductOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddProduct} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Add Product
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Artisan Dialog */}
-      <Dialog open={createArtisanOpen} onOpenChange={setCreateArtisanOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading">Add New Artisan</DialogTitle>
-            <DialogDescription>
-              Manually create an artisan profile. Fields here populate the
-              public artisan profile page.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label>Full Name *</Label>
-              <Input
-                value={newArtisan.name}
-                onChange={(e) =>
-                  setNewArtisan((a) => ({ ...a, name: e.target.value }))
-                }
-                placeholder="Artisan's full name"
-              />
-            </div>
-            <div>
-              <Label>Specialty *</Label>
-              <Input
-                value={newArtisan.specialty}
-                onChange={(e) =>
-                  setNewArtisan((a) => ({ ...a, specialty: e.target.value }))
-                }
-                placeholder="e.g., Basket Weaving, Pottery"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={newArtisan.email}
-                  onChange={(e) =>
-                    setNewArtisan((a) => ({ ...a, email: e.target.value }))
-                  }
-                  placeholder="email@example.com"
-                />
-              </div>
-              <div>
-                <Label>Phone</Label>
-                <Input
-                  value={newArtisan.phone}
-                  onChange={(e) =>
-                    setNewArtisan((a) => ({ ...a, phone: e.target.value }))
-                  }
-                  placeholder="+250 7XX XXX XXX"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Location *</Label>
-              <Input
-                value={newArtisan.location}
-                onChange={(e) =>
-                  setNewArtisan((a) => ({ ...a, location: e.target.value }))
-                }
-                placeholder="e.g., Musanze District"
-              />
-            </div>
-            <MultiLangInput
-              label="Short Description"
-              value={{ en: newArtisan.description, rw: "", fr: "", sw: "" }}
-              onChange={(v) =>
-                setNewArtisan((a) => ({ ...a, description: v.en }))
-              }
-              placeholder="Brief description shown on community listing..."
-              required
-              type="textarea"
-              rows={2}
-            />
-            <MultiLangInput
-              label="Full Story"
-              value={{ en: newArtisan.story, rw: "", fr: "", sw: "" }}
-              onChange={(v) => setNewArtisan((a) => ({ ...a, story: v.en }))}
-              placeholder="The artisan's background, journey, and craft philosophy..."
-              type="textarea"
-              rows={4}
-            />
-            <div>
-              <Label>Profile Image</Label>
-              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                <ImagePlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Click to upload profile photo
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG up to 5MB
-                </p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCreateArtisanOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleCreateArtisan} className="gap-1.5">
-              <Plus className="h-4 w-4" /> Create Artisan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Product Dialog */}
-      <Dialog open={editProductOpen} onOpenChange={setEditProductOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-heading">Edit Product</DialogTitle>
-            <DialogDescription>
-              Update the product details below.
-            </DialogDescription>
-          </DialogHeader>
-          {editProduct && (
-            <div className="space-y-4 mt-2">
-              <MultiLangInput
-                label="Product Name"
-                value={{ en: editProduct.name, rw: "", fr: "", sw: "" }}
-                onChange={(v) =>
-                  setEditProduct((p) => (p ? { ...p, name: v.en } : p))
-                }
-                placeholder="Product name"
-                required
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Price (RWF) *</Label>
-                  <Input
-                    type="number"
-                    value={editProduct.price}
-                    onChange={(e) =>
-                      setEditProduct((p) =>
-                        p ? { ...p, price: e.target.value } : p,
-                      )
-                    }
-                    placeholder="25000"
-                  />
-                </div>
-                <div>
-                  <Label>Stock</Label>
-                  <Input
-                    type="number"
-                    value={editProduct.stock}
-                    onChange={(e) =>
-                      setEditProduct((p) =>
-                        p ? { ...p, stock: e.target.value } : p,
-                      )
-                    }
-                    placeholder="10"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>Category</Label>
-                <Select
-                  value={editProduct.category}
-                  onValueChange={(v) =>
-                    setEditProduct((p) => (p ? { ...p, category: v } : p))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Baskets">Baskets</SelectItem>
-                    <SelectItem value="Sculptures">Sculptures</SelectItem>
-                    <SelectItem value="Pottery">Pottery</SelectItem>
-                    <SelectItem value="Kitchenware">Kitchenware</SelectItem>
-                    <SelectItem value="Candles">Candles</SelectItem>
-                    <SelectItem value="Skincare">Skincare</SelectItem>
-                    <SelectItem value="Textiles">Textiles</SelectItem>
-                    <SelectItem value="Jewelry">Jewelry</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <MultiLangInput
-                label="Description"
-                value={{ en: editProduct.description, rw: "", fr: "", sw: "" }}
-                onChange={(v) =>
-                  setEditProduct((p) => (p ? { ...p, description: v.en } : p))
-                }
-                placeholder="Product description..."
-                type="textarea"
-                rows={3}
-              />
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditProductOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (!editProduct?.name || !editProduct?.price) {
-                  toast.error("Missing Fields", {
-                    description:
-                      "Please fill in at least the product name and price.",
-                  });
-                  return;
-                }
-                toast.success("Product Updated", {
-                  description: `"${editProduct.name}" has been updated successfully.`,
-                });
-                setEditProductOpen(false);
-                setEditProduct(null);
-                setEditProductId(null);
-              }}
-              className="gap-1.5"
-            >
-              <Save className="h-4 w-4" /> Save Changes
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
