@@ -109,12 +109,12 @@ export const ml = (text: string): MultiLangValue => ({
 });
 
 export const getML = (
-  val: MultiLangValue | string | undefined,
+  val: MultiLangValue | Partial<Record<LangCode, string>> | string | undefined,
   lang: LangCode = "en",
 ): string => {
   if (!val) return "";
   if (typeof val === "string") return val;
-  return val[lang] || val["en"] || "";
+  return (val[lang] || val["en"] || "") as string;
 };
 
 export type { LangCode as MultiLangCode };
