@@ -95,8 +95,10 @@ export default function AdminBlogCreatePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [formTitle, setFormTitle] = useState<MultiLangValue>(emptyLangValue());
-  const [formExcerpt, setFormExcerpt] = useState<MultiLangValue>(emptyLangValue());
-  const [formContent, setFormContent] = useState<MultiLangValue>(emptyLangValue());
+  const [formExcerpt, setFormExcerpt] =
+    useState<MultiLangValue>(emptyLangValue());
+  const [formContent, setFormContent] =
+    useState<MultiLangValue>(emptyLangValue());
   const [formPageType, setFormPageType] = useState<CmsPageType>("blog");
   const [formStatus, setFormStatus] = useState<CmsStatus>("draft");
   const [formFeatured, setFormFeatured] = useState(false);
@@ -109,7 +111,8 @@ export default function AdminBlogCreatePage() {
 
   const { data: categoriesData } = useQuery({
     queryKey: ["admin-categories", "cms-form"],
-    queryFn: () => fetchAdminCategories({ page: 1, limit: 100, isActive: "true" }),
+    queryFn: () =>
+      fetchAdminCategories({ page: 1, limit: 100, isActive: "true" }),
   });
 
   const { data: editingPost, isLoading: loadingPost } = useQuery({
@@ -164,8 +167,8 @@ export default function AdminBlogCreatePage() {
     },
     onError: (error: unknown) => {
       const message =
-        (error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Failed to save article";
+        (error as { response?: { data?: { message?: string } } })?.response
+          ?.data?.message ?? "Failed to save article";
       toast.error(message);
     },
   });
@@ -220,7 +223,9 @@ export default function AdminBlogCreatePage() {
     const title = toCmsMultiLang(formTitle);
     const content = toCmsMultiLang(formContent);
     const excerptValue = toCmsMultiLang(formExcerpt);
-    const hasExcerpt = Object.values(excerptValue).some((v) => v.trim().length > 0);
+    const hasExcerpt = Object.values(excerptValue).some(
+      (v) => v?.trim().length > 0,
+    );
 
     const payload: UpsertCmsPagePayload = {
       title,
@@ -287,7 +292,11 @@ export default function AdminBlogCreatePage() {
           >
             Cancel
           </Button>
-          <Button type="button" onClick={handleSave} disabled={saveMutation.isPending}>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+          >
             {saveMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -306,7 +315,9 @@ export default function AdminBlogCreatePage() {
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-border">
             <CardHeader className="p-6 border-b border-border">
-              <CardTitle className="text-lg font-black font-heading">Article Content</CardTitle>
+              <CardTitle className="text-lg font-black font-heading">
+                Article Content
+              </CardTitle>
               <CardDescription>
                 English is required. Other language fields are optional.
               </CardDescription>
@@ -341,7 +352,9 @@ export default function AdminBlogCreatePage() {
 
           <Card className="border-border">
             <CardHeader className="p-6 border-b border-border">
-              <CardTitle className="text-lg font-black font-heading">Meta & Publishing</CardTitle>
+              <CardTitle className="text-lg font-black font-heading">
+                Meta & Publishing
+              </CardTitle>
               <CardDescription>
                 Category, status, type and scheduling controls.
               </CardDescription>
@@ -385,7 +398,10 @@ export default function AdminBlogCreatePage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <Select value={formCategoryId} onValueChange={setFormCategoryId}>
+                  <Select
+                    value={formCategoryId}
+                    onValueChange={setFormCategoryId}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -426,7 +442,11 @@ export default function AdminBlogCreatePage() {
                 {tagsArray.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {tagsArray.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-[10px]">
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="text-[10px]"
+                      >
                         #{tag}
                       </Badge>
                     ))}
@@ -435,7 +455,10 @@ export default function AdminBlogCreatePage() {
               </div>
 
               <div className="flex items-center gap-2 pt-2">
-                <Switch checked={formFeatured} onCheckedChange={setFormFeatured} />
+                <Switch
+                  checked={formFeatured}
+                  onCheckedChange={setFormFeatured}
+                />
                 <Label className="cursor-pointer">Mark as featured</Label>
               </div>
             </CardContent>
@@ -448,7 +471,8 @@ export default function AdminBlogCreatePage() {
                 Cover Image
               </CardTitle>
               <CardDescription>
-                Upload an image or paste a URL. Video fields are not available in the backend CMS model.
+                Upload an image or paste a URL. Video fields are not available
+                in the backend CMS model.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
@@ -501,7 +525,9 @@ export default function AdminBlogCreatePage() {
         <div className="space-y-6">
           <Card className="border-border">
             <CardHeader className="p-6 border-b border-border">
-              <CardTitle className="text-base font-black font-heading">Live Summary</CardTitle>
+              <CardTitle className="text-base font-black font-heading">
+                Live Summary
+              </CardTitle>
               <CardDescription>
                 Read-only preview of the outbound payload.
               </CardDescription>
@@ -526,14 +552,18 @@ export default function AdminBlogCreatePage() {
                 <p className="text-xs text-muted-foreground uppercase font-bold tracking-wide mb-1">
                   Title
                 </p>
-                <p className="text-sm font-semibold line-clamp-2">{previewTitle}</p>
+                <p className="text-sm font-semibold line-clamp-2">
+                  {previewTitle}
+                </p>
               </div>
 
               <div>
                 <p className="text-xs text-muted-foreground uppercase font-bold tracking-wide mb-1">
                   Excerpt
                 </p>
-                <p className="text-xs text-muted-foreground line-clamp-3">{previewExcerpt}</p>
+                <p className="text-xs text-muted-foreground line-clamp-3">
+                  {previewExcerpt}
+                </p>
               </div>
 
               <div>
@@ -546,7 +576,12 @@ export default function AdminBlogCreatePage() {
                 </p>
               </div>
 
-              <Button type="button" className="w-full" onClick={handleSave} disabled={saveMutation.isPending}>
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+              >
                 {isEditing ? "Save Changes" : "Create Article"}
               </Button>
             </CardContent>
