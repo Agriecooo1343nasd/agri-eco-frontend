@@ -1,41 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Partner, PartnerApplication } from "@/data/community";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Handshake,
-  Search,
-  Plus,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
+  AlertTriangle,
   CheckCircle,
   DollarSign,
-  Calendar,
-  Package,
+  Edit,
+  Eye,
   FileText,
+  Handshake,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+  Wallet,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -44,9 +30,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -54,351 +45,372 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
-import { toast } from "sonner";
-import { usePricing } from "@/context/PricingContext";
 import {
-  createPartnerAgreement,
-  createPartnerFromApplication,
-  createPartnerFromInput,
-  getPartnerApplications,
-  getPartners,
-  savePartnerApplications,
-  savePartners,
-} from "@/lib/partner-store";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  fetchAdminPartnerApplications,
+  fetchAdminPartners,
+  fetchAdminPartnerStats,
+  reviewAdminPartnerApplication,
+  terminateAdminPartner,
+  type AdminPartner,
+  type AdminPartnerApplication,
+  type AdminPartnerType,
+  type ReviewAdminPartnerApplicationPayload,
+  updateAdminPartner,
+} from "@/lib/api/partners";
+import { toast } from "sonner";
+
+const ITEMS_PER_PAGE = 10;
 
 const statusBadge: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
   pending: "bg-amber-100 text-amber-700 border-amber-200",
   inactive: "bg-muted text-muted-foreground border-border",
-  terminated: "bg-destructive/10 text-destructive border-destructive/20",
+  approved: "bg-primary/10 text-primary border-primary/20",
+  rejected: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-const typeBadge: Record<string, string> = {
-  "tourism-operator": " Tourism",
-  hotel: " Hotel",
-  restaurant: " Restaurant",
-  school: " School",
-  ngo: " NGO",
+const typeLabel: Record<string, string> = {
+  tourism_operator: "Tourism",
+  school: "School",
+  hospitality: "Hospitality",
+  business: "Business",
+  ngo: "NGO",
+};
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-RW", {
+    style: "currency",
+    currency: "RWF",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDate(value?: string): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleDateString();
+}
+
+function defaultPagination() {
+  return {
+    total: 0,
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    pages: 1,
+    hasNext: false,
+    hasPrev: false,
+  };
+}
+
+type EditPartnerFormState = {
+  name: string;
+  type: AdminPartnerType;
+  contactName: string;
+  email: string;
+  phone: string;
+  status: "pending" | "active" | "inactive";
+  revenueShareRate: string;
+  notes: string;
 };
 
 export default function AdminPartnersPage() {
   const router = useRouter();
-  const { formatPrice } = usePricing();
+  const queryClient = useQueryClient();
+
   const [activeTab, setActiveTab] = useState("partners");
   const [search, setSearch] = useState("");
-  const [partners, setPartners] = useState<Partner[]>(() => getPartners());
-  const [applications, setApplications] = useState<PartnerApplication[]>(() =>
-    getPartnerApplications(),
-  );
-
-  const [formOpen, setFormOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [partnersPage, setPartnersPage] = useState(1);
+  const [applicationsPage, setApplicationsPage] = useState(1);
   const [reviewOpen, setReviewOpen] = useState(false);
-
-  const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
-  const [profilePartner, setProfilePartner] = useState<Partner | null>(null);
   const [selectedApplication, setSelectedApplication] =
-    useState<PartnerApplication | null>(null);
-
-  const [agreementTitle, setAgreementTitle] = useState("");
-  const [agreementSummary, setAgreementSummary] = useState("");
+    useState<AdminPartnerApplication | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
-
-  const [formState, setFormState] = useState({
-    businessName: "",
-    contactPerson: "",
+  const [editOpen, setEditOpen] = useState(false);
+  const [partnerToEdit, setPartnerToEdit] = useState<AdminPartner | null>(null);
+  const [terminateOpen, setTerminateOpen] = useState(false);
+  const [partnerToTerminate, setPartnerToTerminate] =
+    useState<AdminPartner | null>(null);
+  const [terminateNotes, setTerminateNotes] = useState("");
+  const [editFormState, setEditFormState] = useState<EditPartnerFormState>({
+    name: "",
+    type: "tourism_operator",
+    contactName: "",
     email: "",
     phone: "",
-    type: "tourism-operator" as Partner["type"],
-    aboutBusiness: "",
-    status: "active" as Partner["status"],
-    networkStatus: "onboarding" as Partner["networkStatus"],
-    commissionRate: "10",
-    partnerSharePercent: "90",
-    platformSharePercent: "10",
-    grossRevenue: "0",
-    totalBookings: "0",
-    payoutCycle: "monthly" as Partner["payoutCycle"],
-    payoutStatus: "pending" as Partner["payoutStatus"],
+    status: "pending",
+    revenueShareRate: "0",
     notes: "",
   });
 
-  const filteredPartners = partners.filter(
-    (p) =>
-      !search ||
-      p.businessName.toLowerCase().includes(search.toLowerCase()) ||
-      p.contactPerson.toLowerCase().includes(search.toLowerCase()) ||
-      p.email.toLowerCase().includes(search.toLowerCase()),
-  );
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
 
-  const totalRevenue = partners.reduce((s, p) => s + p.totalRevenue, 0);
-  const totalBookings = partners.reduce((s, p) => s + p.totalBookings, 0);
+      if (activeTab === "partners") {
+        setPartnersPage(1);
+      }
 
-  const filteredApplications = applications.filter(
-    (application) =>
-      !search ||
-      application.businessName.toLowerCase().includes(search.toLowerCase()) ||
-      application.contactPerson.toLowerCase().includes(search.toLowerCase()) ||
-      application.email.toLowerCase().includes(search.toLowerCase()),
-  );
+      if (activeTab === "applications") {
+        setApplicationsPage(1);
+      }
+    }, 300);
 
+    return () => window.clearTimeout(id);
+  }, [activeTab, search]);
 
+  const statsQuery = useQuery({
+    queryKey: ["admin-partner-stats"],
+    queryFn: fetchAdminPartnerStats,
+  });
 
-  const resetForm = () => {
-    setFormState({
-      businessName: "",
-      contactPerson: "",
-      email: "",
-      phone: "",
-      type: "tourism-operator",
-      aboutBusiness: "",
-      status: "active",
-      networkStatus: "onboarding",
-      commissionRate: "10",
-      partnerSharePercent: "90",
-      platformSharePercent: "10",
-      grossRevenue: "0",
-      totalBookings: "0",
-      payoutCycle: "monthly",
-      payoutStatus: "pending",
-      notes: "",
+  const partnersQuery = useQuery({
+    queryKey: ["admin-partners", partnersPage, debouncedSearch],
+    queryFn: () =>
+      fetchAdminPartners({
+        page: partnersPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch || undefined,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: activeTab === "partners",
+  });
+
+  const applicationsQuery = useQuery({
+    queryKey: ["admin-partner-applications", applicationsPage, debouncedSearch],
+    queryFn: () =>
+      fetchAdminPartnerApplications({
+        page: applicationsPage,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch || undefined,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: activeTab === "applications",
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: ReviewAdminPartnerApplicationPayload;
+    }) => reviewAdminPartnerApplication(id, payload),
+    onSuccess: (_, variables) => {
+      toast.success(
+        variables.payload.status === "approved"
+          ? "Application approved"
+          : "Application rejected",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-partner-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-partner-applications"],
+      });
+      setReviewOpen(false);
+      setSelectedApplication(null);
+      setReviewNotes("");
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to review application", {
+        description:
+          error.message || "Please retry or verify your admin authorization.",
+      });
+    },
+  });
+
+  const updatePartnerMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Parameters<typeof updateAdminPartner>[1];
+    }) => updateAdminPartner(id, payload),
+    onSuccess: (partner) => {
+      toast.success("Partner updated", {
+        description: `${partner.name} was updated successfully.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partner-stats"] });
+      setEditOpen(false);
+      setPartnerToEdit(null);
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to update partner", {
+        description: error.message || "Please review the values and try again.",
+      });
+    },
+  });
+
+  const terminatePartnerMutation = useMutation({
+    mutationFn: ({ id, notes }: { id: string; notes?: string }) =>
+      terminateAdminPartner(id, notes),
+    onSuccess: (partner) => {
+      toast.success("Partner terminated", {
+        description: `${partner.name} has been moved to inactive status.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partner-stats"] });
+      setTerminateOpen(false);
+      setPartnerToTerminate(null);
+      setTerminateNotes("");
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to terminate partner", {
+        description:
+          error.message || "Please retry or verify your admin authorization.",
+      });
+    },
+  });
+
+  const stats =
+    statsQuery.data ??
+    ({
+      total: 0,
+      active: 0,
+      pending: 0,
+      inactive: 0,
+      totalRevenue: 0,
+      pendingPayouts: 0,
+    } as const);
+
+  const partners = partnersQuery.data?.data ?? [];
+  const partnersPagination =
+    partnersQuery.data?.pagination ?? defaultPagination();
+
+  const applications = applicationsQuery.data?.data ?? [];
+  const applicationsPagination =
+    applicationsQuery.data?.pagination ?? defaultPagination();
+
+  const submitReview = (status: "approved" | "rejected") => {
+    if (!selectedApplication) {
+      return;
+    }
+
+    if (status === "rejected" && !reviewNotes.trim()) {
+      toast.error("Review notes required", {
+        description: "Please provide a reason before rejecting an application.",
+      });
+      return;
+    }
+
+    reviewMutation.mutate({
+      id: selectedApplication.id,
+      payload: {
+        status,
+        reviewNote: reviewNotes.trim() || undefined,
+      },
     });
-    setEditingPartner(null);
   };
 
-  const openEditPartnerDialog = (partner: Partner) => {
-    setEditingPartner(partner);
-    setFormState({
-      businessName: partner.businessName,
-      contactPerson: partner.contactPerson,
-      email: partner.email,
-      phone: partner.phone,
+  const openEditDialog = (partner: AdminPartner) => {
+    setPartnerToEdit(partner);
+    setEditFormState({
+      name: partner.name,
       type: partner.type,
-      aboutBusiness: partner.aboutBusiness,
+      contactName: partner.contactName,
+      email: partner.email,
+      phone: partner.phone ?? "",
       status: partner.status,
-      networkStatus: partner.networkStatus,
-      commissionRate: String(partner.commissionRate),
-      partnerSharePercent: String(partner.partnerSharePercent),
-      platformSharePercent: String(partner.platformSharePercent),
-      grossRevenue: String(partner.grossRevenue),
-      totalBookings: String(partner.totalBookings),
-      payoutCycle: partner.payoutCycle,
-      payoutStatus: partner.payoutStatus,
+      revenueShareRate: String(partner.revenueShareRate ?? 0),
       notes: partner.notes ?? "",
     });
-    setFormOpen(true);
+    setEditOpen(true);
   };
 
-  const syncPartners = (next: Partner[]) => {
-    setPartners(next);
-    savePartners(next);
-  };
+  const submitPartnerUpdate = () => {
+    if (!partnerToEdit) {
+      return;
+    }
 
-  const syncApplications = (next: PartnerApplication[]) => {
-    setApplications(next);
-    savePartnerApplications(next);
-  };
-
-  const handleSavePartner = () => {
     if (
-      !formState.businessName ||
-      !formState.contactPerson ||
-      !formState.email ||
-      !formState.phone
+      !editFormState.name.trim() ||
+      !editFormState.contactName.trim() ||
+      !editFormState.email.trim()
     ) {
-      toast.error("Missing Required Fields", {
-        description:
-          "Business name, contact person, email and phone are required.",
+      toast.error("Missing required fields", {
+        description: "Name, contact name, and email are required.",
       });
       return;
     }
 
-    const partnerShare = Number(formState.partnerSharePercent);
-    const platformShare = Number(formState.platformSharePercent);
-    if (partnerShare + platformShare !== 100) {
-      toast.error("Invalid Revenue Share", {
-        description:
-          "Partner share and platform share must add up to exactly 100%.",
+    const revenueShareRate = Number(editFormState.revenueShareRate);
+
+    if (
+      Number.isNaN(revenueShareRate) ||
+      revenueShareRate < 0 ||
+      revenueShareRate > 100
+    ) {
+      toast.error("Invalid revenue share rate", {
+        description: "Revenue share rate must be a number between 0 and 100.",
       });
       return;
     }
 
-    if (editingPartner) {
-      const grossRevenue = Math.max(0, Number(formState.grossRevenue));
-      const next = partners.map((partner) => {
-        if (partner.id !== editingPartner.id) return partner;
-        return {
-          ...partner,
-          businessName: formState.businessName,
-          contactPerson: formState.contactPerson,
-          email: formState.email,
-          phone: formState.phone,
-          type: formState.type,
-          aboutBusiness: formState.aboutBusiness,
-          status: formState.status,
-          networkStatus: formState.networkStatus,
-          commissionRate: Number(formState.commissionRate),
-          partnerSharePercent: partnerShare,
-          platformSharePercent: platformShare,
-          grossRevenue,
-          partnerEarnings: Math.round((grossRevenue * partnerShare) / 100),
-          platformEarnings: Math.round((grossRevenue * platformShare) / 100),
-          payoutCycle: formState.payoutCycle,
-          payoutStatus: formState.payoutStatus,
-          totalBookings: Number(formState.totalBookings),
-          totalRevenue: grossRevenue,
-          notes: formState.notes,
-        };
-      });
-
-      syncPartners(next);
-      toast.success("Partner Updated", {
-        description: `${formState.businessName} was updated successfully.`,
-      });
-    } else {
-      const created = createPartnerFromInput({
-        businessName: formState.businessName,
-        contactPerson: formState.contactPerson,
-        email: formState.email,
-        phone: formState.phone,
-        type: formState.type,
-        aboutBusiness: formState.aboutBusiness,
-        status: formState.status,
-        networkStatus: formState.networkStatus,
-        commissionRate: Number(formState.commissionRate),
-        partnerSharePercent: partnerShare,
-        platformSharePercent: platformShare,
-        grossRevenue: Number(formState.grossRevenue),
-        totalBookings: Number(formState.totalBookings),
-        payoutCycle: formState.payoutCycle,
-        payoutStatus: formState.payoutStatus,
-        notes: formState.notes,
-      });
-      syncPartners([created, ...partners]);
-      toast.success("Partner Registered", {
-        description: `${created.businessName} has been added to the network.`,
-      });
-    }
-
-    setFormOpen(false);
-    resetForm();
-  };
-
-  const handleApproveApplication = (application: PartnerApplication) => {
-    const approvedApp: PartnerApplication = {
-      ...application,
-      status: "approved",
-      reviewedDate: new Date().toISOString().slice(0, 10),
-      reviewNotes: reviewNotes || "Application approved by admin.",
-    };
-
-    const nextApplications = applications.map((current) =>
-      current.id === application.id ? approvedApp : current,
-    );
-    syncApplications(nextApplications);
-
-    const createdPartner = createPartnerFromApplication(approvedApp);
-    syncPartners([createdPartner, ...partners]);
-
-    toast.success("Application Approved", {
-      description: `${application.businessName} was approved and added as a partner.`,
+    updatePartnerMutation.mutate({
+      id: partnerToEdit.id,
+      payload: {
+        name: editFormState.name.trim(),
+        type: editFormState.type,
+        contactName: editFormState.contactName.trim(),
+        email: editFormState.email.trim(),
+        phone: editFormState.phone.trim() || undefined,
+        status: editFormState.status,
+        revenueShareRate,
+        notes: editFormState.notes.trim() || undefined,
+      },
     });
-    setReviewNotes("");
-    setReviewOpen(false);
-    setSelectedApplication(null);
   };
 
-  const handleRejectApplication = (application: PartnerApplication) => {
-    if (!reviewNotes.trim()) {
-      toast.error("Review Notes Required", {
-        description:
-          "Please include a short reason to help the applicant improve and re-apply.",
-      });
+  const requestPartnerTerminate = (partner: AdminPartner) => {
+    setPartnerToTerminate(partner);
+    setTerminateNotes("");
+    setTerminateOpen(true);
+  };
+
+  const submitPartnerTerminate = () => {
+    if (!partnerToTerminate) {
       return;
     }
 
-    const nextApplications: PartnerApplication[] = applications.map((current) =>
-      current.id === application.id
-        ? {
-            ...current,
-            status: "rejected" as const,
-            reviewedDate: new Date().toISOString().slice(0, 10),
-            reviewNotes,
-          }
-        : current,
-    );
-
-    syncApplications(nextApplications);
-    toast.error("Application Rejected", {
-      description: `${application.businessName} was marked as rejected.`,
-    });
-    setReviewNotes("");
-    setReviewOpen(false);
-    setSelectedApplication(null);
-  };
-
-  const handleActivatePartner = (partner: Partner) => {
-    const next: Partner[] = partners.map((entry) =>
-      entry.id === partner.id
-        ? {
-            ...entry,
-            status: "active" as const,
-            networkStatus: "verified" as const,
-          }
-        : entry,
-    );
-    syncPartners(next);
-    toast.success("Partner Activated", {
-      description: `${partner.businessName} is now active in the network.`,
+    terminatePartnerMutation.mutate({
+      id: partnerToTerminate.id,
+      notes: terminateNotes,
     });
   };
 
-  const handleTerminatePartner = (partner: Partner) => {
-    const next: Partner[] = partners.map((entry) =>
-      entry.id === partner.id
-        ? {
-            ...entry,
-            status: "terminated" as const,
-            networkStatus: "suspended" as const,
-            payoutStatus: "on-hold" as const,
-          }
-        : entry,
-    );
-    syncPartners(next);
-    toast.error("Partner Terminated", {
-      description: `Termination process for ${partner.businessName} initiated.`,
-    });
-  };
+  const listError =
+    activeTab === "partners" ? partnersQuery.error : applicationsQuery.error;
 
-  const handleAddAgreement = () => {
-    if (!profilePartner || !agreementTitle.trim() || !agreementSummary.trim()) {
-      toast.error("Missing Agreement Data", {
-        description: "Agreement title and summary are required.",
-      });
-      return;
-    }
-
-    const newAgreement = createPartnerAgreement(
-      agreementTitle.trim(),
-      agreementSummary.trim(),
-    );
-    const next = partners.map((partner) =>
-      partner.id === profilePartner.id
-        ? { ...partner, agreements: [newAgreement, ...partner.agreements] }
-        : partner,
-    );
-    syncPartners(next);
-
-    const updatedProfile = next.find((partner) => partner.id === profilePartner.id);
-    if (updatedProfile) setProfilePartner(updatedProfile);
-
-    setAgreementTitle("");
-    setAgreementSummary("");
-    toast.success("Agreement Added", {
-      description: "A new agreement has been added to this partner.",
-    });
-  };
+  const partnersApiCaveats = useMemo(
+    () => [
+      "KPI: Total Bookings (not returned by /partners/stats)",
+      "KPI: Partner Packages (not returned by /partners or /partners/stats)",
+      "Partner profile financial breakdown and agreements are not part of /partners list payload",
+    ],
+    [],
+  );
 
   return (
     <div className="space-y-6 text-xs font-medium">
@@ -408,8 +420,7 @@ export default function AdminPartnersPage() {
             Partners & Community Network
           </h1>
           <p className="text-sm text-muted-foreground font-semibold tracking-tight">
-            {partners.length} registered partners · {applications.length} total
-            applications
+            {stats.total} total partners | {stats.pending} pending applications
           </p>
         </div>
         <Button className="gap-2 text-xs font-bold h-10 px-6 shadow-sm" asChild>
@@ -419,33 +430,39 @@ export default function AdminPartnersPage() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           {
             label: "Active Partners",
-            value: partners.filter((p) => p.status === "active").length,
+            value: String(stats.active),
             icon: Handshake,
           },
           {
-            label: "Total Bookings",
-            value: totalBookings,
-            icon: Calendar,
+            label: "Pending Applications",
+            value: String(stats.pending),
+            icon: FileText,
           },
           {
             label: "Total Revenue",
-            value: `${(totalRevenue / 1000000).toFixed(1)}M RWF`,
+            value: formatCurrency(stats.totalRevenue),
             icon: DollarSign,
           },
           {
-            label: "Partner Packages",
-            value: partners.reduce((s, p) => s + p.packages.length, 0),
-            icon: Package,
+            label: "Pending Payouts",
+            value: formatCurrency(stats.pendingPayouts),
+            icon: Wallet,
           },
           {
-            label: "Pending Applications",
-            value: applications.filter((app) => app.status === "pending").length,
-            icon: FileText,
+            label: "Total Bookings",
+            value: "N/A",
+            icon: Eye,
+            unsupported: true,
+          },
+          {
+            label: "Partner Packages",
+            value: "N/A",
+            icon: AlertTriangle,
+            unsupported: true,
           },
         ].map((s) => (
           <div
@@ -453,13 +470,17 @@ export default function AdminPartnersPage() {
             className="bg-card border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group"
           >
             <div className="flex items-center justify-between mb-3">
-              <div
-                className={`w-9 h-9 bg-muted/30 rounded-lg flex items-center justify-center border border-border group-hover:bg-primary group-hover:text-white transition-all`}
-              >
-                <s.icon
-                  className={`h-5 w-5 text-muted-foreground group-hover:text-white transition-colors`}
-                />
+              <div className="w-9 h-9 bg-muted/30 rounded-lg flex items-center justify-center border border-border group-hover:bg-primary group-hover:text-white transition-all">
+                <s.icon className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
               </div>
+              {s.unsupported ? (
+                <Badge
+                  variant="outline"
+                  className="text-[9px] uppercase tracking-wide"
+                >
+                  API Gap
+                </Badge>
+              ) : null}
             </div>
             <p className="text-2xl font-bold font-heading text-foreground mb-0.5">
               {s.value}
@@ -471,21 +492,42 @@ export default function AdminPartnersPage() {
         ))}
       </div>
 
-      {/* Toolbar */}
+      <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 text-[11px] space-y-2">
+        <div className="flex items-center gap-2 font-bold text-amber-800">
+          <AlertTriangle className="h-4 w-4" />
+          Not Fully Backed By Current Partner APIs
+        </div>
+        <ul className="list-disc pl-5 text-amber-900 space-y-1">
+          {partnersApiCaveats.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+
       <div className="flex flex-wrap gap-3 bg-card border border-border p-3 rounded-xl shadow-sm">
         <div className="flex items-center border border-border rounded-lg bg-background flex-1 max-w-xs focus-within:ring-2 focus-within:ring-primary/20">
           <Search className="h-4 w-4 ml-3 text-muted-foreground" />
           <input
             className="flex-1 px-3 py-2 text-xs bg-transparent outline-none font-medium"
-            placeholder="Search by business or contact..."
+            placeholder={
+              activeTab === "partners"
+                ? "Search by business/contact/email..."
+                : "Search applications by business/contact/email..."
+            }
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
           />
         </div>
         <Button variant="outline" className="text-xs" asChild>
           <Link href="/admin/partners/application">Open Applications Page</Link>
         </Button>
       </div>
+
+      {listError ? (
+        <div className="border border-destructive/40 bg-destructive/10 rounded-xl p-3 text-xs text-destructive">
+          {(listError as Error).message || "Unable to load partner data."}
+        </div>
+      ) : null}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-2 w-full sm:w-80">
@@ -513,126 +555,156 @@ export default function AdminPartnersPage() {
                       Primary Contact
                     </TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider">
-                      Commission (%)
-                    </TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-center">
-                      Bookings
+                      Revenue Share (%)
                     </TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider">
-                      Revenue
+                      Status
                     </TableHead>
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider">
-                      Network Status
+                      Joined
                     </TableHead>
-                    <TableHead className="w-12 text-center"></TableHead>
+                    <TableHead className="w-12 text-center" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPartners.filter((p) => p.status === "active").map((partner) => (
-                    <TableRow
-                      key={partner.id}
-                      className="hover:bg-muted/30 transition-colors"
-                    >
-                      <TableCell>
-                        <p className="font-bold text-foreground text-[11px] mb-0.5">
-                          {partner.businessName}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter italic">
-                          Joined {partner.joinedDate}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/20">
-                          {typeBadge[partner.type] || partner.type}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-[11px] font-bold text-foreground mb-0.5">
-                          {partner.contactPerson}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground font-medium underline underline-offset-2">
-                          {partner.email}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-bold text-sm text-foreground">
-                          {partner.commissionRate}%
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className="text-[11px] font-bold text-foreground bg-muted px-2 py-0.5 rounded-md">
-                          {partner.totalBookings}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-bold text-foreground text-sm">
-                        {formatPrice(partner.totalRevenue)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusBadge[partner.status]} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
-                        >
-                          {partner.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-muted"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="text-xs">
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer"
-                              onClick={() => {
-                                setProfilePartner(partner);
-                                setProfileOpen(true);
-                              }}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              Partner Profile
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer"
-                              onClick={() => openEditPartnerDialog(partner)}
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                              Update Partner
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer"
-                              onClick={() => router.push(`/admin/partners/${partner.id}`)}
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              Open Full Page
-                            </DropdownMenuItem>
-                            {partner.status !== "active" && (
-                              <DropdownMenuItem
-                                className="gap-2 text-xs py-2 cursor-pointer"
-                                onClick={() => handleActivatePartner(partner)}
-                              >
-                                <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                                Activate Partner
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              onClick={() => handleTerminatePartner(partner)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Terminate
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {partnersQuery.isLoading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        Loading partners...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : partners.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No partners found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    partners.map((partner: AdminPartner) => (
+                      <TableRow
+                        key={partner.id}
+                        className="hover:bg-muted/30 transition-colors"
+                      >
+                        <TableCell>
+                          <p className="font-bold text-foreground text-[11px] mb-0.5">
+                            {partner.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tighter italic">
+                            ID: {partner.id}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/20">
+                            {typeLabel[partner.type] || partner.type}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-[11px] font-bold text-foreground mb-0.5">
+                            {partner.contactName}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-medium underline underline-offset-2">
+                            {partner.email}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-bold text-sm text-foreground">
+                            {partner.revenueShareRate ?? "-"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusBadge[partner.status] || "bg-muted"} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
+                          >
+                            {partner.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[11px] font-semibold">
+                          {formatDate(partner.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="text-xs"
+                            >
+                              <DropdownMenuItem
+                                className="gap-2 text-xs py-2 cursor-pointer"
+                                onClick={() =>
+                                  router.push(`/admin/partners/${partner.id}`)
+                                }
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                Open Full Page
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2 text-xs py-2 cursor-pointer"
+                                onClick={() => openEditDialog(partner)}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                                Edit Partner
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                disabled={partner.status === "inactive"}
+                                onClick={() => requestPartnerTerminate(partner)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                {partner.status === "inactive"
+                                  ? "Already Inactive"
+                                  : "Terminate Partner"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
+            <p className="text-muted-foreground">
+              Page {partnersPagination.page} of {partnersPagination.pages} |
+              Total {partnersPagination.total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPartnersPage((prev) => Math.max(1, prev - 1))}
+                disabled={
+                  !partnersPagination.hasPrev || partnersQuery.isFetching
+                }
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPartnersPage((prev) => prev + 1)}
+                disabled={
+                  !partnersPagination.hasNext || partnersQuery.isFetching
+                }
+              >
+                Next
+              </Button>
             </div>
           </div>
         </TabsContent>
@@ -658,419 +730,155 @@ export default function AdminPartnersPage() {
                     <TableHead className="text-[10px] font-bold uppercase tracking-wider">
                       Status
                     </TableHead>
-                    <TableHead className="w-12 text-center"></TableHead>
+                    <TableHead className="w-12 text-center" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredApplications.map((application) => (
-                    <TableRow key={application.id}>
-                      <TableCell>
-                        <p className="font-bold text-[11px]">{application.businessName}</p>
-                        <p className="text-[10px] text-muted-foreground line-clamp-1">
-                          {application.aboutBusiness}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-[11px] font-semibold">{application.contactPerson}</p>
-                        <p className="text-[10px] text-muted-foreground">{application.email}</p>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/20">
-                          {typeBadge[application.type] || application.type}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-[11px] font-semibold">
-                        {application.appliedDate}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusBadge[application.status] || "bg-muted"} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
-                        >
-                          {application.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="text-xs">
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer"
-                              onClick={() => {
-                                setSelectedApplication(application);
-                                setReviewNotes(application.reviewNotes || "");
-                                setReviewOpen(true);
-                              }}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              View Application
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2 text-xs py-2 cursor-pointer"
-                              onClick={() =>
-                                router.push(`/admin/partners/application/${application.id}`)
-                              }
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              Open Detail Page
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {applicationsQuery.isLoading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        Loading applications...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : applications.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No partner applications found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    applications.map((application: AdminPartnerApplication) => (
+                      <TableRow key={application.id}>
+                        <TableCell>
+                          <p className="font-bold text-[11px]">
+                            {application.businessName}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground line-clamp-1">
+                            {application.description || "No description"}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-[11px] font-semibold">
+                            {application.contactName}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {application.email}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full border border-primary/20">
+                            {typeLabel[application.businessType] ||
+                              application.businessType}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-[11px] font-semibold">
+                          {formatDate(application.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusBadge[application.status] || "bg-muted"} border text-[10px] font-bold py-0 px-2 shadow-none capitalize`}
+                          >
+                            {application.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="text-xs"
+                            >
+                              <DropdownMenuItem
+                                className="gap-2 text-xs py-2 cursor-pointer"
+                                onClick={() => {
+                                  setSelectedApplication(application);
+                                  setReviewNotes(application.reviewNote || "");
+                                  setReviewOpen(true);
+                                }}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                View / Review
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2 text-xs py-2 cursor-pointer"
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/partners/application/${application.id}`,
+                                  )
+                                }
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                Open Detail Page
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
           </div>
-        </TabsContent>
 
-      </Tabs>
-
-      <Dialog
-        open={formOpen}
-        onOpenChange={(open) => {
-          setFormOpen(open);
-          if (!open) resetForm();
-        }}
-      >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading">
-              {editingPartner ? "Update Partner" : "Register a New Partner"}
-            </DialogTitle>
-            <DialogDescription>
-              Capture the key business, network, agreement and financial setup.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid md:grid-cols-2 gap-4 pt-2">
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Name *</Label>
-              <Input
-                value={formState.businessName}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, businessName: event.target.value }))
+          <div className="flex items-center justify-between text-xs">
+            <p className="text-muted-foreground">
+              Page {applicationsPagination.page} of{" "}
+              {applicationsPagination.pages} | Total{" "}
+              {applicationsPagination.total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setApplicationsPage((prev) => Math.max(1, prev - 1))
                 }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Partner Type</Label>
-              <Select
-                value={formState.type}
-                onValueChange={(value: Partner["type"]) =>
-                  setFormState((prev) => ({ ...prev, type: value }))
+                disabled={
+                  !applicationsPagination.hasPrev ||
+                  applicationsQuery.isFetching
                 }
               >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tourism-operator">Tourism Operator</SelectItem>
-                  <SelectItem value="hotel">Hotel</SelectItem>
-                  <SelectItem value="restaurant">Restaurant</SelectItem>
-                  <SelectItem value="school">School</SelectItem>
-                  <SelectItem value="ngo">NGO</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Partner Status</Label>
-              <Select
-                value={formState.status}
-                onValueChange={(value: Partner["status"]) =>
-                  setFormState((prev) => ({ ...prev, status: value }))
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setApplicationsPage((prev) => prev + 1)}
+                disabled={
+                  !applicationsPagination.hasNext ||
+                  applicationsQuery.isFetching
                 }
               >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="terminated">Terminated</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Network Status</Label>
-              <Select
-                value={formState.networkStatus}
-                onValueChange={(value: Partner["networkStatus"]) =>
-                  setFormState((prev) => ({ ...prev, networkStatus: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="onboarding">Onboarding</SelectItem>
-                  <SelectItem value="verified">Verified</SelectItem>
-                  <SelectItem value="at-risk">At Risk</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Gross Revenue (RWF)</Label>
-              <Input
-                type="number"
-                min="0"
-                value={formState.grossRevenue}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, grossRevenue: event.target.value }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Commission %</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                value={formState.commissionRate}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, commissionRate: event.target.value }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Partner Share %</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                value={formState.partnerSharePercent}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, partnerSharePercent: event.target.value }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Platform Share %</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                value={formState.platformSharePercent}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, platformSharePercent: event.target.value }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Payout Cycle</Label>
-              <Select
-                value={formState.payoutCycle}
-                onValueChange={(value: Partner["payoutCycle"]) =>
-                  setFormState((prev) => ({ ...prev, payoutCycle: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Payout Status</Label>
-              <Select
-                value={formState.payoutStatus}
-                onValueChange={(value: Partner["payoutStatus"]) =>
-                  setFormState((prev) => ({ ...prev, payoutStatus: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="on-hold">On Hold</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="md:col-span-2 space-y-1.5">
-              <Label className="text-[11px]">About Business</Label>
-              <Textarea
-                rows={3}
-                value={formState.aboutBusiness}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, aboutBusiness: event.target.value }))
-                }
-                className="text-xs"
-              />
-            </div>
-            <div className="md:col-span-2 space-y-1.5">
-              <Label className="text-[11px]">Notes</Label>
-              <Textarea
-                rows={2}
-                value={formState.notes}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, notes: event.target.value }))
-                }
-                className="text-xs"
-              />
+                Next
+              </Button>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSavePartner}>
-              {editingPartner ? "Save Updates" : "Register Partner"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {profilePartner && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-heading">
-                  {profilePartner.businessName}
-                </DialogTitle>
-                <DialogDescription>
-                  Partner profile, finance and agreement overview.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <h3 className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
-                      Contact
-                    </h3>
-                    <p className="text-sm font-bold">{profilePartner.contactPerson}</p>
-                    <p className="text-xs">{profilePartner.email}</p>
-                    <p className="text-xs">{profilePartner.phone}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {profilePartner.aboutBusiness}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <h3 className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
-                      Revenue Share
-                    </h3>
-                    <p className="text-xs">Gross: {formatPrice(profilePartner.grossRevenue)}</p>
-                    <p className="text-xs">
-                      Partner ({profilePartner.partnerSharePercent}%): {formatPrice(profilePartner.partnerEarnings)}
-                    </p>
-                    <p className="text-xs">
-                      Platform ({profilePartner.platformSharePercent}%): {formatPrice(profilePartner.platformEarnings)}
-                    </p>
-                    <p className="text-xs">Payout: {profilePartner.payoutCycle}</p>
-                    <Badge className="text-[10px] capitalize">{profilePartner.payoutStatus}</Badge>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <h3 className="font-semibold text-xs uppercase tracking-wide text-muted-foreground">
-                      Operations
-                    </h3>
-                    <p className="text-xs">Bookings: {profilePartner.totalBookings}</p>
-                    <p className="text-xs">Joined: {profilePartner.joinedDate}</p>
-                    <Badge className={`${statusBadge[profilePartner.status]} text-[10px]`}>
-                      {profilePartner.status}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">
-                      Network: {profilePartner.networkStatus}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="space-y-3 border border-border rounded-xl p-4">
-                <h3 className="font-semibold text-sm">Agreements</h3>
-                <div className="grid md:grid-cols-2 gap-3">
-                  {profilePartner.agreements.map((agreement) => (
-                    <Card key={agreement.id}>
-                      <CardContent className="p-3 space-y-1">
-                        <p className="text-xs font-bold">{agreement.title}</p>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">
-                          {agreement.termsSummary}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <Badge className="text-[10px] capitalize">{agreement.status}</Badge>
-                          <span className="text-[10px] text-muted-foreground">
-                            {agreement.version}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3 pt-1">
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Agreement Title</Label>
-                    <Input
-                      className="h-9 text-xs"
-                      value={agreementTitle}
-                      onChange={(event) => setAgreementTitle(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px]">Terms Summary</Label>
-                    <Input
-                      className="h-9 text-xs"
-                      value={agreementSummary}
-                      onChange={(event) => setAgreementSummary(event.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" className="text-xs" onClick={handleAddAgreement}>
-                    Add Agreement
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={() => openEditPartnerDialog(profilePartner)}
-                  >
-                    Update Partner
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={() => router.push(`/admin/partners/${profilePartner.id}`)}
-                  >
-                    Open Full Partner Page
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent className="max-w-2xl">
-          {selectedApplication && (
+          {selectedApplication ? (
             <>
               <DialogHeader>
-                <DialogTitle className="font-heading">Partner Application Review</DialogTitle>
+                <DialogTitle className="font-heading">
+                  Partner Application Review
+                </DialogTitle>
                 <DialogDescription>
                   Review application details and approve or reject.
                 </DialogDescription>
@@ -1079,17 +887,27 @@ export default function AdminPartnersPage() {
                 <div className="grid md:grid-cols-2 gap-3">
                   <Card>
                     <CardContent className="p-3 space-y-1">
-                      <p className="font-semibold">{selectedApplication.businessName}</p>
-                      <p>{selectedApplication.contactPerson}</p>
+                      <p className="font-semibold">
+                        {selectedApplication.businessName}
+                      </p>
+                      <p>{selectedApplication.contactName}</p>
                       <p>{selectedApplication.email}</p>
-                      <p>{selectedApplication.phone}</p>
+                      <p>{selectedApplication.phone || "-"}</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="p-3 space-y-1">
-                      <p>Type: {typeBadge[selectedApplication.type] || selectedApplication.type}</p>
-                      <p>Applied: {selectedApplication.appliedDate}</p>
-                      <Badge className="capitalize">{selectedApplication.status}</Badge>
+                      <p>
+                        Type:{" "}
+                        {typeLabel[selectedApplication.businessType] ||
+                          selectedApplication.businessType}
+                      </p>
+                      <p>
+                        Applied: {formatDate(selectedApplication.createdAt)}
+                      </p>
+                      <Badge className="capitalize">
+                        {selectedApplication.status}
+                      </Badge>
                     </CardContent>
                   </Card>
                 </div>
@@ -1098,7 +916,7 @@ export default function AdminPartnersPage() {
                   <Textarea
                     rows={3}
                     readOnly
-                    value={selectedApplication.aboutBusiness}
+                    value={selectedApplication.description || ""}
                     className="text-xs"
                   />
                 </div>
@@ -1120,19 +938,240 @@ export default function AdminPartnersPage() {
                 <Button
                   variant="destructive"
                   className="gap-1"
-                  onClick={() => handleRejectApplication(selectedApplication)}
+                  disabled={
+                    reviewMutation.isPending ||
+                    selectedApplication.status !== "pending"
+                  }
+                  onClick={() => submitReview("rejected")}
                 >
                   <X className="h-3.5 w-3.5" /> Reject
                 </Button>
                 <Button
                   className="gap-1"
-                  onClick={() => handleApproveApplication(selectedApplication)}
+                  disabled={
+                    reviewMutation.isPending ||
+                    selectedApplication.status !== "pending"
+                  }
+                  onClick={() => submitReview("approved")}
                 >
                   <CheckCircle className="h-3.5 w-3.5" /> Approve
                 </Button>
               </DialogFooter>
             </>
-          )}
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) {
+            setPartnerToEdit(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Edit Partner</DialogTitle>
+            <DialogDescription>
+              Update partner details using the backend partner update endpoint.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid md:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Business Name *</Label>
+              <Input
+                className="h-9 text-xs"
+                value={editFormState.name}
+                onChange={(event) =>
+                  setEditFormState((prev) => ({
+                    ...prev,
+                    name: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Contact Name *</Label>
+              <Input
+                className="h-9 text-xs"
+                value={editFormState.contactName}
+                onChange={(event) =>
+                  setEditFormState((prev) => ({
+                    ...prev,
+                    contactName: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Email *</Label>
+              <Input
+                className="h-9 text-xs"
+                type="email"
+                value={editFormState.email}
+                onChange={(event) =>
+                  setEditFormState((prev) => ({
+                    ...prev,
+                    email: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Phone</Label>
+              <Input
+                className="h-9 text-xs"
+                value={editFormState.phone}
+                onChange={(event) =>
+                  setEditFormState((prev) => ({
+                    ...prev,
+                    phone: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Business Type</Label>
+              <Select
+                value={editFormState.type}
+                onValueChange={(value: EditPartnerFormState["type"]) =>
+                  setEditFormState((prev) => ({ ...prev, type: value }))
+                }
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="tourism_operator">
+                    Tourism Operator
+                  </SelectItem>
+                  <SelectItem value="hospitality">Hospitality</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                  <SelectItem value="school">School</SelectItem>
+                  <SelectItem value="ngo">NGO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[11px]">Status</Label>
+              <Select
+                value={editFormState.status}
+                onValueChange={(value: EditPartnerFormState["status"]) =>
+                  setEditFormState((prev) => ({ ...prev, status: value }))
+                }
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-[11px]">Revenue Share Rate (%)</Label>
+              <Input
+                className="h-9 text-xs"
+                type="number"
+                min="0"
+                max="100"
+                value={editFormState.revenueShareRate}
+                onChange={(event) =>
+                  setEditFormState((prev) => ({
+                    ...prev,
+                    revenueShareRate: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-[11px]">Notes</Label>
+              <Textarea
+                rows={3}
+                className="text-xs"
+                value={editFormState.notes}
+                onChange={(event) =>
+                  setEditFormState((prev) => ({
+                    ...prev,
+                    notes: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitPartnerUpdate}
+              disabled={updatePartnerMutation.isPending}
+            >
+              {updatePartnerMutation.isPending ? "Saving..." : "Save Updates"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={terminateOpen}
+        onOpenChange={(open) => {
+          setTerminateOpen(open);
+          if (!open) {
+            setPartnerToTerminate(null);
+            setTerminateNotes("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="font-heading">
+              Terminate Partner
+            </DialogTitle>
+            <DialogDescription>
+              This will set partner status to inactive and cancel pending
+              commissions.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs">
+            <p className="font-semibold text-foreground">
+              {partnerToTerminate?.name || "Selected partner"}
+            </p>
+            <div className="space-y-1">
+              <Label className="text-[11px]">
+                Termination Notes (Optional)
+              </Label>
+              <Textarea
+                rows={3}
+                className="text-xs"
+                placeholder="Add context for the termination decision"
+                value={terminateNotes}
+                onChange={(event) => setTerminateNotes(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTerminateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={submitPartnerTerminate}
+              disabled={terminatePartnerMutation.isPending}
+            >
+              {terminatePartnerMutation.isPending
+                ? "Terminating..."
+                : "Terminate"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

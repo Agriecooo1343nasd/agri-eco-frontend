@@ -3,13 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle } from "lucide-react";
-import type { Partner } from "@/data/community";
-import {
-  createPartnerFromInput,
-  getPartners,
-  savePartners,
-} from "@/lib/partner-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,63 +17,105 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { createAdminPartner, type AdminPartnerType } from "@/lib/api/partners";
 import { toast } from "sonner";
+
+type FormState = {
+  businessName: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  type: AdminPartnerType;
+  status: "pending" | "active" | "inactive";
+  revenueShareRate: string;
+  aboutBusiness: string;
+  notes: string;
+};
+
+const initialFormState: FormState = {
+  businessName: "",
+  contactPerson: "",
+  email: "",
+  phone: "",
+  type: "tourism_operator",
+  status: "pending",
+  revenueShareRate: "0",
+  aboutBusiness: "",
+  notes: "",
+};
+
+function buildPartnerNotes(
+  aboutBusiness: string,
+  notes: string,
+): string | undefined {
+  const sections = [
+    aboutBusiness.trim()
+      ? `Business description:\n${aboutBusiness.trim()}`
+      : "",
+    notes.trim() ? `Internal notes:\n${notes.trim()}` : "",
+  ].filter(Boolean);
+
+  return sections.length > 0 ? sections.join("\n\n") : undefined;
+}
 
 export default function RegisterPartnerPage() {
   const router = useRouter();
-  const [formState, setFormState] = useState({
-    businessName: "",
-    contactPerson: "",
-    email: "",
-    phone: "",
-    type: "tourism-operator" as Partner["type"],
-    aboutBusiness: "",
-    status: "active" as Partner["status"],
-    networkStatus: "onboarding" as Partner["networkStatus"],
-    grossRevenue: "0",
-    totalBookings: "0",
-    payoutCycle: "monthly" as Partner["payoutCycle"],
-    payoutStatus: "pending" as Partner["payoutStatus"],
-    notes: "",
+  const queryClient = useQueryClient();
+  const [formState, setFormState] = useState<FormState>(initialFormState);
+
+  const createMutation = useMutation({
+    mutationFn: createAdminPartner,
+    onSuccess: (partner) => {
+      toast.success("Partner registered", {
+        description: `${partner.name} has been added successfully.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-partner-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
+      router.push("/admin/partners");
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to register partner", {
+        description:
+          error.message || "Please review the form values and try again.",
+      });
+    },
   });
 
-  const handleCreatePartner = () => {
+  const handleCreatePartner = async () => {
     if (
-      !formState.businessName ||
-      !formState.contactPerson ||
-      !formState.email ||
-      !formState.phone
+      !formState.businessName.trim() ||
+      !formState.contactPerson.trim() ||
+      !formState.email.trim()
     ) {
-      toast.error("Missing Required Fields", {
-        description:
-          "Business name, contact person, email and phone are required.",
+      toast.error("Missing required fields", {
+        description: "Business name, contact person, and email are required.",
       });
       return;
     }
 
-    const created = createPartnerFromInput({
-      businessName: formState.businessName,
-      contactPerson: formState.contactPerson,
-      email: formState.email,
-      phone: formState.phone,
+    const revenueShareRate = Number(formState.revenueShareRate);
+
+    if (
+      Number.isNaN(revenueShareRate) ||
+      revenueShareRate < 0 ||
+      revenueShareRate > 100
+    ) {
+      toast.error("Invalid revenue share rate", {
+        description: "Revenue share rate must be a number between 0 and 100.",
+      });
+      return;
+    }
+
+    await createMutation.mutateAsync({
+      name: formState.businessName.trim(),
+      contactName: formState.contactPerson.trim(),
+      email: formState.email.trim(),
+      phone: formState.phone.trim() || undefined,
       type: formState.type,
-      aboutBusiness: formState.aboutBusiness,
       status: formState.status,
-      networkStatus: formState.networkStatus,
-      grossRevenue: Number(formState.grossRevenue),
-      totalBookings: Number(formState.totalBookings),
-      payoutCycle: formState.payoutCycle,
-      payoutStatus: formState.payoutStatus,
-      notes: formState.notes,
+      revenueShareRate,
+      notes: buildPartnerNotes(formState.aboutBusiness, formState.notes),
     });
-
-    const partners = getPartners();
-    savePartners([created, ...partners]);
-
-    toast.success("Partner Registered", {
-      description: `${created.businessName} has been added successfully.`,
-    });
-    router.push("/admin/partners");
   };
 
   return (
@@ -93,16 +130,15 @@ export default function RegisterPartnerPage() {
           Register a New Partner
         </h1>
         <p className="text-xs text-muted-foreground">
-          Capture partner profile and operational setup. Financial conditions
-          are managed at the agreement level.
+          This form now submits directly to the backend partner creation API.
         </p>
       </div>
 
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-6 space-y-5">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Name *</Label>
+              <Label className="text-[11px]">Business Name (Required)</Label>
               <Input
                 placeholder="Example: Green Valley Tourism Ltd"
                 value={formState.businessName}
@@ -115,8 +151,9 @@ export default function RegisterPartnerPage() {
                 className="h-9 text-xs"
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Contact Person *</Label>
+              <Label className="text-[11px]">Contact Person (Required)</Label>
               <Input
                 placeholder="Example: Alice Uwimana"
                 value={formState.contactPerson}
@@ -129,8 +166,9 @@ export default function RegisterPartnerPage() {
                 className="h-9 text-xs"
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Email *</Label>
+              <Label className="text-[11px]">Email (Required)</Label>
               <Input
                 type="email"
                 placeholder="Example: contact@business.rw"
@@ -144,8 +182,9 @@ export default function RegisterPartnerPage() {
                 className="h-9 text-xs"
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Phone *</Label>
+              <Label className="text-[11px]">Phone (Optional)</Label>
               <Input
                 placeholder="Example: +250 7XX XXX XXX"
                 value={formState.phone}
@@ -158,11 +197,12 @@ export default function RegisterPartnerPage() {
                 className="h-9 text-xs"
               />
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Type *</Label>
+              <Label className="text-[11px]">Business Type (Required)</Label>
               <Select
                 value={formState.type}
-                onValueChange={(value: Partner["type"]) =>
+                onValueChange={(value: AdminPartnerType) =>
                   setFormState((prev) => ({ ...prev, type: value }))
                 }
               >
@@ -170,21 +210,22 @@ export default function RegisterPartnerPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="tourism-operator">
+                  <SelectItem value="tourism_operator">
                     Tourism Operator
                   </SelectItem>
-                  <SelectItem value="hotel">Hotel / Lodge</SelectItem>
-                  <SelectItem value="restaurant">Restaurant</SelectItem>
+                  <SelectItem value="hospitality">Hospitality</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
                   <SelectItem value="school">School / Institution</SelectItem>
                   <SelectItem value="ngo">NGO / Non-profit</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Partner Status</Label>
+              <Label className="text-[11px]">Partner Status (Optional)</Label>
               <Select
                 value={formState.status}
-                onValueChange={(value: Partner["status"]) =>
+                onValueChange={(value: FormState["status"]) =>
                   setFormState((prev) => ({ ...prev, status: value }))
                 }
               >
@@ -192,125 +233,84 @@ export default function RegisterPartnerPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="terminated">Terminated</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Network Status</Label>
-              <Select
-                value={formState.networkStatus}
-                onValueChange={(value: Partner["networkStatus"]) =>
-                  setFormState((prev) => ({ ...prev, networkStatus: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="onboarding">Onboarding</SelectItem>
-                  <SelectItem value="verified">Verified</SelectItem>
-                  <SelectItem value="at-risk">At Risk</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Gross Revenue (RWF)</Label>
+              <Label className="text-[11px]">
+                Revenue Share Rate (%) (Optional)
+              </Label>
               <Input
                 type="number"
                 min="0"
-                placeholder="Example: 1200000"
-                value={formState.grossRevenue}
+                max="100"
+                placeholder="Example: 12.5"
+                value={formState.revenueShareRate}
                 onChange={(event) =>
                   setFormState((prev) => ({
                     ...prev,
-                    grossRevenue: event.target.value,
+                    revenueShareRate: event.target.value,
                   }))
                 }
                 className="h-9 text-xs"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Payout Cycle</Label>
-              <Select
-                value={formState.payoutCycle}
-                onValueChange={(value: Partner["payoutCycle"]) =>
-                  setFormState((prev) => ({ ...prev, payoutCycle: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Payout Status</Label>
-              <Select
-                value={formState.payoutStatus}
-                onValueChange={(value: Partner["payoutStatus"]) =>
-                  setFormState((prev) => ({ ...prev, payoutStatus: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="on-hold">On Hold</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2 space-y-1.5">
-              <Label className="text-[11px]">About Business</Label>
-              <Textarea
-                rows={3}
-                placeholder="Example: We provide curated farm tours and sustainable travel experiences."
-                value={formState.aboutBusiness}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    aboutBusiness: event.target.value,
-                  }))
-                }
-                className="text-xs"
-              />
-            </div>
-            <div className="md:col-span-2 space-y-1.5">
-              <Label className="text-[11px]">Internal Notes</Label>
-              <Textarea
-                rows={2}
-                placeholder="Example: Preferred for school package partnerships in Q2."
-                value={formState.notes}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    notes: event.target.value,
-                  }))
-                }
-                className="text-xs"
-              />
-            </div>
           </div>
 
-          <div className="flex gap-2 pt-5">
+          <div className="space-y-1.5">
+            <Label className="text-[11px]">About Business (Optional)</Label>
+            <Textarea
+              rows={3}
+              placeholder="Example: We provide curated farm tours and sustainable travel experiences."
+              value={formState.aboutBusiness}
+              onChange={(event) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  aboutBusiness: event.target.value,
+                }))
+              }
+              className="text-xs"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Stored inside the backend `notes` field because there is no
+              dedicated business description field on partner creation.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[11px]">Internal Notes (Optional)</Label>
+            <Textarea
+              rows={2}
+              placeholder="Example: Preferred for school package partnerships in Q2."
+              value={formState.notes}
+              onChange={(event) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  notes: event.target.value,
+                }))
+              }
+              className="text-xs"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
             <Button
               variant="outline"
               onClick={() => router.push("/admin/partners")}
+              disabled={createMutation.isPending}
             >
               Cancel
             </Button>
-            <Button onClick={handleCreatePartner}>
-              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Register Partner
+            <Button
+              onClick={handleCreatePartner}
+              disabled={createMutation.isPending}
+            >
+              <CheckCircle className="h-3.5 w-3.5 mr-1" />
+              {createMutation.isPending ? "Registering..." : "Register Partner"}
             </Button>
           </div>
         </CardContent>
