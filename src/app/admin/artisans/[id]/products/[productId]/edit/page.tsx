@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { artisans } from "@/data/community";
 import {
@@ -48,23 +48,22 @@ export default function EditProductPage() {
   const artisan = artisans.find((a) => a.id === id);
   const product = artisan?.products.find((p) => p.id === productId);
 
-  const [name, setName] = useState<MultiLangValue>(emptyLangValue());
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
-  const [category, setCategory] = useState("");
-  const [description, setDescription] =
-    useState<MultiLangValue>(emptyLangValue());
+  const [name, setName] = useState<MultiLangValue>(() =>
+    product ? { ...emptyLangValue(), en: product.name } : emptyLangValue(),
+  );
+  const [price, setPrice] = useState(() =>
+    product ? String(product.price) : "",
+  );
+  const [stock, setStock] = useState(() =>
+    product ? String(product.stock ?? "") : "",
+  );
+  const [category, setCategory] = useState(() => product?.category ?? "");
+  const [description, setDescription] = useState<MultiLangValue>(() =>
+    product
+      ? { ...emptyLangValue(), en: product.description }
+      : emptyLangValue(),
+  );
   const [saving, setSaving] = useState(false);
-
-  // Hydrate form from mock data
-  useEffect(() => {
-    if (!product) return;
-    setName({ ...emptyLangValue(), en: product.name });
-    setPrice(String(product.price));
-    setStock(String(product.stock ?? ""));
-    setCategory(product.category ?? "");
-    setDescription({ ...emptyLangValue(), en: product.description });
-  }, [product]);
 
   if (!artisan || !product) {
     return (

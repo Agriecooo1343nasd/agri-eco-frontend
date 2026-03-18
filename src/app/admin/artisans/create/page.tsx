@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Plus,
@@ -19,26 +20,100 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
+  createAdminArtisan,
+  type ArtisanMultiLangText,
+} from "@/lib/api/artisans";
+import { uploadSingleImage } from "@/lib/api/uploads";
+import {
   MultiLangInput,
   emptyLangValue,
   type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function toOptionalMultiLang(
+  value: MultiLangValue,
+): ArtisanMultiLangText | undefined {
+  const en = value.en.trim();
+  const rw = value.rw.trim();
+  const fr = value.fr.trim();
+  const sw = value.sw.trim();
+
+  if (!en) {
+    return undefined;
+  }
+
+  return {
+    en,
+    ...(rw ? { rw } : {}),
+    ...(fr ? { fr } : {}),
+    ...(sw ? { sw } : {}),
+  };
+}
+
 export default function CreateArtisanPage() {
   const router = useRouter();
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [name, setName] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
   const [description, setDescription] =
     useState<MultiLangValue>(emptyLangValue());
   const [story, setStory] = useState<MultiLangValue>(emptyLangValue());
   const [featured, setFeatured] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const handleCreate = () => {
+  useEffect(() => {
+    return () => {
+      if (selectedImagePreview) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+    };
+  }, [selectedImagePreview]);
+
+  const createMutation = useMutation({
+    mutationFn: createAdminArtisan,
+  });
+
+  const handleImagePick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Invalid file type", {
+        description: "Please choose an image file (PNG, JPG, WEBP, ...).",
+      });
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Image too large", {
+        description: "Please choose an image up to 5MB.",
+      });
+      return;
+    }
+
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    const preview = URL.createObjectURL(file);
+    setSelectedImageFile(file);
+    setSelectedImagePreview(preview);
+  };
+
+  const handleCreate = async () => {
     if (!name.trim() || !specialty.trim() || !location.trim()) {
       toast.error("Missing Fields", {
         description:
@@ -54,14 +129,40 @@ export default function CreateArtisanPage() {
     }
 
     setSaving(true);
-    // Placeholder: will call API on integration
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      let uploadedImagePath = imageUrl.trim();
+
+      if (selectedImageFile) {
+        const uploaded = await uploadSingleImage(selectedImageFile);
+        uploadedImagePath = uploaded.path;
+      }
+
+      await createMutation.mutateAsync({
+        name: name.trim(),
+        specialty: specialty.trim(),
+        location: location.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        shortDescription: toOptionalMultiLang(description),
+        fullStory: toOptionalMultiLang(story),
+        image: uploadedImagePath || undefined,
+        isFeatured: featured,
+        isActive,
+      });
+
       toast.success("Artisan Created", {
-        description: `${name} has been added as an artisan.`,
+        description: `${name.trim()} has been added as an artisan.`,
       });
       router.push("/admin/artisans");
-    }, 800);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to create artisan.";
+      toast.error("Create failed", {
+        description: message,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -195,8 +296,22 @@ export default function CreateArtisanPage() {
                 Profile Image
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+            <CardContent className="space-y-3">
+              {selectedImagePreview ? (
+                <img
+                  src={selectedImagePreview}
+                  alt="Selected artisan"
+                  className="w-full aspect-square object-cover rounded-xl border border-border"
+                />
+              ) : (
+                <div className="w-full aspect-square rounded-xl border border-border bg-muted/30 flex items-center justify-center text-muted-foreground text-xs">
+                  No image selected
+                </div>
+              )}
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                onClick={() => imageInputRef.current?.click()}
+              >
                 <ImagePlus className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
                   Click to upload profile photo
@@ -204,6 +319,21 @@ export default function CreateArtisanPage() {
                 <p className="text-xs text-muted-foreground mt-1">
                   PNG, JPG up to 5MB
                 </p>
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImagePick}
+              />
+              <div>
+                <Label>Or use existing image URL</Label>
+                <Input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="/uploads/filename.jpg or https://..."
+                />
               </div>
             </CardContent>
           </Card>
@@ -227,6 +357,15 @@ export default function CreateArtisanPage() {
                   </p>
                 </div>
                 <Switch checked={featured} onCheckedChange={setFeatured} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Active</p>
+                  <p className="text-xs text-muted-foreground">
+                    Inactive artisans are hidden from public listing
+                  </p>
+                </div>
+                <Switch checked={isActive} onCheckedChange={setIsActive} />
               </div>
             </CardContent>
           </Card>

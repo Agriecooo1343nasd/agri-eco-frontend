@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { artisans, type Artisan } from "@/data/community";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Save,
@@ -22,40 +22,124 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
+  fetchAdminArtisanById,
+  updateAdminArtisan,
+  toAbsoluteArtisanImage,
+  type ArtisanMultiLangText,
+} from "@/lib/api/artisans";
+import { uploadSingleImage } from "@/lib/api/uploads";
+import {
   MultiLangInput,
   emptyLangValue,
   type MultiLangValue,
 } from "@/components/admin/MultiLangInput";
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function toOptionalMultiLang(
+  value: MultiLangValue,
+): ArtisanMultiLangText | undefined {
+  const en = value.en.trim();
+  const rw = value.rw.trim();
+  const fr = value.fr.trim();
+  const sw = value.sw.trim();
+
+  if (!en) {
+    return undefined;
+  }
+
+  return {
+    en,
+    ...(rw ? { rw } : {}),
+    ...(fr ? { fr } : {}),
+    ...(sw ? { sw } : {}),
+  };
+}
+
+function fromMultiLang(value?: ArtisanMultiLangText): MultiLangValue {
+  return {
+    en: value?.en ?? "",
+    rw: value?.rw ?? "",
+    fr: value?.fr ?? "",
+    sw: value?.sw ?? "",
+  };
+}
+
 export default function EditArtisanPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  const artisan: Artisan | undefined = artisans.find((a) => a.id === id);
+  const artisanQuery = useQuery({
+    queryKey: ["admin-artisan", id],
+    queryFn: () => fetchAdminArtisanById(id),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof updateAdminArtisan>[1]) =>
+      updateAdminArtisan(id, payload),
+  });
 
   const [name, setName] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
   const [description, setDescription] =
     useState<MultiLangValue>(emptyLangValue());
   const [story, setStory] = useState<MultiLangValue>(emptyLangValue());
   const [featured, setFeatured] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Hydrate form from mock data
   useEffect(() => {
+    return () => {
+      if (selectedImagePreview) {
+        URL.revokeObjectURL(selectedImagePreview);
+      }
+    };
+  }, [selectedImagePreview]);
+
+  useEffect(() => {
+    const artisan = artisanQuery.data;
     if (!artisan) return;
+
     setName(artisan.name);
     setSpecialty(artisan.specialty);
     setEmail(artisan.email ?? "");
     setPhone(artisan.phone ?? "");
-    setLocation(artisan.location);
-    setDescription({ ...emptyLangValue(), en: artisan.description });
-    setStory({ ...emptyLangValue(), en: artisan.story });
-    setFeatured(artisan.featured);
-  }, [artisan]);
+    setLocation(artisan.location ?? "");
+    setDescription(fromMultiLang(artisan.shortDescription));
+    setStory(fromMultiLang(artisan.fullStory));
+    setFeatured(artisan.isFeatured);
+    setIsActive(artisan.isActive);
+    setImageUrl(artisan.image ?? "");
+  }, [artisanQuery.data]);
+
+  const artisan = artisanQuery.data;
+
+  if (artisanQuery.isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push("/admin/artisans")}
+            className="h-9 w-9"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-2xl font-bold font-heading text-foreground">
+            Loading Artisan...
+          </h1>
+        </div>
+      </div>
+    );
+  }
 
   if (!artisan) {
     return (
@@ -89,7 +173,37 @@ export default function EditArtisanPage() {
     );
   }
 
-  const handleSave = () => {
+  const handleImagePick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Invalid file type", {
+        description: "Please choose an image file (PNG, JPG, WEBP, ...).",
+      });
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Image too large", {
+        description: "Please choose an image up to 5MB.",
+      });
+      return;
+    }
+
+    if (selectedImagePreview) {
+      URL.revokeObjectURL(selectedImagePreview);
+    }
+
+    const preview = URL.createObjectURL(file);
+    setSelectedImageFile(file);
+    setSelectedImagePreview(preview);
+  };
+
+  const handleSave = async () => {
     if (!name.trim() || !specialty.trim() || !location.trim()) {
       toast.error("Missing Fields", {
         description:
@@ -99,14 +213,40 @@ export default function EditArtisanPage() {
     }
 
     setSaving(true);
-    // Placeholder: will call API on integration
-    setTimeout(() => {
-      setSaving(false);
-      toast.success("Artisan Updated", {
-        description: `${name}'s profile has been updated.`,
+    try {
+      let uploadedImagePath = imageUrl.trim();
+
+      if (selectedImageFile) {
+        const uploaded = await uploadSingleImage(selectedImageFile);
+        uploadedImagePath = uploaded.path;
+      }
+
+      await updateMutation.mutateAsync({
+        name: name.trim(),
+        specialty: specialty.trim(),
+        location: location.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        shortDescription: toOptionalMultiLang(description),
+        fullStory: toOptionalMultiLang(story),
+        image: uploadedImagePath || undefined,
+        isFeatured: featured,
+        isActive,
       });
-      router.push(`/admin/artisans/${id}`);
-    }, 800);
+
+      toast.success("Artisan Updated", {
+        description: `${name.trim()}'s profile has been updated.`,
+      });
+      router.push("/admin/artisans");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to update artisan.";
+      toast.error("Update failed", {
+        description: message,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -117,7 +257,7 @@ export default function EditArtisanPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push(`/admin/artisans/${id}`)}
+            onClick={() => router.push("/admin/artisans")}
             className="h-9 w-9"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -240,15 +380,33 @@ export default function EditArtisanPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <img
-                src={artisan.image}
+                src={selectedImagePreview || toAbsoluteArtisanImage(imageUrl)}
                 alt={artisan.name}
                 className="w-full aspect-square object-cover rounded-xl border border-border"
               />
-              <div className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/50 transition-colors cursor-pointer">
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                onClick={() => imageInputRef.current?.click()}
+              >
                 <ImagePlus className="h-6 w-6 text-muted-foreground mx-auto mb-1" />
                 <p className="text-xs text-muted-foreground">
                   Click to replace image
                 </p>
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImagePick}
+              />
+              <div>
+                <Label>Or use existing image URL</Label>
+                <Input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="/uploads/filename.jpg or https://..."
+                />
               </div>
             </CardContent>
           </Card>
@@ -263,14 +421,12 @@ export default function EditArtisanPage() {
                 <span className="text-sm text-muted-foreground">Current:</span>
                 <Badge
                   className={`border text-xs capitalize ${
-                    artisan.status === "active"
+                    isActive
                       ? "bg-primary/10 text-primary border-primary/20"
-                      : artisan.status === "pending"
-                        ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                        : "bg-destructive/10 text-destructive border-destructive/20"
+                      : "bg-slate-500/10 text-slate-600 border-slate-500/20"
                   }`}
                 >
-                  {artisan.status}
+                  {isActive ? "active" : "inactive"}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
@@ -284,6 +440,15 @@ export default function EditArtisanPage() {
                   </p>
                 </div>
                 <Switch checked={featured} onCheckedChange={setFeatured} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Active</p>
+                  <p className="text-xs text-muted-foreground">
+                    Inactive artisans are hidden from public listing
+                  </p>
+                </div>
+                <Switch checked={isActive} onCheckedChange={setIsActive} />
               </div>
             </CardContent>
           </Card>
@@ -301,7 +466,7 @@ export default function EditArtisanPage() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => router.push(`/admin/artisans/${id}`)}
+              onClick={() => router.push("/admin/artisans")}
             >
               Cancel
             </Button>

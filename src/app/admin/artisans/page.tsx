@@ -1,12 +1,18 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
-  artisans,
+  artisans as mockArtisans,
   artisanApplications,
   type ArtisanApplication,
 } from "@/data/community";
+import {
+  fetchAdminArtisans,
+  fetchAdminArtisanStats,
+  toAbsoluteArtisanImage,
+} from "@/lib/api/artisans";
 import {
   Users,
   Search,
@@ -59,14 +65,19 @@ import { Separator } from "@/components/ui/separator";
 
 const statusColors: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
+  inactive: "bg-slate-500/10 text-slate-600 border-slate-500/20",
   pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
   approved: "bg-primary/10 text-primary border-primary/20",
   rejected: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function AdminArtisansPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState("artisans");
   const [viewApp, setViewApp] = useState<ArtisanApplication | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
@@ -79,17 +90,55 @@ export default function AdminArtisansPage() {
     artisanName: string;
   } | null>(null);
 
-  const activeArtisans = artisans.filter((a) => a.status === "active");
-  const pendingApps = artisanApplications.filter((a) => a.status === "pending");
-  const allProducts = artisans.flatMap((a) =>
-    a.products.map((p) => ({ ...p, artisanName: a.name, artisanId: a.id })),
-  );
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 300);
 
-  const filteredArtisans = artisans.filter(
-    (a) =>
-      !search ||
-      a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.specialty.toLowerCase().includes(search.toLowerCase()),
+    return () => window.clearTimeout(id);
+  }, [search]);
+
+  const statsQuery = useQuery({
+    queryKey: ["admin-artisan-stats"],
+    queryFn: fetchAdminArtisanStats,
+  });
+
+  const artisansQuery = useQuery({
+    queryKey: ["admin-artisans", page, debouncedSearch],
+    queryFn: () =>
+      fetchAdminArtisans({
+        page,
+        limit: ITEMS_PER_PAGE,
+        search: debouncedSearch || undefined,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: activeTab === "artisans",
+  });
+
+  const activeArtisansCount = statsQuery.data?.activeArtisans ?? 0;
+  const pendingApplicationsCount =
+    statsQuery.data?.pendingApplications ??
+    artisanApplications.filter((a) => a.status === "pending").length;
+  const totalProductsCount = statsQuery.data?.totalProducts ?? 0;
+  const featuredArtisansCount = statsQuery.data?.featuredCount ?? 0;
+
+  const artisanRows = artisansQuery.data?.data ?? [];
+  const artisanPagination =
+    artisansQuery.data?.pagination ??
+    ({
+      total: 0,
+      page: 1,
+      limit: ITEMS_PER_PAGE,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    } as const);
+
+  const pendingApps = artisanApplications.filter((a) => a.status === "pending");
+  const allProducts = mockArtisans.flatMap((a) =>
+    a.products.map((p) => ({ ...p, artisanName: a.name, artisanId: a.id })),
   );
 
   const filteredApps = artisanApplications.filter(
@@ -122,8 +171,8 @@ export default function AdminArtisansPage() {
             Artisan Management
           </h1>
           <p className="text-sm text-muted-foreground">
-            {activeArtisans.length} active artisans Â· {pendingApps.length}{" "}
-            pending applications Â· {allProducts.length} products
+            {activeArtisansCount} active artisans | {pendingApplicationsCount}{" "}
+            pending applications | {totalProductsCount} products
           </p>
         </div>
         <Button
@@ -139,25 +188,25 @@ export default function AdminArtisansPage() {
         {[
           {
             label: "Active Artisans",
-            value: activeArtisans.length,
+            value: activeArtisansCount,
             icon: Users,
             color: "text-primary",
           },
           {
             label: "Pending Applications",
-            value: pendingApps.length,
+            value: pendingApplicationsCount,
             icon: Clock,
             color: "text-amber-600",
           },
           {
             label: "Total Products",
-            value: allProducts.length,
+            value: totalProductsCount,
             icon: Package,
             color: "text-primary",
           },
           {
             label: "Featured Artisans",
-            value: artisans.filter((a) => a.featured).length,
+            value: featuredArtisansCount,
             icon: Star,
             color: "text-amber-500",
           },
@@ -185,9 +234,9 @@ export default function AdminArtisansPage() {
             className="gap-1.5 text-sm py-2 relative"
           >
             <Mail className="h-4 w-4" /> Applications
-            {pendingApps.length > 0 && (
+            {pendingApplicationsCount > 0 && (
               <span className="ml-1 bg-amber-500 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                {pendingApps.length}
+                {pendingApplicationsCount}
               </span>
             )}
           </TabsTrigger>
@@ -224,105 +273,159 @@ export default function AdminArtisansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredArtisans.map((a) => (
-                    <TableRow key={a.id} className="hover:bg-muted/30">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={a.image}
-                            alt={a.name}
-                            className="w-10 h-10 rounded-lg object-cover"
-                          />
-                          <div>
-                            <p className="font-medium text-foreground text-sm">
-                              {a.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {a.email}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {a.specialty}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {a.location}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-semibold text-sm">
-                        {a.products.length}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          className={`${statusColors[a.status]} border text-xs capitalize`}
-                        >
-                          {a.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {a.featured && (
-                          <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="gap-2"
-                              onClick={() =>
-                                router.push(`/admin/artisans/${a.id}`)
-                              }
-                            >
-                              <Eye className="h-4 w-4" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2"
-                              onClick={() =>
-                                router.push(
-                                  `/admin/artisans/${a.id}/add-product`,
-                                )
-                              }
-                            >
-                              <Plus className="h-4 w-4" /> Add Product
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2"
-                              onClick={() =>
-                                router.push(`/admin/artisans/${a.id}/edit`)
-                              }
-                            >
-                              <Edit className="h-4 w-4" /> Edit Artisan
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Star className="h-4 w-4" />{" "}
-                              {a.featured ? "Remove Featured" : "Mark Featured"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-destructive">
-                              <Trash2 className="h-4 w-4" /> Deactivate
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {artisansQuery.isLoading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        Loading artisans...
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
+                  {!artisansQuery.isLoading && artisanRows.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No artisans found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {artisanRows.map((a) => {
+                    const status = a.isActive ? "active" : "inactive";
+
+                    return (
+                      <TableRow key={a.id} className="hover:bg-muted/30">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={toAbsoluteArtisanImage(a.image)}
+                              alt={a.name}
+                              className="w-10 h-10 rounded-lg object-cover"
+                            />
+                            <div>
+                              <p className="font-medium text-foreground text-sm">
+                                {a.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {a.email || "No email"}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {a.specialty}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {a.location || "N/A"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-semibold text-sm">
+                          {a.products?.length ?? 0}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${statusColors[status]} border text-xs capitalize`}
+                          >
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {a.isFeatured && (
+                            <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  router.push(`/admin/artisans/${a.id}`)
+                                }
+                              >
+                                <Eye className="h-4 w-4" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/artisans/${a.id}/add-product`,
+                                  )
+                                }
+                              >
+                                <Plus className="h-4 w-4" /> Add Product
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  router.push(`/admin/artisans/${a.id}/edit`)
+                                }
+                              >
+                                <Edit className="h-4 w-4" /> Edit Artisan
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="gap-2 text-destructive">
+                                <Trash2 className="h-4 w-4" /> Deactivate
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
           </div>
+
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row mt-4">
+            <p className="text-xs font-medium text-muted-foreground">
+              Showing page {artisanPagination.page} of {artisanPagination.pages}{" "}
+              ( {artisanPagination.total} total artisans)
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={
+                  !artisanPagination.hasPrev || artisansQuery.isFetching
+                }
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={
+                  !artisanPagination.hasNext || artisansQuery.isFetching
+                }
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+
+          {artisansQuery.isError && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive mt-4">
+              Failed to load artisans. Please refresh or verify your admin
+              authorization.
+            </div>
+          )}
         </TabsContent>
 
         {/* Applications Tab */}
