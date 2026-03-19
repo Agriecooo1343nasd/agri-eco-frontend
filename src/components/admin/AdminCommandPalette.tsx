@@ -238,6 +238,27 @@ const commandGroups = [
         icon: Users,
         keywords: ["members", "users", "customers", "accounts"],
       },
+      {
+        label: "Contacts",
+        description: "Manage contact messages",
+        href: "/admin/contacts",
+        icon: MessageCircle,
+        keywords: ["contacts", "messages", "inquiries", "admin contacts"],
+      },
+      {
+        label: "Logs",
+        description: "View audit logs",
+        href: "/admin/logs",
+        icon: ClipboardList,
+        keywords: ["logs", "audit", "history", "admin logs"],
+      },
+      {
+        label: "Wishlist",
+        description: "View user wishlists",
+        href: "/admin/wishlist",
+        icon: Tag,
+        keywords: ["wishlist", "favorites", "user wishlist"],
+      },
     ],
   },
   {
