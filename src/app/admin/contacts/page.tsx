@@ -256,7 +256,9 @@ export default function ContactsManagementPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Contact Messages</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Contact Messages
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Review inquiries, reply to customers, and manage inbox status.
           </p>
@@ -430,7 +432,9 @@ export default function ContactsManagementPage() {
                     <TableRow>
                       <TableCell colSpan={6} className="h-40 text-center">
                         <div className="space-y-1">
-                          <p className="font-medium">No contact messages found</p>
+                          <p className="font-medium">
+                            No contact messages found
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             Try adjusting your filters or date range.
                           </p>
@@ -484,7 +488,9 @@ export default function ContactsManagementPage() {
                               Replied
                             </Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">No</span>
+                            <span className="text-xs text-muted-foreground">
+                              No
+                            </span>
                           )}
                         </TableCell>
 
@@ -497,7 +503,9 @@ export default function ContactsManagementPage() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              onClick={() => toggleReadMutation.mutate(contact.id)}
+                              onClick={() =>
+                                toggleReadMutation.mutate(contact.id)
+                              }
                               disabled={toggleReadMutation.isPending}
                               aria-label="Toggle read status"
                             >
@@ -536,7 +544,8 @@ export default function ContactsManagementPage() {
             {pagination && pagination.pages > 1 ? (
               <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                 <p>
-                  Page {pagination.page} of {pagination.pages} · {pagination.total} message
+                  Page {pagination.page} of {pagination.pages} ·{" "}
+                  {pagination.total} message
                   {pagination.total !== 1 ? "s" : ""}
                 </p>
                 <div className="flex items-center gap-2">
@@ -603,7 +612,9 @@ export default function ContactsManagementPage() {
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {selectedContact.email}
-                      {selectedContact.phone ? ` · ${selectedContact.phone}` : ""}
+                      {selectedContact.phone
+                        ? ` · ${selectedContact.phone}`
+                        : ""}
                     </p>
                   </div>
 
@@ -679,7 +690,8 @@ export default function ContactsManagementPage() {
               <Button
                 variant="outline"
                 onClick={() =>
-                  selectedContactId && toggleReadMutation.mutate(selectedContactId)
+                  selectedContactId &&
+                  toggleReadMutation.mutate(selectedContactId)
                 }
                 disabled={!selectedContactId || toggleReadMutation.isPending}
                 className="gap-2"
@@ -742,7 +754,9 @@ export default function ContactsManagementPage() {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+              onClick={() =>
+                deleteTarget && deleteMutation.mutate(deleteTarget.id)
+              }
               disabled={deleteMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
             >
