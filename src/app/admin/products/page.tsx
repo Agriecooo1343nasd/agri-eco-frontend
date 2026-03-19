@@ -272,7 +272,9 @@ export default function AdminProductsPage() {
             ? `Updated ${changedCount} deal${changedCount > 1 ? "s" : ""} for ${productForDealLink?.name}.`
             : "No deal changes were required.",
       });
-      queryClient.invalidateQueries({ queryKey: ["admin-discounts-link-options"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-discounts-link-options"],
+      });
       queryClient.invalidateQueries({ queryKey: ["admin-discounts"] });
       setDealDialogOpen(false);
       setProductForDealLink(null);
@@ -773,8 +775,11 @@ export default function AdminProductsPage() {
             <DialogTitle>Link Product To Deal</DialogTitle>
             <DialogDescription>
               Choose one or more deals for
-              <span className="font-semibold text-foreground"> {productForDealLink?.name}</span>.
-              Backend supports multiple linked deals per product.
+              <span className="font-semibold text-foreground">
+                {" "}
+                {productForDealLink?.name}
+              </span>
+              . Backend supports multiple linked deals per product.
             </DialogDescription>
           </DialogHeader>
 
@@ -803,11 +808,9 @@ export default function AdminProductsPage() {
                     <button
                       key={discount.id}
                       type="button"
-                      className={
-                        `w-full p-3 text-left transition-colors hover:bg-muted/40 flex items-start justify-between gap-3 ${
-                          selected ? "bg-primary/5" : ""
-                        }`
-                      }
+                      className={`w-full p-3 text-left transition-colors hover:bg-muted/40 flex items-start justify-between gap-3 ${
+                        selected ? "bg-primary/5" : ""
+                      }`}
                       onClick={() => toggleDealSelection(discount.id)}
                     >
                       <div className="space-y-1 min-w-0">
@@ -815,10 +818,16 @@ export default function AdminProductsPage() {
                           <span className="font-semibold text-sm text-foreground">
                             {discount.name}
                           </span>
-                          <Badge variant="outline" className="text-[10px] uppercase">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] uppercase"
+                          >
                             {discount.code}
                           </Badge>
-                          <Badge variant="outline" className="text-[10px] capitalize">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] capitalize"
+                          >
                             {discount.type.replace("_", " ")}
                           </Badge>
                         </div>
@@ -826,7 +835,8 @@ export default function AdminProductsPage() {
                           {discount.description || "No description"}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
-                          Linked products: {discount.applicableProducts?.length ?? 0}
+                          Linked products:{" "}
+                          {discount.applicableProducts?.length ?? 0}
                         </p>
                       </div>
                       <div className="shrink-0 pt-1">
