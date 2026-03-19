@@ -19,6 +19,7 @@ import {
   ExternalLink,
   Home,
   Leaf,
+  Truck,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -46,6 +47,7 @@ const mainItems = [
   { title: "Artisans", url: "/admin/artisans", icon: Palette },
   { title: "Partners", url: "/admin/partners", icon: Handshake },
   { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
+  { title: "Delivery Zones", url: "/admin/delivery-zones", icon: Truck },
   { title: "Blog", url: "/admin/blog", icon: Newspaper },
   { title: "Feedback", url: "/admin/feedback", icon: MessageCircle },
   { title: "Discounts", url: "/admin/discounts", icon: Tag },
