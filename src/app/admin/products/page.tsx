@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
@@ -12,6 +12,9 @@ import {
   Trash2,
   Eye,
   Filter,
+  Link2,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +34,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -68,6 +79,11 @@ import {
   type AdminProduct,
   type AdminProductSort,
 } from "@/lib/api/products";
+import {
+  fetchAdminDiscounts,
+  updateDiscount,
+  type AdminDiscount,
+} from "@/lib/api/discounts";
 
 type SortKey = "name" | "price" | "stock" | "sold" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -98,6 +114,12 @@ export default function AdminProductsPage() {
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(
     null,
   );
+  const [dealDialogOpen, setDealDialogOpen] = useState(false);
+  const [productForDealLink, setProductForDealLink] =
+    useState<AdminProduct | null>(null);
+  const [dealSearch, setDealSearch] = useState("");
+  const [selectedDealIds, setSelectedDealIds] = useState<string[]>([]);
+  const [initialDealIds, setInitialDealIds] = useState<string[]>([]);
 
   const apiSortKey: AdminProductSort =
     sortKey === "price"
@@ -147,6 +169,33 @@ export default function AdminProductsPage() {
   const currentPage = pagination?.page ?? page;
   const categoryOptions = categoriesQuery.data?.data ?? [];
 
+  const linkableDiscountsQuery = useQuery({
+    queryKey: ["admin-discounts-link-options"],
+    queryFn: () =>
+      fetchAdminDiscounts({
+        page: 1,
+        limit: 500,
+        sort: "createdAt",
+        order: "desc",
+      }),
+    enabled: dealDialogOpen,
+  });
+
+  const allDiscounts = linkableDiscountsQuery.data?.data ?? [];
+
+  useEffect(() => {
+    if (!dealDialogOpen || !productForDealLink) return;
+
+    const linked = allDiscounts
+      .filter((discount) =>
+        (discount.applicableProducts ?? []).includes(productForDealLink.id),
+      )
+      .map((discount) => discount.id);
+
+    setInitialDealIds(linked);
+    setSelectedDealIds(linked);
+  }, [dealDialogOpen, productForDealLink]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -188,8 +237,74 @@ export default function AdminProductsPage() {
     },
   });
 
+  const linkDealsMutation = useMutation({
+    mutationFn: async () => {
+      if (!productForDealLink) return;
+
+      const selected = new Set(selectedDealIds);
+      const initial = new Set(initialDealIds);
+      const changedDiscounts = allDiscounts.filter(
+        (discount) => selected.has(discount.id) !== initial.has(discount.id),
+      );
+
+      await Promise.all(
+        changedDiscounts.map((discount) => {
+          const currentProducts = Array.from(
+            new Set(discount.applicableProducts ?? []),
+          );
+
+          const nextProducts = selected.has(discount.id)
+            ? Array.from(new Set([...currentProducts, productForDealLink.id]))
+            : currentProducts.filter((id) => id !== productForDealLink.id);
+
+          return updateDiscount(discount.id, {
+            applicableProducts: nextProducts,
+          });
+        }),
+      );
+
+      return changedDiscounts.length;
+    },
+    onSuccess: (changedCount = 0) => {
+      toast.success("Deals linked", {
+        description:
+          changedCount > 0
+            ? `Updated ${changedCount} deal${changedCount > 1 ? "s" : ""} for ${productForDealLink?.name}.`
+            : "No deal changes were required.",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-discounts-link-options"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-discounts"] });
+      setDealDialogOpen(false);
+      setProductForDealLink(null);
+      setDealSearch("");
+    },
+    onError: () => {
+      toast.error("Failed to link deals", {
+        description: "Please retry.",
+      });
+    },
+  });
+
   function handleDeleteRequest(product: AdminProduct) {
     setProductToDelete(product);
+  }
+
+  function openDealLinkDialog(product: AdminProduct) {
+    setProductForDealLink(product);
+    setDealSearch("");
+    setSelectedDealIds([]);
+    setInitialDealIds([]);
+    setDealDialogOpen(true);
+  }
+
+  function toggleDealSelection(discountId: string) {
+    setSelectedDealIds((current) =>
+      current.includes(discountId)
+        ? current.filter((id) => id !== discountId)
+        : [...current, discountId],
+    );
   }
 
   /* ---- Pagination range ---- */
@@ -260,6 +375,20 @@ export default function AdminProductsPage() {
         }),
     [rows, statusFilter],
   );
+
+  const filteredDeals = useMemo(() => {
+    const q = dealSearch.trim().toLowerCase();
+    if (!q) return allDiscounts;
+
+    return allDiscounts.filter((discount) => {
+      return (
+        discount.name.toLowerCase().includes(q) ||
+        discount.code.toLowerCase().includes(q) ||
+        (discount.description ?? "").toLowerCase().includes(q) ||
+        discount.type.toLowerCase().includes(q)
+      );
+    });
+  }, [allDiscounts, dealSearch]);
 
   return (
     <div className="space-y-6 text-xs">
@@ -568,6 +697,13 @@ export default function AdminProductsPage() {
                               </DropdownMenuItem>
                             </Link>
                             <DropdownMenuItem
+                              className="gap-2 text-xs py-2 cursor-pointer"
+                              onClick={() => openDealLinkDialog(product)}
+                            >
+                              <Link2 className="h-3.5 w-3.5" />
+                              Link to a deal
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               className="gap-2 text-xs py-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
                               onClick={() => handleDeleteRequest(product)}
                             >
@@ -623,6 +759,124 @@ export default function AdminProductsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={dealDialogOpen}
+        onOpenChange={(open) => {
+          setDealDialogOpen(open);
+          if (!open) {
+            setProductForDealLink(null);
+            setDealSearch("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Link Product To Deal</DialogTitle>
+            <DialogDescription>
+              Choose one or more deals for
+              <span className="font-semibold text-foreground">
+                {" "}
+                {productForDealLink?.name}
+              </span>
+              . Backend supports multiple linked deals per product.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              value={dealSearch}
+              onChange={(e) => setDealSearch(e.target.value)}
+              placeholder="Search deals by name, code, type, description..."
+              className="h-10"
+            />
+
+            <div className="max-h-95 overflow-y-auto border border-border rounded-lg divide-y divide-border">
+              {linkableDiscountsQuery.isLoading ? (
+                <div className="p-6 text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading deals...
+                </div>
+              ) : filteredDeals.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground">
+                  No deals found for your search.
+                </div>
+              ) : (
+                filteredDeals.map((discount: AdminDiscount) => {
+                  const selected = selectedDealIds.includes(discount.id);
+                  return (
+                    <button
+                      key={discount.id}
+                      type="button"
+                      className={`w-full p-3 text-left transition-colors hover:bg-muted/40 flex items-start justify-between gap-3 ${
+                        selected ? "bg-primary/5" : ""
+                      }`}
+                      onClick={() => toggleDealSelection(discount.id)}
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-foreground">
+                            {discount.name}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] uppercase"
+                          >
+                            {discount.code}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] capitalize"
+                          >
+                            {discount.type.replace("_", " ")}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {discount.description || "No description"}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Linked products:{" "}
+                          {discount.applicableProducts?.length ?? 0}
+                        </p>
+                      </div>
+                      <div className="shrink-0 pt-1">
+                        {selected ? (
+                          <CheckCircle2 className="h-5 w-5 text-primary" />
+                        ) : (
+                          <div className="h-5 w-5 rounded-full border border-muted-foreground/40" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDealDialogOpen(false)}
+              disabled={linkDealsMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => linkDealsMutation.mutate()}
+              disabled={linkDealsMutation.isPending || !productForDealLink}
+            >
+              {linkDealsMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Linking...
+                </>
+              ) : (
+                "Save Linked Deals"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Pagination */}
       {totalPages > 1 && (
