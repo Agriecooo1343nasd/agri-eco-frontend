@@ -16,6 +16,7 @@ import {
   Palette,
   Newspaper,
   MessageCircle,
+  Mail,
   ExternalLink,
   Home,
   Leaf,
@@ -49,12 +50,13 @@ const mainItems = [
   { title: "Orders", url: "/admin/orders", icon: ShoppingCart },
   { title: "Delivery Zones", url: "/admin/delivery-zones", icon: Truck },
   { title: "Blog", url: "/admin/blog", icon: Newspaper },
+  { title: "Contacts", url: "/admin/contacts", icon: Mail },
   { title: "Feedback", url: "/admin/feedback", icon: MessageCircle },
   { title: "Discounts", url: "/admin/discounts", icon: Tag },
   { title: "Categories", url: "/admin/categories", icon: FolderTree },
   { title: "Members", url: "/admin/members", icon: Users },
-  { title: "Settings", url: "/admin/settings", icon: Settings },
   { title: "About Page", url: "/admin/about", icon: Leaf },
+  { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
 export function AdminSidebar() {
