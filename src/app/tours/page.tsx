@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
@@ -184,9 +185,35 @@ const TourCard = ({ tour }: { tour: Tour }) => {
 };
 
 export default function ToursPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<SortOption>("featured");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParam = searchParams.get("search") || "";
+  const categoryParam = searchParams.get("category") || "all";
+  const sortParam = searchParams.get("sort") || "featured";
+  const [searchQuery, setSearchQuery] = useState(searchParam);
+  const [selectedCategory, setSelectedCategory] =
+    useState<string>(categoryParam);
+  const [sortBy, setSortBy] = useState<SortOption>(sortParam as SortOption);
+
+  // Sync state with URL params
+  useEffect(() => {
+    if (searchParam !== searchQuery) setSearchQuery(searchParam);
+    if (categoryParam !== selectedCategory) setSelectedCategory(categoryParam);
+    if (sortParam !== sortBy) setSortBy(sortParam as SortOption);
+    // eslint-disable-next-line
+  }, [searchParam, categoryParam, sortParam]);
+
+  // Update URL params on filter change
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!value || value === "all" || value === "featured") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   const filtered = useMemo(() => {
     let result = [...tours];
@@ -314,18 +341,33 @@ export default function ToursPage() {
                   type="text"
                   placeholder="Search tours..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    updateParam("search", e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") updateParam("search", searchQuery);
+                  }}
                   className="flex-1 px-3 py-2.5 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className="pr-3">
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      updateParam("search", "");
+                    }}
+                    className="pr-3"
+                  >
                     <X className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
                 )}
               </div>
               <Select
                 value={selectedCategory}
-                onValueChange={setSelectedCategory}
+                onValueChange={(val) => {
+                  setSelectedCategory(val);
+                  updateParam("category", val);
+                }}
               >
                 <SelectTrigger className="w-40 bg-card">
                   <SelectValue placeholder="Category" />
@@ -341,7 +383,10 @@ export default function ToursPage() {
               </Select>
               <Select
                 value={sortBy}
-                onValueChange={(v) => setSortBy(v as SortOption)}
+                onValueChange={(v) => {
+                  setSortBy(v as SortOption);
+                  updateParam("sort", v);
+                }}
               >
                 <SelectTrigger className="w-36 bg-card">
                   <SelectValue placeholder="Sort by" />
@@ -359,7 +404,10 @@ export default function ToursPage() {
           {/* Category pills */}
           <div className="flex flex-wrap gap-2 mb-6 text-xs">
             <button
-              onClick={() => setSelectedCategory("all")}
+              onClick={() => {
+                setSelectedCategory("all");
+                updateParam("category", "all");
+              }}
               className={`px-4 py-2 rounded-full font-medium transition-colors ${selectedCategory === "all" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground hover:bg-accent"}`}
             >
               All
@@ -367,7 +415,10 @@ export default function ToursPage() {
             {Object.entries(categoryLabels).map(([k, v]) => (
               <button
                 key={k}
-                onClick={() => setSelectedCategory(k)}
+                onClick={() => {
+                  setSelectedCategory(k);
+                  updateParam("category", k);
+                }}
                 className={`px-4 py-2 rounded-full font-medium transition-colors ${selectedCategory === k ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground hover:bg-accent"}`}
               >
                 {v}

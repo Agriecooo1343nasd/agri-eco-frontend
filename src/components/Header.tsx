@@ -110,6 +110,16 @@ const Header = () => {
     return false;
   };
 
+  // Header search handler (move outside JSX)
+  const handleHeaderSearch = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    let target = "/shop";
+    if (searchScope === "tours") target = "/tours";
+    if (searchScope === "training") target = "/education";
+    router.push(`${target}?search=${encodeURIComponent(q)}`);
+  };
+
   return (
     <header className="sticky top-0 z-50">
       {/* Top bar */}
@@ -215,8 +225,16 @@ const Header = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1 px-4 py-2.5 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleHeaderSearch();
+                  }
+                }}
               />
-              <button className="bg-primary text-primary-foreground px-5 hover:bg-primary/90 transition-colors">
+              <button
+                className="bg-primary text-primary-foreground px-5 hover:bg-primary/90 transition-colors"
+                onClick={handleHeaderSearch}
+              >
                 <Search className="h-4 w-4" />
               </button>
             </div>

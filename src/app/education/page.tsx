@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -59,6 +60,31 @@ const statusColors: Record<string, string> = {
 
 export default function EducationPage() {
   const { formatPrice } = usePricing();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParam = searchParams.get("search") || "";
+  const statusParam = searchParams.get("status") || "all";
+
+  const [trainingSearch, setTrainingSearch] = useState(searchParam);
+  const [trainingStatus, setTrainingStatus] = useState(statusParam);
+  // Sync state with URL params
+  useEffect(() => {
+    if (searchParam !== trainingSearch) setTrainingSearch(searchParam);
+    if (statusParam !== trainingStatus) setTrainingStatus(statusParam);
+    // eslint-disable-next-line
+  }, [searchParam, statusParam]);
+
+  // Update URL params on filter change
+  const updateParam = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!value || value === "all") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<
@@ -160,7 +186,7 @@ export default function EducationPage() {
               <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 text-white leading-tight">
                 Learn, Grow, Thrive
               </h1>
-              <p className="text-card/80 text-lg mb-6 text-white/90">
+              <p className="text-white/90 text-lg mb-6">
                 Training programs for farmers, school visits for students, and
                 learning resources for everyone passionate about sustainable
                 agriculture.
@@ -215,150 +241,194 @@ export default function EducationPage() {
                     Build your skills with hands-on courses and workshops
                   </p>
                 </div>
+                {/* Search and status filter */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4 items-center justify-between">
+                  <input
+                    type="text"
+                    placeholder="Search training..."
+                    value={trainingSearch}
+                    onChange={(e) => {
+                      setTrainingSearch(e.target.value);
+                      updateParam("search", e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter")
+                        updateParam("search", trainingSearch);
+                    }}
+                    className="w-full sm:w-64 px-3 py-2 border border-border rounded-lg text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                  <select
+                    value={trainingStatus}
+                    onChange={(e) => {
+                      setTrainingStatus(e.target.value);
+                      updateParam("status", e.target.value);
+                    }}
+                    className="w-full sm:w-48 px-3 py-2 border border-border rounded-lg text-sm outline-none bg-background"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="open">Open</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="full">Full</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
                 <div className="grid md:grid-cols-2 gap-6">
-                  {trainingPrograms.map((p) => (
-                    <div
-                      key={p.id}
-                      className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow"
-                    >
-                      <div className="aspect-[16/9] overflow-hidden">
-                        <img
-                          src={p.image}
-                          alt={p.title.en}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="p-6">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Badge
-                            variant="outline"
-                            className="capitalize text-[10px] py-0 px-2"
-                          >
-                            {p.type}
-                          </Badge>
-                          <Badge
-                            variant="outline"
-                            className="capitalize text-[10px] py-0 px-2"
-                          >
-                            {p.level.en}
-                          </Badge>
-                          <Badge
-                            className={`${statusColors[p.status]} border text-[10px] py-0 px-2 capitalize`}
-                          >
-                            {p.status}
-                          </Badge>
-                        </div>
-                        <h3 className="font-bold font-heading text-foreground text-lg mb-2">
-                          {p.title.en}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                          {p.description.en}
-                        </p>
-                        <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" />
-                            {p.duration.en}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {p.startDate.en}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5" />
-                            {p.enrolled}/{p.maxParticipants}
-                          </span>
-                        </div>
-                        <div className="mb-4">
-                          <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                            <span>Enrollment</span>
-                            <span>
-                              {Math.round(
-                                (p.enrolled / p.maxParticipants) * 100,
-                              )}
-                              %
-                            </span>
-                          </div>
-                          <Progress
-                            value={(p.enrolled / p.maxParticipants) * 100}
-                            className="h-1.5"
+                  {trainingPrograms
+                    .filter(
+                      (p) =>
+                        (!trainingSearch ||
+                          p.title.en
+                            .toLowerCase()
+                            .includes(trainingSearch.toLowerCase()) ||
+                          p.description.en
+                            .toLowerCase()
+                            .includes(trainingSearch.toLowerCase())) &&
+                        (trainingStatus === "all" ||
+                          p.status === trainingStatus),
+                    )
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow"
+                      >
+                        <div className="aspect-video overflow-hidden">
+                          <img
+                            src={p.image}
+                            alt={p.title.en}
+                            className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="flex flex-wrap gap-1 mb-4">
-                          {p.topics.slice(0, 4).map((t) => (
-                            <span
-                              key={t.en}
-                              className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full"
+                        <div className="p-6">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge
+                              variant="outline"
+                              className="capitalize text-[10px] py-0 px-2"
                             >
-                              {t.en}
+                              {p.type}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className="capitalize text-[10px] py-0 px-2"
+                            >
+                              {p.level.en}
+                            </Badge>
+                            <Badge
+                              className={`${statusColors[p.status]} border text-[10px] py-0 px-2 capitalize`}
+                            >
+                              {p.status}
+                            </Badge>
+                          </div>
+                          <h3 className="font-bold font-heading text-foreground text-lg mb-2">
+                            {p.title.en}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                            {p.description.en}
+                          </p>
+                          <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              {p.duration.en}
                             </span>
-                          ))}
-                          {p.topics.length > 4 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              +{p.topics.length - 4} more
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {p.startDate.en}
                             </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                          <div>
-                            <span className="text-lg font-bold text-foreground">
-                              {formatPrice(p.price)}
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3.5 w-3.5" />
+                              {p.enrolled}/{p.maxParticipants}
                             </span>
-                            {p.certificate && (
-                              <span className="flex items-center gap-1 text-[10px] text-primary mt-0.5 font-semibold">
-                                <Award className="h-3 w-3" />
-                                Certificate included
+                          </div>
+                          <div className="mb-4">
+                            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                              <span>Enrollment</span>
+                              <span>
+                                {Math.round(
+                                  (p.enrolled / p.maxParticipants) * 100,
+                                )}
+                                %
+                              </span>
+                            </div>
+                            <Progress
+                              value={(p.enrolled / p.maxParticipants) * 100}
+                              className="h-1.5"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-1 mb-4">
+                            {p.topics.slice(0, 4).map((t) => (
+                              <span
+                                key={t.en}
+                                className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full"
+                              >
+                                {t.en}
+                              </span>
+                            ))}
+                            {p.topics.length > 4 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                +{p.topics.length - 4} more
                               </span>
                             )}
                           </div>
-                          <div className="flex gap-2">
-                            <Link href={`/education/program/${p.id}`}>
-                              <Button
-                                size="sm"
-                                className="text-xs"
-                                variant="outline"
-                              >
-                                View Details
-                              </Button>
-                            </Link>
-                            {p.status === "open" && (
-                              <Button
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => handleEnrollClick(p)}
-                              >
-                                Enroll Now
-                              </Button>
-                            )}
-                            {p.status === "full" && (
-                              <Button
-                                size="sm"
-                                className="text-xs"
-                                variant="secondary"
-                                onClick={() => handleNotifyClick(p)}
-                              >
-                                Join Waitlist
-                              </Button>
-                            )}
-                            {p.status === "upcoming" && (
-                              <Button
-                                size="sm"
-                                className="text-xs"
-                                variant="outline"
-                                onClick={() => handleNotifyClick(p)}
-                              >
-                                Notify Me
-                              </Button>
-                            )}
-                            {p.status === "completed" && (
-                              <Button size="sm" className="text-xs" disabled>
-                                Completed
-                              </Button>
-                            )}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                            <div>
+                              <span className="text-lg font-bold text-foreground">
+                                {formatPrice(p.price)}
+                              </span>
+                              {p.certificate && (
+                                <span className="flex items-center gap-1 text-[10px] text-primary mt-0.5 font-semibold">
+                                  <Award className="h-3 w-3" />
+                                  Certificate included
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Link href={`/education/program/${p.id}`}>
+                                <Button
+                                  size="sm"
+                                  className="text-xs"
+                                  variant="outline"
+                                >
+                                  View Details
+                                </Button>
+                              </Link>
+                              {p.status === "open" && (
+                                <Button
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => handleEnrollClick(p)}
+                                >
+                                  Enroll Now
+                                </Button>
+                              )}
+                              {p.status === "full" && (
+                                <Button
+                                  size="sm"
+                                  className="text-xs"
+                                  variant="secondary"
+                                  onClick={() => handleNotifyClick(p)}
+                                >
+                                  Join Waitlist
+                                </Button>
+                              )}
+                              {p.status === "upcoming" && (
+                                <Button
+                                  size="sm"
+                                  className="text-xs"
+                                  variant="outline"
+                                  onClick={() => handleNotifyClick(p)}
+                                >
+                                  Notify Me
+                                </Button>
+                              )}
+                              {p.status === "completed" && (
+                                <Button size="sm" className="text-xs" disabled>
+                                  Completed
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </TabsContent>
 

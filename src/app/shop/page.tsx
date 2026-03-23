@@ -21,7 +21,18 @@ import { usePricing } from "@/context/PricingContext";
 import { deals } from "@/data/deals";
 import { Slider } from "@/components/ui/slider";
 
-const allCategories = ["All", "Fruits", "Vegetables", "Honey"];
+// Example: Replace with backend categories in real app
+const allCategories = [
+  "All",
+  "Fruits",
+  "Vegetables",
+  "Juices",
+  "Dairy",
+  "Honey",
+  "Spices",
+  "Grains",
+  "Herbs",
+];
 const popularTags = [
   "Nature",
   "Health",
@@ -56,9 +67,11 @@ function ShopContent() {
   const [selectedCategory, setSelectedCategory] = useState(
     categoryParam || "All",
   );
+  const [categorySearch, setCategorySearch] = useState("");
   const [priceRange, setPriceRange] = useState<number[]>([0, 15]);
   const [sortBy, setSortBy] = useState<SortOption>("default");
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchParam = searchParams.get("search") || "";
+  const [searchQuery, setSearchQuery] = useState(searchParam);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [onlyWithDiscount, setOnlyWithDiscount] = useState(false);
@@ -66,10 +79,11 @@ function ShopContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Sync category param
+  // Sync category/search params
   useEffect(() => {
     if (categoryParam) setSelectedCategory(categoryParam);
-  }, [categoryParam]);
+    if (searchParam !== searchQuery) setSearchQuery(searchParam);
+  }, [categoryParam, searchParam]);
 
   const itemsPerPage = 9;
 
@@ -166,6 +180,19 @@ function ShopContent() {
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  // Handle search input and sync with URL
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    setCurrentPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    if (val.trim()) {
+      params.set("search", val);
+    } else {
+      params.delete("search");
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
@@ -215,46 +242,63 @@ function ShopContent() {
             type="text"
             placeholder="Search here..."
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="flex-1 px-3 py-2 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearchChange(searchQuery);
+            }}
           />
-          <button className="bg-primary text-primary-foreground px-3 hover:bg-primary/90 transition-colors">
+          <button
+            className="bg-primary text-primary-foreground px-3 hover:bg-primary/90 transition-colors"
+            onClick={() => handleSearchChange(searchQuery)}
+          >
             <Search className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Categories */}
+      {/* Categories with search and max 5 display */}
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
           Product Categories
         </h3>
+        <div className="mb-2">
+          <input
+            type="text"
+            placeholder="Filter categories..."
+            value={categorySearch}
+            onChange={(e) => setCategorySearch(e.target.value)}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
         <ul className="space-y-1">
-          {allCategories.map((cat) => {
-            const count =
-              cat === "All"
-                ? products.length
-                : products.filter((p) => p.category === cat).length;
-            return (
-              <li key={cat}>
-                <button
-                  onClick={() => handleCategoryChange(cat)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedCategory === cat ? "bg-primary text-primary-foreground font-semibold" : "text-foreground hover:bg-accent hover:text-accent-foreground"}`}
-                >
-                  <span>{cat}</span>
-                  <span
-                    className={`text-xs ${selectedCategory === cat ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+          {allCategories
+            .filter((cat) =>
+              cat.toLowerCase().includes(categorySearch.toLowerCase()),
+            )
+            .slice(0, 5)
+            .map((cat) => {
+              const count =
+                cat === "All"
+                  ? products.length
+                  : products.filter((p) => p.category === cat).length;
+              return (
+                <li key={cat}>
+                  <button
+                    onClick={() => handleCategoryChange(cat)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedCategory === cat ? "bg-primary text-primary-foreground font-semibold" : "text-foreground hover:bg-accent hover:text-accent-foreground"}`}
                   >
-                    ({count})
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+                    <span>{cat}</span>
+                    <span
+                      className={`text-xs ${selectedCategory === cat ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                    >
+                      ({count})
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
         </ul>
       </div>
 
