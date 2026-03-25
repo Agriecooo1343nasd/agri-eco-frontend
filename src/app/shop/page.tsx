@@ -16,34 +16,12 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FeaturesBar from "@/components/FeaturesBar";
 import ShopProductCard from "@/components/ShopProductCard";
-import { products } from "@/data/products";
+
 import { usePricing } from "@/context/PricingContext";
 import { deals } from "@/data/deals";
 import { Slider } from "@/components/ui/slider";
-
-// Example: Replace with backend categories in real app
-const allCategories = [
-  "All",
-  "Fruits",
-  "Vegetables",
-  "Juices",
-  "Dairy",
-  "Honey",
-  "Spices",
-  "Grains",
-  "Herbs",
-];
-const popularTags = [
-  "Nature",
-  "Health",
-  "Fresh",
-  "Vegan",
-  "Bio",
-  "Farm",
-  "Green",
-  "Local",
-  "Diet",
-];
+import { fetchAdminProducts, type AdminProduct } from "@/lib/api/products";
+import { fetchAdminCategories, type AdminCategory } from "@/lib/api/categories";
 
 type SortOption =
   | "default"
@@ -58,6 +36,14 @@ function ShopContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { formatPrice } = usePricing();
+
+  // Backend state
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsTotal, setProductsTotal] = useState(0);
+  const [tags, setTags] = useState<string[]>([]);
 
   const dealId = searchParams.get("deal");
   const categoryParam = searchParams.get("category");
@@ -80,93 +66,150 @@ function ShopContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Sync category/search params
+  // Sync category/search params only if they differ from state
   useEffect(() => {
-    if (categoryParam) setSelectedCategory(categoryParam);
-    if (searchParam !== searchQuery) setSearchQuery(searchParam);
-  }, [categoryParam, searchParam]);
+    if (categoryParam && selectedCategory !== categoryParam) {
+      setSelectedCategory(categoryParam);
+    }
+    if (searchParam !== searchQuery) {
+      setSearchQuery(searchParam);
+    }
+  }, [categoryParam, searchParam, selectedCategory, searchQuery]);
 
+  // Pagination
   const itemsPerPage = 9;
+  const totalPages = Math.ceil(productsTotal / itemsPerPage);
+  // Map backend products to UI Product type
+  const paginatedProducts = useMemo(
+    () =>
+      products.map((p) => {
+        let badge: "sale" | "new" | "organic" | undefined = undefined;
+        if (p.isOnSale) badge = "sale";
+        else if (p.isFeatured) badge = "new";
+        return {
+          id: Number(p.id),
+          name: p.name,
+          price: p.sellingPrice,
+          oldPrice: p.originalPrice,
+          image:
+            p.images && p.images.length > 0
+              ? p.images[0].url
+              : "/assets/products/placeholder.jpg",
+          images: p.images ? p.images.map((img) => img.url) : [],
+          rating: typeof p.averageRating === "number" ? p.averageRating : 0,
+          badge,
+          category: p.category?.name || "",
+          unit: p.unit || "",
+          shortDescription: p.shortDescription || "",
+          longDescription: p.description || "",
+          stock: p.stock,
+        };
+      }),
+    [products],
+  );
 
-  const filtered = useMemo(() => {
-    let result = [...products];
+  // Fetch categories from backend (using shared API)
+  useEffect(() => {
+    let ignore = false;
+    const fetch = async () => {
+      setCategoriesLoading(true);
+      try {
+        const data = await fetchAdminCategories({
+          limit: 100,
+          search: categorySearch || undefined,
+          isActive: "true",
+          sort: "name",
+          order: "asc",
+        });
+        if (!ignore) {
+          setCategories([
+            { id: "All", name: "All" } as AdminCategory,
+            ...(data.data || []),
+          ]);
+        }
+      } finally {
+        if (!ignore) setCategoriesLoading(false);
+      }
+    };
+    fetch();
+    return () => {
+      ignore = true;
+    };
+  }, [categorySearch]);
 
-    // Deal filter
-    if (activeDeal) {
-      result = result.filter((p) => activeDeal.productIds.includes(p.id));
-    }
-
-    // Category
-    if (selectedCategory !== "All") {
-      result = result.filter((p) => p.category === selectedCategory);
-    }
-
-    // Price
-    result = result.filter(
-      (p) => p.price >= priceRange[0] && p.price <= priceRange[1],
-    );
-
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q),
-      );
-    }
-
-    // Sort
-    switch (sortBy) {
-      case "price-low":
-        result.sort((a, b) => a.price - b.price);
-        break;
-      case "price-high":
-        result.sort((a, b) => b.price - a.price);
-        break;
-      case "rating":
-        result.sort((a, b) => b.rating - a.rating);
-        break;
-      case "name-az":
-        result.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case "name-za":
-        result.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-    }
-
-    // Rating Filter
-    if (selectedRating !== null) {
-      result = result.filter((p) => Math.floor(p.rating) === selectedRating);
-    }
-
-    // Discount Filter
-    if (onlyWithDiscount) {
-      result = result.filter((p) => p.oldPrice && p.oldPrice > p.price);
-    }
-
-    // Tag Filter
-    if (selectedTags.length > 0) {
-      // Since products don't have tags in data, we can skip or implement if needed
-      // Currently the data doesn't have tags, so this is symbolic
-    }
-
-    return result;
+  // Fetch products from backend (using shared API)
+  useEffect(() => {
+    let ignore = false;
+    const fetch = async () => {
+      setProductsLoading(true);
+      let sort: "sellingPrice" | "averageRating" | "name" | undefined =
+        undefined;
+      let order: "asc" | "desc" | undefined = undefined;
+      switch (sortBy) {
+        case "price-low":
+          sort = "sellingPrice";
+          order = "asc";
+          break;
+        case "price-high":
+          sort = "sellingPrice";
+          order = "desc";
+          break;
+        case "rating":
+          sort = "averageRating";
+          order = "desc";
+          break;
+        case "name-az":
+          sort = "name";
+          order = "asc";
+          break;
+        case "name-za":
+          sort = "name";
+          order = "desc";
+          break;
+        default:
+          break;
+      }
+      try {
+        const data = await fetchAdminProducts({
+          page: currentPage,
+          limit: itemsPerPage,
+          search: searchQuery || undefined,
+          category:
+            selectedCategory && selectedCategory !== "All"
+              ? selectedCategory
+              : undefined,
+          sort,
+          order,
+        });
+        if (!ignore) {
+          setProducts(data.data || []);
+          setProductsTotal(data.pagination?.total || (data.data || []).length);
+          // Aggregate tags from products
+          const tagSet = new Set<string>();
+          (data.data || []).forEach((p) => {
+            if (Array.isArray(p.tags))
+              p.tags.forEach((t: string) => tagSet.add(t));
+          });
+          setTags(Array.from(tagSet));
+        }
+      } finally {
+        if (!ignore) setProductsLoading(false);
+      }
+    };
+    fetch();
+    return () => {
+      ignore = true;
+    };
   }, [
     selectedCategory,
-    priceRange,
-    sortBy,
     searchQuery,
-    activeDeal,
+    priceRange,
+    selectedTags,
     selectedRating,
     onlyWithDiscount,
-    selectedTags,
+    sortBy,
+    currentPage,
   ]);
-
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const paginatedProducts = filtered.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
 
   const handleCategoryChange = (cat: string) => {
     setSelectedCategory(cat);
@@ -273,32 +316,36 @@ function ShopContent() {
           />
         </div>
         <ul className="space-y-1">
-          {allCategories
-            .filter((cat) =>
-              cat.toLowerCase().includes(categorySearch.toLowerCase()),
-            )
-            .slice(0, 5)
-            .map((cat) => {
-              const count =
-                cat === "All"
-                  ? products.length
-                  : products.filter((p) => p.category === cat).length;
-              return (
-                <li key={cat}>
-                  <button
-                    onClick={() => handleCategoryChange(cat)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedCategory === cat ? "bg-primary text-primary-foreground font-semibold" : "text-foreground hover:bg-accent hover:text-accent-foreground"}`}
-                  >
-                    <span>{cat}</span>
-                    <span
-                      className={`text-xs ${selectedCategory === cat ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+          {categoriesLoading ? (
+            <li className="text-muted-foreground text-sm">Loading...</li>
+          ) : (
+            categories
+              .filter((cat) =>
+                cat.name.toLowerCase().includes(categorySearch.toLowerCase()),
+              )
+              .slice(0, 5)
+              .map((cat) => {
+                const count =
+                  cat.id === "All"
+                    ? productsTotal
+                    : products.filter((p) => p.category?.id === cat.id).length;
+                return (
+                  <li key={cat.id}>
+                    <button
+                      onClick={() => handleCategoryChange(cat.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedCategory === cat.id ? "bg-primary text-primary-foreground font-semibold" : "text-foreground hover:bg-accent hover:text-accent-foreground"}`}
                     >
-                      ({count})
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
+                      <span>{cat.name}</span>
+                      <span
+                        className={`text-xs ${selectedCategory === cat.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                      >
+                        ({count})
+                      </span>
+                    </button>
+                  </li>
+                );
+              })
+          )}
         </ul>
       </div>
 
@@ -396,15 +443,19 @@ function ShopContent() {
           Popular Tags
         </h3>
         <div className="flex flex-wrap gap-2">
-          {popularTags.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => handleTagToggle(tag)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${selectedTags.includes(tag) ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"}`}
-            >
-              {tag}
-            </button>
-          ))}
+          {tags.length === 0 ? (
+            <span className="text-muted-foreground text-xs">No tags found</span>
+          ) : (
+            tags.slice(0, 10).map((tag) => (
+              <button
+                key={tag}
+                onClick={() => handleTagToggle(tag)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${selectedTags.includes(tag) ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"}`}
+              >
+                {tag}
+              </button>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -415,7 +466,7 @@ function ShopContent() {
       <Header />
 
       {/* Breadcrumb Banner */}
-      <div className="bg-gradient-to-r from-primary/10 via-accent to-primary/5 border-b border-border">
+      <div className="bg-linear-to-r from-primary/10 via-accent to-primary/5 border-b border-border">
         <div className="container py-8 md:py-12">
           <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
             {pageTitle}
@@ -497,7 +548,7 @@ function ShopContent() {
                   </span>{" "}
                   of{" "}
                   <span className="font-semibold text-foreground">
-                    {filtered.length}
+                    {productsTotal}
                   </span>{" "}
                   results
                 </p>
@@ -526,7 +577,6 @@ function ShopContent() {
               </div>
             </div>
 
-            {/* Active filters */}
             {hasActiveFilters && (
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span className="text-xs text-muted-foreground font-semibold">
@@ -542,7 +592,8 @@ function ShopContent() {
                 )}
                 {selectedCategory !== "All" && (
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
-                    {selectedCategory}
+                    {categories.find((cat) => cat.id === selectedCategory)
+                      ?.name || selectedCategory}
                     <button onClick={() => handleCategoryChange("All")}>
                       <X className="h-3 w-3" />
                     </button>
@@ -550,7 +601,7 @@ function ShopContent() {
                 )}
                 {(priceRange[0] !== 0 || priceRange[1] !== 15) && (
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
-                    {formatPrice(priceRange[0])} – {formatPrice(priceRange[1])}
+                    {formatPrice(priceRange[0])} - {formatPrice(priceRange[1])}
                     <button onClick={() => setPriceRange([0, 15])}>
                       <X className="h-3 w-3" />
                     </button>
@@ -558,7 +609,7 @@ function ShopContent() {
                 )}
                 {searchQuery.trim() && (
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
-                    "{searchQuery}"
+                    &quot;{searchQuery}&quot;
                     <button onClick={() => setSearchQuery("")}>
                       <X className="h-3 w-3" />
                     </button>
@@ -584,7 +635,13 @@ function ShopContent() {
             )}
 
             {/* Product Grid / List */}
-            {paginatedProducts.length > 0 ? (
+            {productsLoading ? (
+              <div className="text-center py-20">
+                <p className="text-muted-foreground text-lg">
+                  Loading products...
+                </p>
+              </div>
+            ) : paginatedProducts.length > 0 ? (
               <div
                 className={
                   gridView

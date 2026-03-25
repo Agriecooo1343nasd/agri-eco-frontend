@@ -109,14 +109,14 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-2 hidden sm:block">
-            Fresh, organic and hand-picked for quality. Farm to table goodness.
+           {product.shortDescription}
           </p>
           <button
             onClick={() =>
               inCart ? removeFromCart(product.id) : addToCart(product)
             }
             className={`mt-3 w-fit flex items-center gap-2 py-2.5 px-6 rounded-lg text-sm font-semibold transition-colors ${
-              inCart
+              inCart  
                 ? "bg-accent text-accent-foreground hover:bg-accent/80"
                 : "bg-primary text-primary-foreground hover:bg-primary/90"
             }`}

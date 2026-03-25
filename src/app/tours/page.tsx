@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+// ...existing code...
+import React, { useState, useEffect, useMemo } from "react";
+import type { Tour, TourCategory, TourStatus } from "@/data/tours";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,7 +18,16 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { tours, type Tour, type TourCategory } from "@/data/tours";
+// ...existing code...
+import {
+  fetchAdminExperiences,
+  AdminExperience,
+  toAbsoluteExperienceImage,
+} from "@/lib/api/experiences";
+import {
+  fetchAccommodations,
+  AdminAccommodation,
+} from "@/lib/api/accommodations";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +70,89 @@ type SortOption =
   | "rating"
   | "duration";
 
+// Helper: Map backend experience to frontend Tour type
+function mapExperienceToTour(
+  exp: AdminExperience,
+  accommodationsMap: Record<string, AdminAccommodation> = {},
+): Tour {
+  // Map slots to timeSlots (flatten date/timeSlot)
+  const timeSlots = (exp.slots || []).map((slot) => ({
+    id: slot.id,
+    time: slot.timeSlot,
+    capacity: slot.capacity,
+    booked: slot.bookedParticipants,
+  }));
+
+  // Map linked accommodations
+  let accommodation: Tour["accommodation"] = undefined;
+  if (exp.linkedAccommodationIds && exp.linkedAccommodationIds.length > 0) {
+    accommodation = exp.linkedAccommodationIds
+      .map((id) => accommodationsMap[id])
+      .filter(Boolean)
+      .map((acc) => ({
+        id: acc.id,
+        name: acc.name.en,
+        type:
+          acc.category === "standard" ||
+          acc.category === "premium" ||
+          acc.category === "family"
+            ? acc.category
+            : "standard",
+        pricePerNight: acc.ratePerNightRwf,
+        capacity: acc.maxGuests,
+        available: acc.status === "available",
+        description: acc.description.en,
+        gallery: acc.gallery,
+      }));
+  }
+
+  // Derive status (simple logic: available if isActive, sold-out if not)
+  let status: TourStatus = "available";
+  if (!exp.isActive) status = "sold-out";
+  // Optionally, could use slots/isClosed for more granular status
+
+  // Derive seasonal
+  const now = new Date();
+  let seasonal = false;
+  let season: string | undefined = undefined;
+  if (exp.seasonStart && exp.seasonEnd) {
+    const start = new Date(exp.seasonStart);
+    const end = new Date(exp.seasonEnd);
+    seasonal = true;
+    season = `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+  }
+
+  return {
+    id: exp.id,
+    name: exp.title.en,
+    slug: exp.slug,
+    category: exp.type.replace("_", "-") as TourCategory,
+    description: exp.shortDescription.en,
+    longDescription: exp.fullOverview.en,
+    image: toAbsoluteExperienceImage(exp.heroImage),
+    gallery: exp.gallery,
+    duration: exp.expectedDuration || `${exp.durationMinutes} min`,
+    price: exp.priceRwf,
+    groupPrice: exp.pricePerGroupRwf,
+    maxParticipants: exp.capacity,
+    minParticipants: exp.minParticipants,
+    rating: 4.8, // No rating in backend, use default or fetch from reviews
+    reviewCount: 0, // No review count in backend, use default or fetch from reviews
+    status,
+    seasonal,
+    season,
+    includes: exp.inclusions,
+    highlights: exp.highlights,
+    requirements: exp.requirements,
+    location: exp.destination || "Musanze", // Default location
+    timeSlots,
+    accommodation,
+    cancellationPolicy: exp.cancellationPolicy?.en || "",
+    featured: exp.isFeatured,
+    createdAt: exp.createdAt,
+  };
+}
+
 const TourCard = ({ tour }: { tour: Tour }) => {
   const { formatPrice } = usePricing();
   const spotsLeft = tour.timeSlots.reduce(
@@ -94,7 +188,7 @@ const TourCard = ({ tour }: { tour: Tour }) => {
             </Badge>
           </div>
         )}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-foreground/60 to-transparent p-4">
+        <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-foreground/60 to-transparent p-4">
           <span className="text-primary-foreground text-xs font-medium bg-foreground/30 px-2 py-1 rounded-full backdrop-blur-sm">
             {categoryLabels[tour.category]}
           </span>
@@ -195,6 +289,41 @@ export default function ToursPage() {
   const [selectedCategory, setSelectedCategory] =
     useState<string>(categoryParam);
   const [sortBy, setSortBy] = useState<SortOption>(sortParam as SortOption);
+  const [tours, setTours] = useState<Tour[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch experiences and accommodations, then map
+  useEffect(() => {
+    let ignore = false;
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch all accommodations (for mapping)
+        const accRes = await fetchAccommodations({ limit: 100 });
+        const accommodationsMap: Record<string, AdminAccommodation> = {};
+        accRes.data.forEach((acc) => {
+          accommodationsMap[acc.id] = acc;
+        });
+
+        // Fetch all experiences (tours)
+        const expRes = await fetchAdminExperiences({ limit: 100 });
+        const mapped = expRes.data.map((exp) =>
+          mapExperienceToTour(exp, accommodationsMap),
+        );
+        if (!ignore) setTours(mapped);
+      } catch (e: any) {
+        setError(e?.message || "Failed to load experiences");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Sync state with URL params
   useEffect(() => {
@@ -246,7 +375,7 @@ export default function ToursPage() {
         break;
     }
     return result;
-  }, [searchQuery, selectedCategory, sortBy]);
+  }, [tours, searchQuery, selectedCategory, sortBy]);
 
   const toursHero = "/assets/tours/tours-hero.jpg";
 
@@ -255,13 +384,13 @@ export default function ToursPage() {
       <Header />
 
       {/* Hero */}
-      <section className="relative h-[340px] md:h-[420px] overflow-hidden">
+      <section className="relative h-85 md:h-105 overflow-hidden">
         <img
           src={toursHero}
           alt="Agri-Eco Tours"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-foreground/70 via-foreground/40 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-r from-foreground/70 via-foreground/40 to-transparent" />
         <div className="absolute inset-0 flex items-center">
           <div className="container">
             <div className="max-w-xl">
@@ -306,7 +435,7 @@ export default function ToursPage() {
         <div className="container py-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             {[
-              { value: "7+", label: "Unique Experiences" },
+              { value: `${tours.length}+`, label: "Unique Experiences" },
               { value: "500+", label: "Happy Visitors" },
               { value: "4.8★", label: "Average Rating" },
               { value: "50 acres", label: "Farm Area" },
@@ -427,7 +556,11 @@ export default function ToursPage() {
           </div>
 
           {/* Grid */}
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-16">Loading experiences...</div>
+          ) : error ? (
+            <div className="text-center py-16 text-destructive">{error}</div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-16">
               <Leaf className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-foreground">
