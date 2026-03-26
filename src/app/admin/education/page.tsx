@@ -182,7 +182,7 @@ export default function AdminEducationPage() {
 
   const schoolVisitRows = useMemo(
     () =>
-      (visitsQuery.data?.data ?? []).map((visit) => {
+      (visitsQuery.data?.data ?? []).map((visit: AdminSchoolVisit) => {
         const converted = visitToUi(visit);
         const overridden = visitsUiOverride[converted.id];
         return overridden ? { ...converted, status: overridden } : converted;
@@ -193,10 +193,10 @@ export default function AdminEducationPage() {
   const activePrograms = programRows.filter((p) => p.status === "open").length;
   const totalEnrolled = enrollmentsQuery.data?.pagination.total ?? 0;
   const pendingVisits = schoolVisitRows.filter(
-    (v) => v.status === "pending",
+    (v: SchoolVisit) => v.status === "pending",
   ).length;
   const totalStudents = schoolVisitRows.reduce(
-    (sum, visit) => sum + visit.studentCount,
+    (sum: number, visit: SchoolVisit) => sum + visit.studentCount,
     0,
   );
 
@@ -509,7 +509,7 @@ export default function AdminEducationPage() {
 
                   {!visitsQuery.isLoading &&
                     !visitsQuery.isError &&
-                    schoolVisitRows.map((v) => (
+                    schoolVisitRows.map((v: SchoolVisit) => (
                       <TableRow
                         key={v.id}
                         className="hover:bg-muted/30 transition-colors"

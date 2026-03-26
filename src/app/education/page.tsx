@@ -6,11 +6,11 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
-  trainingPrograms,
   learningResources,
   quizzes,
   schoolVisitConfig,
 } from "@/data/education";
+import { fetchTrainingPrograms } from "@/lib/api/education";
 import {
   GraduationCap,
   BookOpen,
@@ -67,6 +67,66 @@ export default function EducationPage() {
   const statusParam = searchParams.get("status") || "all";
 
   const [trainingSearch, setTrainingSearch] = useState(searchParam);
+  const [trainingPrograms, setTrainingPrograms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const pageParam = parseInt(searchParams.get("page") || "1", 10);
+  const [currentPage, setCurrentPage] = useState(pageParam);
+
+  useEffect(() => {
+    let ignore = false;
+    const fetchPrograms = async () => {
+      setLoading(true);
+      try {
+        const res = await fetchTrainingPrograms({
+          search: trainingSearch || undefined,
+          limit: 100,
+        });
+        if (!ignore) {
+          const mapped = res.data.map((p) => {
+            const enrolled = 0;
+            let status = "open";
+            if (p.startDate && new Date(p.startDate) > new Date())
+              status = "upcoming";
+            if (p.endDate && new Date(p.endDate) < new Date())
+              status = "completed";
+            if (enrolled >= p.capacity) status = "full";
+
+            return {
+              id: p.id,
+              title: p.title,
+              description: p.shortDescription || p.fullDescription,
+              image:
+                p.coverImage || p.heroImage || "/assets/tours/educational.jpg",
+              type: p.type,
+              level: { en: p.level },
+              status,
+              duration: { en: `${p.durationWeeks} Weeks` },
+              startDate: {
+                en: p.startDate
+                  ? new Date(p.startDate).toLocaleDateString()
+                  : "TBD",
+              },
+              enrolled,
+              maxParticipants: p.capacity,
+              topics: p.topics.map((t) => ({ en: t.name?.en || "" })),
+              price: p.priceRwf,
+              certificate: p.type === "certification",
+            };
+          });
+          setTrainingPrograms(mapped);
+          setCurrentPage(1); // Reset page on new fetch
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    fetchPrograms();
+    return () => {
+      ignore = true;
+    };
+  }, [trainingSearch]);
   const [trainingStatus, setTrainingStatus] = useState(statusParam);
   // Sync state with URL params
   useEffect(() => {
@@ -87,9 +147,7 @@ export default function EducationPage() {
   };
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
-  const [selectedProgram, setSelectedProgram] = useState<
-    (typeof trainingPrograms)[0] | null
-  >(null);
+  const [selectedProgram, setSelectedProgram] = useState<any | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"momo" | "card">("momo");
   const [enrolling, setEnrolling] = useState(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
@@ -112,12 +170,12 @@ export default function EducationPage() {
     setQuizDialogOpen(true);
   };
 
-  const handleEnrollClick = (program: (typeof trainingPrograms)[0]) => {
+  const handleEnrollClick = (program: any) => {
     setSelectedProgram(program);
     setEnrollDialogOpen(true);
   };
 
-  const handleNotifyClick = (program: (typeof trainingPrograms)[0]) => {
+  const handleNotifyClick = (program: any) => {
     setSelectedProgram(program);
     setNotifyDialogOpen(true);
   };
@@ -262,6 +320,8 @@ export default function EducationPage() {
                     onChange={(e) => {
                       setTrainingStatus(e.target.value);
                       updateParam("status", e.target.value);
+                      setCurrentPage(1);
+                      updateParam("page", "1");
                     }}
                     className="w-full sm:w-48 px-3 py-2 border border-border rounded-lg text-sm outline-none bg-background"
                   >
@@ -272,164 +332,232 @@ export default function EducationPage() {
                     <option value="completed">Completed</option>
                   </select>
                 </div>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {trainingPrograms
-                    .filter(
-                      (p) =>
-                        (!trainingSearch ||
-                          p.title.en
-                            .toLowerCase()
-                            .includes(trainingSearch.toLowerCase()) ||
-                          p.description.en
-                            .toLowerCase()
-                            .includes(trainingSearch.toLowerCase())) &&
-                        (trainingStatus === "all" ||
-                          p.status === trainingStatus),
-                    )
-                    .map((p) => (
-                      <div
-                        key={p.id}
-                        className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow"
-                      >
-                        <div className="aspect-video overflow-hidden">
-                          <img
-                            src={p.image}
-                            alt={p.title.en}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="p-6">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Badge
-                              variant="outline"
-                              className="capitalize text-[10px] py-0 px-2"
-                            >
-                              {p.type}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className="capitalize text-[10px] py-0 px-2"
-                            >
-                              {p.level.en}
-                            </Badge>
-                            <Badge
-                              className={`${statusColors[p.status]} border text-[10px] py-0 px-2 capitalize`}
-                            >
-                              {p.status}
-                            </Badge>
-                          </div>
-                          <h3 className="font-bold font-heading text-foreground text-lg mb-2">
-                            {p.title.en}
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                            {p.description.en}
-                          </p>
-                          <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3.5 w-3.5" />
-                              {p.duration.en}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5" />
-                              {p.startDate.en}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3.5 w-3.5" />
-                              {p.enrolled}/{p.maxParticipants}
-                            </span>
-                          </div>
-                          <div className="mb-4">
-                            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                              <span>Enrollment</span>
-                              <span>
-                                {Math.round(
-                                  (p.enrolled / p.maxParticipants) * 100,
-                                )}
-                                %
-                              </span>
+                {loading && (
+                  <div className="text-center py-10 text-muted-foreground text-sm font-semibold">
+                    Loading programs...
+                  </div>
+                )}
+
+                {!loading && (
+                  <>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {(() => {
+                        const filtered = trainingPrograms.filter(
+                          (p) =>
+                            trainingStatus === "all" ||
+                            p.status === trainingStatus,
+                        );
+                        if (filtered.length === 0)
+                          return (
+                            <div className="col-span-2 text-center py-8 text-muted-foreground">
+                              No programs found.
                             </div>
-                            <Progress
-                              value={(p.enrolled / p.maxParticipants) * 100}
-                              className="h-1.5"
-                            />
-                          </div>
-                          <div className="flex flex-wrap gap-1 mb-4">
-                            {p.topics.slice(0, 4).map((t) => (
-                              <span
-                                key={t.en}
-                                className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full"
-                              >
-                                {t.en}
-                              </span>
-                            ))}
-                            {p.topics.length > 4 && (
-                              <span className="text-[10px] text-muted-foreground">
-                                +{p.topics.length - 4} more
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                            <div>
-                              <span className="text-lg font-bold text-foreground">
-                                {formatPrice(p.price)}
-                              </span>
-                              {p.certificate && (
-                                <span className="flex items-center gap-1 text-[10px] text-primary mt-0.5 font-semibold">
-                                  <Award className="h-3 w-3" />
-                                  Certificate included
+                          );
+                        const itemsPerPage = 4;
+                        const totalPages = Math.ceil(
+                          filtered.length / itemsPerPage,
+                        );
+                        const safePage = Math.min(
+                          currentPage,
+                          Math.max(1, totalPages),
+                        );
+                        const paginated = filtered.slice(
+                          (safePage - 1) * itemsPerPage,
+                          safePage * itemsPerPage,
+                        );
+                        return paginated.map((p) => (
+                          <div
+                            key={p.id}
+                            className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow"
+                          >
+                            <div className="aspect-video overflow-hidden">
+                              <img
+                                src={p.image}
+                                alt={p.title.en}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="p-6">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Badge
+                                  variant="outline"
+                                  className="capitalize text-[10px] py-0 px-2"
+                                >
+                                  {p.type}
+                                </Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="capitalize text-[10px] py-0 px-2"
+                                >
+                                  {p.level.en}
+                                </Badge>
+                                <Badge
+                                  className={`${statusColors[p.status]} border text-[10px] py-0 px-2 capitalize`}
+                                >
+                                  {p.status}
+                                </Badge>
+                              </div>
+                              <h3 className="font-bold font-heading text-foreground text-lg mb-2">
+                                {p.title.en}
+                              </h3>
+                              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                                {p.description.en}
+                              </p>
+                              <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  {p.duration.en}
                                 </span>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <Link href={`/education/program/${p.id}`}>
-                                <Button
-                                  size="sm"
-                                  className="text-xs"
-                                  variant="outline"
-                                >
-                                  View Details
-                                </Button>
-                              </Link>
-                              {p.status === "open" && (
-                                <Button
-                                  size="sm"
-                                  className="text-xs"
-                                  onClick={() => handleEnrollClick(p)}
-                                >
-                                  Enroll Now
-                                </Button>
-                              )}
-                              {p.status === "full" && (
-                                <Button
-                                  size="sm"
-                                  className="text-xs"
-                                  variant="secondary"
-                                  onClick={() => handleNotifyClick(p)}
-                                >
-                                  Join Waitlist
-                                </Button>
-                              )}
-                              {p.status === "upcoming" && (
-                                <Button
-                                  size="sm"
-                                  className="text-xs"
-                                  variant="outline"
-                                  onClick={() => handleNotifyClick(p)}
-                                >
-                                  Notify Me
-                                </Button>
-                              )}
-                              {p.status === "completed" && (
-                                <Button size="sm" className="text-xs" disabled>
-                                  Completed
-                                </Button>
-                              )}
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  {p.startDate.en}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-3.5 w-3.5" />
+                                  {p.enrolled}/{p.maxParticipants}
+                                </span>
+                              </div>
+                              <div className="mb-4">
+                                <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                                  <span>Enrollment</span>
+                                  <span>
+                                    {Math.round(
+                                      (p.enrolled / p.maxParticipants) * 100,
+                                    )}
+                                    %
+                                  </span>
+                                </div>
+                                <Progress
+                                  value={(p.enrolled / p.maxParticipants) * 100}
+                                  className="h-1.5"
+                                />
+                              </div>
+                              <div className="flex flex-wrap gap-1 mb-4">
+                                {p.topics.slice(0, 4).map((t: any) => (
+                                  <span
+                                    key={t.en}
+                                    className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full"
+                                  >
+                                    {t.en}
+                                  </span>
+                                ))}
+                                {p.topics.length > 4 && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    +{p.topics.length - 4} more
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                                <div>
+                                  <span className="text-lg font-bold text-foreground">
+                                    {formatPrice(p.price)}
+                                  </span>
+                                  {p.certificate && (
+                                    <span className="flex items-center gap-1 text-[10px] text-primary mt-0.5 font-semibold">
+                                      <Award className="h-3 w-3" />
+                                      Certificate included
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Link href={`/education/program/${p.id}`}>
+                                    <Button
+                                      size="sm"
+                                      className="text-xs"
+                                      variant="outline"
+                                    >
+                                      View Details
+                                    </Button>
+                                  </Link>
+                                  {p.status === "open" && (
+                                    <Button
+                                      size="sm"
+                                      className="text-xs"
+                                      onClick={() => handleEnrollClick(p)}
+                                    >
+                                      Enroll Now
+                                    </Button>
+                                  )}
+                                  {p.status === "full" && (
+                                    <Button
+                                      size="sm"
+                                      className="text-xs"
+                                      variant="secondary"
+                                      onClick={() => handleNotifyClick(p)}
+                                    >
+                                      Join Waitlist
+                                    </Button>
+                                  )}
+                                  {p.status === "upcoming" && (
+                                    <Button
+                                      size="sm"
+                                      className="text-xs"
+                                      variant="outline"
+                                      onClick={() => handleNotifyClick(p)}
+                                    >
+                                      Notify Me
+                                    </Button>
+                                  )}
+                                  {p.status === "completed" && (
+                                    <Button
+                                      size="sm"
+                                      className="text-xs"
+                                      disabled
+                                    >
+                                      Completed
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                        ));
+                      })()}
+                    </div>
+                    {(() => {
+                      const filtered = trainingPrograms.filter(
+                        (p) =>
+                          trainingStatus === "all" ||
+                          p.status === trainingStatus,
+                      );
+                      const itemsPerPage = 4;
+                      const totalPages = Math.ceil(
+                        filtered.length / itemsPerPage,
+                      );
+                      if (totalPages > 1) {
+                        return (
+                          <div className="flex justify-center gap-2 mt-8">
+                            <Button
+                              variant="outline"
+                              disabled={currentPage <= 1}
+                              onClick={() => {
+                                setCurrentPage((p) => p - 1);
+                                updateParam("page", String(currentPage - 1));
+                              }}
+                            >
+                              Previous
+                            </Button>
+                            <span className="flex items-center text-sm text-foreground font-semibold">
+                              Page {Math.min(currentPage, totalPages)} of{" "}
+                              {totalPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              disabled={currentPage >= totalPages}
+                              onClick={() => {
+                                setCurrentPage((p) => p + 1);
+                                updateParam("page", String(currentPage + 1));
+                              }}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </>
+                )}
               </TabsContent>
 
               {/* Schools */}

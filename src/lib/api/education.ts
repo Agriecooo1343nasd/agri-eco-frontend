@@ -8,10 +8,76 @@ export interface MultiLangText {
   sw?: string;
 }
 
-export interface AdminTrainingTopic {
+export interface TrainingTopic {
   name: MultiLangText;
   description?: MultiLangText;
   sortOrder?: number;
+}
+
+export interface TrainingProgram {
+  id: string;
+  title: MultiLangText;
+  slug: string;
+  shortDescription?: MultiLangText;
+  fullDescription: MultiLangText;
+  heroImage?: string;
+  coverImage?: string;
+  type: "course" | "certification" | "workshop";
+  level: "beginner" | "intermediate" | "advanced";
+  priceRwf: number;
+  durationWeeks: number;
+  capacity: number;
+  language: string;
+  isPublished: boolean;
+  isFeatured: boolean;
+  curriculum: any[];
+  topics: TrainingTopic[];
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminTrainingProgram extends TrainingProgram {}
+
+export interface AdminSchoolVisit {
+  id: string;
+  institutionName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  studentCount: number;
+  teacherCount: number;
+  preferredDate: string;
+  curriculumGoals?: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+}
+
+export interface AdminTrainingEnrollment {
+  id: string;
+  userId: string;
+  trainingProgramId: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface AdminSchoolVisitSettings {
+  id?: string;
+  sectionHeading: MultiLangText;
+  sectionSubheading: MultiLangText;
+  inclusions: { text: MultiLangText; sortOrder: number }[];
+  subjects: {
+    name: MultiLangText;
+    description?: MultiLangText;
+    sortOrder: number;
+  }[];
+  gradeLevels: { label: MultiLangText; sortOrder: number }[];
+  duration: string;
+  pricePerStudent: number;
+  minStudents: number;
+  maxStudents: number;
+  isActive: boolean;
 }
 
 export interface CreateAdminTrainingProgramPayload {
@@ -28,201 +94,104 @@ export interface CreateAdminTrainingProgramPayload {
   language: string;
   isPublished: boolean;
   isFeatured: boolean;
-  curriculum: Record<string, unknown>[];
-  topics: AdminTrainingTopic[];
+  curriculum: any[];
+  topics: { name: MultiLangText; sortOrder: number }[];
   startDate?: string;
-  endDate?: string;
 }
 
-export interface AdminTrainingProgram {
-  id: string;
-  title: MultiLangText;
-  shortDescription?: MultiLangText;
-  type: "course" | "certification" | "workshop";
-  level: "beginner" | "intermediate" | "advanced";
-  priceRwf: number;
-  durationWeeks: number;
-  capacity: number;
-  isPublished: boolean;
-  isFeatured: boolean;
-  startDate?: string;
-  createdAt: string;
+export interface UpsertAdminSchoolVisitSettingsPayload extends Omit<
+  AdminSchoolVisitSettings,
+  "id"
+> {}
+
+export interface FetchTrainingProgramsParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  level?: "beginner" | "intermediate" | "advanced";
+  type?: "course" | "certification" | "workshop";
+  isFeatured?: "true" | "false";
+  sort?: string;
+  order?: "asc" | "desc";
 }
 
-export interface AdminTrainingProgramDetail extends AdminTrainingProgram {
-  fullDescription: MultiLangText;
-  heroImage?: string | null;
-  coverImage?: string | null;
-  language: string;
-  isFeatured: boolean;
-  curriculum: Record<string, unknown>[];
-  topics: AdminTrainingTopic[];
-  endDate?: string;
-}
-
-export interface AdminTrainingEnrollment {
-  id: string;
-  trainingProgramId: string;
-  status: "pending" | "approved" | "rejected" | "completed";
-}
-
-export interface AdminSchoolVisit {
-  id: string;
-  institutionName: string;
-  contactName: string;
-  email: string;
-  phone: string;
-  studentCount: number;
-  teacherCount: number;
-  preferredDate: string;
-  curriculumGoals?: string;
-  status: "pending" | "approved" | "rejected" | "completed";
-  createdAt: string;
-}
-
-export interface AdminSchoolVisitSettings {
-  id: string;
-  sectionHeading: MultiLangText;
-  sectionSubheading: MultiLangText;
-  inclusions: { text: MultiLangText; sortOrder: number }[];
-  subjects: {
-    name: MultiLangText;
-    description?: MultiLangText;
-    sortOrder: number;
-  }[];
-  gradeLevels: { label: MultiLangText; sortOrder: number }[];
-  duration: string;
-  pricePerStudent: number;
-  minStudents: number;
-  maxStudents: number;
-  isActive: boolean;
-  updatedAt: string;
-}
-
-export interface UpsertAdminSchoolVisitSettingsPayload {
-  sectionHeading: MultiLangText;
-  sectionSubheading: MultiLangText;
-  inclusions: { text: MultiLangText; sortOrder: number }[];
-  subjects: {
-    name: MultiLangText;
-    description?: MultiLangText;
-    sortOrder: number;
-  }[];
-  gradeLevels: { label: MultiLangText; sortOrder: number }[];
-  duration: string;
-  pricePerStudent: number;
-  minStudents: number;
-  maxStudents: number;
-  isActive: boolean;
-}
-
-interface ListResult<T> {
-  data: T[];
+export interface FetchTrainingProgramsResult {
+  data: TrainingProgram[];
   pagination: ApiPagination;
 }
 
-function buildQuery(params: Record<string, string | number | undefined>) {
+function buildQuery(params: FetchTrainingProgramsParams): string {
   const query = new URLSearchParams();
 
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== "") {
-      query.set(key, String(value));
-    }
-  }
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.search?.trim()) query.set("search", params.search.trim());
+  if (params.level) query.set("level", params.level);
+  if (params.type) query.set("type", params.type);
+  if (params.isFeatured) query.set("isFeatured", params.isFeatured);
+  if (params.sort) query.set("sort", params.sort);
+  if (params.order) query.set("order", params.order);
 
   const queryString = query.toString();
   return queryString ? `?${queryString}` : "";
 }
 
-const emptyPagination = (limit = 10): ApiPagination => ({
-  total: 0,
-  page: 1,
-  limit,
-  pages: 1,
-  hasNext: false,
-  hasPrev: false,
-});
-
-export async function fetchAdminTrainingPrograms(params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  sort?: "title" | "priceRwf" | "level" | "createdAt";
-  order?: "asc" | "desc";
-}): Promise<ListResult<AdminTrainingProgram>> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminTrainingProgram[]>
-  >(
-    `/training-programs/admin/programs${buildQuery({
-      page: params?.page,
-      limit: params?.limit,
-      search: params?.search?.trim() || undefined,
-      sort: params?.sort,
-      order: params?.order,
-    })}`,
+export async function fetchTrainingPrograms(
+  params: FetchTrainingProgramsParams,
+): Promise<FetchTrainingProgramsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<TrainingProgram[]>>(
+    `/training-programs${buildQuery(params)}`,
   );
 
   return {
     data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? emptyPagination(params?.limit ?? 100),
+    pagination: response.data.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: params.limit ?? 10,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
   };
 }
 
-export async function fetchAdminTrainingEnrollments(params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: "pending" | "approved" | "rejected" | "completed";
-  trainingProgramId?: string;
-  sort?: "createdAt" | "status" | "fullName";
-  order?: "asc" | "desc";
-}): Promise<ListResult<AdminTrainingEnrollment>> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminTrainingEnrollment[]>
-  >(
-    `/training-programs/admin/enrollments${buildQuery({
-      page: params?.page,
-      limit: params?.limit,
-      search: params?.search?.trim() || undefined,
-      status: params?.status,
-      trainingProgramId: params?.trainingProgramId,
-      sort: params?.sort,
-      order: params?.order,
-    })}`,
+export async function fetchTrainingProgramBySlug(
+  slug: string,
+): Promise<TrainingProgram> {
+  const response = await apiClient.get<ApiSuccessResponse<TrainingProgram>>(
+    `/training-programs/slug/${slug}`,
   );
 
+  if (!response.data.data) {
+    throw new Error("Program not found");
+  }
+
+  return response.data.data;
+}
+
+/* ---------- Admin Functions ---------- */
+
+export async function fetchAdminTrainingPrograms(
+  params: FetchTrainingProgramsParams,
+): Promise<FetchTrainingProgramsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<TrainingProgram[]>>(
+    `/training-programs${buildQuery(params)}`,
+  );
   return {
     data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? emptyPagination(params?.limit ?? 100),
+    pagination: response.data.pagination!,
   };
 }
 
-export async function fetchAdminSchoolVisits(params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: "pending" | "approved" | "rejected" | "completed";
-  sort?: "preferredDate" | "createdAt" | "institutionName";
-  order?: "asc" | "desc";
-}): Promise<ListResult<AdminSchoolVisit>> {
-  const response = await apiClient.get<ApiSuccessResponse<AdminSchoolVisit[]>>(
-    `/school-visits/admin${buildQuery({
-      page: params?.page,
-      limit: params?.limit,
-      search: params?.search?.trim() || undefined,
-      status: params?.status,
-      sort: params?.sort,
-      order: params?.order,
-    })}`,
-  );
-
-  return {
-    data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? emptyPagination(params?.limit ?? 100),
-  };
+export async function fetchAdminTrainingProgramById(
+  id: string,
+): Promise<AdminTrainingProgram> {
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminTrainingProgram>
+  >(`/training-programs/${id}`);
+  if (!response.data.data) throw new Error("Program not found");
+  return response.data.data;
 }
 
 export async function createAdminTrainingProgram(
@@ -231,61 +200,55 @@ export async function createAdminTrainingProgram(
   const response = await apiClient.post<
     ApiSuccessResponse<AdminTrainingProgram>
   >("/training-programs", payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing created training program response data");
-  }
-
-  return response.data.data;
-}
-
-export async function fetchAdminTrainingProgramById(
-  id: string,
-): Promise<AdminTrainingProgramDetail> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminTrainingProgramDetail>
-  >(`/training-programs/admin/programs/${id}`);
-
-  if (!response.data.data) {
-    throw new Error("Training program not found");
-  }
-
+  if (!response.data.data) throw new Error("Failed to create program");
   return response.data.data;
 }
 
 export async function updateAdminTrainingProgram(
   id: string,
   payload: Partial<CreateAdminTrainingProgramPayload>,
-): Promise<AdminTrainingProgramDetail> {
+): Promise<AdminTrainingProgram> {
   const response = await apiClient.put<
-    ApiSuccessResponse<AdminTrainingProgramDetail>
+    ApiSuccessResponse<AdminTrainingProgram>
   >(`/training-programs/${id}`, payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing updated training program response data");
-  }
-
+  if (!response.data.data) throw new Error("Failed to update program");
   return response.data.data;
+}
+
+export async function fetchAdminTrainingEnrollments(params: any): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(
+    "/training-programs/enrollments/all",
+  );
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
+  };
+}
+
+export async function fetchAdminSchoolVisits(params: any): Promise<any> {
+  const response =
+    await apiClient.get<ApiSuccessResponse<AdminSchoolVisit[]>>(
+      "/school-visits",
+    );
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
+  };
 }
 
 export async function fetchAdminSchoolVisitSettings(): Promise<AdminSchoolVisitSettings | null> {
   const response = await apiClient.get<
-    ApiSuccessResponse<AdminSchoolVisitSettings | null>
-  >("/school-visits/admin/settings");
-
+    ApiSuccessResponse<AdminSchoolVisitSettings>
+  >("/school-visits/settings");
   return response.data.data ?? null;
 }
 
 export async function updateAdminSchoolVisitSettings(
   payload: UpsertAdminSchoolVisitSettingsPayload,
 ): Promise<AdminSchoolVisitSettings> {
-  const response = await apiClient.put<
+  const response = await apiClient.post<
     ApiSuccessResponse<AdminSchoolVisitSettings>
-  >("/school-visits/admin/settings", payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing updated school visit settings response data");
-  }
-
+  >("/school-visits/settings", payload);
+  if (!response.data.data) throw new Error("Failed to update settings");
   return response.data.data;
 }
