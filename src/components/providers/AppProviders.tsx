@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { PricingProvider } from "@/context/PricingContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { store } from "@/store";
 
@@ -40,13 +41,15 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ReduxProvider store={store}>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <PricingProvider>
-            <CartProvider>
-              <TooltipProvider>{children}</TooltipProvider>
-            </CartProvider>
-          </PricingProvider>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <PricingProvider>
+              <CartProvider>
+                <TooltipProvider>{children}</TooltipProvider>
+              </CartProvider>
+            </PricingProvider>
+          </AuthProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </ReduxProvider>
   );

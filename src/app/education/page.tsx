@@ -50,6 +50,7 @@ import {
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { usePricing } from "@/context/PricingContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 const statusColors: Record<string, string> = {
   open: "bg-primary/10 text-primary border-primary/20",
@@ -60,6 +61,7 @@ const statusColors: Record<string, string> = {
 
 export default function EducationPage() {
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -373,7 +375,7 @@ export default function EducationPage() {
                             <div className="aspect-video overflow-hidden">
                               <img
                                 src={p.image}
-                                alt={p.title.en}
+                                alt={t(p.title)}
                                 className="w-full h-full object-cover"
                               />
                             </div>
@@ -389,7 +391,7 @@ export default function EducationPage() {
                                   variant="outline"
                                   className="capitalize text-[10px] py-0 px-2"
                                 >
-                                  {p.level.en}
+                                  {t(p.level)}
                                 </Badge>
                                 <Badge
                                   className={`${statusColors[p.status]} border text-[10px] py-0 px-2 capitalize`}
@@ -398,19 +400,19 @@ export default function EducationPage() {
                                 </Badge>
                               </div>
                               <h3 className="font-bold font-heading text-foreground text-lg mb-2">
-                                {p.title.en}
+                                {t(p.title)}
                               </h3>
                               <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                                {p.description.en}
+                                {t(p.description)}
                               </p>
                               <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3.5 w-3.5" />
-                                  {p.duration.en}
+                                  {t(p.duration)}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Calendar className="h-3.5 w-3.5" />
-                                  {p.startDate.en}
+                                  {t(p.startDate)}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Users className="h-3.5 w-3.5" />
@@ -433,12 +435,12 @@ export default function EducationPage() {
                                 />
                               </div>
                               <div className="flex flex-wrap gap-1 mb-4">
-                                {p.topics.slice(0, 4).map((t: any) => (
+                                {p.topics.slice(0, 4).map((topic: any) => (
                                   <span
-                                    key={t.en}
+                                    key={t(topic)}
                                     className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full"
                                   >
-                                    {t.en}
+                                    {t(topic)}
                                   </span>
                                 ))}
                                 {p.topics.length > 4 && (
@@ -564,10 +566,10 @@ export default function EducationPage() {
               <TabsContent value="schools" className="space-y-6">
                 <div className="text-center mb-8">
                   <h2 className="section-heading text-xl">
-                    {schoolVisitConfig.heading.en}
+                    {t(schoolVisitConfig.heading)}
                   </h2>
                   <p className="section-subheading text-muted-foreground text-sm">
-                    {schoolVisitConfig.subheading.en}
+                    {t(schoolVisitConfig.subheading)}
                   </p>
                 </div>
                 <div className="max-w-3xl mx-auto">
@@ -580,11 +582,11 @@ export default function EducationPage() {
                         <ul className="space-y-3">
                           {schoolVisitConfig.whatsIncluded.map((item) => (
                             <li
-                              key={item.en}
+                              key={t(item)}
                               className="flex items-start gap-2 text-sm text-foreground"
                             >
                               <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                              {item.en}
+                              {t(item)}
                             </li>
                           ))}
                         </ul>
@@ -596,14 +598,14 @@ export default function EducationPage() {
                         <div className="space-y-2 text-xs">
                           {schoolVisitConfig.details.map((d) => (
                             <div
-                              key={d.label.en}
+                              key={t(d.label)}
                               className="flex justify-between py-2 border-b border-border last:border-0"
                             >
                               <span className="text-muted-foreground">
-                                {d.label.en}
+                                {t(d.label)}
                               </span>
                               <span className="font-bold text-foreground">
-                                {d.value.en}
+                                {t(d.value)}
                               </span>
                             </div>
                           ))}

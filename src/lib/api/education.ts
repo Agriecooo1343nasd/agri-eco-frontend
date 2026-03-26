@@ -176,7 +176,7 @@ export async function fetchAdminTrainingPrograms(
   params: FetchTrainingProgramsParams,
 ): Promise<FetchTrainingProgramsResult> {
   const response = await apiClient.get<ApiSuccessResponse<TrainingProgram[]>>(
-    `/training-programs${buildQuery(params)}`,
+    `/training-programs/admin/programs${buildQuery(params)}`,
   );
   return {
     data: response.data.data ?? [],
@@ -189,7 +189,7 @@ export async function fetchAdminTrainingProgramById(
 ): Promise<AdminTrainingProgram> {
   const response = await apiClient.get<
     ApiSuccessResponse<AdminTrainingProgram>
-  >(`/training-programs/${id}`);
+  >(`/training-programs/admin/programs/${id}`);
   if (!response.data.data) throw new Error("Program not found");
   return response.data.data;
 }
@@ -217,7 +217,7 @@ export async function updateAdminTrainingProgram(
 
 export async function fetchAdminTrainingEnrollments(params: any): Promise<any> {
   const response = await apiClient.get<ApiSuccessResponse<any>>(
-    "/training-programs/enrollments/all",
+    "/training-programs/admin/enrollments",
   );
   return {
     data: response.data.data ?? [],
@@ -226,10 +226,9 @@ export async function fetchAdminTrainingEnrollments(params: any): Promise<any> {
 }
 
 export async function fetchAdminSchoolVisits(params: any): Promise<any> {
-  const response =
-    await apiClient.get<ApiSuccessResponse<AdminSchoolVisit[]>>(
-      "/school-visits",
-    );
+  const response = await apiClient.get<ApiSuccessResponse<AdminSchoolVisit[]>>(
+    "/school-visits/admin",
+  );
   return {
     data: response.data.data ?? [],
     pagination: response.data.pagination!,
@@ -239,16 +238,16 @@ export async function fetchAdminSchoolVisits(params: any): Promise<any> {
 export async function fetchAdminSchoolVisitSettings(): Promise<AdminSchoolVisitSettings | null> {
   const response = await apiClient.get<
     ApiSuccessResponse<AdminSchoolVisitSettings>
-  >("/school-visits/settings");
+  >("/school-visits/admin/settings");
   return response.data.data ?? null;
 }
 
 export async function updateAdminSchoolVisitSettings(
   payload: UpsertAdminSchoolVisitSettingsPayload,
 ): Promise<AdminSchoolVisitSettings> {
-  const response = await apiClient.post<
+  const response = await apiClient.put<
     ApiSuccessResponse<AdminSchoolVisitSettings>
-  >("/school-visits/settings", payload);
+  >("/school-visits/admin/settings", payload);
   if (!response.data.data) throw new Error("Failed to update settings");
   return response.data.data;
 }

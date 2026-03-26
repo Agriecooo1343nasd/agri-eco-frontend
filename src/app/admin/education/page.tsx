@@ -43,6 +43,7 @@ import {
   fetchAdminTrainingPrograms,
   type AdminSchoolVisit,
 } from "@/lib/api/education";
+import { useLanguage } from "@/context/LanguageContext";
 
 const statusBadge: Record<string, string> = {
   open: "bg-primary/10 text-primary border-primary/20",
@@ -97,6 +98,7 @@ function visitToUi(visit: AdminSchoolVisit): SchoolVisit {
 
 export default function AdminEducationPage() {
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"programs" | "visits">("programs");
   const [visitsUiOverride, setVisitsUiOverride] = useState<
@@ -166,10 +168,10 @@ export default function AdminEducationPage() {
 
       return {
         id: program.id,
-        title: program.title?.en || "Untitled Program",
+        title: t(program.title) || "Untitled Program",
         duration: `${program.durationWeeks || 0} weeks`,
         type: program.type,
-        level: program.level,
+        level: t(program.level as any) || program.level,
         enrolled,
         capacity,
         progressPct,
