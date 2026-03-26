@@ -21,6 +21,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage, type LanguageCode } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -90,11 +91,12 @@ const Header = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { cartCount, wishlistItems } = useCart();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { locale, setLocale } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
 
   const currentScope = searchScopes.find((s) => s.key === searchScope)!;
-  const currentLang = languages.find((l) => l.code === "en") || languages[0]; // Default to English for now
+  const currentLang = languages.find((l) => l.code === locale) || languages[0];
 
   const handleUserClick = () => {
     if (isAuthenticated) {
@@ -147,10 +149,9 @@ const Header = () => {
                   <DropdownMenuItem
                     key={lang.code}
                     onClick={() => {
-                      // For now, just log the language change
-                      console.log(`Language changed to: ${lang.label}`);
+                      setLocale(lang.code as LanguageCode);
                     }}
-                    className={`gap-2.5 ${"en" === lang.code ? "bg-primary/10 text-primary font-medium" : ""}`}
+                    className={`gap-2.5 ${locale === lang.code ? "bg-primary/10 text-primary font-medium" : ""}`}
                   >
                     <span className="text-base">{lang.flag}</span>
                     <span>{lang.label}</span>

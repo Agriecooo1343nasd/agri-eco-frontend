@@ -3,7 +3,12 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { tours } from "@/data/tours";
+import React, { useEffect, useState } from "react";
+import {
+  fetchAdminExperiences,
+  AdminExperience,
+  toAbsoluteExperienceImage,
+} from "@/lib/api/experiences";
 import {
   Bug,
   Droplets,
@@ -20,9 +25,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePricing } from "@/context/PricingContext";
 
-const beekeepingTours = tours.filter(
-  (t) => t.category === "beekeeping" || t.category === "workshop",
-);
+// Helper: Map backend experience to UI card
+function mapExperienceToBeekeepingCard(exp: AdminExperience) {
+  return {
+    id: exp.id,
+    name: exp.title.en,
+    slug: exp.slug,
+    category: exp.type,
+    description: exp.shortDescription.en,
+    image: toAbsoluteExperienceImage(exp.heroImage),
+    duration: exp.expectedDuration || `${exp.durationMinutes} min`,
+    price: exp.priceRwf,
+    groupPrice: exp.pricePerGroupRwf,
+    maxParticipants: exp.capacity,
+    rating: 4.8, // Placeholder, backend has no rating
+    seasonal: !!(exp.seasonStart && exp.seasonEnd),
+  };
+}
 
 const features = [
   {
@@ -68,21 +87,53 @@ const honeyVarieties = [
 
 export default function BeekeepingPage() {
   const { formatPrice } = usePricing();
-
   const beekeepingImg = "/assets/tours/beekeeping.jpg";
+
+  // Backend integration for beekeeping experiences
+  const [experiences, setExperiences] = useState<
+    ReturnType<typeof mapExperienceToBeekeepingCard>[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    async function fetchData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetchAdminExperiences({ limit: 12 });
+        const filtered = res.data.filter(
+          (exp) =>
+            exp.isActive &&
+            (exp.type === "beekeeping" || exp.type === "workshop"),
+        );
+        const mapped = filtered.map(mapExperienceToBeekeepingCard);
+        if (!ignore) setExperiences(mapped);
+      } catch (e: any) {
+        setError(e?.message || "Failed to load experiences");
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main>
         {/* Hero */}
-        <section className="relative h-[50vh] min-h-[400px] overflow-hidden">
+        <section className="relative h-[50vh] min-h-100 overflow-hidden">
           <img
             src={beekeepingImg}
             alt="Beekeeping at Agri-Eco"
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-foreground/80 to-foreground/30" />
+          <div className="absolute inset-0 bg-linear-to-r from-foreground/80 to-foreground/30" />
           <div className="relative container h-full flex items-center">
             <div className="max-w-xl text-card">
               <Badge className="bg-secondary text-secondary-foreground mb-4 gap-1.5 text-xs">
@@ -91,7 +142,7 @@ export default function BeekeepingPage() {
               <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 leading-tight text-white">
                 Discover the World of Bees
               </h1>
-              <p className="text-card/80 text-lg mb-6 text-white/90">
+              <p className="text-white/90 text-lg mb-6">
                 From live hive inspections to honey harvesting and beeswax
                 crafting — immerse yourself in the magic of our apiary.
               </p>
@@ -177,7 +228,7 @@ export default function BeekeepingPage() {
           </div>
         </section>
 
-        {/* Available Experiences */}
+        {/* Available Experiences (Integrated) */}
         <section className="py-16">
           <div className="container">
             <h2 className="section-heading mb-2 text-xl font-bold">
@@ -186,74 +237,84 @@ export default function BeekeepingPage() {
             <p className="section-subheading mb-12 text-sm text-muted-foreground">
               Choose from our available beekeeping and wax workshops
             </p>
-            <div className="grid md:grid-cols-2 gap-8">
-              {beekeepingTours.map((tour) => (
-                <div
-                  key={tour.id}
-                  className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col md:flex-row hover:shadow-lg transition-shadow"
-                >
-                  <div className="w-full md:w-48 h-48 md:h-auto overflow-hidden shrink-0">
-                    <img
-                      src={tour.image}
-                      alt={tour.name}
-                      className="w-full h-full object-cover transition-transform hover:scale-105"
-                    />
-                  </div>
-                  <div className="p-6 flex-1 flex flex-col">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] py-0 px-2 capitalize"
-                      >
-                        {tour.category.replace("-", " ")}
-                      </Badge>
-                      {tour.seasonal && (
-                        <Badge className="bg-secondary/10 text-secondary border-secondary/20 text-[10px] py-0 px-2">
-                          Seasonal
+            {loading ? (
+              <div className="text-center py-12">Loading experiences...</div>
+            ) : error ? (
+              <div className="text-center py-12 text-destructive">{error}</div>
+            ) : experiences.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                No beekeeping experiences available at the moment.
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-8">
+                {experiences.map((exp) => (
+                  <div
+                    key={exp.id}
+                    className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col md:flex-row hover:shadow-lg transition-shadow"
+                  >
+                    <div className="w-full md:w-48 h-48 md:h-auto overflow-hidden shrink-0">
+                      <img
+                        src={exp.image}
+                        alt={exp.name}
+                        className="w-full h-full object-cover transition-transform hover:scale-105"
+                      />
+                    </div>
+                    <div className="p-6 flex-1 flex flex-col">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] py-0 px-2 capitalize"
+                        >
+                          {exp.category.replace("-", " ")}
                         </Badge>
-                      )}
-                    </div>
-                    <h3 className="font-bold font-heading text-foreground text-lg mb-1">
-                      {tour.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                      {tour.description}
-                    </p>
-                    <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-4">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        {tour.duration}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        Max {tour.maxParticipants}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Star className="h-3.5 w-3.5 fill-secondary text-secondary" />
-                        {tour.rating}
-                      </span>
-                    </div>
-                    <div className="mt-auto flex items-center justify-between">
-                      <div>
-                        <span className="text-lg font-bold text-foreground">
-                          {formatPrice(tour.price)}
-                        </span>
-                        {tour.groupPrice && (
-                          <span className="text-[10px] text-muted-foreground block">
-                            {formatPrice(tour.groupPrice)} (group)
-                          </span>
+                        {exp.seasonal && (
+                          <Badge className="bg-secondary/10 text-secondary border-secondary/20 text-[10px] py-0 px-2">
+                            Seasonal
+                          </Badge>
                         )}
                       </div>
-                      <Link href={`/tours/${tour.slug}`}>
-                        <Button size="sm" className="gap-1 text-xs">
-                          Book Now <ArrowRight className="h-3 w-3" />
-                        </Button>
-                      </Link>
+                      <h3 className="font-bold font-heading text-foreground text-lg mb-1">
+                        {exp.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                        {exp.description}
+                      </p>
+                      <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-4">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {exp.duration}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5" />
+                          Max {exp.maxParticipants}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Star className="h-3.5 w-3.5 fill-secondary text-secondary" />
+                          {exp.rating}
+                        </span>
+                      </div>
+                      <div className="mt-auto flex items-center justify-between">
+                        <div>
+                          <span className="text-lg font-bold text-foreground">
+                            {formatPrice(exp.price)}
+                          </span>
+                          {exp.groupPrice && (
+                            <span className="text-[10px] text-muted-foreground block">
+                              {formatPrice(exp.groupPrice)} (group)
+                            </span>
+                          )}
+                        </div>
+                        <Link href={`/tours/${exp.slug}`}>
+                          <Button size="sm" className="gap-1 text-xs">
+                            Book Now <ArrowRight className="h-3 w-3" />
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

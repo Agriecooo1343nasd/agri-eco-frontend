@@ -141,21 +141,21 @@ export default function SchoolVisitSettingsPage() {
     setSubheading(toMultiLangFromApi(settings.sectionSubheading));
     setInclusions(
       (settings.inclusions ?? [])
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((item) => toMultiLangFromApi(item.text)),
+        .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        .map((item: any) => toMultiLangFromApi(item.text)),
     );
     setSubjects(
       (settings.subjects ?? [])
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((item) => ({
+        .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        .map((item: any) => ({
           name: toMultiLangFromApi(item.name),
           description: toMultiLangFromApi(item.description),
         })),
     );
     setGradeLevels(
       (settings.gradeLevels ?? [])
-        .sort((a, b) => a.sortOrder - b.sortOrder)
-        .map((item) => toMultiLangFromApi(item.label)),
+        .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        .map((item: any) => toMultiLangFromApi(item.label)),
     );
     setDuration(settings.duration || "Full day (6 hours)");
     setPricePerStudent(String(settings.pricePerStudent ?? 2000));
