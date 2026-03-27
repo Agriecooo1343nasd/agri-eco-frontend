@@ -3,6 +3,7 @@ import { Merriweather, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/AppProviders";
 import { Toaster } from "@/components/ui/sonner";
+import NextTopLoader from "nextjs-toploader";
 
 const merriweather = Merriweather({
   variable: "--font-merriweather",
@@ -33,6 +34,17 @@ export default function RootLayout({
         className={`${merriweather.variable} ${nunitoSans.variable} antialiased font-body transition-colors duration-300`}
         suppressHydrationWarning
       >
+        <NextTopLoader
+          color="#22c55e"
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}
+          crawl={true}
+          showSpinner={false}
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #22c55e,0 0 5px #22c55e"
+        />
         <AppProviders>
           {children}
           <Toaster position="top-center" richColors closeButton />

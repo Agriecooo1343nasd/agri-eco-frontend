@@ -51,7 +51,7 @@ export default function ViewProduct({
   const router = useRouter();
   const { formatPrice } = usePricing();
 
-  const product = baseProducts.find((p) => p.id === Number(productId));
+  const product = baseProducts.find((p) => p.id === productId);
 
   const [activeImage, setActiveImage] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,9 +83,9 @@ export default function ViewProduct({
         setMockDetails((prev) => ({
           ...prev,
           status:
-            Number(productId) % 3 === 0
+            productId.length % 3 === 0
               ? "Active"
-              : Number(productId) % 3 === 1
+              : productId.length % 3 === 1
                 ? "Draft"
                 : "Inactive",
           batches: [
@@ -205,7 +205,7 @@ export default function ViewProduct({
             className="rounded-xl h-12 px-8 font-bold shadow-lg shadow-primary/20 bg-primary text-white"
             asChild
           >
-            <Link href={`/product/${productId}`}>
+            <Link href={`/product/${product.slug || product.id}`}>
               <ExternalLink className="h-4 w-4 mr-2" />
               View on Store
             </Link>

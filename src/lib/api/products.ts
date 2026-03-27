@@ -237,6 +237,36 @@ export async function fetchAdminProducts(
   };
 }
 
+export async function fetchProducts(
+  params: FetchAdminProductsParams,
+): Promise<FetchAdminProductsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminProduct[]>>(
+    `/products/store${buildQuery(params)}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: params.limit ?? 10,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+}
+
+export async function fetchProductBySlug(slug: string): Promise<AdminProduct> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminProduct>>(
+    `/products/store/${slug}`,
+  );
+  if (!response.data.data) {
+    throw new Error("Product not found");
+  }
+  return response.data.data;
+}
+
 export async function fetchCategoriesForAdmin(): Promise<CategoryListResult> {
   const response = await apiClient.get<ApiSuccessResponse<ProductCategory[]>>(
     "/categories?limit=100&isActive=true&sort=name&order=asc",

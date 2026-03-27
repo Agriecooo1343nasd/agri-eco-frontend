@@ -5,8 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import React, { useEffect, useState } from "react";
 import {
-  fetchAdminExperiences,
-  AdminExperience,
+  fetchExperiences,
+  Experience,
   toAbsoluteExperienceImage,
 } from "@/lib/api/experiences";
 import {
@@ -24,75 +24,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePricing } from "@/context/PricingContext";
-
-// Helper: Map backend experience to UI card
-function mapExperienceToBeekeepingCard(exp: AdminExperience) {
-  return {
-    id: exp.id,
-    name: exp.title.en,
-    slug: exp.slug,
-    category: exp.type,
-    description: exp.shortDescription.en,
-    image: toAbsoluteExperienceImage(exp.heroImage),
-    duration: exp.expectedDuration || `${exp.durationMinutes} min`,
-    price: exp.priceRwf,
-    groupPrice: exp.pricePerGroupRwf,
-    maxParticipants: exp.capacity,
-    rating: 4.8, // Placeholder, backend has no rating
-    seasonal: !!(exp.seasonStart && exp.seasonEnd),
-  };
-}
-
-const features = [
-  {
-    icon: Bug,
-    title: "Live Hive Inspections",
-    description:
-      "Get up close with active colonies under expert supervision with full protective gear.",
-  },
-  {
-    icon: Droplets,
-    title: "Honey Harvesting",
-    description:
-      "Experience the sweet reward of extracting raw organic honey straight from the comb.",
-  },
-  {
-    icon: FlaskConical,
-    title: "Wax Workshops",
-    description:
-      "Create candles, balms, and soaps from pure beeswax in our artisan studio.",
-  },
-];
-
-const honeyVarieties = [
-  {
-    name: "Eucalyptus Honey",
-    season: "June - August",
-    flavor: "Bold, slightly medicinal",
-    color: "bg-amber-600",
-  },
-  {
-    name: "Wildflower Honey",
-    season: "Year-round",
-    flavor: "Floral, delicate sweetness",
-    color: "bg-amber-400",
-  },
-  {
-    name: "Coffee Blossom Honey",
-    season: "March - May",
-    flavor: "Rich, caramel notes",
-    color: "bg-amber-800",
-  },
-];
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function BeekeepingPage() {
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
   const beekeepingImg = "/assets/tours/beekeeping.jpg";
 
-  // Backend integration for beekeeping experiences
-  const [experiences, setExperiences] = useState<
-    ReturnType<typeof mapExperienceToBeekeepingCard>[]
-  >([]);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,14 +41,14 @@ export default function BeekeepingPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetchAdminExperiences({ limit: 12 });
+        const res = await fetchExperiences({ limit: 12, type: "beekeeping" });
+        // Also Include workshops for beekeeping page if relevant
         const filtered = res.data.filter(
           (exp) =>
             exp.isActive &&
             (exp.type === "beekeeping" || exp.type === "workshop"),
         );
-        const mapped = filtered.map(mapExperienceToBeekeepingCard);
-        if (!ignore) setExperiences(mapped);
+        if (!ignore) setExperiences(filtered);
       } catch (e: any) {
         setError(e?.message || "Failed to load experiences");
       } finally {
@@ -121,6 +60,48 @@ export default function BeekeepingPage() {
       ignore = true;
     };
   }, []);
+
+  const features = [
+    {
+      icon: Bug,
+      title: "Live Hive Inspections",
+      description:
+        "Get up close with active colonies under expert supervision with full protective gear.",
+    },
+    {
+      icon: Droplets,
+      title: "Honey Harvesting",
+      description:
+        "Experience the sweet reward of extracting raw organic honey straight from the comb.",
+    },
+    {
+      icon: FlaskConical,
+      title: "Wax Workshops",
+      description:
+        "Create candles, balms, and soaps from pure beeswax in our artisan studio.",
+    },
+  ];
+
+  const honeyVarieties = [
+    {
+      name: "Eucalyptus Honey",
+      season: "June - August",
+      flavor: "Bold, slightly medicinal",
+      color: "bg-amber-600",
+    },
+    {
+      name: "Wildflower Honey",
+      season: "Year-round",
+      flavor: "Floral, delicate sweetness",
+      color: "bg-amber-400",
+    },
+    {
+      name: "Coffee Blossom Honey",
+      season: "March - May",
+      flavor: "Rich, caramel notes",
+      color: "bg-amber-800",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -254,8 +235,8 @@ export default function BeekeepingPage() {
                   >
                     <div className="w-full md:w-48 h-48 md:h-auto overflow-hidden shrink-0">
                       <img
-                        src={exp.image}
-                        alt={exp.name}
+                        src={toAbsoluteExperienceImage(exp.heroImage)}
+                        alt={t(exp.title)}
                         className="w-full h-full object-cover transition-transform hover:scale-105"
                       />
                     </div>
@@ -265,42 +246,42 @@ export default function BeekeepingPage() {
                           variant="outline"
                           className="text-[10px] py-0 px-2 capitalize"
                         >
-                          {exp.category.replace("-", " ")}
+                          {exp.type.replace("_", " ")}
                         </Badge>
-                        {exp.seasonal && (
+                        {(exp.seasonStart || exp.seasonEnd) && (
                           <Badge className="bg-secondary/10 text-secondary border-secondary/20 text-[10px] py-0 px-2">
                             Seasonal
                           </Badge>
                         )}
                       </div>
                       <h3 className="font-bold font-heading text-foreground text-lg mb-1">
-                        {exp.name}
+                        {t(exp.title)}
                       </h3>
                       <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                        {exp.description}
+                        {t(exp.shortDescription)}
                       </p>
                       <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-4">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
-                          {exp.duration}
+                          {exp.expectedDuration || `${exp.durationMinutes} min`}
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
-                          Max {exp.maxParticipants}
+                          Max {exp.capacity}
                         </span>
                         <span className="flex items-center gap-1">
                           <Star className="h-3.5 w-3.5 fill-secondary text-secondary" />
-                          {exp.rating}
+                          4.8
                         </span>
                       </div>
                       <div className="mt-auto flex items-center justify-between">
                         <div>
                           <span className="text-lg font-bold text-foreground">
-                            {formatPrice(exp.price)}
+                            {formatPrice(exp.priceRwf)}
                           </span>
-                          {exp.groupPrice && (
+                          {exp.pricePerGroupRwf > 0 && (
                             <span className="text-[10px] text-muted-foreground block">
-                              {formatPrice(exp.groupPrice)} (group)
+                              {formatPrice(exp.pricePerGroupRwf)} (group)
                             </span>
                           )}
                         </div>

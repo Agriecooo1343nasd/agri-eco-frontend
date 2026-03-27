@@ -1,6 +1,5 @@
 "use client";
 
-// ...existing code...
 import React, { useState, useEffect, useMemo } from "react";
 import type { Tour, TourCategory, TourStatus } from "@/data/tours";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -18,10 +17,9 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-// ...existing code...
 import {
-  fetchAdminExperiences,
-  AdminExperience,
+  fetchExperiences,
+  Experience,
   toAbsoluteExperienceImage,
 } from "@/lib/api/experiences";
 import {
@@ -38,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePricing } from "@/context/PricingContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 const categoryLabels: Record<TourCategory, string> = {
   "farm-tour": "Farm Tours",
@@ -72,7 +71,8 @@ type SortOption =
 
 // Helper: Map backend experience to frontend Tour type
 function mapExperienceToTour(
-  exp: AdminExperience,
+  exp: Experience,
+  t: (val: any) => string,
   accommodationsMap: Record<string, AdminAccommodation> = {},
 ): Tour {
   // Map slots to timeSlots (flatten date/timeSlot)
@@ -91,7 +91,7 @@ function mapExperienceToTour(
       .filter(Boolean)
       .map((acc) => ({
         id: acc.id,
-        name: acc.name.en,
+        name: t(acc.name),
         type:
           acc.category === "standard" ||
           acc.category === "premium" ||
@@ -101,7 +101,7 @@ function mapExperienceToTour(
         pricePerNight: acc.ratePerNightRwf,
         capacity: acc.maxGuests,
         available: acc.status === "available",
-        description: acc.description.en,
+        description: t(acc.description),
         gallery: acc.gallery,
       }));
   }
@@ -109,7 +109,6 @@ function mapExperienceToTour(
   // Derive status (simple logic: available if isActive, sold-out if not)
   let status: TourStatus = "available";
   if (!exp.isActive) status = "sold-out";
-  // Optionally, could use slots/isClosed for more granular status
 
   // Derive seasonal
   const now = new Date();
@@ -124,11 +123,11 @@ function mapExperienceToTour(
 
   return {
     id: exp.id,
-    name: exp.title.en,
+    name: t(exp.title),
     slug: exp.slug,
     category: exp.type.replace("_", "-") as TourCategory,
-    description: exp.shortDescription.en,
-    longDescription: exp.fullOverview.en,
+    description: t(exp.shortDescription),
+    longDescription: t(exp.fullOverview),
     image: toAbsoluteExperienceImage(exp.heroImage),
     gallery: exp.gallery,
     duration: exp.expectedDuration || `${exp.durationMinutes} min`,
@@ -136,18 +135,18 @@ function mapExperienceToTour(
     groupPrice: exp.pricePerGroupRwf,
     maxParticipants: exp.capacity,
     minParticipants: exp.minParticipants,
-    rating: 4.8, // No rating in backend, use default or fetch from reviews
-    reviewCount: 0, // No review count in backend, use default or fetch from reviews
+    rating: 4.8,
+    reviewCount: 0,
     status,
     seasonal,
     season,
-    includes: exp.inclusions,
-    highlights: exp.highlights,
+    includes: exp.inclusions.map((i) => (typeof i === "string" ? i : t(i))),
+    highlights: exp.highlights.map((h) => (typeof h === "string" ? h : h)),
     requirements: exp.requirements,
-    location: exp.destination || "Musanze", // Default location
+    location: exp.destination || "Musanze",
     timeSlots,
     accommodation,
-    cancellationPolicy: exp.cancellationPolicy?.en || "",
+    cancellationPolicy: t(exp.cancellationPolicy) || "",
     featured: exp.isFeatured,
     createdAt: exp.createdAt,
   };
@@ -282,6 +281,8 @@ export default function ToursPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
+
   const searchParam = searchParams.get("search") || "";
   const categoryParam = searchParams.get("category") || "all";
   const sortParam = searchParams.get("sort") || "featured";
@@ -307,10 +308,10 @@ export default function ToursPage() {
           accommodationsMap[acc.id] = acc;
         });
 
-        // Fetch all experiences (tours)
-        const expRes = await fetchAdminExperiences({ limit: 100 });
+        // Fetch all public experiences (tours)
+        const expRes = await fetchExperiences({ limit: 100 });
         const mapped = expRes.data.map((exp) =>
-          mapExperienceToTour(exp, accommodationsMap),
+          mapExperienceToTour(exp, t, accommodationsMap),
         );
         if (!ignore) setTours(mapped);
       } catch (e: any) {
@@ -323,7 +324,7 @@ export default function ToursPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [t]);
 
   // Sync state with URL params
   useEffect(() => {

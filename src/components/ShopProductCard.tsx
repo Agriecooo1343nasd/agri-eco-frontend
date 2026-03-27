@@ -5,6 +5,7 @@ import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
 import type { Product } from "@/components/ProductCard";
 import Link from "next/link";
+import Image from "next/image";
 
 interface ShopProductCardProps {
   product: Product;
@@ -31,12 +32,13 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
     return (
       <div className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 flex">
         <div className="relative w-48 sm:w-56 shrink-0 overflow-hidden bg-muted">
-          <Link href={`/product/${product.id}`} className="block w-full h-full">
-            <img
+          <Link href={`/product/${product.slug}`} className="block w-full h-full">
+            <Image
               src={product.image}
               alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              loading="lazy"
+              fill
+              sizes="(max-width: 768px) 100vw, 224px"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
           </Link>
           {product.badge && product.badge !== "organic" && (
@@ -57,7 +59,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
               />
             </button>
             <Link
-              href={`/product/${product.id}`}
+              href={`/product/${product.slug}`}
               className="bg-card/90 backdrop-blur-sm p-2.5 rounded-full hover:bg-primary hover:text-primary-foreground transition-colors shadow-md"
               aria-label="Quick view"
             >
@@ -77,7 +79,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             {product.category}
           </p>
           <Link
-            href={`/product/${product.id}`}
+            href={`/product/${product.slug}`}
             className="hover:text-primary transition-colors"
           >
             <h3 className="font-semibold text-foreground mt-1 text-base">
@@ -132,12 +134,13 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
   return (
     <div className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
       <div className="relative aspect-square overflow-hidden bg-muted">
-        <Link href={`/product/${product.id}`} className="block w-full h-full">
-          <img
+        <Link href={`/product/${product.slug}`} className="block w-full h-full">
+          <Image
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </Link>
         {product.badge && product.badge !== "organic" && (
@@ -156,7 +159,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
           </button>
           <Link
-            href={`/product/${product.id}`}
+            href={`/product/${product.slug}`}
             className="bg-card/90 backdrop-blur-sm p-2.5 rounded-full hover:bg-primary hover:text-primary-foreground transition-all shadow-md transform translate-y-3 group-hover:translate-y-0 duration-300 delay-75"
             aria-label="Quick view"
           >
@@ -176,7 +179,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
           {product.category}
         </p>
         <Link
-          href={`/product/${product.id}`}
+          href={`/product/${product.slug}`}
           className="hover:text-primary transition-colors"
         >
           <h3 className="font-semibold text-foreground mt-1 text-sm line-clamp-2 min-h-[2.5rem]">
