@@ -20,16 +20,16 @@ interface CartContextType {
   cartItems: CartItem[];
   wishlistItems: Product[];
   addToCart: (product: Product, qty?: number) => void;
-  removeFromCart: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
   addToWishlist: (product: Product) => void;
-  removeFromWishlist: (productId: number) => void;
-  isInWishlist: (productId: number) => boolean;
-  isInCart: (productId: number) => boolean;
-  moveToCart: (productId: number) => void;
+  removeFromWishlist: (productId: string) => void;
+  isInWishlist: (productId: string) => boolean;
+  isInCart: (productId: string) => boolean;
+  moveToCart: (productId: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -71,11 +71,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const removeFromCart = useCallback((productId: number) => {
+  const removeFromCart = useCallback((productId: string) => {
     setCartItems((prev) => prev.filter((i) => i.product.id !== productId));
   }, []);
 
-  const updateQuantity = useCallback((productId: number, quantity: number) => {
+  const updateQuantity = useCallback((productId: string, quantity: number) => {
     if (quantity < 1) return;
     setCartItems((prev) =>
       prev.map((i) => (i.product.id === productId ? { ...i, quantity } : i)),
@@ -106,22 +106,22 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const removeFromWishlist = useCallback((productId: number) => {
+  const removeFromWishlist = useCallback((productId: string) => {
     setWishlistItems((prev) => prev.filter((p) => p.id !== productId));
   }, []);
 
   const isInWishlist = useCallback(
-    (productId: number) => wishlistItems.some((p) => p.id === productId),
+    (productId: string) => wishlistItems.some((p) => p.id === productId),
     [wishlistItems],
   );
 
   const isInCart = useCallback(
-    (productId: number) => cartItems.some((i) => i.product.id === productId),
+    (productId: string) => cartItems.some((i) => i.product.id === productId),
     [cartItems],
   );
 
   const moveToCart = useCallback(
-    (productId: number) => {
+    (productId: string) => {
       const product = wishlistItems.find((p) => p.id === productId);
       if (product) {
         addToCart(product);

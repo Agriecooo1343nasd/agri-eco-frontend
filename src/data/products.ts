@@ -13,7 +13,8 @@ const honey = "/assets/products/honey.jpg";
 
 export const products: Product[] = [
   {
-    id: 1,
+    id: "1",
+    slug: "fresh-organic-apples",
     name: "Fresh Organic Apples",
     price: 4.99,
     oldPrice: 6.99,
@@ -30,14 +31,14 @@ export const products: Product[] = [
     stock: 50,
     reviews: [
       {
-        id: 1,
+        id: "1",
         user: "John Doe",
         rating: 5,
         date: "2024-03-15",
         comment: "The best apples I've had in a long time! So sweet and crisp.",
       },
       {
-        id: 2,
+        id: "2",
         user: "Jane Smith",
         rating: 4,
         date: "2024-03-10",
@@ -47,7 +48,8 @@ export const products: Product[] = [
     ],
   },
   {
-    id: 2,
+    id: "2",
+    slug: "organic-broccoli-florets",
     name: "Organic Broccoli Florets",
     price: 3.49,
     image: broccoli,
@@ -63,7 +65,7 @@ export const products: Product[] = [
     stock: 35,
     reviews: [
       {
-        id: 1,
+        id: "1",
         user: "Alice Green",
         rating: 5,
         date: "2024-03-12",
@@ -72,7 +74,8 @@ export const products: Product[] = [
     ],
   },
   {
-    id: 3,
+    id: "3",
+    slug: "farm-fresh-carrots",
     name: "Farm Fresh Carrots",
     price: 2.99,
     oldPrice: 3.99,
@@ -86,7 +89,8 @@ export const products: Product[] = [
     stock: 100,
   },
   {
-    id: 4,
+    id: "4",
+    slug: "vine-ripe-tomatoes",
     name: "Vine Ripe Tomatoes",
     price: 5.49,
     image: tomatoes,
@@ -100,7 +104,8 @@ export const products: Product[] = [
     stock: 25,
   },
   {
-    id: 5,
+    id: "5",
+    slug: "sweet-valencia-oranges",
     name: "Sweet Valencia Oranges",
     price: 6.99,
     oldPrice: 8.99,
@@ -114,7 +119,8 @@ export const products: Product[] = [
     stock: 40,
   },
   {
-    id: 6,
+    id: "6",
+    slug: "baby-spinach-leaves",
     name: "Baby Spinach Leaves",
     price: 3.99,
     image: spinach,
@@ -128,7 +134,8 @@ export const products: Product[] = [
     stock: 60,
   },
   {
-    id: 7,
+    id: "7",
+    slug: "organic-strawberries",
     name: "Organic Strawberries",
     price: 7.99,
     oldPrice: 9.99,
@@ -142,7 +149,8 @@ export const products: Product[] = [
     stock: 15,
   },
   {
-    id: 8,
+    id: "8",
+    slug: "green-bell-pepper",
     name: "Green Bell Pepper",
     price: 2.49,
     image: bellPepper,
@@ -154,7 +162,8 @@ export const products: Product[] = [
     stock: 80,
   },
   {
-    id: 9,
+    id: "9",
+    slug: "raw-organic-honey",
     name: "Raw Organic Honey",
     price: 12.99,
     image: honey,
@@ -168,7 +177,8 @@ export const products: Product[] = [
     stock: 20,
   },
   {
-    id: 10,
+    id: "10",
+    slug: "cherry-tomatoes-pack",
     name: "Cherry Tomatoes Pack",
     price: 4.49,
     oldPrice: 5.99,

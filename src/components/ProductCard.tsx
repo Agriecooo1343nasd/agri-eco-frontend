@@ -6,7 +6,8 @@ import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
 
 export interface Product {
-  id: number;
+  id: string;
+  slug: string;
   name: string;
   price: number;
   oldPrice?: number;
@@ -18,10 +19,12 @@ export interface Product {
   unit: string;
   shortDescription?: string;
   longDescription?: string;
+  features?: string[];
+  benefits?: string[];
   stock?: number;
   video?: string;
   reviews?: Array<{
-    id: number;
+    id: string;
     user: string;
     avatar?: string;
     rating: number;
@@ -52,7 +55,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <div className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
       <div className="relative aspect-square overflow-hidden bg-muted">
-        <Link href={`/product/${product.id}`} className="block w-full h-full">
+        <Link href={`/product/${product.slug}`} className="block w-full h-full">
           <img
             src={product.image}
             alt={product.name}
@@ -76,7 +79,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
           </button>
           <Link
-            href={`/product/${product.id}`}
+            href={`/product/${product.slug}`}
             className="bg-card/90 backdrop-blur-sm p-2 rounded-full hover:bg-primary hover:text-primary-foreground transition-colors shadow-sm"
             aria-label="View Details"
           >
@@ -85,7 +88,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </div>
       </div>
       <div className="p-4">
-        <Link href={`/product/${product.id}`} className="block group/title">
+        <Link href={`/product/${product.slug}`} className="block group/title">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
             {product.category}
           </p>

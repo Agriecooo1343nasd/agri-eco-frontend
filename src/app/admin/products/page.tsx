@@ -684,7 +684,7 @@ export default function AdminProductsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-xs">
-                            <Link href={`/product/${product.id}`}>
+                            <Link href={`/product/${product.slug || product.id}`}>
                               <DropdownMenuItem className="gap-2 text-xs py-2 cursor-pointer">
                                 <Eye className="h-3.5 w-3.5" />
                                 Public Preview

@@ -20,7 +20,7 @@ import ShopProductCard from "@/components/ShopProductCard";
 import { usePricing } from "@/context/PricingContext";
 import { deals } from "@/data/deals";
 import { Slider } from "@/components/ui/slider";
-import { fetchAdminProducts, type AdminProduct } from "@/lib/api/products";
+import { fetchProducts, type AdminProduct } from "@/lib/api/products";
 import { fetchAdminCategories, type AdminCategory } from "@/lib/api/categories";
 
 type SortOption =
@@ -87,7 +87,8 @@ function ShopContent() {
         if (p.isOnSale) badge = "sale";
         else if (p.isFeatured) badge = "new";
         return {
-          id: Number(p.id),
+          id: p.id,
+          slug: p.slug,
           name: p.name,
           price: p.sellingPrice,
           oldPrice: p.originalPrice,
@@ -170,7 +171,7 @@ function ShopContent() {
           break;
       }
       try {
-        const data = await fetchAdminProducts({
+        const data = await fetchProducts({
           page: currentPage,
           limit: itemsPerPage,
           search: searchQuery || undefined,
@@ -186,7 +187,7 @@ function ShopContent() {
           setProductsTotal(data.pagination?.total || (data.data || []).length);
           // Aggregate tags from products
           const tagSet = new Set<string>();
-          (data.data || []).forEach((p) => {
+          (data.data || []).forEach((p: AdminProduct) => {
             if (Array.isArray(p.tags))
               p.tags.forEach((t: string) => tagSet.add(t));
           });

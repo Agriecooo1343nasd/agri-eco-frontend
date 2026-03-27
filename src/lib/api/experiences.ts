@@ -27,7 +27,7 @@ export type ExperienceType =
   | "workshop"
   | "farm_stay";
 
-export interface AdminExperience {
+export interface Experience {
   id: string;
   slug: string;
   title: MultiLangText;
@@ -59,18 +59,20 @@ export interface AdminExperience {
   slots?: ExperienceSlot[];
 }
 
-export interface FetchAdminExperiencesParams {
+export interface AdminExperience extends Experience {}
+
+export interface FetchExperiencesParams {
   page?: number;
   limit?: number;
   search?: string;
   type?: ExperienceType;
   isFeatured?: "true" | "false";
-  sort?: "priceRwf" | "capacity" | "createdAt";
+  sort?: string;
   order?: "asc" | "desc";
 }
 
-export interface FetchAdminExperiencesResult {
-  data: AdminExperience[];
+export interface FetchExperiencesResult {
+  data: Experience[];
   pagination: ApiPagination;
 }
 
@@ -101,7 +103,7 @@ export interface CreateAdminExperiencePayload {
   languageSupport?: string[];
 }
 
-function buildQuery(params: FetchAdminExperiencesParams): string {
+function buildQuery(params: FetchExperiencesParams): string {
   const query = new URLSearchParams();
 
   if (params.page) query.set("page", String(params.page));
@@ -116,11 +118,13 @@ function buildQuery(params: FetchAdminExperiencesParams): string {
   return queryString ? `?${queryString}` : "";
 }
 
-export async function fetchAdminExperiences(
-  params: FetchAdminExperiencesParams,
-): Promise<FetchAdminExperiencesResult> {
-  const response = await apiClient.get<ApiSuccessResponse<AdminExperience[]>>(
-    `/experiences/admin${buildQuery(params)}`,
+/* ---------- Public Functions ---------- */
+
+export async function fetchExperiences(
+  params: FetchExperiencesParams,
+): Promise<FetchExperiencesResult> {
+  const response = await apiClient.get<ApiSuccessResponse<Experience[]>>(
+    `/experiences${buildQuery(params)}`,
   );
 
   return {
@@ -136,8 +140,45 @@ export async function fetchAdminExperiences(
   };
 }
 
-export async function deleteAdminExperience(id: string): Promise<void> {
-  await apiClient.delete(`/experiences/${id}`);
+export async function fetchExperienceBySlug(slug: string): Promise<Experience> {
+  const response = await apiClient.get<ApiSuccessResponse<Experience>>(
+    `/experiences/slug/${slug}`,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Experience not found");
+  }
+
+  return response.data.data;
+}
+
+/* ---------- Admin Functions ---------- */
+
+export async function fetchAdminExperiences(
+  params: FetchExperiencesParams,
+): Promise<FetchExperiencesResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminExperience[]>>(
+    `/experiences/admin${buildQuery(params)}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
+  };
+}
+
+export async function fetchAdminExperienceById(
+  id: string,
+): Promise<AdminExperience> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminExperience>>(
+    `/experiences/admin/${id}`,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Experience not found");
+  }
+
+  return response.data.data;
 }
 
 export async function createAdminExperience(
@@ -150,20 +191,6 @@ export async function createAdminExperience(
 
   if (!response.data.data) {
     throw new Error("Missing created experience response data");
-  }
-
-  return response.data.data;
-}
-
-export async function fetchAdminExperienceById(
-  id: string,
-): Promise<AdminExperience> {
-  const response = await apiClient.get<ApiSuccessResponse<AdminExperience>>(
-    `/experiences/admin/${id}`,
-  );
-
-  if (!response.data.data) {
-    throw new Error("Experience not found");
   }
 
   return response.data.data;
@@ -184,6 +211,12 @@ export async function updateAdminExperience(
 
   return response.data.data;
 }
+
+export async function deleteAdminExperience(id: string): Promise<void> {
+  await apiClient.delete(`/experiences/${id}`);
+}
+
+/* ---------- Asset Helpers ---------- */
 
 export function toAbsoluteExperienceImage(url?: string): string {
   if (!url) {
