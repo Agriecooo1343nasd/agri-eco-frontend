@@ -10,6 +10,7 @@ import {
   ArrowRight,
   AlertTriangle,
 } from "lucide-react";
+import Image from "next/image";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,11 +106,12 @@ const CartPage = () => {
                     >
                       {/* Product info */}
                       <div className="flex items-center gap-4">
-                        <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted shrink-0">
-                          <img
+                        <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-muted shrink-0">
+                          <Image
                             src={product.image}
                             alt={product.name}
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
                           />
                         </div>
                         <div>
@@ -306,11 +308,12 @@ const CartPage = () => {
                   className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-md transition-all duration-300"
                 >
                   <div className="relative aspect-square overflow-hidden bg-muted">
-                    <Link href={`/product/${product.id}`}>
-                      <img
+                    <Link href={`/product/${product.slug}`}>
+                      <Image
                         src={product.image}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </Link>
                     <button
@@ -326,7 +329,7 @@ const CartPage = () => {
                       {product.category}
                     </p>
                     <Link
-                      href={`/product/${product.id}`}
+                      href={`/product/${product.slug}`}
                       className="hover:text-primary transition-colors"
                     >
                       <h3 className="font-semibold text-foreground text-sm mt-1 line-clamp-1">
