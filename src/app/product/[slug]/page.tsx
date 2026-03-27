@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { fetchProductBySlug } from "@/lib/api/products";
+import Image from "next/image";
 
 export default function ProductDetailsPage() {
   const params = useParams();
@@ -170,10 +171,12 @@ export default function ProductDetailsPage() {
           {/* Left Column: Product Media */}
           <div className="flex flex-col gap-4">
             <div className="relative aspect-square rounded-2xl overflow-hidden border border-border bg-white group">
-              <img
+              <Image
                 src={selectedImage || product.image}
                 alt={product.name}
-                className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+                fill
+                priority
+                className="object-contain p-4 transition-transform duration-500 group-hover:scale-105"
               />
               {product.badge && product.badge !== "organic" && (
                 <span
@@ -203,10 +206,11 @@ export default function ProductDetailsPage() {
                         : "border-border grayscale-[0.5] hover:grayscale-0"
                     }`}
                   >
-                    <img
+                    <Image
                       src={img}
                       alt={`${product.name} thumb ${idx}`}
-                      className="w-full h-full object-cover p-1"
+                      fill
+                      className="object-cover p-1"
                     />
                   </button>
                 ))}

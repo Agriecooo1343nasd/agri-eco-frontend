@@ -70,9 +70,8 @@ export default function ArtisanProfilePage({
 
   const handleAddToCart = (product: (typeof artisan.products)[0]) => {
     addToCart({
-      id: Math.abs(
-        product.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0),
-      ),
+      id: product.id,
+      slug: product.id, // Using ID as slug for artisan products
       name: product.name,
       price: product.price,
       image: product.image,

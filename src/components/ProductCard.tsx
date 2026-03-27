@@ -2,6 +2,7 @@
 
 import { Heart, ShoppingCart, Star, Eye } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
 
@@ -56,11 +57,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
     <div className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
       <div className="relative aspect-square overflow-hidden bg-muted">
         <Link href={`/product/${product.slug}`} className="block w-full h-full">
-          <img
+          <Image
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            loading="lazy"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </Link>
         {product.badge && product.badge !== "organic" && (
