@@ -9,6 +9,7 @@ import {
   Star,
   ArrowRight,
 } from "lucide-react";
+import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FeaturesBar from "@/components/FeaturesBar";
@@ -83,12 +84,15 @@ const WishlistPage = () => {
                   >
                     {/* Image */}
                     <div className="relative aspect-square overflow-hidden bg-muted">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
+                      <Link href={`/product/${product.slug}`}>
+                        <Image
+                          src={product.image}
+                          alt={product.name}
+                          fill
+                          className="object-cover"
+                          loading="lazy"
+                        />
+                      </Link>
                       {product.badge === "sale" && (
                         <span className="absolute top-3 left-3 bg-badge-sale text-card text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">
                           -{discount}%

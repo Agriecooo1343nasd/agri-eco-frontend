@@ -217,3 +217,11 @@ export async function fetchDiscountStats(): Promise<DiscountStats> {
     }
   );
 }
+export async function validateDiscountCode(
+  code: string,
+): Promise<{ valid: boolean; discount?: AdminDiscount; amount?: number }> {
+  const response = await apiClient.post<
+    ApiSuccessResponse<{ valid: boolean; discount?: AdminDiscount; amount?: number }>
+  >("/discounts/validate", { code });
+  return response.data.data!;
+}
