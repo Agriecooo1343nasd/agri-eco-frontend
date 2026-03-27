@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search,
   ChevronUp,
@@ -10,87 +10,79 @@ import {
   Layers,
   X,
   ChevronRight,
+  Loader2,
+  AlertCircle,
+  ChevronLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { usePricing } from "@/context/PricingContext";
 import { Button } from "@/components/ui/button";
-
-// Mock Data
-const orders = [
-  {
-    id: "#AE-2045",
-    date: "2024-01-12",
-    status: "Delivered",
-    total: 45.0,
-    items: ["Organic Honey", "Green Tea"],
-    recipient: "John Doe",
-    email: "john@example.com",
-  },
-  {
-    id: "#AE-2012",
-    date: "2023-12-30",
-    status: "Delivered",
-    total: 28.5,
-    items: ["Fresh Spinach", "Organic Carrots"],
-    recipient: "John Doe",
-    email: "john@example.com",
-  },
-  {
-    id: "#AE-1988",
-    date: "2023-12-15",
-    status: "Processing",
-    total: 120.0,
-    items: ["Olive Oil Premium", "Dry Fruits Pack"],
-    recipient: "John Doe",
-    email: "john@example.com",
-  },
-  {
-    id: "#AE-1950",
-    date: "2023-11-28",
-    status: "Shipped",
-    total: 85.2,
-    items: ["Brown Rice", "Lentils"],
-    recipient: "John Doe",
-    email: "john@example.com",
-  },
-  {
-    id: "#AE-1920",
-    date: "2023-11-15",
-    status: "Cancelled",
-    total: 32.0,
-    items: ["Fresh Milk"],
-    recipient: "John Doe",
-    email: "john@example.com",
-  },
-  {
-    id: "#AE-1890",
-    date: "2023-10-20",
-    status: "Delivered",
-    total: 55.4,
-    items: ["Almond Milk", "Chia Seeds"],
-    recipient: "John Doe",
-    email: "john@example.com",
-  },
-];
+import { fetchMyOrders, type Order, type FetchOrdersParams } from "@/lib/api/orders";
+import { ApiPagination } from "@/lib/api/types";
+import { format } from "date-fns";
+import { OrderStatus } from "@/constants/order-status";
 
 type SortConfig = {
-  key: "date" | "total" | null;
+  key: string | null;
   direction: "asc" | "desc" | null;
 };
 
 const OrdersPage = () => {
   const { formatPrice } = usePricing();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [pagination, setPagination] = useState<ApiPagination | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: null,
-    direction: null,
+    key: "createdAt",
+    direction: "desc",
   });
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params: FetchOrdersParams = {
+        page: currentPage,
+        limit: 10,
+        search: debouncedSearch,
+        status: statusFilter,
+        sort: sortConfig.key || undefined,
+        order: sortConfig.direction || undefined,
+        startDate: dateRange.start || undefined,
+        endDate: dateRange.end || undefined,
+      };
+
+      const result = await fetchMyOrders(params);
+      setOrders(result.data);
+      setPagination(result.pagination);
+      setError(null);
+    } catch (err: any) {
+      console.error("Failed to fetch orders:", err);
+      setError("Failed to load your orders. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, debouncedSearch, statusFilter, dateRange, sortConfig]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   // Sorting Handler
-  const handleSort = (key: "date" | "total") => {
+  const handleSort = (key: string) => {
     let direction: "asc" | "desc" | null = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
@@ -99,52 +91,6 @@ const OrdersPage = () => {
     }
     setSortConfig({ key: direction ? key : null, direction });
   };
-
-  // Filter & Search Logic
-  const filteredOrders = useMemo(() => {
-    let result = [...orders];
-
-    // Search
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (o) =>
-          o.id.toLowerCase().includes(q) ||
-          o.items.some((item) => item.toLowerCase().includes(q)) ||
-          o.recipient.toLowerCase().includes(q) ||
-          o.email.toLowerCase().includes(q),
-      );
-    }
-
-    // Status Filter
-    if (statusFilter !== "All") {
-      result = result.filter((o) => o.status === statusFilter);
-    }
-
-    // Date Range Filter
-    if (dateRange.start) {
-      result = result.filter((o) => o.date >= dateRange.start);
-    }
-    if (dateRange.end) {
-      result = result.filter((o) => o.date <= dateRange.end);
-    }
-
-    // Sorting
-    if (sortConfig.key && sortConfig.direction) {
-      result.sort((a, b) => {
-        const valA =
-          sortConfig.key === "total" ? a.total : new Date(a.date).getTime();
-        const valB =
-          sortConfig.key === "total" ? b.total : new Date(b.date).getTime();
-
-        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return result;
-  }, [searchQuery, statusFilter, dateRange, sortConfig]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -159,7 +105,7 @@ const OrdersPage = () => {
         </div>
         <div className="bg-primary/10 px-6 py-3 rounded-2xl border border-primary/20">
           <p className="text-sm font-bold text-primary">
-            Total Orders: {orders.length}
+            Total Orders: {pagination?.total || 0}
           </p>
         </div>
       </div>
@@ -273,24 +219,30 @@ const OrdersPage = () => {
       </div>
 
       {/* Orders Table */}
-      <div className="bg-white rounded-[32px] border border-border overflow-hidden shadow-sm">
+      <div className="bg-white rounded-[32px] border border-border overflow-hidden shadow-sm relative">
+        {loading && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-20 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-muted/30 text-muted-foreground uppercase text-[10px] font-bold tracking-widest border-b border-border">
               <tr>
-                <th className="px-8 py-5">Order ID</th>
+                <th className="px-8 py-5">Order #</th>
                 <th className="px-8 py-5">
                   <button
-                    onClick={() => handleSort("date")}
+                    onClick={() => handleSort("createdAt")}
                     className="flex items-center gap-1 hover:text-primary transition-colors group"
                   >
                     Date Placed
                     <div className="flex flex-col">
                       <ChevronUp
-                        className={`h-3 w-3 -mb-1 ${sortConfig.key === "date" && sortConfig.direction === "asc" ? "text-primary" : "text-muted-foreground/30"}`}
+                        className={`h-3 w-3 -mb-1 ${sortConfig.key === "createdAt" && sortConfig.direction === "asc" ? "text-primary" : "text-muted-foreground/30"}`}
                       />
                       <ChevronDown
-                        className={`h-3 w-3 -mt-1 ${sortConfig.key === "date" && sortConfig.direction === "desc" ? "text-primary" : "text-muted-foreground/30"}`}
+                        className={`h-3 w-3 -mt-1 ${sortConfig.key === "createdAt" && sortConfig.direction === "desc" ? "text-primary" : "text-muted-foreground/30"}`}
                       />
                     </div>
                   </button>
@@ -299,16 +251,16 @@ const OrdersPage = () => {
                 <th className="px-8 py-5">Status</th>
                 <th className="px-8 py-5">
                   <button
-                    onClick={() => handleSort("total")}
+                    onClick={() => handleSort("totalAmount")}
                     className="flex items-center gap-1 hover:text-primary transition-colors group"
                   >
                     Total
                     <div className="flex flex-col">
                       <ChevronUp
-                        className={`h-3 w-3 -mb-1 ${sortConfig.key === "total" && sortConfig.direction === "asc" ? "text-primary" : "text-muted-foreground/30"}`}
+                        className={`h-3 w-3 -mb-1 ${sortConfig.key === "totalAmount" && sortConfig.direction === "asc" ? "text-primary" : "text-muted-foreground/30"}`}
                       />
                       <ChevronDown
-                        className={`h-3 w-3 -mt-1 ${sortConfig.key === "total" && sortConfig.direction === "desc" ? "text-primary" : "text-muted-foreground/30"}`}
+                        className={`h-3 w-3 -mt-1 ${sortConfig.key === "totalAmount" && sortConfig.direction === "desc" ? "text-primary" : "text-muted-foreground/30"}`}
                       />
                     </div>
                   </button>
@@ -317,53 +269,49 @@ const OrdersPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredOrders.length > 0 ? (
-                filteredOrders.map((order) => (
+              {orders.length > 0 ? (
+                orders.map((order) => (
                   <tr
                     key={order.id}
                     className="hover:bg-muted/10 transition-colors group"
                   >
                     <td className="px-8 py-6 font-bold text-foreground text-base">
-                      {order.id}
+                      {order.orderNumber}
                     </td>
                     <td className="px-8 py-6 text-muted-foreground font-medium">
-                      {new Date(order.date).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {format(new Date(order.createdAt), "MMM dd, yyyy")}
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex flex-col gap-1">
                         <p className="text-foreground font-semibold line-clamp-1">
-                          {order.items.join(", ")}
+                          {order.items.map(i => i.name).join(", ")}
                         </p>
                         <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
-                          Recipient: {order.recipient}
+                          Recipient: {order.shippingAddress.fullName}
                         </p>
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       <span
                         className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                          order.status === "Delivered"
+                          order.status === "DELIVERED"
                             ? "bg-green-100 text-green-600"
-                            : order.status === "Processing"
+                            : order.status === "PENDING"
                               ? "bg-amber-100 text-amber-600"
-                              : order.status === "Shipped"
-                                ? "bg-green-100 text-green-600"
-                                : "bg-red-100 text-red-600"
+                              : order.status === "CANCELLED"
+                                ? "bg-red-100 text-red-600"
+                                : "bg-blue-100 text-blue-600"
                         }`}
                       >
                         {order.status}
                       </span>
                     </td>
                     <td className="px-8 py-6 font-black text-primary text-base">
-                      {formatPrice(order.total)}
+                      {formatPrice(order.totalAmount)}
                     </td>
                     <td className="px-8 py-6 text-right">
                       <Link
-                        href={`/account/orders/${order.id.replace("#", "")}`}
+                        href={`/account/orders/${order.orderNumber}`}
                       >
                         <Button
                           variant="ghost"
@@ -375,19 +323,23 @@ const OrdersPage = () => {
                     </td>
                   </tr>
                 ))
-              ) : (
+              ) : !loading && (
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center">
-                        <Search className="h-8 w-8 text-muted-foreground/50" />
+                        {error ? (
+                          <AlertCircle className="h-8 w-8 text-destructive" />
+                        ) : (
+                          <Search className="h-8 w-8 text-muted-foreground/50" />
+                        )}
                       </div>
                       <div>
                         <h4 className="text-lg font-bold text-foreground">
-                          No orders found
+                          {error ? "Error loading orders" : "No orders found"}
                         </h4>
                         <p className="text-sm text-muted-foreground">
-                          Try adjusting your filters or search keywords.
+                          {error || "Try adjusting your filters or search keywords."}
                         </p>
                       </div>
                       <Button
@@ -395,11 +347,12 @@ const OrdersPage = () => {
                           setSearchQuery("");
                           setStatusFilter("All");
                           setDateRange({ start: "", end: "" });
+                          if (error) loadOrders();
                         }}
                         variant="outline"
                         className="rounded-xl"
                       >
-                        Clear All Filters
+                        {error ? "Retry" : "Clear All Filters"}
                       </Button>
                     </div>
                   </td>
@@ -408,6 +361,43 @@ const OrdersPage = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {pagination && pagination.pages > 1 && (
+          <div className="px-8 py-6 border-t border-border flex items-center justify-between">
+            <p className="text-sm text-muted-foreground font-medium">
+              Showing <span className="text-foreground font-bold">{(pagination.page - 1) * pagination.limit + 1}</span> to <span className="text-foreground font-bold">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-foreground font-bold">{pagination.total}</span> orders
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="h-10 w-10 p-0 rounded-xl"
+                disabled={!pagination.hasPrev}
+                onClick={() => setCurrentPage(p => p - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(page => (
+                <Button
+                  key={page}
+                  variant={pagination.page === page ? "default" : "outline"}
+                  className={`h-10 w-10 p-0 rounded-xl ${pagination.page === page ? "shadow-md shadow-primary/20" : ""}`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                className="h-10 w-10 p-0 rounded-xl"
+                disabled={!pagination.hasNext}
+                onClick={() => setCurrentPage(p => p + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

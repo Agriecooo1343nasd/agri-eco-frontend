@@ -201,14 +201,14 @@ const CheckoutPage = () => {
       if (paymentMethod === "cod") {
         toast.success("Order placed successfully!");
         clearCart();
-        router.push("/payment-success");
+        router.push(`/account/orders/${order.orderNumber}`);
       } else {
         // Handle online payment initiation
         // For simulation, we'll just redirect to success
-        toast.success("Order placed. Redirecting to payment...");
+        toast.success("Order placed. Processing payment...");
         setTimeout(() => {
           clearCart();
-          router.push("/payment-success");
+          router.push(`/account/orders/${order.orderNumber}`);
         }, 2000);
       }
     } catch (err: any) {
