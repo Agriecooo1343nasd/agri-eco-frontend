@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { sampleSchoolVisits, type SchoolVisit } from "@/data/education";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAdminSchoolVisitById, updateAdminSchoolVisitStatus } from "@/lib/api/education";
 import {
   ArrowLeft,
   School,
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const statusConfig = {
+const statusConfig: Record<string, any> = {
   pending: {
     color: "bg-amber-100 text-amber-700 border-amber-200",
     icon: AlertCircle,
@@ -54,26 +55,64 @@ const statusConfig = {
     icon: CheckCircle,
     label: "Completed",
   },
-  cancelled: {
+  rejected: {
     color: "bg-destructive/10 text-destructive border-destructive/20",
     icon: XCircle,
-    label: "Cancelled",
+    label: "Rejected",
   },
 };
 
 export default function SchoolVisitDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const visitId = params.id as string;
 
-  const visit = sampleSchoolVisits.find((v) => v.id === visitId);
+  const { data: visit, isLoading, error } = useQuery({
+    queryKey: ["admin-school-visit", visitId],
+    queryFn: () => fetchAdminSchoolVisitById(visitId),
+  });
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!visit) {
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ status, approvalNote }: { status: string; approvalNote?: string }) => 
+      updateAdminSchoolVisitStatus(visitId, { status, approvalNote }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-school-visit", visitId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-school-visits"] });
+      
+      if (data.status === "approved") {
+        setConfirmDialogOpen(false);
+        toast.success("Visit Confirmed!", {
+          description: `${data.institutionName} visit has been scheduled.`,
+        });
+      } else if (data.status === "rejected") {
+        setDeclineDialogOpen(false);
+        setDeclineReason("");
+        toast.success("Visit Declined", {
+          description: `Invitation for ${data.institutionName} has been declined.`,
+        });
+      }
+    },
+    onError: (err: any) => {
+      toast.error("Action failed", { description: err.message });
+    }
+  });
+
+  const isProcessing = updateStatusMutation.isPending;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center text-muted-foreground animate-pulse">Loading visit details...</div>
+      </div>
+    );
+  }
+
+  if (error || !visit) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -91,34 +130,18 @@ export default function SchoolVisitDetailPage() {
     );
   }
 
-  const StatusIcon = statusConfig[visit.status].icon;
+  const StatusIcon = statusConfig[visit.status]?.icon || AlertCircle;
 
-  const handleConfirmVisit = async () => {
-    setIsProcessing(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsProcessing(false);
-    setConfirmDialogOpen(false);
-    toast.success("Visit Confirmed!", {
-      description: `${visit.schoolName} visit has been scheduled for ${visit.preferredDate}.`,
-    });
-    router.push("/admin/education");
+  const handleConfirmVisit = () => {
+    updateStatusMutation.mutate({ status: "approved" });
   };
 
-  const handleDeclineVisit = async () => {
+  const handleDeclineVisit = () => {
     if (!declineReason.trim()) {
       toast.error("Please provide a reason for declining");
       return;
     }
-    setIsProcessing(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsProcessing(false);
-    setDeclineDialogOpen(false);
-    toast.success("Visit Declined", {
-      description: `Invitation for ${visit.schoolName} has been declined.`,
-    });
-    router.push("/admin/education");
+    updateStatusMutation.mutate({ status: "rejected", approvalNote: declineReason });
   };
 
   return (
@@ -144,10 +167,10 @@ export default function SchoolVisitDetailPage() {
               </p>
             </div>
             <Badge
-              className={`${statusConfig[visit.status].color} border text-xs font-bold px-3 py-1`}
+              className={`${statusConfig[visit.status]?.color || "bg-muted"} border text-xs font-bold px-3 py-1`}
             >
               <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
-              {statusConfig[visit.status].label}
+              {statusConfig[visit.status]?.label || visit.status}
             </Badge>
           </div>
         </div>
@@ -173,7 +196,7 @@ export default function SchoolVisitDetailPage() {
                         School Name
                       </Label>
                       <p className="text-lg font-bold text-foreground">
-                        {visit.schoolName}
+                        {visit.institutionName}
                       </p>
                     </div>
                     <div>
@@ -184,7 +207,7 @@ export default function SchoolVisitDetailPage() {
                         variant="secondary"
                         className="text-sm font-bold py-1 px-3 bg-primary/5 text-primary border-primary/20"
                       >
-                        {visit.gradeLevel}
+                        Not provided
                       </Badge>
                     </div>
                     <div>
@@ -218,7 +241,7 @@ export default function SchoolVisitDetailPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium text-muted-foreground">
-                          {visit.createdAt}
+                          {new Date(visit.createdAt).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -230,10 +253,10 @@ export default function SchoolVisitDetailPage() {
                     Curriculum Alignment
                   </Label>
                   <p className="text-sm text-foreground font-medium leading-relaxed">
-                    {visit.curriculumAlignment}
+                    {visit.curriculumGoals || "None"}
                   </p>
                 </div>
-                {visit.specialNeeds && (
+                {visit.specialRequirements && (
                   <>
                     <Separator />
                     <div>
@@ -244,7 +267,7 @@ export default function SchoolVisitDetailPage() {
                         <div className="flex items-start gap-3">
                           <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                           <p className="text-sm text-amber-800 font-medium">
-                            {visit.specialNeeds}
+                            {visit.specialRequirements}
                           </p>
                         </div>
                       </div>
@@ -270,7 +293,7 @@ export default function SchoolVisitDetailPage() {
                         Contact Person
                       </Label>
                       <p className="text-sm font-bold text-foreground">
-                        {visit.contactPerson}
+                        {visit.contactName}
                       </p>
                     </div>
                     <div>
@@ -370,7 +393,7 @@ export default function SchoolVisitDetailPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subject:</span>
                     <span className="font-medium">
-                      {visit.curriculumAlignment}
+                      {visit.curriculumGoals || "None"}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -397,7 +420,7 @@ export default function SchoolVisitDetailPage() {
                         Request Submitted
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {visit.createdAt}
+                        {new Date(visit.createdAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -446,14 +469,14 @@ export default function SchoolVisitDetailPage() {
                       </div>
                     </>
                   )}
-                  {visit.status === "cancelled" && (
+                  {visit.status === "rejected" && (
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-destructive/10 flex items-center justify-center mt-0.5">
                         <XCircle className="h-4 w-4 text-destructive" />
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-bold text-foreground">
-                          Request Cancelled
+                          Request Rejected
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Request was declined
@@ -478,7 +501,7 @@ export default function SchoolVisitDetailPage() {
             </DialogTitle>
             <DialogDescription>
               Are you sure you want to approve this school visit request? This
-              will schedule the visit for {visit.schoolName} on{" "}
+              will schedule the visit for {visit.institutionName} on{" "}
               {visit.preferredDate}.
             </DialogDescription>
           </DialogHeader>
@@ -516,13 +539,13 @@ export default function SchoolVisitDetailPage() {
               Decline School Visit
             </DialogTitle>
             <DialogDescription>
-              Please provide a reason for declining this visit request. This
+              Please provide a reason for rejecting this visit request. This
               will be communicated to the school.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Label className="text-sm font-medium mb-2 block">
-              Reason for Decline
+              Reason for Rejection
             </Label>
             <Textarea
               placeholder="Please explain why this visit request cannot be accommodated..."

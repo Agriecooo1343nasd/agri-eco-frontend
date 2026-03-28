@@ -246,7 +246,7 @@ export default function CreateProductPage() {
 
   const categoriesQuery = useQuery({
     queryKey: ["admin-product-categories"],
-    queryFn: fetchCategoriesForAdmin,
+    queryFn: () => fetchCategoriesForAdmin(),
   });
 
   const createCategoryMutation = useMutation({

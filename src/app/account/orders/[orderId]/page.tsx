@@ -122,7 +122,7 @@ export default function OrderDetailsPage({
   if (error || !order) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-6 text-center">
-        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
+        <div className="w-16 h-16 bg-destructive/10 rounded-md flex items-center justify-center">
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
         <div>
@@ -130,7 +130,7 @@ export default function OrderDetailsPage({
           <p className="text-muted-foreground mt-2">{error || "The order you are looking for could not be found."}</p>
         </div>
         <Link href="/account/orders">
-          <Button variant="outline" className="rounded-xl">
+          <Button variant="outline" className="rounded-md">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to My Orders
           </Button>
@@ -169,12 +169,12 @@ export default function OrderDetailsPage({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`px-5 py-2 rounded-full text-sm font-medium uppercase ring-4 ${getStatusColor(order.status as string)}`}>
+          <span className={`px-5 py-2 rounded-md text-sm font-medium uppercase ring-4 ${getStatusColor(order.status as string)}`}>
             {order.status}
           </span>
           <Button
             variant="outline"
-            className="rounded-xl font-medium bg-white h-11"
+            className="rounded-md font-medium bg-white h-11"
             onClick={() => toast.info("Download Invoice coming soon")}
           >
             <Download className="h-4 w-4 mr-2" />
@@ -185,8 +185,8 @@ export default function OrderDetailsPage({
 
       {/* Order Info Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-border shadow-soft flex gap-4">
-          <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-white p-6 rounded-md border border-border shadow-soft flex gap-4">
+          <div className="w-12 h-12 bg-primary/10 rounded-md flex items-center justify-center shrink-0">
             <User className="h-6 w-6 text-primary" />
           </div>
           <div>
@@ -199,8 +199,8 @@ export default function OrderDetailsPage({
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-border shadow-soft flex gap-4">
-          <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-white p-6 rounded-md border border-border shadow-soft flex gap-4">
+          <div className="w-12 h-12 bg-green-50 rounded-md flex items-center justify-center shrink-0">
             <Truck className="h-6 w-6 text-green-600" />
           </div>
           <div>
@@ -216,8 +216,8 @@ export default function OrderDetailsPage({
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-border shadow-soft flex gap-4">
-          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-white p-6 rounded-md border border-border shadow-soft flex gap-4">
+          <div className="w-12 h-12 bg-amber-50 rounded-md flex items-center justify-center shrink-0">
             <CreditCard className="h-6 w-6 text-amber-600" />
           </div>
           <div>
@@ -236,7 +236,7 @@ export default function OrderDetailsPage({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Product List */}
         <div className="xl:col-span-2 space-y-6">
-          <div className="bg-white rounded-[32px] border border-border overflow-hidden shadow-sm">
+          <div className="bg-white rounded-md border border-border overflow-hidden shadow-sm">
             <div className="p-6 border-b border-border">
               <h3 className="text-lg font-medium text-foreground font-heading flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" />
@@ -249,7 +249,7 @@ export default function OrderDetailsPage({
                   key={item.id}
                   className="p-6 flex items-center gap-6 group"
                 >
-                  <div className="w-20 h-20 rounded-2xl overflow-hidden border border-border shrink-0 group-hover:scale-105 transition-transform duration-300">
+                  <div className="w-20 h-20 rounded-md overflow-hidden border border-border shrink-0 group-hover:scale-105 transition-transform duration-300">
                     <img
                       src={item.image || "https://images.unsplash.com/photo-1587049352846-4a222e783134?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80"}
                       alt={item.name}
@@ -275,7 +275,7 @@ export default function OrderDetailsPage({
           </div>
 
           {/* Order Timeline */}
-          <div className="bg-white rounded-[32px] border border-border p-8 shadow-sm">
+          <div className="bg-white rounded-md border border-border p-8 shadow-sm">
             <h3 className="text-lg font-medium text-foreground font-heading mb-8">
               Order Timeline
             </h3>
@@ -285,7 +285,7 @@ export default function OrderDetailsPage({
 
               {(order as any).timeline?.map((event: any, i: number) => (
                 <div key={i} className="relative flex items-center gap-6">
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center z-10 bg-primary text-white">
+                  <div className="w-11 h-11 rounded-md flex items-center justify-center z-10 bg-primary text-white">
                     <CheckCircle2 className="h-6 w-6" />
                   </div>
                   <div className="flex-1">
@@ -305,7 +305,7 @@ export default function OrderDetailsPage({
         {/* Info Sidebar */}
         <div className="space-y-6">
           {/* Address Card */}
-          <div className="bg-white rounded-[32px] border border-border p-8 shadow-sm">
+          <div className="bg-white rounded-md border border-border p-8 shadow-sm">
             <h3 className="text-lg font-medium text-foreground font-heading mb-6 flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
               Shipping Address
@@ -322,7 +322,7 @@ export default function OrderDetailsPage({
           </div>
 
           {/* Order Summary Card */}
-          <div className="rounded-[32px] border border-border p-8 shadow-sm bg-primary/5 border-primary/10">
+          <div className="rounded-md border border-border p-8 shadow-sm bg-primary/5 border-primary/10">
             <h3 className="text-lg font-medium text-foreground font-heading mb-6">
               Order Summary
             </h3>
@@ -361,7 +361,7 @@ export default function OrderDetailsPage({
                 </span>
               </div>
             </div>
-            <Button className="w-full mt-8 rounded-xl h-12 font-medium flex items-center gap-2">
+            <Button className="w-full mt-8 rounded-md h-12 font-medium flex items-center gap-2">
               <HelpCircle className="h-4 w-4" />
               Need Help?
             </Button>

@@ -5,9 +5,10 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { schoolVisitConfig } from "@/data/education";
+import { submitSchoolVisit } from "@/lib/api/education";
 import {
   ArrowLeft,
-  Calendar,
+  Calendar as CalendarIcon,
   CheckCircle,
   Clock,
   School,
@@ -26,6 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 
 type SchoolVisitForm = {
   schoolName: string;
@@ -55,12 +59,6 @@ export default function SchoolVisitPage() {
   const [form, setForm] = useState<SchoolVisitForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
 
-  const minimumDate = useMemo(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 14);
-    return date.toISOString().split("T")[0];
-  }, []);
-
   const updateField = <K extends keyof SchoolVisitForm>(
     field: K,
     value: SchoolVisitForm[K],
@@ -68,7 +66,7 @@ export default function SchoolVisitPage() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (
@@ -77,7 +75,7 @@ export default function SchoolVisitPage() {
       !form.email ||
       !form.phone ||
       !form.studentCount ||
-      !form.gradeLevel ||
+      !form.gradeLevel || // optional in backend but required in frontend UI
       !form.preferredDate
     ) {
       toast.error("Please complete all required fields.");
@@ -90,20 +88,32 @@ export default function SchoolVisitPage() {
       return;
     }
 
-    if (form.preferredDate < minimumDate) {
-      toast.error("Preferred Date must be at least 2 weeks from today.");
-      return;
-    }
-
     setSubmitting(true);
 
-    window.setTimeout(() => {
-      setSubmitting(false);
+    try {
+      await submitSchoolVisit({
+        institutionName: form.schoolName,
+        contactName: form.contactPerson,
+        email: form.email,
+        phone: form.phone,
+        studentCount,
+        teacherCount: 1, // backend default/optional
+        preferredDate: form.preferredDate,
+        curriculumGoals: form.curriculumAlignment || "",
+        specialRequirements: form.specialRequirements || "",
+      });
+
       setForm(initialForm);
       toast.success("Visit Request Submitted!", {
         description: "We'll confirm your booking within 48 hours.",
       });
-    }, 900);
+    } catch (error: any) {
+      toast.error("Failed to submit request", {
+        description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -242,20 +252,41 @@ export default function SchoolVisitPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                    <div className="flex flex-col">
                       <Label className="text-[11px] mb-1 block">
                         Preferred Date *
                       </Label>
-                      <Input
-                        type="date"
-                        required
-                        min={minimumDate}
-                        value={form.preferredDate}
-                        onChange={(e) =>
-                          updateField("preferredDate", e.target.value)
-                        }
-                        className="h-9 text-xs"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start text-left font-normal h-9 text-xs border-input px-3 ${!form.preferredDate ? "text-muted-foreground" : "text-foreground"}`}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {form.preferredDate ? format(new Date(form.preferredDate), "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={form.preferredDate ? new Date(form.preferredDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                                updateField("preferredDate", localDate.toISOString().split("T")[0]);
+                              } else {
+                                updateField("preferredDate", "");
+                              }
+                            }}
+                            disabled={(date) => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              return date < today;
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="sm:col-span-2">
                       <Label className="text-[11px] mb-1 block">
@@ -354,7 +385,7 @@ export default function SchoolVisitPage() {
 
                 <div className="bg-primary/5 border border-primary/15 rounded-2xl p-6 space-y-3">
                   <div className="flex items-start gap-3">
-                    <Calendar className="h-4 w-4 text-primary mt-0.5" />
+                    <CalendarIcon className="h-4 w-4 text-primary mt-0.5" />
                     <div>
                       <p className="text-sm font-semibold text-foreground">
                         Advance Booking

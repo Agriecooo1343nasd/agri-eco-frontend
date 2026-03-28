@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -15,11 +15,15 @@ import {
   Leaf,
   Home,
   Star,
+  Search,
+  ChevronLeft,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
-import { sampleBookings, type Booking } from "@/data/tours";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -37,6 +41,9 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { fetchMyBookings, cancelMyBooking, type Booking } from "@/lib/api/bookings";
+import { toAbsoluteExperienceImage } from "@/lib/api/experiences";
 
 const statusConfig: Record<
   string,
@@ -69,135 +76,162 @@ const statusConfig: Record<
   },
 };
 
-const BOOKING_RATINGS_KEY = "agriEco.bookingRatings";
-
-type BookingRatings = Record<string, number>;
-
-function loadBookingRatings(): BookingRatings {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(BOOKING_RATINGS_KEY);
-    return raw ? (JSON.parse(raw) as BookingRatings) : {};
-  } catch {
-    return {};
-  }
-}
-
-function persistBookingRatings(ratings: BookingRatings): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(BOOKING_RATINGS_KEY, JSON.stringify(ratings));
-}
+const PAYMENT_STATUS_COLORS: Record<string, string> = {
+  pending: "text-amber-600 bg-amber-50 border-amber-100",
+  paid: "text-emerald-600 bg-emerald-50 border-emerald-100",
+  failed: "text-destructive bg-destructive/5 border-destructive/10",
+  refunded: "text-blue-600 bg-blue-50 border-blue-100",
+};
 
 export default function MyBookingsPage() {
   const { formatPrice } = usePricing();
-  const [bookings] = useState<Booking[]>(sampleBookings);
+  const { t } = useLanguage();
+  const queryClient = useQueryClient();
+
+  // Filters & State
   const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Booking | null>(null);
-  const [bookingRatings, setBookingRatings] = useState<BookingRatings>(() =>
-    loadBookingRatings(),
-  );
-  const [hoveredRating, setHoveredRating] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
-  const filtered =
-    statusFilter === "all"
-      ? bookings
-      : bookings.filter((b) => b.status === statusFilter);
+  // Queries
+  const bookingsQuery = useQuery({
+    queryKey: ["my-bookings", statusFilter, search, page],
+    queryFn: () =>
+      fetchMyBookings({
+        status: statusFilter === "all" ? undefined : statusFilter,
+        search: search.trim() || undefined,
+        page,
+        limit: 10,
+      }),
+  });
 
-  const handleCancel = (booking: Booking) => {
-    toast.success("Booking Cancelled", {
-      description: `Booking ${booking.bookingRef} has been cancelled. Refund will be processed.`,
+  // Mutations
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      cancelMyBooking(id, reason),
+    onSuccess: () => {
+      toast.success("Booking Cancelled", {
+        description: "Your booking has been cancelled successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      setCancelDialog(null);
+      setCancelReason("");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to cancel booking", {
+        description: error.message || "Please try again.",
+      });
+    },
+  });
+
+  const handleRatePlaceholder = () => {
+    toast.info("Rating Coming Soon", {
+      description: "Our team is working on enabling tour ratings. Check back soon!",
     });
-    setCancelDialog(null);
   };
 
-  const handleRateBooking = (bookingId: string, rating: number) => {
-    setBookingRatings((prev) => {
-      const next = { ...prev, [bookingId]: rating };
-      persistBookingRatings(next);
-      return next;
-    });
-    toast.success("Thanks for your rating!", {
-      description: `You rated this experience ${rating} out of 5 stars.`,
-    });
-  };
+  const bookings = bookingsQuery.data?.data ?? [];
+  const pagination = bookingsQuery.data?.pagination;
 
   return (
     <div className="min-h-screen bg-background text-xs">
       <div className="container py-8">
+        {/* Header Section */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold font-heading text-foreground">
               My Bookings
             </h1>
             <p className="text-sm text-muted-foreground font-medium">
-              {filtered.length} booking(s)
+              {pagination?.total ?? 0} booking(s) found
             </p>
           </div>
-          <div className="flex gap-2 w-full md:w-auto">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search tours..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-8 h-9 text-xs"
+              />
+            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(val) => {
+                setStatusFilter(val);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-full md:w-36 h-9 text-xs bg-card">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" className="text-xs">
-                  All Status
-                </SelectItem>
-                <SelectItem value="pending" className="text-xs">
-                  Pending
-                </SelectItem>
-                <SelectItem value="confirmed" className="text-xs">
-                  Confirmed
-                </SelectItem>
-                <SelectItem value="completed" className="text-xs">
-                  Completed
-                </SelectItem>
-                <SelectItem value="cancelled" className="text-xs">
-                  Cancelled
-                </SelectItem>
-                <SelectItem value="waitlisted" className="text-xs">
-                  Waitlisted
-                </SelectItem>
+                <SelectItem value="all" className="text-xs">All Status</SelectItem>
+                <SelectItem value="pending" className="text-xs">Pending</SelectItem>
+                <SelectItem value="confirmed" className="text-xs">Confirmed</SelectItem>
+                <SelectItem value="completed" className="text-xs">Completed</SelectItem>
+                <SelectItem value="cancelled" className="text-xs">Cancelled</SelectItem>
+                <SelectItem value="waitlisted" className="text-xs">Waitlisted</SelectItem>
               </SelectContent>
             </Select>
             <Link href="/tours" className="shrink-0">
               <Button size="sm" className="gap-1.5 h-9 text-xs px-4">
-                <Calendar className="h-3.5 w-3.5" /> Book New Tour
+                <Calendar className="h-3.5 w-3.5" /> Book New
               </Button>
             </Link>
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {/* Loading State */}
+        {bookingsQuery.isLoading ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+            <p className="font-medium text-muted-foreground animate-pulse">Loading your experiences...</p>
+          </div>
+        ) : bookings.length === 0 ? (
           <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
             <Leaf className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground">
               No bookings found
             </h3>
             <p className="text-xs text-muted-foreground mb-6">
-              You haven&apos;t made any bookings yet.
+              {search || statusFilter !== "all" 
+                ? "Try adjusting your filters or search query." 
+                : "You haven't made any bookings yet."}
             </p>
-            <Link href="/tours">
-              <Button size="lg" className="text-xs h-10 px-6">
-                Browse Experiences
-              </Button>
-            </Link>
+            {!search && statusFilter === "all" && (
+              <Link href="/tours">
+                <Button size="lg" className="text-xs h-10 px-6">
+                  Browse Experiences
+                </Button>
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            {filtered.map((booking) => {
-              const sc = statusConfig[booking.status];
+            {bookings.map((booking) => {
+              const sc = statusConfig[booking.status] || statusConfig.pending;
               const StatusIcon = sc.icon;
+              const tourTitle = t(booking.experience?.title) || "Unknown Experience";
+              const tourImage = toAbsoluteExperienceImage(booking.experience?.heroImage);
+
               return (
                 <div
                   key={booking.id}
                   className="bg-card border border-border rounded-xl p-4 md:p-5 hover:shadow-lg transition-all hover:-translate-y-0.5"
                 >
                   <div className="flex flex-col md:flex-row gap-5">
-                    <div className="w-full md:w-32 h-24 rounded-lg overflow-hidden shrink-0">
+                    <div className="w-full md:w-32 h-24 rounded-lg overflow-hidden shrink-0 border border-border/50">
                       <img
-                        src={booking.tourImage}
-                        alt={booking.tourName}
+                        src={tourImage}
+                        alt=""
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -206,20 +240,25 @@ export default function MyBookingsPage() {
                         <Badge
                           className={`${sc.color} border text-[10px] md:text-[11px] gap-1.5 font-bold py-0.5 px-2.5`}
                         >
-                          <StatusIcon className="h-3 w-3" />
+                          <StatusIcon className={`h-3 w-3 ${booking.status === "pending" ? "animate-spin" : ""}`} />
                           {sc.label}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                          Ref: {booking.bookingRef}
+                          Ref: {booking.referenceNumber}
                         </span>
+                        {booking.paymentStatus && (
+                            <span className={`text-[9px] font-bold uppercase py-0.5 px-2 rounded-full border ${PAYMENT_STATUS_COLORS[booking.paymentStatus]}`}>
+                                {booking.paymentStatus}
+                            </span>
+                        )}
                       </div>
                       <h3 className="font-bold text-foreground font-heading text-base mb-1 truncate">
-                        {booking.tourName}
+                        {tourTitle}
                       </h3>
                       <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground font-medium">
                         <span className="flex items-center gap-1.5 text-primary">
                           <Calendar className="h-3.5 w-3.5" />
-                          {booking.date}
+                          {new Date(booking.date).toLocaleDateString()}
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Clock className="h-3.5 w-3.5" />
@@ -227,26 +266,17 @@ export default function MyBookingsPage() {
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Users className="h-3.5 w-3.5" />
-                          {booking.participants}{" "}
-                          {booking.isGroup
-                            ? `(${booking.groupName})`
-                            : "guest(s)"}
+                          {booking.participants} guest(s)
                         </span>
                       </div>
-                      {booking.accommodation && (
-                        <p className="text-[10px] text-muted-foreground mt-2 font-semibold flex items-center gap-1.5">
-                          🏠 {booking.accommodation.name} ·{" "}
-                          {booking.accommodation.nights} night(s)
-                        </p>
-                      )}
                     </div>
-                    <div className="flex flex-row md:flex-col items-center md:items-end gap-3 shrink-0 pt-2 md:pt-0">
+                    <div className="flex flex-row md:flex-col items-center md:items-end gap-4 shrink-0 pt-2 md:pt-0">
                       <div className="md:text-right">
                         <p className="text-xl font-bold text-primary font-heading leading-none">
-                          {formatPrice(booking.totalPrice)}
+                          {formatPrice(booking.amountRwf)}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-bold mt-1 uppercase tracking-tight">
-                          {booking.paymentMethod}
+                          {booking.paymentMethod?.replace("_", " ") || "N/A"}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -257,10 +287,9 @@ export default function MyBookingsPage() {
                           onClick={() => setSelectedBooking(booking)}
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          View
+                          Details
                         </Button>
-                        {(booking.status === "pending" ||
-                          booking.status === "confirmed") && (
+                        {["pending", "confirmed", "waitlisted"].includes(booking.status) && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -279,136 +308,113 @@ export default function MyBookingsPage() {
             })}
           </div>
         )}
+
+        {/* Pagination */}
+        {pagination && pagination.pages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!pagination.hasPrev}
+              onClick={() => setPage(p => p - 1)}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-1 px-4">
+              <span className="font-bold text-foreground">{pagination.page}</span>
+              <span className="text-muted-foreground">of</span>
+              <span className="font-bold text-foreground">{pagination.pages}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!pagination.hasNext}
+              onClick={() => setPage(p => p + 1)}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* View detail dialog */}
       <Dialog
         open={!!selectedBooking}
-        onOpenChange={() => {
-          setSelectedBooking(null);
-          setHoveredRating(null);
+        onOpenChange={(open) => {
+          if (!open) setSelectedBooking(null);
         }}
       >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b pb-3">
+          <DialogHeader className="border-b pb-3 text-left">
             <DialogTitle className="font-heading text-lg">
-              Booking Details
+              Booking Overview
             </DialogTitle>
-            <DialogDescription className="text-xs font-bold tracking-widest uppercase opacity-70">
-              Ref: {selectedBooking?.bookingRef}
+            <DialogDescription className="text-[10px] font-bold tracking-widest uppercase opacity-70">
+              Reference: {selectedBooking?.referenceNumber}
             </DialogDescription>
           </DialogHeader>
+          
           {selectedBooking && (
-            <div className="space-y-4 pt-4 text-xs">
-              <div className="aspect-video overflow-hidden rounded-xl">
+            <div className="space-y-4 pt-4 text-[11px]">
+              <div className="aspect-video overflow-hidden rounded-xl border border-border/50">
                 <img
-                  src={selectedBooking.tourImage}
+                  src={toAbsoluteExperienceImage(selectedBooking.experience?.heroImage)}
                   alt=""
                   className="w-full h-full object-cover"
                 />
               </div>
-              <h3 className="font-bold text-foreground text-sm border-b pb-2">
-                {selectedBooking.tourName}
-              </h3>
-              <div className="grid grid-cols-2 gap-y-4 gap-x-6 bg-accent/20 rounded-xl p-4">
-                <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Date
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.date}
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1 flex-1">
+                  <h3 className="font-bold text-foreground text-sm leading-tight">
+                    {t(selectedBooking.experience?.title)}
+                  </h3>
+                  <p className="text-primary font-bold uppercase tracking-tight text-[10px]">
+                    {selectedBooking.experience?.type.replace("_", " ")}
                   </p>
                 </div>
+                <Badge className={`${statusConfig[selectedBooking.status]?.color} border py-0.5`}>
+                  {selectedBooking.status}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-y-4 gap-x-6 bg-accent/20 rounded-xl p-4 border border-border/30">
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Time Slot
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.timeSlot}
-                  </p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Date</p>{" "}
+                  <p className="text-foreground font-bold">{new Date(selectedBooking.date).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Participants
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.participants}
-                  </p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Time Slot</p>{" "}
+                  <p className="text-foreground font-bold">{selectedBooking.timeSlot}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Group Type
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.isGroup
-                      ? `Group (${selectedBooking.groupName})`
-                      : "Individual"}
-                  </p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Participants</p>{" "}
+                  <p className="text-foreground font-bold">{selectedBooking.participants} Guest(s)</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Contact Name
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.contactName}
-                  </p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Booking Type</p>{" "}
+                  <p className="text-foreground font-bold capitalize">{selectedBooking.bookingType}</p>
+                </div>
+                <div className="col-span-2 border-t border-border/20 pt-3 mt-1">
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Guest Name</p>{" "}
+                  <p className="text-foreground font-bold">{selectedBooking.fullName}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Phone
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.contactPhone}
-                  </p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Email
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.contactEmail}
-                  </p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Contact Phone</p>{" "}
+                  <p className="text-foreground font-bold">{selectedBooking.phone}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Payment
-                  </p>{" "}
-                  <p className="text-foreground font-bold">
-                    {selectedBooking.paymentMethod}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">
-                    Status
-                  </p>{" "}
-                  <p className="text-foreground font-bold capitalize">
-                    {selectedBooking.status}
-                  </p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Payment Status</p>{" "}
+                  <p className="text-foreground font-bold capitalize">{selectedBooking.paymentStatus}</p>
                 </div>
               </div>
 
-              {selectedBooking.accommodation && (
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-                  <p className="font-bold text-foreground flex items-center gap-2 mb-1.5">
-                    <Home className="h-4 w-4" /> Accommodation Details
-                  </p>
-                  <div className="flex justify-between items-center text-[11px]">
-                    <p className="text-muted-foreground font-medium">
-                      {selectedBooking.accommodation.name}
-                    </p>
-                    <p className="text-foreground font-bold">
-                      {selectedBooking.accommodation.nights} night(s) ·{" "}
-                      {formatPrice(selectedBooking.accommodation.pricePerNight)}
-                      /night
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {selectedBooking.specialRequirements && (
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
-                  <p className="font-bold text-foreground text-[11px] mb-1 leading-none uppercase tracking-tight flex items-center gap-1.5">
-                    <AlertCircle className="h-3.5 w-3.5" /> Special Requirements
+                  <p className="font-bold text-foreground text-[10px] mb-1 leading-none uppercase tracking-tight flex items-center gap-1.5">
+                    <AlertCircle className="h-3 w-3" /> Special Requirements
                   </p>
                   <p className="text-muted-foreground leading-relaxed italic">
                     {selectedBooking.specialRequirements}
@@ -416,102 +422,94 @@ export default function MyBookingsPage() {
                 </div>
               )}
 
+              {/* Rating Section */}
               <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-                <p className="font-bold text-foreground text-[11px] uppercase tracking-tight">
-                  Rate This Tour
+                <p className="font-bold text-foreground text-[10px] uppercase tracking-tight">
+                  Rate This Experience
                 </p>
-                <div
-                  className="flex items-center gap-1"
-                  role="radiogroup"
-                  aria-label="Rate this tour"
-                >
-                  {Array.from({ length: 5 }, (_, idx) => {
-                    const value = idx + 1;
-                    const selected = selectedBooking
-                      ? bookingRatings[selectedBooking.id] || 0
-                      : 0;
-                    const active = (hoveredRating ?? selected) >= value;
-
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected === value}
-                        aria-label={`${value} star${value > 1 ? "s" : ""}`}
-                        className="p-1 rounded-md transition-colors hover:bg-accent"
-                        onMouseEnter={() => setHoveredRating(value)}
-                        onMouseLeave={() => setHoveredRating(null)}
-                        onFocus={() => setHoveredRating(value)}
-                        onBlur={() => setHoveredRating(null)}
-                        onClick={() =>
-                          handleRateBooking(selectedBooking.id, value)
-                        }
-                      >
-                        <Star
-                          className={`h-5 w-5 ${
-                            active
-                              ? "text-amber-500 fill-amber-500"
-                              : "text-muted-foreground/40"
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
-                  <span className="ml-2 text-[11px] text-muted-foreground font-medium">
-                    {selectedBooking
-                      ? `${bookingRatings[selectedBooking.id] || 0}/5`
-                      : "0/5"}
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={handleRatePlaceholder}
+                      className="p-1 rounded-md transition-colors hover:bg-accent group"
+                    >
+                      <Star className="h-4 w-4 text-muted-foreground/30 group-hover:text-amber-500" />
+                    </button>
+                  ))}
+                  <span className="ml-2 text-[10px] text-muted-foreground font-medium opacity-60">
+                    Not yet available
                   </span>
                 </div>
               </div>
 
-              <div className="flex justify-between font-bold text-lg border-t border-border pt-4 px-1">
-                <span className="text-foreground">Total Paid</span>
+              <div className="flex justify-between items-center font-bold text-lg border-t border-border pt-4 px-1">
+                <span className="text-foreground">Total Amount</span>
                 <span className="text-primary font-heading">
-                  {formatPrice(selectedBooking.totalPrice)}
+                  {formatPrice(selectedBooking.amountRwf)}
                 </span>
               </div>
             </div>
           )}
+          <DialogFooter className="mt-2">
+              <Button variant="outline" className="w-full text-xs" onClick={() => setSelectedBooking(null)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Cancel dialog */}
-      <Dialog open={!!cancelDialog} onOpenChange={() => setCancelDialog(null)}>
+      <Dialog open={!!cancelDialog} onOpenChange={(open) => {
+          if (!open) {
+              setCancelDialog(null);
+              setCancelReason("");
+          }
+      }}>
         <DialogContent>
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle className="font-heading text-destructive flex items-center gap-2">
+          <DialogHeader className="border-b pb-3 text-left">
+            <DialogTitle className="font-heading text-destructive flex items-center gap-2 text-lg">
               <XCircle className="h-5 w-5" /> Cancel Booking
             </DialogTitle>
             <DialogDescription className="text-xs font-semibold">
-              Ref: {cancelDialog?.bookingRef}
+              Reference: {cancelDialog?.referenceNumber}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-            <p className="text-sm text-foreground font-medium">
-              Are you sure you want to cancel this booking?
-            </p>
-            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-              This action will initiate the cancellation process. Refunds are
-              subject to the tour&apos;s cancellation policy (usually 48 hours
-              notice for full refund).
-            </p>
+          <div className="py-2 space-y-4">
+            <div className="bg-destructive/5 rounded-lg p-3 border border-destructive/10">
+                <p className="text-[11px] text-foreground font-medium">
+                  Are you sure you want to cancel this booking?
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+                  This action will initiate the cancellation process. Refunds are
+                  subject to the tour&apos;s cancellation policy.
+                </p>
+            </div>
+            
+            <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-tight ml-1">Reason for cancellation (Optional)</label>
+                <Input 
+                    placeholder="e.g. Schedule change, personal reasons..." 
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="text-xs h-9"
+                />
+            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               className="text-xs h-9 px-6"
               onClick={() => setCancelDialog(null)}
+              disabled={cancelMutation.isPending}
             >
               Keep Booking
             </Button>
             <Button
               variant="destructive"
               className="text-xs h-9 px-6 font-bold"
-              onClick={() => cancelDialog && handleCancel(cancelDialog)}
+              onClick={() => cancelDialog && cancelMutation.mutate({ id: cancelDialog.id, reason: cancelReason })}
+              disabled={cancelMutation.isPending}
             >
-              Confirm Cancellation
+              {cancelMutation.isPending ? "Processing..." : "Confirm Cancellation"}
             </Button>
           </DialogFooter>
         </DialogContent>

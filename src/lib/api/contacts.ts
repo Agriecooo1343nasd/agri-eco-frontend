@@ -68,6 +68,14 @@ function defaultPagination(limit = 10): ApiPagination {
   };
 }
 
+export async function submitContact(payload: any): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    "/contact",
+    payload,
+  );
+  return response.data;
+}
+
 export async function fetchAdminContacts(
   params: FetchAdminContactsParams = {},
 ): Promise<FetchAdminContactsResult> {

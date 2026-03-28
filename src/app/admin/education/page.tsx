@@ -150,6 +150,14 @@ export default function AdminEducationPage() {
   }, [enrollmentsQuery.data?.data]);
 
   const programRows = useMemo(() => {
+    // Safely extract a string from either a plain string or a MultiLangText object
+    const resolveText = (v: any): string => {
+      if (!v) return "";
+      if (typeof v === "string") return v;
+      if (typeof v === "object") return v.en || v.rw || v.fr || v.sw || "";
+      return String(v);
+    };
+
     return (programsQuery.data?.data ?? []).map((program) => {
       const enrolled = enrollmentCountByProgram.get(program.id) ?? 0;
       const capacity = Number(program.capacity || 0);
@@ -168,10 +176,10 @@ export default function AdminEducationPage() {
 
       return {
         id: program.id,
-        title: t(program.title) || "Untitled Program",
+        title: resolveText(program.title) || "Untitled Program",
         duration: `${program.durationWeeks || 0} weeks`,
         type: program.type,
-        level: t(program.level as any) || program.level,
+        level: resolveText(program.level) || program.level,
         enrolled,
         capacity,
         progressPct,

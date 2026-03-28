@@ -5,11 +5,13 @@ import { OrderStatus, PaymentStatus } from "@/constants/order-status"; // Assumi
 export interface OrderShippingAddress {
   fullName: string;
   phone: string;
-  addressLine1: string;
+  addressLine1?: string;
   addressLine2?: string;
+  street?: string;
   city: string;
   state: string;
-  postalCode: string;
+  postalCode?: string;
+  zipCode?: string;
   country: string;
 }
 
@@ -37,10 +39,20 @@ export interface Order {
   paymentStatus: PaymentStatus | string;
   paymentMethod: string;
   customerNote?: string;
+  adminNote?: string;
   paidAt?: string;
   deliveredAt?: string;
   createdAt: string;
   items: OrderItem[];
+  user?: {
+    id: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    email: string;
+    phone?: string;
+  };
+  timeline?: { status: string; note?: string; timestamp: string }[];
 }
 
 export interface PlaceOrderPayload {
@@ -111,4 +123,49 @@ export async function initiatePayment(orderId: string, provider: string, method:
         method
     });
     return response.data.data!;
+}
+
+/* ---------- Admin ---------- */
+
+export async function fetchAdminOrders(params: FetchOrdersParams = {}): Promise<{ data: Order[], pagination: ApiPagination }> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.search) query.set("search", params.search);
+  if (params.status && params.status !== "all") query.set("status", params.status);
+  if (params.sort) query.set("sort", params.sort);
+  if (params.order) query.set("order", params.order);
+  if (params.startDate) query.set("startDate", params.startDate);
+  if (params.endDate) query.set("endDate", params.endDate);
+  
+  const response = await apiClient.get<ApiSuccessResponse<Order[]>>(`/orders/admin?${query.toString()}`);
+  return {
+    data: response.data.data!,
+    pagination: response.data.pagination!
+  };
+}
+
+export async function fetchAdminOrderStats(): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>("/orders/admin/stats");
+  return response.data.data!;
+}
+
+export async function fetchAdminOrderById(id: string): Promise<Order> {
+  const response = await apiClient.get<ApiSuccessResponse<Order>>(`/orders/admin/${id}`);
+  return response.data.data!;
+}
+
+export async function updateOrderStatusAdmin(id: string, payload: { status: string, note?: string, trackingNumber?: string, carrier?: string, estimatedDelivery?: string, adminNote?: string }): Promise<Order> {
+  const response = await apiClient.patch<ApiSuccessResponse<Order>>(`/orders/admin/${id}/status`, payload);
+  return response.data.data!;
+}
+
+export async function updateOrderPaymentStatusAdmin(id: string, payload: { paymentStatus: string, transactionId?: string, note?: string }): Promise<Order> {
+  const response = await apiClient.patch<ApiSuccessResponse<Order>>(`/orders/admin/${id}/payment`, payload);
+  return response.data.data!;
+}
+
+export async function refundOrderAdmin(id: string, reason: string): Promise<Order> {
+  const response = await apiClient.post<ApiSuccessResponse<Order>>(`/orders/admin/${id}/refund`, { reason });
+  return response.data.data!;
 }

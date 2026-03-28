@@ -29,6 +29,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQuery } from "@tanstack/react-query";
+import { fetchCategoriesForAdmin } from "@/lib/api/products";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const languages = [
   { code: "en", label: "English", flag: "🇬🇧" },
@@ -60,16 +63,7 @@ const searchScopes = [
 
 type SearchScope = (typeof searchScopes)[number]["key"];
 
-const categories = [
-  "Fruits",
-  "Vegetables",
-  "Juices",
-  "Dairy",
-  "Honey",
-  "Spices",
-  "Grains",
-  "Herbs",
-];
+
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -89,6 +83,8 @@ const Header = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("products");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [catSearch, setCatSearch] = useState("");
+  const [catPage, setCatPage] = useState(1);
   const { cartCount, wishlistItems } = useCart();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const { locale, setLocale } = useLanguage();
@@ -97,6 +93,14 @@ const Header = () => {
 
   const currentScope = searchScopes.find((s) => s.key === searchScope)!;
   const currentLang = languages.find((l) => l.code === locale) || languages[0];
+
+  const { data: categoriesData, isLoading: isLoadingCats } = useQuery({
+    queryKey: ["header-categories", catSearch, catPage],
+    queryFn: () => fetchCategoriesForAdmin({ search: catSearch, page: catPage, limit: 10 }),
+    enabled: catOpen,
+  });
+
+  const catList = categoriesData?.data || [];
 
   const handleUserClick = () => {
     if (isAuthenticated) {
@@ -362,17 +366,67 @@ const Header = () => {
               />
             </button>
             {catOpen && (
-              <div className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-lg w-52 z-50">
-                {categories.map((cat) => (
-                  <Link
-                    key={cat}
-                    href={`/shop?category=${cat}`}
-                    onClick={() => setCatOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                  >
-                    {cat}
-                  </Link>
-                ))}
+              <div className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-lg w-64 z-50 overflow-hidden">
+                <div className="p-2 border-b border-border bg-muted/30">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search categories..."
+                      value={catSearch}
+                      onChange={(e) => {
+                        setCatSearch(e.target.value);
+                        setCatPage(1);
+                      }}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-border rounded-md outline-none focus:border-primary shadow-sm"
+                    />
+                  </div>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {isLoadingCats ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="px-4 py-2.5">
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    ))
+                  ) : catList.length > 0 ? (
+                    catList.map((cat) => (
+                      <Link
+                        key={cat.id}
+                        href={`/shop?category=${cat.id}`}
+                        onClick={() => setCatOpen(false)}
+                        className="block px-4 py-2.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition-colors border-l-2 border-transparent hover:border-primary"
+                      >
+                         {cat.name}
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="px-4 py-3 text-xs text-muted-foreground text-center">
+                      No categories found
+                    </p>
+                  )}
+                </div>
+                {categoriesData?.pagination && categoriesData.pagination.pages > 1 && (
+                  <div className="p-2 bg-muted/10 border-t border-border flex items-center justify-between gap-2">
+                    <button
+                      disabled={catPage <= 1}
+                      onClick={() => setCatPage((p) => Math.max(1, p - 1))}
+                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    <span className="text-[10px] text-muted-foreground">
+                      {catPage} / {categoriesData.pagination.pages}
+                    </span>
+                    <button
+                      disabled={catPage >= categoriesData.pagination.pages}
+                      onClick={() => setCatPage((p) => p + 1)}
+                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -420,14 +474,14 @@ const Header = () => {
             <p className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Categories
             </p>
-            {categories.map((cat) => (
+            {catList.map((cat) => (
               <Link
-                key={cat}
-                href={`/shop?category=${cat}`}
+                key={cat.id}
+                href={`/shop?category=${cat.id}`}
                 className="block px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
-                {cat}
+                {cat.name}
               </Link>
             ))}
           </div>

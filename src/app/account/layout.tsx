@@ -8,6 +8,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AccountSidebar from "@/components/AccountSidebar";
 import { cn } from "@/lib/utils";
+import { UserAccessGuard } from "@/components/auth/UserAccessGuard";
 
 export default function AccountLayout({
   children,
@@ -123,15 +124,17 @@ export default function AccountLayout({
       </div>
 
       <main className="flex-1 container mx-auto px-4 py-8 md:py-12">
-        <div className="flex flex-col lg:flex-row gap-8 relative">
-          <AccountSidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
-          />
+        <UserAccessGuard>
+          <div className="flex flex-col lg:flex-row gap-8 relative">
+            <AccountSidebar
+              isOpen={isSidebarOpen}
+              onClose={() => setIsSidebarOpen(false)}
+            />
 
-          {/* Main Content Area */}
-          <div className="flex-1 min-w-0">{children}</div>
-        </div>
+            {/* Main Content Area */}
+            <div className="flex-1 min-w-0">{children}</div>
+          </div>
+        </UserAccessGuard>
       </main>
 
       <Footer />

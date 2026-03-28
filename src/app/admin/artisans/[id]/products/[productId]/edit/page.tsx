@@ -91,7 +91,7 @@ function EditProductForm({
 
   const categoriesQuery = useQuery({
     queryKey: ["admin-product-categories"],
-    queryFn: fetchCategoriesForAdmin,
+    queryFn: () => fetchCategoriesForAdmin(),
   });
 
   const updateProductMutation = useMutation({

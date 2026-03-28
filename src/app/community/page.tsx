@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { artisans } from "@/data/community";
 import {
   Handshake,
   Users,
@@ -14,6 +13,7 @@ import {
   Heart,
   Palette,
   Star,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,82 +35,113 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { appendPartnerApplication } from "@/lib/partner-store";
+import { fetchArtisans, submitArtisanApplication, type AdminArtisan, toAbsoluteArtisanImage } from "@/lib/api/artisans";
+import { submitPartnerApplication } from "@/lib/api/partners";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CommunityPage() {
   const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
   const [artisanDialogOpen, setArtisanDialogOpen] = useState(false);
+  
+  const [artisans, setArtisans] = useState<AdminArtisan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+
   const [partnerForm, setPartnerForm] = useState({
     businessName: "",
-    contactPerson: "",
+    contactName: "",
     email: "",
     phone: "",
-    type: "tourism-operator",
-    aboutBusiness: "",
+    businessType: "tourism_operator",
+    description: "",
   });
 
-  const activeArtisans = artisans.filter((a) => a.status === "active");
-  const culturalImg = "/assets/tours/cultural.jpg";
+  const [artisanForm, setArtisanForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    location: "",
+    specialty: "",
+    shortDescription: "",
+    fullStory: "",
+  });
 
-  const resetPartnerForm = () => {
-    setPartnerForm({
-      businessName: "",
-      contactPerson: "",
-      email: "",
-      phone: "",
-      type: "tourism-operator",
-      aboutBusiness: "",
-    });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadArtisans();
+  }, [page]);
+
+  const loadArtisans = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetchArtisans({ page, limit: 6 });
+      setArtisans(res.data);
+      setHasMore(res.pagination.hasNext);
+    } catch (error) {
+      console.error("Failed to load artisans:", error);
+      toast.error("Failed to load community members");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const submitPartnerApplication = (
-    event: React.FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
+  const culturalImg = "/assets/tours/cultural.jpg";
 
-    if (
-      !partnerForm.businessName.trim() ||
-      !partnerForm.contactPerson.trim() ||
-      !partnerForm.email.trim() ||
-      !partnerForm.phone.trim()
-    ) {
-      toast.error("Missing Required Fields", {
-        description:
-          "Please provide business name, contact person, email and phone.",
+  const handlePartnerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await submitPartnerApplication(partnerForm);
+      toast.success("Application Submitted", {
+        description: "Your partner application is now pending review.",
       });
-      return;
-    }
-
-    const emailValid = /\S+@\S+\.\S+/.test(partnerForm.email);
-    if (!emailValid) {
-      toast.error("Invalid Email", {
-        description: "Please provide a valid business email address.",
+      setPartnerDialogOpen(false);
+      setPartnerForm({
+        businessName: "",
+        contactName: "",
+        email: "",
+        phone: "",
+        businessType: "tourism_operator",
+        description: "",
       });
-      return;
+    } catch (error) {
+      toast.error("Failed to submit application");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
 
-    appendPartnerApplication({
-      businessName: partnerForm.businessName.trim(),
-      contactPerson: partnerForm.contactPerson.trim(),
-      email: partnerForm.email.trim(),
-      phone: partnerForm.phone.trim(),
-      type: partnerForm.type as
-        | "tourism-operator"
-        | "hotel"
-        | "restaurant"
-        | "school"
-        | "ngo",
-      aboutBusiness:
-        partnerForm.aboutBusiness.trim() ||
-        "No additional business summary provided.",
-    });
+  const handleArtisanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await submitArtisanApplication(artisanForm);
+      toast.success("Application Submitted", {
+        description: "Your artisan application is now pending review.",
+      });
+      setArtisanDialogOpen(false);
+      setArtisanForm({
+        fullName: "",
+        email: "",
+        phone: "",
+        location: "",
+        specialty: "",
+        shortDescription: "",
+        fullStory: "",
+      });
+    } catch (error) {
+      toast.error("Failed to submit application");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-    toast.success("Application Submitted", {
-      description:
-        "Your partner application has been received and is now pending review.",
-    });
-    resetPartnerForm();
-    setPartnerDialogOpen(false);
+  const getLangText = (text?: any) => {
+    if (!text) return "";
+    if (typeof text === "string") return text;
+    return text.en || text.rw || text.fr || text.sw || "";
   };
 
   return (
@@ -165,7 +196,7 @@ export default function CommunityPage() {
               {[
                 {
                   label: "Local Artisans",
-                  value: `${activeArtisans.length}+`,
+                  value: artisans.length > 0 ? `${artisans.length}+` : "20+",
                   icon: Users,
                 },
                 { label: "Tourism Partners", value: "12", icon: Handshake },
@@ -191,70 +222,101 @@ export default function CommunityPage() {
         {/* Artisan Showcase */}
         <section className="py-16">
           <div className="container">
-            <h2 className="section-heading text-xl">Meet Our Artisans</h2>
-            <p className="section-subheading text-muted-foreground text-sm mb-12">
-              Talented craftspeople preserving Rwanda&#39;s cultural heritage
-            </p>
-            <div className="grid md:grid-cols-2 gap-8">
-              {activeArtisans.map((a) => (
-                <div
-                  key={a.id}
-                  className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow group"
-                >
-                  <div className="md:flex">
-                    <div className="w-full md:w-52 h-56 md:h-auto overflow-hidden shrink-0">
-                      <img
-                        src={a.image}
-                        alt={a.name}
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      />
-                    </div>
-                    <div className="p-6 flex-1 flex flex-col">
-                      <div className="mb-2">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] py-0 px-2 font-semibold"
-                        >
-                          {a.specialty}
-                        </Badge>
-                        {a.featured && (
-                          <Badge className="ml-2 text-[10px] py-0 px-2 bg-amber-100 text-amber-700 border border-amber-200">
-                            <Star className="h-2.5 w-2.5 fill-amber-500 mr-0.5" />
-                            Featured
+            <div className="flex items-end justify-between mb-12 flex-wrap gap-4">
+              <div>
+                <h2 className="section-heading text-xl">Meet Our Artisans</h2>
+                <p className="section-subheading text-muted-foreground text-sm mb-0">
+                  Talented craftspeople preserving Rwanda&#39;s cultural heritage
+                </p>
+              </div>
+            </div>
+
+            {isLoading && artisans.length === 0 ? (
+              <div className="grid md:grid-cols-2 gap-8">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-64 w-full rounded-2xl" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-8">
+                {artisans.map((a) => (
+                  <div
+                    key={a.id}
+                    className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow group"
+                  >
+                    <div className="md:flex h-full">
+                      <div className="w-full md:w-52 h-56 md:h-auto overflow-hidden shrink-0">
+                        <img
+                          src={toAbsoluteArtisanImage(a.image)}
+                          alt={a.name}
+                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </div>
+                      <div className="p-6 flex-1 flex flex-col">
+                        <div className="mb-2">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-2 font-semibold"
+                          >
+                            {a.specialty}
                           </Badge>
-                        )}
+                          {a.isFeatured && (
+                            <Badge className="ml-2 text-[10px] py-0 px-2 bg-amber-100 text-amber-700 border border-amber-200">
+                              <Star className="h-2.5 w-2.5 fill-amber-500 mr-0.5" />
+                              Featured
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="text-lg font-bold font-heading text-foreground mb-1 group-hover:text-primary transition-colors">
+                          {a.name}
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-3">
+                          <MapPin className="h-3 w-3" />
+                          {a.location || "Rwanda"}
+                        </p>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
+                          {getLangText(a.shortDescription) || getLangText(a.fullStory) || "Preserving traditional Rwandan crafts and techniques."}
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-xs w-fit mt-auto"
+                          asChild
+                        >
+                          <Link href={`/community/artisan/${a.id}`}>
+                            View Profile &amp; Products{" "}
+                            <ArrowRight className="h-3 w-3" />
+                          </Link>
+                        </Button>
                       </div>
-                      <h3 className="text-lg font-bold font-heading text-foreground mb-1 group-hover:text-primary transition-colors">
-                        {a.name}
-                      </h3>
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-3">
-                        <MapPin className="h-3 w-3" />
-                        {a.location}
-                      </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mb-4 leading-relaxed">
-                        {a.description}
-                      </p>
-                      <div className="flex items-center gap-2 mb-4 mt-auto">
-                        <span className="text-[10px] text-muted-foreground font-semibold">
-                          {a.products.length} products available
-                        </span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1 text-xs w-fit"
-                        asChild
-                      >
-                        <Link href={`/community/artisan/${a.id}`}>
-                          View Profile &amp; Products{" "}
-                          <ArrowRight className="h-3 w-3" />
-                        </Link>
-                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {(hasMore || page > 1) && (
+              <div className="flex items-center justify-center gap-4 mt-12">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1 || isLoading}
+                >
+                  Previous
+                </Button>
+                <div className="text-xs font-medium">Page {page}</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={!hasMore || isLoading}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </div>
         </section>
 
@@ -320,17 +382,7 @@ export default function CommunityPage() {
               application within 5 business days.
             </DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              toast.success("Application Submitted!", {
-                description:
-                  "Thank you for applying! We'll review your application and get back to you within 5 business days.",
-              });
-              setArtisanDialogOpen(false);
-            }}
-            className="space-y-4 pt-2"
-          >
+          <form onSubmit={handleArtisanSubmit} className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label className="text-[11px] mb-1 block">Full Name *</Label>
@@ -338,6 +390,8 @@ export default function CommunityPage() {
                   required
                   placeholder="Your full name"
                   className="h-9 text-xs"
+                  value={artisanForm.fullName}
+                  onChange={(e) => setArtisanForm(prev => ({ ...prev, fullName: e.target.value }))}
                 />
               </div>
               <div>
@@ -347,6 +401,8 @@ export default function CommunityPage() {
                   required
                   placeholder="email@example.com"
                   className="h-9 text-xs"
+                  value={artisanForm.email}
+                  onChange={(e) => setArtisanForm(prev => ({ ...prev, email: e.target.value }))}
                 />
               </div>
               <div>
@@ -355,6 +411,8 @@ export default function CommunityPage() {
                   required
                   placeholder="+250 7XX XXX XXX"
                   className="h-9 text-xs"
+                  value={artisanForm.phone}
+                  onChange={(e) => setArtisanForm(prev => ({ ...prev, phone: e.target.value }))}
                 />
               </div>
               <div>
@@ -363,77 +421,49 @@ export default function CommunityPage() {
                   required
                   placeholder="e.g., Musanze District"
                   className="h-9 text-xs"
+                  value={artisanForm.location}
+                  onChange={(e) => setArtisanForm(prev => ({ ...prev, location: e.target.value }))}
                 />
               </div>
               <div>
                 <Label className="text-[11px] mb-1 block">Specialty *</Label>
-                <Select required>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Your craft" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basket-weaving" className="text-xs">
-                      Basket Weaving
-                    </SelectItem>
-                    <SelectItem value="wood-carving" className="text-xs">
-                      Wood Carving
-                    </SelectItem>
-                    <SelectItem value="pottery" className="text-xs">
-                      Pottery &amp; Ceramics
-                    </SelectItem>
-                    <SelectItem value="textile" className="text-xs">
-                      Textile Weaving
-                    </SelectItem>
-                    <SelectItem value="leather" className="text-xs">
-                      Leather Crafting
-                    </SelectItem>
-                    <SelectItem value="jewelry" className="text-xs">
-                      Jewelry Making
-                    </SelectItem>
-                    <SelectItem value="candles" className="text-xs">
-                      Candles &amp; Skincare
-                    </SelectItem>
-                    <SelectItem value="other" className="text-xs">
-                      Other
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2">
-                <Label className="text-[11px] mb-1 block">
-                  Years of Experience *
-                </Label>
                 <Input
                   required
-                  placeholder="e.g., 5 years of basket weaving, trained by..."
+                  placeholder="e.g. Basket Weaving"
                   className="h-9 text-xs"
+                  value={artisanForm.specialty}
+                  onChange={(e) => setArtisanForm(prev => ({ ...prev, specialty: e.target.value }))}
                 />
               </div>
               <div className="col-span-2">
                 <Label className="text-[11px] mb-1 block">
-                  Tell us about yourself *
+                  Short Description *
                 </Label>
                 <Textarea
                   required
-                  placeholder="Your background, passion for your craft, what makes your work unique..."
-                  rows={3}
+                  placeholder="A brief summary of your work..."
+                  rows={2}
                   className="text-xs"
+                  value={artisanForm.shortDescription}
+                  onChange={(e) => setArtisanForm(prev => ({ ...prev, shortDescription: e.target.value }))}
                 />
               </div>
               <div className="col-span-2">
                 <Label className="text-[11px] mb-1 block">
-                  Describe your portfolio / products *
+                  Full Story
                 </Label>
                 <Textarea
-                  required
-                  placeholder="What types of products do you create? Materials used? Price range?"
+                  placeholder="Your background, passion for your craft..."
                   rows={3}
                   className="text-xs"
+                  value={artisanForm.fullStory}
+                  onChange={(e) => setArtisanForm(prev => ({ ...prev, fullStory: e.target.value }))}
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full gap-1.5 text-xs h-10">
-              <Palette className="h-4 w-4" /> Submit Application
+            <Button type="submit" className="w-full gap-1.5 text-xs h-10" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Palette className="h-4 w-4" />}
+              Submit Application
             </Button>
           </form>
         </DialogContent>
@@ -451,7 +481,7 @@ export default function CommunityPage() {
               respond within 5 business days.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={submitPartnerApplication} className="space-y-4 pt-3">
+          <form onSubmit={handlePartnerSubmit} className="space-y-4 pt-3">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label className="text-[11px] mb-1 block">
@@ -478,11 +508,11 @@ export default function CommunityPage() {
                   required
                   placeholder="Full name"
                   className="h-9 text-xs"
-                  value={partnerForm.contactPerson}
+                  value={partnerForm.contactName}
                   onChange={(e) =>
                     setPartnerForm((prev) => ({
                       ...prev,
-                      contactPerson: e.target.value,
+                      contactName: e.target.value,
                     }))
                   }
                 />
@@ -523,23 +553,20 @@ export default function CommunityPage() {
                   Business Type *
                 </Label>
                 <Select
-                  value={partnerForm.type}
+                  value={partnerForm.businessType}
                   onValueChange={(value) =>
-                    setPartnerForm((prev) => ({ ...prev, type: value }))
+                    setPartnerForm((prev) => ({ ...prev, businessType: value }))
                   }
                 >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tourism-operator" className="text-xs">
+                    <SelectItem value="tourism_operator" className="text-xs">
                       Tourism Operator
                     </SelectItem>
-                    <SelectItem value="hotel" className="text-xs">
-                      Hotel / Lodge
-                    </SelectItem>
-                    <SelectItem value="restaurant" className="text-xs">
-                      Restaurant
+                    <SelectItem value="hospitality" className="text-xs">
+                      Hospitality / Hotel
                     </SelectItem>
                     <SelectItem value="school" className="text-xs">
                       School / Institution
@@ -558,18 +585,18 @@ export default function CommunityPage() {
                   placeholder="How you'd like to partner with Agri-Eco..."
                   className="text-xs"
                   rows={3}
-                  value={partnerForm.aboutBusiness}
+                  value={partnerForm.description}
                   onChange={(e) =>
                     setPartnerForm((prev) => ({
                       ...prev,
-                      aboutBusiness: e.target.value,
+                      description: e.target.value,
                     }))
                   }
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full h-10 text-xs">
-              Submit Application
+            <Button type="submit" className="w-full h-10 text-xs" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit Application"}
             </Button>
           </form>
         </DialogContent>

@@ -438,7 +438,7 @@ export default function ProgramDetail() {
                     <Progress value={progressPercent} className="h-3 mb-2" />
                     <p className="text-xs text-muted-foreground">
                       {allModulesCompleted
-                        ? "🎉 Congratulations! You've completed all modules. Your certificate is ready!"
+                        ? " Congratulations! You've completed all modules. Your certificate is ready!"
                         : `Complete all modules${sortedModules.some((m) => m.quiz) ? " and pass their quizzes" : ""} to earn your certificate.`}
                     </p>
                   </div>

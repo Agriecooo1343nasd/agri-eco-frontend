@@ -1,6 +1,12 @@
 import { apiClient } from "@/lib/api/client";
 import type { ApiPagination, ApiSuccessResponse } from "@/lib/api/types";
 
+export const toAbsoluteEducationImage = (path?: string) => {
+  if (!path) return "/assets/education/placeholder.jpg";
+  if (path.startsWith("http")) return path;
+  return `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${path.startsWith("/") ? "" : "/"}${path}`;
+};
+
 export interface MultiLangText {
   en: string;
   rw?: string;
@@ -235,6 +241,18 @@ export async function fetchAdminSchoolVisits(params: any): Promise<any> {
   };
 }
 
+export async function fetchAdminSchoolVisitById(id: string): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(`/school-visits/admin/${id}`);
+  if (!response.data.data) throw new Error("School visit not found");
+  return response.data.data;
+}
+
+export async function updateAdminSchoolVisitStatus(id: string, payload: { status: string; approvalNote?: string }): Promise<any> {
+  const response = await apiClient.patch<ApiSuccessResponse<any>>(`/school-visits/admin/${id}/status`, payload);
+  if (!response.data.data) throw new Error("Failed to update status");
+  return response.data.data;
+}
+
 export async function fetchAdminSchoolVisitSettings(): Promise<AdminSchoolVisitSettings | null> {
   const response = await apiClient.get<
     ApiSuccessResponse<AdminSchoolVisitSettings>
@@ -250,4 +268,22 @@ export async function updateAdminSchoolVisitSettings(
   >("/school-visits/admin/settings", payload);
   if (!response.data.data) throw new Error("Failed to update settings");
   return response.data.data;
+}
+
+export interface CreateSchoolVisitPayload {
+  institutionName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  studentCount: number;
+  teacherCount?: number;
+  preferredDate: string;
+  curriculumGoals?: string;
+  specialRequirements?: string;
+}
+
+export async function submitSchoolVisit(payload: CreateSchoolVisitPayload): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>("/school-visits", payload);
+  if (!response.data.data) throw new Error(response.data.message || "Failed to submit visit");
+  return response.data;
 }

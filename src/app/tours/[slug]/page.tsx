@@ -18,7 +18,15 @@ import {
   Home,
   MinusCircle,
   PlusCircle,
+  Loader2,
+  Eye,
+  Wifi,
+  Coffee,
+  Shield,
+  ChevronLeft,
+  X,
 } from "lucide-react";
+
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +42,12 @@ import {
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -47,7 +61,12 @@ import {
 import {
   fetchAccommodations,
   AdminAccommodation,
+  toAbsoluteAccommodationImage,
 } from "@/lib/api/accommodations";
+import { createBooking, type BookingType } from "@/lib/api/bookings";
+import { useAuth } from "@/context/AuthContext";
+
+const DEFAULT_SLOTS = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
 
 const statusColors: Record<string, string> = {
   available: "bg-primary/10 text-primary",
@@ -65,6 +84,7 @@ export default function TourDetailPage({
   const router = useRouter();
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
+  const { user, isAuthenticated } = useAuth();
 
   const [experience, setExperience] = useState<Experience | null>(null);
   const [accommodations, setAccommodations] = useState<AdminAccommodation[]>(
@@ -87,6 +107,18 @@ export default function TourDetailPage({
   const [paymentMethod, setPaymentMethod] = useState("");
   const [activeGallery, setActiveGallery] = useState(0);
   const [bookingStep, setBookingStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [viewAccomDetail, setViewAccomDetail] = useState<AdminAccommodation | null>(null);
+  const [accomGalleryIdx, setAccomGalleryIdx] = useState(0);
+
+  // Pre-fill user data
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setContactName(user.name || "");
+      setContactEmail(user.email || "");
+      setContactPhone(user.phone || "");
+    }
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     async function loadData() {
@@ -112,7 +144,11 @@ export default function TourDetailPage({
   }, [slug]);
 
   // Calculation for prices
-  const selectedSlot = experience?.slots?.find((ts) => ts.id === selectedTimeSlot);
+  const slotsToUse = (experience?.slots && experience.slots.length > 0) 
+    ? [...new Set(experience.slots.map((s: any) => s.timeSlot))] 
+    : DEFAULT_SLOTS;
+
+  const selectedSlot = experience?.slots?.find((ts: any) => ts.timeSlot === selectedTimeSlot);
   const slotFull = selectedSlot
     ? selectedSlot.bookedParticipants >= selectedSlot.capacity
     : false;
@@ -126,7 +162,7 @@ export default function TourDetailPage({
   const accomTotal = accomOption ? accomOption.ratePerNightRwf * accomNights : 0;
   const grandTotal = tourTotal + accomTotal;
 
-  const handleSubmitBooking = () => {
+  const handleSubmitBooking = async () => {
     if (!contactName || !contactEmail || !contactPhone) {
       toast.error("Missing information. Please fill in all contact details.");
       return;
@@ -139,19 +175,43 @@ export default function TourDetailPage({
       toast.error("Payment method. Please select a payment method.");
       return;
     }
-    const ref = `AGE-${format(new Date(), "yyyy")}-${format(selectedDate, "MMdd")}-${Math.floor(Math.random() * 900 + 100)}`;
 
-    if (slotFull) {
-      toast.success(`Ref: ${ref}`, {
-        description: "You've been added to the waiting list! We'll notify you.",
+    if (!experience) return;
+
+    try {
+      setSubmitting(true);
+      const booking = await createBooking({
+        experienceId: (experience as any).id,
+        fullName: contactName,
+        email: contactEmail,
+        phone: contactPhone,
+        participants,
+        bookingType: (isGroup ? "group" : "individual") as BookingType,
+        date: format(selectedDate, "yyyy-MM-dd"),
+        timeSlot: selectedTimeSlot,
+        specialRequirements: specialReqs,
+        paymentMethod,
+        amountRwf: grandTotal,
       });
-    } else {
-      toast.success("Booking Confirmed! 🎉", {
-        description: `Ref: ${ref} — Confirmation sent to ${contactEmail}`,
+
+      if (booking.status === "waitlisted") {
+        toast.success(`Ref: ${booking.referenceNumber}`, {
+          description: "You've been added to the waiting list! We'll notify you.",
+        });
+      } else {
+        toast.success("Booking Confirmed!", {
+          description: `Ref: ${booking.referenceNumber} — Confirmation sent to ${contactEmail}`,
+        });
+      }
+
+      router.push("/account/bookings");
+    } catch (err: any) {
+      toast.error("Booking failed", {
+        description: err.response?.data?.message || err.message || "Please try again later.",
       });
+    } finally {
+      setSubmitting(false);
     }
-
-    router.push("/account/bookings");
   };
 
   if (loading) {
@@ -228,7 +288,7 @@ export default function TourDetailPage({
               </div>
               {gallery.length > 1 && (
                 <div className="flex gap-2 overflow-x-auto pb-2">
-                  {gallery.map((img, i) => (
+                  {gallery.map((img: string, i: number) => (
                     <button
                       key={i}
                       onClick={() => setActiveGallery(i)}
@@ -309,7 +369,7 @@ export default function TourDetailPage({
                       Requirements
                     </h3>
                     <ul className="space-y-1">
-                      {experience.requirements.map((r, idx) => (
+                      {experience.requirements.map((r: string, idx: number) => (
                         <li
                           key={idx}
                           className="flex items-start gap-2 text-xs text-muted-foreground"
@@ -324,7 +384,7 @@ export default function TourDetailPage({
               </TabsContent>
               <TabsContent value="includes" className="mt-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {experience.inclusions.map((item, idx) => (
+                  {experience.inclusions.map((item: any, idx: number) => (
                     <div
                       key={idx}
                       className="flex items-center gap-2 text-xs text-foreground bg-accent/50 rounded-lg px-3 py-2"
@@ -337,7 +397,7 @@ export default function TourDetailPage({
               </TabsContent>
               <TabsContent value="highlights" className="mt-4">
                 <div className="space-y-2">
-                  {experience.highlights.map((h, i) => (
+                  {experience.highlights.map((h: string, i: number) => (
                     <div key={i} className="flex items-start gap-3 text-xs">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
                         {i + 1}
@@ -453,31 +513,35 @@ export default function TourDetailPage({
                       Time Slot
                     </Label>
                     <div className="space-y-2">
-                      {experience.slots?.map((ts) => {
-                        const full = ts.bookedParticipants >= ts.capacity;
-                        const almostFull =
-                          ts.capacity - ts.bookedParticipants <= 3 && !full;
+                      {slotsToUse.map((time: string) => {
+                        const ts = experience.slots?.find((s: any) => s.timeSlot === time);
+                        const full = ts ? ts.bookedParticipants >= ts.capacity : false;
+                        const almostFull = ts ? 
+                          ts.capacity - ts.bookedParticipants <= 3 && !full : false;
+                        
                         return (
                           <button
-                            key={ts.id}
-                            onClick={() => setSelectedTimeSlot(ts.id)}
+                            key={time}
+                            onClick={() => setSelectedTimeSlot(time)}
                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-xs transition-colors ${
-                              selectedTimeSlot === ts.id
+                              selectedTimeSlot === time
                                 ? "border-primary bg-primary/5 text-primary"
                                 : "border-border hover:border-primary/50"
                             }`}
                           >
-                            <span className="font-medium">{ts.timeSlot}</span>
-                            <span
-                              className={`text-[10px] ${full ? "text-destructive font-semibold" : almostFull ? "text-secondary-foreground font-semibold" : "text-muted-foreground"}`}
-                            >
-                              {full
-                                ? "Full — Waitlist"
-                                : `${ts.capacity - ts.bookedParticipants}/${ts.capacity} spots`}
-                            </span>
+                            <span className="font-medium">{time}</span>
+                            {ts && (
+                              <span
+                                className={`text-[10px] ${full ? "text-destructive font-semibold" : almostFull ? "text-secondary-foreground font-semibold" : "text-muted-foreground"}`}
+                              >
+                                {full
+                                  ? "Full — Waitlist"
+                                  : `${ts.capacity - ts.bookedParticipants}/${ts.capacity} spots`}
+                              </span>
+                            )}
                           </button>
                         );
-                      }) || <p className="text-[10px] text-muted-foreground">No slots available for this experience.</p>}
+                      })}
                     </div>
                   </div>
 
@@ -610,7 +674,7 @@ export default function TourDetailPage({
                         {accommodations.map((a) => (
                           <div
                             key={a.id}
-                            className={`rounded-lg border p-3 text-[11px] transition-colors ${
+                            className={`rounded-lg border text-[11px] transition-colors overflow-hidden ${
                               selectedAccom === a.id
                                 ? "border-primary bg-primary/5"
                                 : a.status === "available"
@@ -618,24 +682,43 @@ export default function TourDetailPage({
                                   : "border-border opacity-70"
                             }`}
                           >
-                            <button
-                              type="button"
-                              onClick={() => a.status === "available" && setSelectedAccom(a.id)}
-                              disabled={a.status !== "available"}
-                              className="w-full text-left"
-                            >
-                              <div className="flex justify-between items-center gap-3">
-                                <span className="font-medium text-foreground">
-                                  {t(a.name)}
-                                </span>
-                                <span className="font-semibold text-foreground">
-                                  {formatPrice(a.ratePerNightRwf)}
-                                </span>
+                            <div className="flex">
+                              {a.mainImage ? (
+                                <img
+                                  src={toAbsoluteAccommodationImage(a.mainImage)}
+                                  alt={t(a.name)}
+                                  className="w-16 h-16 object-cover shrink-0"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 bg-muted flex items-center justify-center shrink-0">
+                                  <Home className="h-5 w-5 text-muted-foreground/30" />
+                                </div>
+                              )}
+                              <div className="flex-1 p-2.5">
+                                <div className="flex items-start justify-between gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => a.status === "available" && setSelectedAccom(a.id)}
+                                    disabled={a.status !== "available"}
+                                    className="flex-1 text-left"
+                                  >
+                                    <span className="font-semibold text-foreground block leading-tight">{t(a.name)}</span>
+                                    <span className="text-[10px] text-primary font-bold">{formatPrice(a.ratePerNightRwf)}/night</span>
+                                    <span className="text-[10px] text-muted-foreground capitalize block mt-0.5">
+                                      {a.category} &middot; {a.maxGuests} guests
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setViewAccomDetail(a); setAccomGalleryIdx(0); }}
+                                    className="shrink-0 p-1 rounded border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                                    title="View details"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </div>
-                              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                                {t(a.description)} · up to {a.maxGuests} guests
-                              </p>
-                            </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -766,8 +849,16 @@ export default function TourDetailPage({
                     <Button
                       className="flex-1 text-xs h-9"
                       onClick={handleSubmitBooking}
+                      disabled={submitting}
                     >
-                      Confirm & Pay
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Confirm & Pay"
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -778,6 +869,143 @@ export default function TourDetailPage({
       </div>
 
       <Footer />
+
+      {/* ─── Accommodation Detail Dialog ─── */}
+      <Dialog open={!!viewAccomDetail} onOpenChange={() => setViewAccomDetail(null)}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-0">
+          {viewAccomDetail && (() => {
+            const accom = viewAccomDetail;
+            const allImages = [
+              ...(accom.mainImage ? [toAbsoluteAccommodationImage(accom.mainImage)!] : []),
+              ...(accom.gallery ?? []).map((g) => toAbsoluteAccommodationImage(g)!).filter(Boolean),
+            ];
+            return (
+              <>
+                {/* Gallery */}
+                {allImages.length > 0 ? (
+                  <div className="relative">
+                    <img
+                      src={allImages[accomGalleryIdx]}
+                      alt={t(accom.name)}
+                      className="w-full h-56 object-cover rounded-t-xl"
+                    />
+                    {allImages.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => setAccomGalleryIdx((i) => (i > 0 ? i - 1 : allImages.length - 1))}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setAccomGalleryIdx((i) => (i < allImages.length - 1 ? i + 1 : 0))}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                          {allImages.map((_, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setAccomGalleryIdx(i)}
+                              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === accomGalleryIdx ? "bg-white" : "bg-white/40"}`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {/* Status badge */}
+                    <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full capitalize border ${
+                      accom.status === "available" ? "bg-primary/90 text-white border-primary" :
+                      accom.status === "occupied" ? "bg-amber-500/90 text-white border-amber-500" :
+                      "bg-destructive/90 text-white border-destructive"
+                    }`}>
+                      {accom.status}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-full h-32 bg-muted rounded-t-xl flex items-center justify-center">
+                    <Home className="h-12 w-12 text-muted-foreground/30" />
+                  </div>
+                )}
+
+                <div className="p-5 space-y-4">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-heading flex items-center gap-2">
+                      {t(accom.name)}
+                      <span className="text-xs font-normal text-muted-foreground capitalize bg-muted px-2 py-0.5 rounded-full">
+                        {accom.category.replace("_", " ")}
+                      </span>
+                    </DialogTitle>
+                  </DialogHeader>
+
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground leading-relaxed">{t(accom.description)}</p>
+
+                  {/* Key Info grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-accent/40 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Rate / Night</p>
+                      <p className="text-base font-bold text-primary font-heading">{formatPrice(accom.ratePerNightRwf)}</p>
+                    </div>
+                    <div className="bg-accent/40 rounded-lg p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Max Guests</p>
+                      <p className="text-base font-bold text-foreground font-heading flex items-center justify-center gap-1">
+                        <Users className="h-4 w-4 text-primary" />{accom.maxGuests}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Amenities */}
+                  {accom.amenities && accom.amenities.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">Amenities</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {accom.amenities.map((amenity, i) => (
+                          <span
+                            key={i}
+                            className="flex items-center gap-1.5 text-[11px] bg-primary/5 text-primary border border-primary/20 px-2 py-1 rounded-full font-medium"
+                          >
+                            <Check className="h-3 w-3" />
+                            {amenity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 pt-2 border-t border-border">
+                    {accom.status === "available" ? (
+                      <Button
+                        className="flex-1 text-xs h-10 font-bold"
+                        onClick={() => {
+                          setSelectedAccom(accom.id);
+                          setViewAccomDetail(null);
+                        }}
+                      >
+                        <Check className="h-3.5 w-3.5 mr-2" />
+                        Select This Accommodation
+                      </Button>
+                    ) : (
+                      <div className="flex-1 text-center text-xs text-muted-foreground py-2">
+                        This accommodation is currently <strong className="capitalize">{accom.status}</strong> and not available for booking.
+                      </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="text-xs h-10"
+                      onClick={() => setViewAccomDetail(null)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

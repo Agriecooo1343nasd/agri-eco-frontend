@@ -1,76 +1,90 @@
 "use client";
 
-import { ArrowRight, MapPin, Palette } from "lucide-react";
+import { MapPin, User, Palette } from "lucide-react";
 import Link from "next/link";
-import { artisans } from "@/data/community";
+import { useQuery } from "@tanstack/react-query";
+import { fetchArtisans, toAbsoluteArtisanImage } from "@/lib/api/artisans";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/context/LanguageContext";
 
 const ArtisanShowcase = () => {
-  const featured = artisans.filter((a) => a.featured).slice(0, 4);
+  const { locale, t } = useLanguage();
+
+  const { data: artisansData, isLoading } = useQuery({
+    queryKey: ["featured-artisans", locale],
+    queryFn: () => fetchArtisans({ isFeatured: "true", limit: 4 }),
+  });
+
+  const featuredArtisans = artisansData?.data || [];
 
   return (
-    <section className="py-12 md:py-16 bg-muted/50">
+    <section className="py-12 md:py-16 bg-muted/30">
       <div className="container">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <span className="inline-flex items-center gap-1.5 bg-secondary/20 text-secondary-foreground text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3">
-              <Palette className="h-3.5 w-3.5" /> Community & Crafts
-            </span>
-            <h2 className="section-heading !text-left">Meet Our Artisans</h2>
-            <p className="section-subheading !text-left !mx-0 mt-2">
-              Handmade crafts and products from local Rwandan artisans
-            </p>
-          </div>
-          <Link
-            href="/community"
-            className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
-          >
-            View All <ArrowRight className="h-4 w-4" />
-          </Link>
+        <div className="text-center mb-10">
+          <h2 className="section-heading">Community & Crafts</h2>
+          <p className="section-subheading">
+            Meet the talented artisans and partners who bring our organic
+            mission to life
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {featured.map((artisan) => (
-            <Link
-              key={artisan.id}
-              href="/community"
-              className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all hover:-translate-y-1"
-            >
-              <div className="aspect-square overflow-hidden">
-                <img
-                  src={artisan.image}
-                  alt={artisan.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                />
-              </div>
-              <div className="p-4">
-                <h3 className="font-heading font-bold text-foreground text-sm group-hover:text-primary transition-colors">
-                  {artisan.name}
-                </h3>
-                <p className="text-xs text-primary font-semibold mt-0.5">
-                  {artisan.specialty}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
-                  {artisan.description}
-                </p>
-                <div className="flex items-center gap-1 mt-2 text-[11px] text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {artisan.location}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {isLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-4">
+                  <Skeleton className="aspect-square w-full rounded-2xl" />
+                  <div className="space-y-2 text-center">
+                    <Skeleton className="h-6 w-3/4 mx-auto" />
+                    <Skeleton className="h-4 w-1/2 mx-auto" />
+                    <Skeleton className="h-4 w-1/3 mx-auto" />
+                  </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {artisan.products.length} products available
-                </p>
-              </div>
-            </Link>
-          ))}
+              ))
+            : featuredArtisans.map((artisan) => (
+                <div
+                  key={artisan.id}
+                  className="bg-card border border-border rounded-2xl p-6 text-center hover:shadow-lg transition-all group"
+                >
+                  <div className="relative w-32 h-32 mx-auto mb-4 rounded-full overflow-hidden border-4 border-muted group-hover:border-primary/20 transition-colors">
+                    <img
+                      src={toAbsoluteArtisanImage(artisan.image)}
+                      alt={artisan.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                  </div>
+                  <h3 className="font-heading font-bold text-foreground text-sm uppercase tracking-tight">
+                    {artisan.name}
+                  </h3>
+                  <p className="text-xs font-semibold text-primary mt-1">
+                    {artisan.specialty}
+                  </p>
+                  <div className="flex items-center justify-center gap-1.5 text-muted-foreground mt-3 mb-4">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span className="text-xs">{artisan.location}</span>
+                  </div>
+                  <Link
+                    href={`/community/artisan/${artisan.id}`}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-foreground hover:text-primary transition-colors"
+                  >
+                    <User className="h-3.5 w-3.5" /> View Profile
+                  </Link>
+                </div>
+              ))}
         </div>
 
-        <div className="mt-8 text-center md:hidden">
+        {!isLoading && featuredArtisans.length === 0 && (
+          <div className="text-center py-12">
+             <p className="text-muted-foreground">No featured partners available at this time.</p>
+          </div>
+        )}
+
+        <div className="mt-10 text-center">
           <Link
             href="/community"
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold text-sm hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 border-2 border-primary text-primary px-6 py-2.5 rounded-full font-bold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
           >
-            Explore Community <ArrowRight className="h-4 w-4" />
+            Explore Our Community
           </Link>
         </div>
       </div>

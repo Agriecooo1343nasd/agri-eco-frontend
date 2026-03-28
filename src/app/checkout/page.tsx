@@ -71,10 +71,10 @@ const CheckoutPage = () => {
           if (def) {
             setSelectedAddressId(def.id);
             setForm({
-              firstName: def.fullName.split(" ")[0] || "",
-              lastName: def.fullName.split(" ")[1] || "",
+              firstName: user?.firstName || user?.name?.split(" ")[0] || "",
+              lastName: user?.lastName || user?.name?.split(" ")[1] || "",
               email: user?.email || "",
-              phone: def.phone,
+              phone: user?.phone || "",
               address: def.street + (def.label && def.label !== "Home" ? ` (${def.label})` : ""),
               city: def.city,
               state: def.state,
@@ -97,8 +97,8 @@ const CheckoutPage = () => {
       if (addr) {
         setForm({
           ...form,
-          phone: addr.phone,
-          address: addr.street,
+          phone: user?.phone || form.phone,
+          address: addr.street + (addr.label && addr.label !== "Home" ? ` (${addr.label})` : ""),
           city: addr.city,
           state: addr.state,
           zip: addr.zipCode || "",
@@ -182,8 +182,6 @@ const CheckoutPage = () => {
       if (isAuthenticated && selectedAddressId === "new" && saveAddress) {
         try {
           await addAddress({
-            fullName: `${form.firstName} ${form.lastName}`,
-            phone: form.phone,
             street: form.address,
             city: form.city,
             state: form.state,
@@ -304,7 +302,7 @@ const CheckoutPage = () => {
                               <ShieldCheck className="h-3 w-3 text-primary" />
                             </div>
                           )}
-                          <p className="font-bold text-xs truncate pr-4">{addr.fullName}</p>
+                          <p className="font-bold text-xs truncate pr-4">{addr.label || "Saved Address"}</p>
                           <p className="text-[10px] text-muted-foreground line-clamp-1">
                             {addr.street}, {addr.city}
                           </p>
