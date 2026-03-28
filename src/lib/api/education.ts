@@ -3,7 +3,7 @@ import type { ApiPagination, ApiSuccessResponse } from "@/lib/api/types";
 
 export const toAbsoluteEducationImage = (path?: string) => {
   if (!path) return "/assets/education/placeholder.jpg";
-  if (path.startsWith("http")) return path;
+  if (path.startsWith("http") || path.startsWith("data:")) return path;
   return `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${path.startsWith("/") ? "" : "/"}${path}`;
 };
 
@@ -111,6 +111,13 @@ export interface CreateAdminTrainingProgramPayload {
   startDate?: string;
 }
 
+export interface CreateTrainingEnrollmentPayload {
+  fullName: string;
+  email: string;
+  phone: string;
+  notes?: string;
+}
+
 export interface UpsertAdminSchoolVisitSettingsPayload extends Omit<
   AdminSchoolVisitSettings,
   "id"
@@ -168,19 +175,6 @@ export async function fetchTrainingPrograms(
   };
 }
 
-export async function fetchTrainingProgramById(
-  id: string,
-): Promise<TrainingProgram> {
-  const response = await apiClient.get<ApiSuccessResponse<TrainingProgram>>(
-    `/training-programs/${id}`,
-  );
-
-  if (!response.data.data) {
-    throw new Error("Program not found");
-  }
-
-  return response.data.data;
-}
 
 export async function fetchTrainingProgramBySlug(
   slug: string,
@@ -193,6 +187,91 @@ export async function fetchTrainingProgramBySlug(
     throw new Error("Program not found");
   }
 
+  return response.data.data;
+}
+
+export async function enrollInProgram(
+  id: string,
+  payload: CreateTrainingEnrollmentPayload,
+): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    `/training-programs/${id}/enroll`,
+    payload,
+  );
+  if (!response.data.data && !response.data.success) {
+    throw new Error(response.data.message || "Failed to enroll");
+  }
+  return response.data.data;
+}
+
+export interface TrainingEnrollment {
+  id: string;
+  userId: string;
+  trainingProgramId: string;
+  status: "pending" | "approved" | "rejected" | "completed";
+  fullName: string;
+  email: string;
+  phone: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  trainingProgram: TrainingProgram;
+}
+
+export interface FetchMyEnrollmentsParams {
+  page?: number;
+  limit?: number;
+  status?: "pending" | "approved" | "rejected" | "completed";
+  trainingProgramId?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  sort?: "createdAt" | "status" | "fullName";
+  order?: "asc" | "desc";
+}
+
+export interface FetchMyEnrollmentsResult {
+  data: TrainingEnrollment[];
+  pagination: ApiPagination;
+}
+
+export async function fetchMyEnrollments(
+  params?: FetchMyEnrollmentsParams,
+): Promise<FetchMyEnrollmentsResult> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.status) query.set("status", params.status);
+  if (params?.trainingProgramId)
+    query.set("trainingProgramId", params.trainingProgramId);
+  if (params?.search) query.set("search", params.search);
+  if (params?.from) query.set("from", params.from);
+  if (params?.to) query.set("to", params.to);
+  if (params?.sort) query.set("sort", params.sort);
+  if (params?.order) query.set("order", params.order);
+
+  const queryString = query.toString();
+  const response = await apiClient.get<ApiSuccessResponse<TrainingEnrollment[]>>(
+    `/training-programs/me/enrollments${queryString ? `?${queryString}` : ""}`,
+  );
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: params?.limit ?? 10,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+}
+
+export async function fetchCertificate(enrollmentId: string): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(
+    `/training-programs/me/enrollments/${enrollmentId}/certificate`,
+  );
+  if (!response.data.data) throw new Error("Certificate not found");
   return response.data.data;
 }
 
@@ -242,8 +321,16 @@ export async function updateAdminTrainingProgram(
 }
 
 export async function fetchAdminTrainingEnrollments(params: any): Promise<any> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.trainingProgramId) query.set("trainingProgramId", params.trainingProgramId);
+  if (params?.status) query.set("status", params.status);
+  if (params?.search) query.set("search", params.search);
+
+  const queryString = query.toString();
   const response = await apiClient.get<ApiSuccessResponse<any>>(
-    "/training-programs/admin/enrollments",
+    `/training-programs/admin/enrollments${queryString ? `?${queryString}` : ""}`,
   );
   return {
     data: response.data.data ?? [],
