@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import {
   Facebook,
@@ -7,9 +10,33 @@ import {
   Mail,
   MapPin,
   Phone,
+  Loader2,
 } from "lucide-react";
+import { apiClient } from "@/lib/api/client";
+import { toast } from "sonner";
 
 const Footer = () => {
+  const [email, setEmail] = useState("");
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  const handleSubscribe = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      setIsSubscribing(true);
+      await apiClient.post("/newsletter/subscribe", { email });
+      toast.success("Successfully subscribed to the newsletter!");
+      setEmail("");
+    } catch (error: any) {
+      const msg = error.response?.data?.message || "Failed to subscribe. Please try again.";
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
   return (
     <footer className="bg-foreground text-card/80">
       {/* Newsletter */}
@@ -28,9 +55,17 @@ const Footer = () => {
               <input
                 type="email"
                 placeholder="Your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSubscribe()}
                 className="px-4 py-3 bg-card/10 border border-card/20 rounded-l-lg text-sm text-card placeholder:text-card/40 outline-none focus:border-primary w-full md:w-72"
               />
-              <button className="bg-primary text-primary-foreground px-6 py-3 rounded-r-lg font-semibold text-sm hover:bg-primary/90 transition-colors shrink-0">
+              <button 
+                onClick={handleSubscribe}
+                disabled={isSubscribing}
+                className="bg-primary text-primary-foreground px-6 py-3 rounded-r-lg font-semibold text-sm hover:bg-primary/90 transition-colors shrink-0 flex items-center gap-2 disabled:opacity-75"
+              >
+                {isSubscribing && <Loader2 className="w-4 h-4 animate-spin" />}
                 Subscribe
               </button>
             </div>

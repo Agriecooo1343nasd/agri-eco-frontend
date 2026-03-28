@@ -60,7 +60,11 @@ export default function AgreementPaymentsPage() {
   const displayPartner = partnerData;
   const paginatedPayouts = paymentsData?.data || [];
   const totalPages = paymentsData?.pagination?.pages || 1;
-  const summary = paymentsData?.summary || { totalPaid: 0, records: 0, payoutCycle: "monthly" };
+  const summary = {
+    totalPaid: paymentsData?.summary?.totalPaid || 0,
+    records: paymentsData?.summary?.records || 0,
+    payoutCycle: paymentsData?.summary?.payoutCycle || "monthly",
+  };
 
   if (!displayPartner) {
     return (

@@ -68,7 +68,12 @@ export default function AgreementInputsPage() {
   const displayPartner = partnerData;
   const paginatedInputs = inputsData?.data || [];
   const totalPages = inputsData?.pagination?.pages || 1;
-  const summary = inputsData?.summary || { totalFinancial: 0, records: 0, financialCount: 0, inKindCount: 0 };
+  const summary = {
+    totalFinancial: inputsData?.summary?.financialSupport || 0,
+    records: inputsData?.summary?.totalInputs || 0,
+    financialCount: inputsData?.summary?.inputMix?.financial || 0,
+    inKindCount: inputsData?.summary?.inputMix?.inKind || 0,
+  };
 
   if (!displayPartner || !agreement) {
     return (

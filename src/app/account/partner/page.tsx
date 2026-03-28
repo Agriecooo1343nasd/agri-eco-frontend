@@ -93,11 +93,13 @@ export default function AccountPartnerPage() {
     ? applications.find((entry) => entry.email.toLowerCase() === userEmail) || null
     : null;
 
-  const displayPartner = partnerData; // Using the real partner from the backend API
-  const revenueSummary = displayPartner?.revenueSummary || { gross: 0, earnings: 0, pending: 0, bookings: 0 };
-  
   const activeAgreements = partnerAgreements.filter((a: any) => a.status === "active");
   const endedAgreements = partnerAgreements.filter((a: any) => a.status !== "active");
+  const totalEarnings = partnerAgreements.reduce((sum: number, agg: any) => sum + (agg.paidToDate || 0), 0);
+  const fallbackStatus = activeAgreements.length > 0 ? "active" : partnerAgreements.length > 0 ? "inactive" : "pending";
+  
+  const displayPartner = partnerData; // Using the real partner from the backend API
+  const revenueSummary = displayPartner?.revenueSummary || { gross: 0, earnings: totalEarnings, pending: 0, bookings: 0 };
 
 
   const submitApplication = (event: FormEvent<HTMLFormElement>) => {
@@ -152,9 +154,9 @@ export default function AccountPartnerPage() {
                   Partnership Status
                 </p>
                 <Badge
-                  className={`${statusBadge[displayPartner.status] || "bg-muted text-muted-foreground"} text-[10px] capitalize`}
+                  className={`${statusBadge[displayPartner.status || fallbackStatus] || "bg-muted text-muted-foreground"} text-[10px] capitalize`}
                 >
-                  {displayPartner.status || "Unknown"}
+                  {displayPartner.status || fallbackStatus}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
                   Type: <span className="capitalize">{displayPartner.type?.replace("_", " ")}</span>
@@ -214,21 +216,21 @@ export default function AccountPartnerPage() {
                 <div className="space-y-1">
                   <p>
                     <span className="text-muted-foreground">Business:</span>{" "}
-                    {displayPartner.name}
+                    {displayPartner.name || "N/A"}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Contact:</span>{" "}
-                    {displayPartner.contactName}
+                    {displayPartner.contactName || "N/A"}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Email:</span>{" "}
-                    {displayPartner.email}
+                    {displayPartner.email || "N/A"}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p>
                     <span className="text-muted-foreground">Default Commission Rate:</span>{" "}
-                    {displayPartner.revenueShareRate || 0}%
+                    {displayPartner.revenueShareRate || displayPartner.commissionRate || activeAgreements[0]?.commissionRate || 0}%
                   </p>
                   <p>
                     <span className="text-muted-foreground">Phone:</span>{" "}
