@@ -159,7 +159,7 @@ export default function AdminProductsPage() {
 
   const categoriesQuery = useQuery({
     queryKey: ["admin-product-categories"],
-    queryFn: fetchCategoriesForAdmin,
+    queryFn: () => fetchCategoriesForAdmin(),
   });
 
   const rows = productsQuery.data?.data ?? [];

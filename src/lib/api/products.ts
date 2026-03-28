@@ -267,9 +267,37 @@ export async function fetchProductBySlug(slug: string): Promise<AdminProduct> {
   return response.data.data;
 }
 
-export async function fetchCategoriesForAdmin(): Promise<CategoryListResult> {
+export interface FetchCategoriesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isActive?: boolean | "true" | "false";
+  sort?: string;
+  order?: "asc" | "desc";
+}
+
+export async function fetchCategoriesForAdmin(
+  params?: FetchCategoriesParams
+): Promise<CategoryListResult> {
+  const query = new URLSearchParams();
+
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  else query.set("limit", "100");
+  
+  if (params?.search?.trim()) query.set("search", params.search.trim());
+  
+  if (params?.isActive !== undefined) query.set("isActive", String(params.isActive));
+  else query.set("isActive", "true");
+  
+  if (params?.sort) query.set("sort", params.sort);
+  else query.set("sort", "name");
+  
+  if (params?.order) query.set("order", params.order);
+  else query.set("order", "asc");
+
   const response = await apiClient.get<ApiSuccessResponse<ProductCategory[]>>(
-    "/categories?limit=100&isActive=true&sort=name&order=asc",
+    `/categories?${query.toString()}`,
   );
 
   return {

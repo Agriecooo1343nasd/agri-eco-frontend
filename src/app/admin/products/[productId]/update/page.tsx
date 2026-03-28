@@ -139,7 +139,7 @@ export default function UpdateProduct() {
   // Fetch categories
   const { data: categoryResult } = useQuery({
     queryKey: ["admin-product-categories"],
-    queryFn: fetchCategoriesForAdmin,
+    queryFn: () => fetchCategoriesForAdmin(),
   });
   const categories: ProductCategory[] = categoryResult?.data ?? [];
 

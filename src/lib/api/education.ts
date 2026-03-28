@@ -1,6 +1,12 @@
 import { apiClient } from "@/lib/api/client";
 import type { ApiPagination, ApiSuccessResponse } from "@/lib/api/types";
 
+export const toAbsoluteEducationImage = (path?: string) => {
+  if (!path) return "/assets/education/placeholder.jpg";
+  if (path.startsWith("http")) return path;
+  return `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}${path.startsWith("/") ? "" : "/"}${path}`;
+};
+
 export interface MultiLangText {
   en: string;
   rw?: string;

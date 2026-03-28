@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "Agri-Eco | Fresh Organic Products",
   description:
     "Your trusted source for 100% organic, farm-fresh agricultural products.",
+  icons: {
+    icon: "/assets/logo/logo.png",
+  },
 };
 
 export default function RootLayout({

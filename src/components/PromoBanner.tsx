@@ -2,6 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { usePricing } from "@/context/PricingContext";
+import Link from "next/link";
 
 const PromoBanner = () => {
   const { formatPrice } = usePricing();
@@ -36,12 +37,12 @@ const PromoBanner = () => {
                 at checkout. Valid for new customers on orders above{" "}
                 {formatPrice(50)}.
               </p>
-              <a
-                href="#"
+              <Link
+                href="/deals"
                 className="inline-flex items-center gap-2 bg-secondary text-secondary-foreground mt-6 px-6 py-3 rounded-lg font-bold text-sm hover:bg-secondary/90 transition-all hover:gap-3"
               >
                 Shop Now <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>

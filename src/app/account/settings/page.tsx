@@ -33,7 +33,7 @@ const SettingsPage = () => {
       </div>
 
       {/* Settings Sub-navigation */}
-      <div className="flex flex-wrap items-center gap-2 p-1 bg-white border border-border rounded-2xl w-fit">
+      <div className="flex flex-wrap items-center gap-2 p-1 bg-white border border-border rounded-md w-fit">
         {[
           { id: "profile", label: "Profile Information", icon: User },
           {
@@ -51,7 +51,7 @@ const SettingsPage = () => {
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
             className={`
-              flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all
+              flex items-center gap-2 px-5 py-2.5 rounded-md text-xs font-bold transition-all
               ${
                 activeSubTab === tab.id
                   ? "bg-primary text-white shadow-md shadow-primary/20"
@@ -67,7 +67,7 @@ const SettingsPage = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         {/* Profile Form Card */}
-        <div className="xl:col-span-8 bg-white rounded-[32px] border border-border p-8 shadow-sm">
+        <div className="xl:col-span-8 bg-white rounded-md border border-border p-8 shadow-sm">
           {activeSubTab === "profile" && (
             <div className="space-y-8 animate-in fade-in duration-300">
               <div className="flex items-center gap-6">
@@ -98,7 +98,7 @@ const SettingsPage = () => {
                   </label>
                   <Input
                     defaultValue={user?.name || ""}
-                    className="h-14 rounded-xl bg-muted/20 border-border focus:bg-white focus:ring-primary/20 transition-all font-medium"
+                    className="h-14 rounded-md bg-muted/20 border-border focus:bg-white focus:ring-primary/20 transition-all font-medium"
                   />
                 </div>
                 <div className="space-y-2">
@@ -107,7 +107,7 @@ const SettingsPage = () => {
                   </label>
                   <Input
                     defaultValue={user?.email || ""}
-                    className="h-14 rounded-xl bg-muted/20 border-border focus:bg-white focus:ring-primary/20 transition-all font-medium"
+                    className="h-14 rounded-md bg-muted/20 border-border focus:bg-white focus:ring-primary/20 transition-all font-medium"
                   />
                 </div>
                 <div className="space-y-2">
@@ -116,21 +116,21 @@ const SettingsPage = () => {
                   </label>
                   <Input
                     defaultValue="+250 788 000 000"
-                    className="h-14 rounded-xl bg-muted/20 border-border focus:bg-white focus:ring-primary/20 transition-all font-medium"
+                    className="h-14 rounded-md bg-muted/20 border-border focus:bg-white focus:ring-primary/20 transition-all font-medium"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
                     User Segment
                   </label>
-                  <div className="h-14 rounded-xl bg-muted/20 border border-border flex items-center px-4 text-sm font-black text-primary uppercase">
+                  <div className="h-14 rounded-md bg-muted/20 border border-border flex items-center px-4 text-sm font-black text-primary uppercase">
                     Organic Enthusiast
                   </div>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-border flex justify-end">
-                <Button className="rounded-xl h-12 px-8 font-bold flex items-center gap-2 shadow-lg shadow-primary/20">
+                <Button className="rounded-md h-12 px-8 font-bold flex items-center gap-2 shadow-lg shadow-primary/20">
                   <Save className="h-4 w-4" />
                   Save Changes
                 </Button>
@@ -141,7 +141,7 @@ const SettingsPage = () => {
           {activeSubTab === "security" && (
             <div className="space-y-8 animate-in fade-in duration-300">
               <div className="bg-red-50 border border-red-100 rounded-[28px] p-6 flex gap-4">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+                <div className="w-12 h-12 bg-white rounded-md flex items-center justify-center shrink-0 shadow-sm">
                   <Key className="h-6 w-6 text-red-500" />
                 </div>
                 <div>
@@ -163,7 +163,7 @@ const SettingsPage = () => {
                   <Input
                     type="password"
                     placeholder="••••••••"
-                    className="h-14 rounded-xl bg-muted/20 border-border focus:bg-white transition-all"
+                    className="h-14 rounded-md bg-muted/20 border-border focus:bg-white transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -173,7 +173,7 @@ const SettingsPage = () => {
                   <Input
                     type="password"
                     placeholder="••••••••"
-                    className="h-14 rounded-xl bg-muted/20 border-border focus:bg-white transition-all"
+                    className="h-14 rounded-md bg-muted/20 border-border focus:bg-white transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -183,13 +183,13 @@ const SettingsPage = () => {
                   <Input
                     type="password"
                     placeholder="••••••••"
-                    className="h-14 rounded-xl bg-muted/20 border-border focus:bg-white transition-all"
+                    className="h-14 rounded-md bg-muted/20 border-border focus:bg-white transition-all"
                   />
                 </div>
               </div>
 
               <div className="pt-4 border-t border-border flex justify-end">
-                <Button className="rounded-xl h-12 px-8 font-bold flex items-center gap-2 shadow-lg shadow-primary/20">
+                <Button className="rounded-md h-12 px-8 font-bold flex items-center gap-2 shadow-lg shadow-primary/20">
                   <Shield className="h-4 w-4" />
                   Update Password
                 </Button>
@@ -215,7 +215,7 @@ const SettingsPage = () => {
 
         {/* Sidebar Info Card */}
         <div className="xl:col-span-4 space-y-6">
-          <div className="bg-primary overflow-hidden rounded-[32px] text-white p-8 relative shadow-2xl">
+          <div className="bg-primary overflow-hidden rounded-md text-white p-8 relative shadow-2xl">
             <div className="relative z-10">
               <SettingsIcon className="h-12 w-12 text-white/20 mb-6 animate-spin-slow" />
               <h3 className="text-xl font-black mb-3 font-heading">
@@ -229,7 +229,7 @@ const SettingsPage = () => {
             <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
           </div>
 
-          <div className="bg-white rounded-[32px] border border-border p-8 shadow-sm">
+          <div className="bg-white rounded-md border border-border p-8 shadow-sm">
             <h3 className="text-lg font-bold text-foreground font-heading mb-6 flex items-center gap-2">
               <Bell className="h-5 w-5 text-primary" />
               Email Alerts
