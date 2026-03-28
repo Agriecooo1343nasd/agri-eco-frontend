@@ -1,34 +1,145 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, MapPin, Pencil, Trash } from "lucide-react";
+import { Plus, MapPin, Pencil, Trash, Loader2, AlertCircle, Home, Briefcase, Building2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const mockAddresses = [
-  {
-    id: 1,
-    type: "Shipping",
-    name: "John Doe",
-    street: "KN 123 St, Muhima",
-    city: "Kigali City",
-    country: "Rwanda",
-    phone: "+250 788 000 000",
-    isDefault: true,
-  },
-  {
-    id: 2,
-    type: "Business",
-    name: "Agri-Eco Office",
-    street: "KG 543 St, Kacyiru",
-    city: "Kigali City",
-    country: "Rwanda",
-    phone: "+250 788 111 222",
-    isDefault: false,
-  },
-];
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchMyAddresses, addAddress, updateAddress, removeAddress, setDefaultAddress, type UserAddress } from "@/lib/api/user";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const AddressesPage = () => {
-  const [addresses, setAddresses] = useState(mockAddresses);
+  const queryClient = useQueryClient();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
+  const [formData, setFormData] = useState<Partial<UserAddress>>({
+    label: "Home",
+    street: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "Rwanda",
+    isDefault: false,
+  });
+
+  const addressesQuery = useQuery({
+    queryKey: ["user-addresses"],
+    queryFn: fetchMyAddresses,
+  });
+
+  const addMutation = useMutation({
+    mutationFn: addAddress,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-dashboard"] });
+      toast.success("Address added successfully");
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to add address");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<UserAddress> }) => updateAddress(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
+      toast.success("Address updated successfully");
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to update address");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: removeAddress,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-dashboard"] });
+      toast.success("Address removed");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to remove address");
+    },
+  });
+
+  const setAsDefaultMutation = useMutation({
+    mutationFn: setDefaultAddress,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
+      toast.success("Default address updated");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to set default");
+    },
+  });
+
+  const handleOpenAdd = () => {
+    setEditingAddress(null);
+    setFormData({
+      label: "Home",
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "Rwanda",
+      isDefault: false,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenEdit = (address: UserAddress) => {
+    setEditingAddress(address);
+    setFormData({
+      label: address.label,
+      street: address.street,
+      city: address.city,
+      state: address.state,
+      zipCode: address.zipCode,
+      country: address.country,
+      isDefault: address.isDefault,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingAddress) {
+      updateMutation.mutate({ id: editingAddress.id, data: formData });
+    } else {
+      addMutation.mutate(formData);
+    }
+  };
+
+  const isPending = addMutation.isPending || updateMutation.isPending;
+
+  const getLabelIcon = (label?: string) => {
+    const l = label?.toLowerCase();
+    if (l === "home") return <Home className="h-5 w-5" />;
+    if (l === "office" || l === "work") return <Briefcase className="h-5 w-5" />;
+    return <Building2 className="h-5 w-5" />;
+  };
+
+  if (addressesQuery.isLoading) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+        <p className="text-sm font-medium text-muted-foreground">Loading your addresses...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -37,87 +148,243 @@ const AddressesPage = () => {
           <h1 className="text-3xl font-black text-foreground font-heading mb-2">
             My Addresses
           </h1>
-          <p className="text-muted-foreground font-medium">
-            Manage your shipping and billing locations for faster checkout.
+          <p className="text-muted-foreground font-medium text-sm">
+            Manage your delivery locations for faster checkout and tour bookings.
           </p>
         </div>
-        <Button >
-          <Plus className="h-5 w-5" />
+        <Button onClick={handleOpenAdd} >
+          <Plus className="h-4 w-4" />
           Add New Address
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {addresses.map((address) => (
-          <div
-            key={address.id}
-            className="bg-white rounded-md border border-border p-8 transition-all group relative overflow-hidden"
-          >
-            {address.isDefault && (
-              <div className="absolute top-0 right-0">
-                <div className="bg-primary text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl">
-                  Default
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-start gap-5 mb-6">
-              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 border border-primary/5">
-                <MapPin className="h-7 w-7 text-primary" />
-              </div>
-              <div>
-                <div className="flex items-center gap-3 mb-1">
-                  <h3 className="text-lg font-bold text-foreground">
-                    {address.name}
-                  </h3>
-                  <span className="px-2.5 py-0.5 bg-muted rounded-lg text-[10px] font-black text-muted-foreground uppercase">
-                    {address.type}
-                  </span>
-                </div>
-                <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                  {address.street}
-                  <br />
-                  {address.city}, {address.country}
-                  <br />
-                  Phone: {address.phone}
-                </p>
-              </div>
+      {addressesQuery.data?.length === 0 ? (
+        <div className="py-20 bg-muted/20 border-2 border-dashed border-border/60 rounded-3xl flex flex-col items-center justify-center text-center gap-4">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                <MapPin className="h-8 w-8 text-muted-foreground/30" />
             </div>
-
-            <div className="flex items-center gap-3 pt-6 border-t border-border">
-              <Button
-                variant="outline"
-                className="flex-1 rounded-xl h-11 font-bold border-border hover:bg-muted/50 text-foreground"
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl h-11 px-4 border-border hover:bg-red-50 hover:text-red-500 hover:border-red-100 group-hover:border-border/60 transition-colors"
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
+            <div className="space-y-1">
+                <h3 className="text-lg font-bold">No addresses found</h3>
+                <p className="text-sm text-muted-foreground max-w-xs">You haven&apos;t added any addresses yet. Add one to speed up your checkout process.</p>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Tips Section */}
-      <div className="bg-primary/5 border border-primary/10 rounded-md p-8 md:p-10 flex flex-col md:flex-row items-center gap-8">
-        <div className="w-20 h-20 bg-white rounded-md shadow-soft flex items-center justify-center shrink-0 animate-bounce">
-          <Plus className="h-10 w-10 text-primary" />
+            <Button onClick={handleOpenAdd} variant="outline" size="sm" className="mt-2 font-bold uppercase tracking-widest text-[10px]">
+                Create First Address
+            </Button>
         </div>
-        <div>
-          <h4 className="text-xl font-bold text-foreground mb-2">
-            Need a different location?
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {addressesQuery.data?.map((address) => (
+            <div
+                key={address.id}
+                className={cn(
+                    "bg-white rounded-2xl border p-8 transition-all group relative overflow-hidden",
+                    address.isDefault ? "border-primary shadow-md shadow-primary/5" : "border-border/60 hover:border-primary/40 hover:shadow-sm"
+                )}
+            >
+                {address.isDefault && (
+                <div className="absolute top-0 right-0">
+                    <div className="bg-primary text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Default
+                    </div>
+                </div>
+                )}
+
+                <div className="flex items-start gap-5 mb-6">
+                <div className={cn(
+                    "w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border transition-colors",
+                    address.isDefault ? "bg-primary/10 border-primary/10 text-primary" : "bg-muted/30 border-border/40 text-muted-foreground/60"
+                )}>
+                    {getLabelIcon(address.label)}
+                </div>
+                <div>
+                    <div className="flex items-center gap-3 mb-1.5">
+                    <h3 className="text-lg font-black font-heading text-foreground">
+                        {address.label}
+                    </h3>
+                    {!address.isDefault && (
+                        <button 
+                            onClick={() => setAsDefaultMutation.mutate(address.id)}
+                            className="text-[9px] font-black text-muted-foreground hover:text-primary uppercase tracking-widest transition-colors"
+                        >
+                            Set Default
+                        </button>
+                    )}
+                    </div>
+                    <div className="space-y-1 text-sm font-medium text-muted-foreground leading-relaxed italic">
+                        <p>{address.street}</p>
+                        <p>{address.city}, {address.state} {address.zipCode}</p>
+                        <p className="font-bold text-foreground/70 not-italic">{address.country}</p>
+                    </div>
+                </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-6 border-t border-border/40">
+                <Button
+                    variant="outline"
+                    className="flex-1 rounded-md h-11 font-black uppercase tracking-widest text-[10px] border-border/60 hover:bg-muted/50 text-foreground"
+                    onClick={() => handleOpenEdit(address)}
+                >
+                    <Pencil className="h-3.5 w-3.5 mr-2" />
+                    Edit
+                </Button>
+                <Button
+                    variant="outline"
+                    className="rounded-md h-11 px-4 border-border/60 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-colors"
+                    onClick={() => {
+                        if (confirm("Are you sure you want to delete this address?")) {
+                            deleteMutation.mutate(address.id);
+                        }
+                    }}
+                    disabled={deleteMutation.isPending && deleteMutation.variables === address.id}
+                >
+                    {deleteMutation.isPending && deleteMutation.variables === address.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-red-500" />
+                    ) : (
+                        <Trash className="h-4 w-4" />
+                    )}
+                </Button>
+                </div>
+            </div>
+            ))}
+        </div>
+      )}
+
+      {/* Benefits Card */}
+      <div className="bg-primary overflow-hidden rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center gap-8 relative">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-2xl" />
+        <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shrink-0 border border-white/20 animate-pulse">
+          <Plus className="h-10 w-10 text-white" />
+        </div>
+        <div className="relative z-10 text-center md:text-left">
+          <h4 className="text-xl font-black text-white font-heading mb-2 uppercase tracking-tight">
+            Seamless Logistics
           </h4>
-          <p className="text-muted-foreground font-medium max-w-lg leading-relaxed">
-            You can add multiple addresses to your account. This makes it easier
-            to send gifts to friends or order directly to your office.
+          <p className="text-white/70 text-sm font-medium max-w-lg leading-relaxed">
+            Register your frequent locations to enjoy instant checkouts and precise tour pickups. We support multiple addresses for home, office, and travel hubs.
           </p>
         </div>
       </div>
+
+      {/* Address Form Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-3xl border-none shadow-2xl overflow-hidden p-0">
+          <div className="bg-primary h-2 w-full" />
+          <div className="p-8 pb-0">
+            <DialogHeader className="mb-8">
+                <DialogTitle className="text-2xl font-black font-heading tracking-tight">
+                    {editingAddress ? "Update Location" : "New Address"}
+                </DialogTitle>
+                <DialogDescription className="font-medium text-muted-foreground italic">
+                    {editingAddress ? "Modify your existing address details below." : "Enter the details for your new delivery or pickup location."}
+                </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 col-span-2">
+                        <Label htmlFor="label" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Label (e.g. Home, Office)</Label>
+                        <Input
+                            id="label"
+                            value={formData.label}
+                            onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                            className="h-11 rounded-md bg-muted/20 border-border/40 focus:bg-white transition-all font-medium"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="street" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Street Address</Label>
+                    <Input
+                        id="street"
+                        value={formData.street}
+                        onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                        className="h-11 rounded-md bg-muted/20 border-border/40 focus:bg-white transition-all font-medium"
+                        placeholder="House number and street name"
+                        required
+                    />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="city" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">City</Label>
+                        <Input
+                            id="city"
+                            value={formData.city}
+                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                            required
+                            placeholder="Enter your city"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="state" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">State / Province</Label>
+                        <Input
+                            id="state"
+                            value={formData.state}
+                            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                            required
+                            placeholder="Enter your state"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="zipCode" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Zip / Postal Code</Label>
+                        <Input
+                            id="zipCode"
+                            value={formData.zipCode}
+                            onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+                            placeholder="Enter zipcode"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="country" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Country</Label>
+                        <Input
+                            id="country"
+                            value={formData.country}
+                            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                            required
+                            placeholder="Enter your country"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 py-2">
+                    <input 
+                        type="checkbox" 
+                        id="isDefault" 
+                        id-unique="addr-default-check"
+                        checked={formData.isDefault}
+                        onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
+                        className="w-4 h-4 rounded text-primary border-border active:ring-primary h-4 w-4"
+                    />
+                    <label htmlFor="isDefault" className="text-xs font-bold text-foreground cursor-pointer select-none uppercase tracking-tighter">
+                        Set as default address
+                    </label>
+                </div>
+
+                <DialogFooter className="pt-4 pb-8 flex flex-col sm:flex-row gap-3">
+                    <Button 
+                        type="button" 
+                        variant="ghost" 
+                        onClick={() => setIsDialogOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button 
+                        type="submit" 
+                        disabled={isPending}
+                    >
+                        {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        {editingAddress ? "Save Changes" : "Create Address"}
+                    </Button>
+                </DialogFooter>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

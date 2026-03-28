@@ -145,7 +145,7 @@ export default function TourDetailPage({
 
   // Calculation for prices
   const slotsToUse = (experience?.slots && experience.slots.length > 0) 
-    ? experience.slots.map((s: any) => s.timeSlot) 
+    ? [...new Set(experience.slots.map((s: any) => s.timeSlot))] 
     : DEFAULT_SLOTS;
 
   const selectedSlot = experience?.slots?.find((ts: any) => ts.timeSlot === selectedTimeSlot);
@@ -934,7 +934,7 @@ export default function TourDetailPage({
                     <DialogTitle className="text-lg font-heading flex items-center gap-2">
                       {t(accom.name)}
                       <span className="text-xs font-normal text-muted-foreground capitalize bg-muted px-2 py-0.5 rounded-full">
-                        {accom.category}
+                        {accom.category.replace("_", " ")}
                       </span>
                     </DialogTitle>
                   </DialogHeader>

@@ -97,6 +97,13 @@ function formatDate(iso: string) {
   return `${diffDays} days ago`;
 }
 
+function resolveText(v: any): string {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") return v.en || v.rw || v.fr || v.sw || "";
+  return String(v);
+}
+
 /* ── Static chart configs ─────────────────────────────────── */
 const revenueConfig: ChartConfig = {
   revenue: {
@@ -494,7 +501,7 @@ export default function AdminDashboardPage() {
       (recentBookingsData ?? []).map((b) => ({
         id: b.referenceNumber,
         guest: b.fullName,
-        tour: b.experience?.title ?? "Unknown Tour",
+        tour: resolveText(b.experience?.title) || "Unknown Tour",
         date: formatDate(b.createdAt),
         status: b.status,
         amount: formatRWF(b.amountRwf),
@@ -507,12 +514,12 @@ export default function AdminDashboardPage() {
     () =>
       trainingStatsData && trainingStatsData.recentEnrollments.length > 0
         ? trainingStatsData.recentEnrollments.slice(0, 4).map((e) => ({
-            program: e.program?.title ?? "Unknown Program",
+            program: resolveText(e.program?.title) || "Unknown Program",
             enrolled: trainingStatsData.totalEnrollments,
             completed: trainingStatsData.byStatus.completed,
             rating:
               (trainingStatsData.totalEnrollments > 0
-                ? 4.7 // placeholder rating calculation
+                ? 4.7
                 : 0) +
               Math.random() * 0.2,
           }))

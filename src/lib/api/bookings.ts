@@ -24,8 +24,21 @@ export interface Booking {
   amountRwf: number;
   currency: string;
   cancellationReason?: string;
+  experience?: {
+    id: string;
+    slug: string;
+    title: any;
+    heroImage?: string;
+    type: string;
+    priceRwf: number;
+  };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BookingList {
+  data: Booking[];
+  pagination: ApiPagination;
 }
 
 export interface CreateBookingPayload {
@@ -51,9 +64,30 @@ export async function createBooking(payload: CreateBookingPayload): Promise<Book
   return response.data.data;
 }
 
-export async function fetchMyBookings(): Promise<Booking[]> {
-  const response = await apiClient.get<ApiSuccessResponse<Booking[]>>("/bookings/my");
-  return response.data.data ?? [];
+export async function fetchMyBookings(params: Record<string, any> = {}): Promise<BookingList> {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) searchParams.append(key, String(value));
+  });
+
+  const response = await apiClient.get<ApiSuccessResponse<Booking[]>>(
+    `/bookings/my?${searchParams.toString()}`,
+  );
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
+  };
+}
+
+export async function cancelMyBooking(id: string, reason?: string): Promise<Booking> {
+  const response = await apiClient.post<ApiSuccessResponse<Booking>>(
+    `/bookings/my/${id}/cancel`,
+    { reason },
+  );
+  if (!response.data.data) {
+    throw new Error("Missing cancelled booking response data");
+  }
+  return response.data.data;
 }
 
 /* ---------- Admin ---------- */

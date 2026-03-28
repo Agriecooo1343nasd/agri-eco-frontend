@@ -28,6 +28,7 @@ import {
   fetchAccommodationById,
   toAbsoluteAccommodationImage,
 } from "@/lib/api/accommodations";
+import { fetchAdminExperiences } from "@/lib/api/experiences";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,78 @@ function getLocalizedText(value?: {
 }) {
   if (!value) return "Untitled";
   return value.en || value.rw || value.fr || value.sw || "Untitled";
+}
+
+/* ─── Sub-component: Linked Tours ─── */
+function LinkedToursList({ accommodationId }: { accommodationId: string }) {
+  const { data: experiencesResult, isLoading } = useQuery({
+    queryKey: ["admin-experiences-linked-to", accommodationId],
+    queryFn: () =>
+      fetchAdminExperiences({
+        limit: 100, // Fetch all to filter manually
+      }),
+  });
+
+  const linkedTours = (experiencesResult?.data ?? []).filter((exp) =>
+    exp.linkedAccommodationIds?.includes(accommodationId),
+  );
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-xs">
+        <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground mb-2" />
+        <span>Searching for connections...</span>
+      </div>
+    );
+  }
+
+  if (linkedTours.length === 0) {
+    return (
+      <div className="p-8 text-center space-y-3">
+        <p className="text-xs text-muted-foreground font-medium">
+          This accommodation is not yet linked to any tours.
+        </p>
+        <Link href="/admin/tours/create-tour">
+          <Button variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase tracking-wider">
+            Create Experience
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-border/50 text-xs">
+      {linkedTours.map((tour) => (
+        <div key={tour.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-16 rounded overflow-hidden border border-border/50 bg-muted shrink-0">
+              {tour.heroImage ? (
+                <img src={tour.heroImage} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Calendar className="h-4 w-4 text-muted-foreground/30" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-foreground truncate">
+                {getLocalizedText(tour.title)}
+              </p>
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">
+                {tour.type} &middot; {tour.priceRwf.toLocaleString()} RWF
+              </p>
+            </div>
+          </div>
+          <Link href={`/admin/tours/${tour.slug}/edit`}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary shrink-0">
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function ViewAccommodationPage() {
@@ -323,26 +396,16 @@ export default function ViewAccommodationPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/50 shadow-sm border-dashed bg-muted/10">
-            <CardContent className="p-6 text-center space-y-4">
-              <div className="h-12 w-12 rounded-full bg-background border border-border/50 shadow-inner flex items-center justify-center mx-auto">
-                <MapPin className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <h4 className="font-bold text-sm">Tour Integration</h4>
-                <p className="text-[11px] text-muted-foreground mt-1 px-2 leading-relaxed">
-                  This stay can be linked to any experience during tour
-                  creation.
-                </p>
-              </div>
-              <Link href="/admin/tours/create-tour">
-                <Button
-                  variant="link"
-                  className="text-primary text-xs font-bold gap-1 mt-2"
-                >
-                  Start Linking <ArrowRight className="h-3 w-3" />
-                </Button>
-              </Link>
+          {/* Linked Tours */}
+          <Card className="border-border/50 shadow-sm overflow-hidden">
+            <CardHeader className="border-b border-border/50 bg-muted/20">
+              <CardTitle className="text-lg font-heading flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                Linked Experiences
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <LinkedToursList accommodationId={id} />
             </CardContent>
           </Card>
         </div>

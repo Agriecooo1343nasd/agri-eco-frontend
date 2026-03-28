@@ -26,3 +26,10 @@ export interface AppApiError extends Error {
   errors?: unknown;
   raw?: unknown;
 }
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  message: string;
+  data: T[];
+  pagination: ApiPagination;
+}
