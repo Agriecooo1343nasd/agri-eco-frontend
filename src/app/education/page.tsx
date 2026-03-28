@@ -26,10 +26,21 @@ import {
   ArrowRight,
   ChevronRight,
   CheckCircle,
+  ChevronLeft,
 } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
   Dialog,
   DialogContent,
@@ -71,8 +82,11 @@ export default function EducationPage() {
   const [trainingSearch, setTrainingSearch] = useState(searchParam);
   const [trainingPrograms, setTrainingPrograms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
   const pageParam = parseInt(searchParams.get("page") || "1", 10);
   const [currentPage, setCurrentPage] = useState(pageParam);
+
+  const [trainingStatus, setTrainingStatus] = useState(statusParam);
 
   useEffect(() => {
     let ignore = false;
@@ -81,11 +95,12 @@ export default function EducationPage() {
       try {
         const res = await fetchTrainingPrograms({
           search: trainingSearch || undefined,
-          limit: 100,
+          page: currentPage,
+          limit: 6,
         });
         if (!ignore) {
           const mapped = res.data.map((p) => {
-            const enrolled = 0;
+            const enrolled = 0; // Backend doesn't provide enrollment count yet
             let status = "open";
             if (p.startDate && new Date(p.startDate) > new Date())
               status = "upcoming";
@@ -100,7 +115,7 @@ export default function EducationPage() {
               image:
                 p.coverImage || p.heroImage || "/assets/tours/educational.jpg",
               type: p.type,
-              level: { en: p.level },
+              level: p.level,
               status,
               duration: { en: p.durationWeeks ? `${p.durationWeeks} Weeks` : "Self-paced" },
               startDate: {
@@ -110,13 +125,15 @@ export default function EducationPage() {
               },
               enrolled,
               maxParticipants: p.capacity || 0,
-              topics: (p.topics || []).map((t) => ({ en: t.name?.en || "" })),
+              topics: (p.topics || []).map((t: any) => ({ en: t.name?.en || "" })),
               price: p.priceRwf,
+              priceRwf: p.priceRwf,
+              slug: p.slug,
               certificate: p.type === "certification",
             };
           });
           setTrainingPrograms(mapped);
-          setCurrentPage(1); // Reset page on new fetch
+          setTotalPages(res.pagination.pages || 1);
         }
       } catch (err) {
         console.error(err);
@@ -128,16 +145,17 @@ export default function EducationPage() {
     return () => {
       ignore = true;
     };
-  }, [trainingSearch]);
-  const [trainingStatus, setTrainingStatus] = useState(statusParam);
+  }, [trainingSearch, currentPage]);
+
   // Sync state with URL params
   useEffect(() => {
     if (searchParam !== trainingSearch) setTrainingSearch(searchParam);
     if (statusParam !== trainingStatus) setTrainingStatus(statusParam);
+    if (pageParam !== currentPage) setCurrentPage(pageParam);
     // eslint-disable-next-line
-  }, [searchParam, statusParam]);
+  }, [searchParam, statusParam, pageParam]);
 
-  // Update URL params on filter change
+  // Update URL params
   const updateParam = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (!value || value === "all") {
@@ -145,7 +163,14 @@ export default function EducationPage() {
     } else {
       params.set(key, value);
     }
+    // If updating filters, reset page to 1
+    if (key !== "page") params.set("page", "1");
     router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    updateParam("page", String(page));
   };
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
@@ -322,8 +347,6 @@ export default function EducationPage() {
                     onChange={(e) => {
                       setTrainingStatus(e.target.value);
                       updateParam("status", e.target.value);
-                      setCurrentPage(1);
-                      updateParam("page", "1");
                     }}
                     className="w-full sm:w-48 px-3 py-2 border border-border rounded-lg text-sm outline-none bg-background"
                   >
@@ -334,51 +357,33 @@ export default function EducationPage() {
                     <option value="completed">Completed</option>
                   </select>
                 </div>
-                {loading && (
-                  <div className="text-center py-10 text-muted-foreground text-sm font-semibold">
-                    Loading programs...
-                  </div>
-                )}
 
-                {!loading && (
+                {loading ? (
+                  <div className="text-center py-20">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground text-sm">Loading programs...</p>
+                  </div>
+                ) : (
                   <>
                     <div className="grid md:grid-cols-3 gap-6">
-                      {(() => {
-                        const filtered = trainingPrograms.filter(
-                          (p) =>
-                            trainingStatus === "all" ||
-                            p.status === trainingStatus,
-                        );
-                        if (filtered.length === 0)
-                          return (
-                            <div className="col-span-2 text-center py-8 text-muted-foreground">
-                              No programs found.
-                            </div>
-                          );
-                        const itemsPerPage = 6;
-                        const totalPages = Math.ceil(
-                          filtered.length / itemsPerPage,
-                        );
-                        const safePage = Math.min(
-                          currentPage,
-                          Math.max(1, totalPages),
-                        );
-                        const paginated = filtered.slice(
-                          (safePage - 1) * itemsPerPage,
-                          safePage * itemsPerPage,
-                        );
-                        return paginated.map((p) => (
-                          <div
+                      {trainingPrograms.length === 0 ? (
+                        <div className="col-span-3 text-center py-12 bg-muted/30 rounded-2xl border border-dashed">
+                          <BookOpen className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                          <p className="text-sm text-muted-foreground">No training programs found matching your criteria.</p>
+                        </div>
+                      ) : (
+                        trainingPrograms.map((p) => (
+                          <Card
                             key={p.id}
-                            className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-full"
+                            className="overflow-hidden group flex flex-col h-full bg-card hover:shadow-lg transition-all"
                           >
-                            <div className="aspect-video overflow-hidden">
+                            <Link href={`/education/program/${p.slug}`} className="relative h-48 block overflow-hidden">
                               <img
                                 src={p.image}
                                 alt={t(p.title)}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                               />
-                            </div>
+                            </Link>
                             <div className="p-6 flex flex-col flex-1">
                               <div className="flex items-center gap-2 mb-3">
                                 <Badge
@@ -391,7 +396,7 @@ export default function EducationPage() {
                                   variant="outline"
                                   className="capitalize text-[10px] py-0 px-2"
                                 >
-                                  {t(p.level)}
+                                  {t({ en: p.level })}
                                 </Badge>
                                 <Badge
                                   className={`${statusColors[p.status]} border text-[10px] py-0 px-2 capitalize`}
@@ -399,9 +404,11 @@ export default function EducationPage() {
                                   {p.status}
                                 </Badge>
                               </div>
-                              <h3 className="font-bold font-heading text-foreground text-lg mb-2">
-                                {t(p.title)}
-                              </h3>
+                              <Link href={`/education/program/${p.slug}`} className="hover:text-primary transition-colors">
+                                <h3 className="font-bold font-heading text-foreground text-lg mb-2 line-clamp-1">
+                                  {t(p.title)}
+                                </h3>
+                              </Link>
                               <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">
                                 {t(p.description)}
                               </p>
@@ -419,13 +426,14 @@ export default function EducationPage() {
                                   {p.enrolled}/{p.maxParticipants}
                                 </span>
                               </div>
+                              
                               <div className="mb-4">
                                 <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                                   <span>Enrollment</span>
                                   <span>
                                     {Math.round(
                                       (p.enrolled / p.maxParticipants) * 100,
-                                    )}
+                                    ) || 0}
                                     %
                                   </span>
                                 </div>
@@ -434,8 +442,9 @@ export default function EducationPage() {
                                   className="h-1.5"
                                 />
                               </div>
+
                               <div className="flex flex-wrap gap-1 mb-4">
-                                {p.topics.slice(0, 4).map((topic: any) => (
+                                {p.topics.slice(0, 3).map((topic: any) => (
                                   <span
                                     key={t(topic)}
                                     className="text-[10px] bg-accent text-accent-foreground px-2 py-0.5 rounded-full"
@@ -443,121 +452,71 @@ export default function EducationPage() {
                                     {t(topic)}
                                   </span>
                                 ))}
-                                {p.topics.length > 4 && (
-                                  <span className="text-[10px] text-muted-foreground">
-                                    +{p.topics.length - 4} more
-                                  </span>
-                                )}
                               </div>
-                              <div className="flex items-center justify-between mt-auto pt-4 border-t border-border">
-                                <div>
-                                  <span className="text-lg font-bold text-foreground">
-                                    {formatPrice(p.price)}
-                                  </span>
-                                  {p.certificate && (
-                                    <span className="flex items-center gap-1 text-[10px] text-primary mt-0.5 font-semibold">
-                                      <Award className="h-3 w-3" />
-                                      Certificate included
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex gap-2">
-                                  <Link href={`/education/program/${p.id}`}>
-                                    <Button
-                                      size="sm"
-                                      className="text-xs"
-                                      variant="outline"
-                                    >
-                                      View Details
-                                    </Button>
+
+                              <div className="mt-auto flex items-center justify-between border-t p-6 bg-accent/10">
+                                <span className="font-bold text-primary text-lg">
+                                  {formatPrice(p.priceRwf || 0)}
+                                </span>
+                                <Button size="sm" asChild className="gap-2 text-xs">
+                                  <Link href={`/education/program/${p.slug}`}>
+                                    View Details
+                                    <ChevronRight className="h-4 w-4" />
                                   </Link>
-                                  {p.status === "open" && (
-                                    <Button
-                                      size="sm"
-                                      className="text-xs"
-                                      onClick={() => handleEnrollClick(p)}
-                                    >
-                                      Enroll Now
-                                    </Button>
-                                  )}
-                                  {p.status === "full" && (
-                                    <Button
-                                      size="sm"
-                                      className="text-xs"
-                                      variant="secondary"
-                                      onClick={() => handleNotifyClick(p)}
-                                    >
-                                      Join Waitlist
-                                    </Button>
-                                  )}
-                                  {p.status === "upcoming" && (
-                                    <Button
-                                      size="sm"
-                                      className="text-xs"
-                                      variant="outline"
-                                      onClick={() => handleNotifyClick(p)}
-                                    >
-                                      Notify Me
-                                    </Button>
-                                  )}
-                                  {p.status === "completed" && (
-                                    <Button
-                                      size="sm"
-                                      className="text-xs"
-                                      disabled
-                                    >
-                                      Completed
-                                    </Button>
-                                  )}
-                                </div>
+                                </Button>
                               </div>
                             </div>
-                          </div>
-                        ));
-                      })()}
+                          </Card>
+                        ))
+                      )}
                     </div>
-                    {(() => {
-                      const filtered = trainingPrograms.filter(
-                        (p) =>
-                          trainingStatus === "all" ||
-                          p.status === trainingStatus,
-                      );
-                      const itemsPerPage = 6;
-                      const totalPages = Math.ceil(
-                        filtered.length / itemsPerPage,
-                      );
-                      if (totalPages > 1) {
-                        return (
-                          <div className="flex justify-center gap-2 mt-8">
-                            <Button
-                              variant="outline"
-                              disabled={currentPage <= 1}
-                              onClick={() => {
-                                setCurrentPage((p) => p - 1);
-                                updateParam("page", String(currentPage - 1));
-                              }}
-                            >
-                              Previous
-                            </Button>
-                            <span className="flex items-center text-sm text-foreground font-semibold">
-                              Page {Math.min(currentPage, totalPages)} of{" "}
-                              {totalPages}
-                            </span>
-                            <Button
-                              variant="outline"
-                              disabled={currentPage >= totalPages}
-                              onClick={() => {
-                                setCurrentPage((p) => p + 1);
-                                updateParam("page", String(currentPage + 1));
-                              }}
-                            >
-                              Next
-                            </Button>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="mt-12 flex justify-center">
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious 
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (currentPage > 1) handlePageChange(currentPage - 1);
+                                }}
+                                className={currentPage <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                            
+                            {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  href="#"
+                                  isActive={currentPage === page}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handlePageChange(page);
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            ))}
+
+                            <PaginationItem>
+                              <PaginationNext 
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                                }}
+                                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
                   </>
                 )}
               </TabsContent>
@@ -639,7 +598,7 @@ export default function EducationPage() {
                 : `Question ${currentQ + 1} of ${activeQuiz?.questions.length}`}
             </DialogDescription>
           </DialogHeader>
-          {activeQuiz && !quizFinished && (
+          {activeQuiz && !quizFinished && activeQuiz.questions && activeQuiz.questions[currentQ] && (
             <div className="space-y-4 pt-2">
               <Progress
                 value={((currentQ + 1) / activeQuiz.questions.length) * 100}
@@ -655,7 +614,7 @@ export default function EducationPage() {
                     onClick={() => !showExplanation && setSelectedAnswer(i)}
                     className={`w-full text-left p-3 rounded-lg border text-xs transition-colors font-medium ${
                       showExplanation
-                        ? i === activeQuiz.questions[currentQ].correctIndex
+                        ? i === (activeQuiz?.questions?.[currentQ]?.correctIndex ?? -1)
                           ? "border-primary bg-primary/10 text-primary font-bold"
                           : i === selectedAnswer
                             ? "border-destructive bg-destructive/10 text-destructive font-bold"
@@ -669,7 +628,7 @@ export default function EducationPage() {
                   </button>
                 ))}
               </div>
-              {showExplanation && (
+              {showExplanation && activeQuiz.questions[currentQ].explanation && (
                 <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-[11px] text-foreground leading-relaxed">
                   <strong className="text-primary block mb-1 uppercase tracking-wider">
                     Explanation:

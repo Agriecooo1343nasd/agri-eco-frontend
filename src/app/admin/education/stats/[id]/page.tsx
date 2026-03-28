@@ -1,7 +1,6 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { trainingPrograms } from "@/data/education";
 import {
   ArrowLeft,
   Users,
@@ -12,6 +11,7 @@ import {
   BarChart3,
   CheckCircle,
   Download,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,61 +24,36 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Mock enrollment data
-const mockEnrollments = [
-  {
-    id: "e1",
-    name: "Jean Mugabo",
-    email: "jean@example.com",
-    enrolledAt: "2026-03-01",
-    progress: 75,
-    status: "active" as const,
-    completedModules: 3,
-  },
-  {
-    id: "e2",
-    name: "Marie Uwase",
-    email: "marie@example.com",
-    enrolledAt: "2026-03-02",
-    progress: 100,
-    status: "completed" as const,
-    completedModules: 4,
-  },
-  {
-    id: "e3",
-    name: "Patrick Niyonzima",
-    email: "patrick@example.com",
-    enrolledAt: "2026-03-03",
-    progress: 50,
-    status: "active" as const,
-    completedModules: 2,
-  },
-  {
-    id: "e4",
-    name: "Diane Mukamana",
-    email: "diane@example.com",
-    enrolledAt: "2026-03-04",
-    progress: 25,
-    status: "active" as const,
-    completedModules: 1,
-  },
-  {
-    id: "e5",
-    name: "Emmanuel Habimana",
-    email: "emmanuel@example.com",
-    enrolledAt: "2026-03-05",
-    progress: 0,
-    status: "dropped" as const,
-    completedModules: 0,
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import { fetchAdminTrainingProgramById, fetchAdminTrainingEnrollments } from "@/lib/api/education";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Page() {
   const params = useParams() as { id?: string };
   const router = useRouter();
   const id = params.id || "";
-  const program = trainingPrograms.find((p) => p.id === id);
+  const { t } = useLanguage();
+
+  const { data: program, isLoading: isLoadingProgram } = useQuery({
+    queryKey: ["admin", "training-program", id],
+    queryFn: () => fetchAdminTrainingProgramById(id),
+    enabled: !!id,
+  });
+
+  const { data: enrollmentsData, isLoading: isLoadingEnrollments } = useQuery({
+    queryKey: ["admin", "training-enrollments", id],
+    queryFn: () => fetchAdminTrainingEnrollments({ trainingProgramId: id, limit: 100 }),
+    enabled: !!id,
+  });
+
+  if (isLoadingProgram || isLoadingEnrollments) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40 text-muted-foreground">
+        <Loader2 className="h-10 w-10 animate-spin mb-4" />
+        <p>Loading analytics...</p>
+      </div>
+    );
+  }
 
   if (!program) {
     return (
@@ -95,26 +70,37 @@ export default function Page() {
     );
   }
 
-  const completionRate = Math.round(
-    (mockEnrollments.filter((e) => e.status === "completed").length /
-      mockEnrollments.length) *
-      100,
-  );
-  const activeStudents = mockEnrollments.filter(
-    (e) => e.status === "active",
+  const enrollments = enrollmentsData?.data || [];
+  
+  const completionRate = enrollments.length > 0 
+    ? Math.round((enrollments.filter((e: any) => e.status === "completed").length / enrollments.length) * 100)
+    : 0;
+
+  const activeStudents = enrollments.filter(
+    (e: any) => e.status === "approved"
   ).length;
-  const droppedStudents = mockEnrollments.filter(
-    (e) => e.status === "dropped",
+
+  const pendingStudents = enrollments.filter(
+    (e: any) => e.status === "pending"
   ).length;
-  const avgProgress = Math.round(
-    mockEnrollments.reduce((s, e) => s + e.progress, 0) /
-      mockEnrollments.length,
-  );
+
+  // Since backend doesn't track granular progress yet, 
+  // we use status as a proxy: Completed = 100%, Approved = 50%, Pending/Rejected = 0%
+  const avgProgress = enrollments.length > 0
+    ? Math.round(
+        enrollments.reduce((s: number, e: any) => {
+          if (e.status === "completed") return s + 100;
+          if (e.status === "approved") return s + 50;
+          return s;
+        }, 0) / enrollments.length
+      )
+    : 0;
 
   const statusColor: Record<string, string> = {
-    active: "bg-primary/10 text-primary border-primary/20",
+    pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+    approved: "bg-primary/10 text-primary border-primary/20",
     completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-    dropped: "bg-destructive/10 text-destructive border-destructive/20",
+    rejected: "bg-destructive/10 text-destructive border-destructive/20",
   };
 
   return (
@@ -146,8 +132,8 @@ export default function Page() {
         {[
           {
             label: "Total Enrolled",
-            value: program.enrolled,
-            max: program.maxParticipants,
+            value: enrollments.length,
+            max: program.capacity,
             icon: Users,
             color: "text-primary",
           },
@@ -193,7 +179,7 @@ export default function Page() {
           <div>
             <p className="text-xs text-muted-foreground">Duration</p>
             <p className="text-sm font-medium text-foreground">
-              {program.duration.en}
+              {program.durationWeeks ? `${program.durationWeeks} Weeks` : "Self-paced"}
             </p>
           </div>
         </div>
@@ -202,18 +188,18 @@ export default function Page() {
           <div>
             <p className="text-xs text-muted-foreground">Start Date</p>
             <p className="text-sm font-medium text-foreground">
-              {program.startDate.en}
+              {program.startDate ? new Date(program.startDate).toLocaleDateString() : "TBD"}
             </p>
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-5 flex items-center gap-3">
           <BarChart3 className="h-5 w-5 text-muted-foreground" />
           <div>
-            <p className="text-xs text-muted-foreground">Modules</p>
+            <p className="text-xs text-muted-foreground">Curriculum</p>
             <p className="text-sm font-medium text-foreground">
-              {program.modules.length} modules ·{" "}
-              {program.modules.reduce((s, m) => s + m.contentBlocks.length, 0)}{" "}
-              content blocks
+              {program.curriculum?.length || 0} Modules ·{" "}
+              {program.curriculum?.reduce((s: number, m: any) => s + (m.contentBlocks?.length || 0), 0) || 0}{" "}
+              Content Blocks
             </p>
           </div>
         </div>
@@ -239,40 +225,47 @@ export default function Page() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockEnrollments.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell>
-                      <p className="font-medium text-foreground text-sm">
-                        {e.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{e.email}</p>
-                    </TableCell>
-                    <TableCell className="text-sm">{e.enrolledAt}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 bg-border rounded-full overflow-hidden w-20">
-                          <div
-                            className="h-full bg-primary rounded-full transition-all"
-                            style={{ width: `${e.progress}%` }}
-                          />
+                {enrollments.map((e: any) => {
+                  const progress = e.status === "completed" ? 100 : e.status === "approved" ? 50 : 0;
+                  const completedModules = e.status === "completed" ? (program.curriculum?.length || 0) : 0;
+                  
+                  return (
+                    <TableRow key={e.id}>
+                      <TableCell>
+                        <p className="font-medium text-foreground text-sm">
+                          {e.fullName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{e.email}</p>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(e.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 bg-border rounded-full overflow-hidden w-20">
+                            <div
+                              className="h-full bg-primary rounded-full transition-all"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {progress}%
+                          </span>
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          {e.progress}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {e.completedModules} / {program.modules.length}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={`${statusColor[e.status]} border text-xs capitalize`}
-                      >
-                        {e.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {completedModules} / {program.curriculum?.length || 0}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={`${statusColor[e.status] || "bg-muted text-muted-foreground"} border text-xs capitalize`}
+                        >
+                          {e.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -280,16 +273,16 @@ export default function Page() {
 
         <TabsContent value="modules">
           <div className="space-y-3">
-            {program.modules.map((mod, i) => {
-              const completedCount = mockEnrollments.filter(
-                (e) => e.completedModules > i,
+            {(program.curriculum || []).map((mod: any, i: number) => {
+              const completedCount = enrollments.filter(
+                (e: any) => e.status === "completed"
               ).length;
-              const percentage = Math.round(
-                (completedCount / mockEnrollments.length) * 100,
-              );
+              const percentage = enrollments.length > 0 
+                ? Math.round((completedCount / enrollments.length) * 100)
+                : 0;
               return (
                 <div
-                  key={mod.id}
+                  key={mod.id || i}
                   className="bg-card border border-border rounded-xl p-5 flex items-center gap-4"
                 >
                   <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary text-sm font-bold flex items-center justify-center shrink-0">
@@ -297,10 +290,10 @@ export default function Page() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">
-                      {mod.title.en}
+                      {t(mod.title)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {mod.duration.en} · {mod.contentBlocks.length} blocks
+                      {mod.durationWeeks ? `${mod.durationWeeks} Weeks` : "Self-paced"} · {mod.contentBlocks?.length || 0} blocks
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
@@ -309,7 +302,7 @@ export default function Page() {
                         {percentage}%
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {completedCount}/{mockEnrollments.length} completed
+                        {completedCount}/{enrollments.length} completed
                       </p>
                     </div>
                     <div
