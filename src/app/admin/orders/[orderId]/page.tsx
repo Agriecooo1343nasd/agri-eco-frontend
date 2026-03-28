@@ -19,6 +19,7 @@ import {
   FileText,
   History,
   MessageSquare,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,15 @@ import {
 import { usePricing } from "@/context/PricingContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { 
+    fetchAdminOrderById, 
+    updateOrderStatusAdmin, 
+    updateOrderPaymentStatusAdmin, 
+    refundOrderAdmin 
+} from "@/lib/api/orders";
+import { OrderStatus, PaymentStatus } from "@/constants/order-status";
+import { Loader2, AlertCircle } from "lucide-react";
 
 const allOrdersRaw = [
   {
@@ -115,12 +125,15 @@ const allOrdersRaw = [
 ];
 
 const statusStyles: Record<string, string> = {
-  Pending: "bg-slate-100 text-slate-700 border-slate-200",
-  Processing: "bg-amber-100 text-amber-700 border-amber-200",
-  Shipped: "bg-green-100 text-green-700 border-green-200",
-  "Out for Delivery": "bg-indigo-100 text-indigo-700 border-indigo-200",
-  Delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  Cancelled: "bg-rose-100 text-rose-700 border-rose-200",
+  [OrderStatus.PENDING]: "bg-slate-100 text-slate-700 border-slate-200",
+  [OrderStatus.CONFIRMED]: "bg-blue-100 text-blue-700 border-blue-200",
+  [OrderStatus.PROCESSING]: "bg-amber-100 text-amber-700 border-amber-200",
+  [OrderStatus.SHIPPED]: "bg-green-100 text-green-700 border-green-200",
+  [OrderStatus.OUT_FOR_DELIVERY]: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  [OrderStatus.DELIVERED]: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  [OrderStatus.CANCELLED]: "bg-rose-100 text-rose-700 border-rose-200",
+  [OrderStatus.RETURNED]: "bg-orange-100 text-orange-700 border-orange-200",
+  [OrderStatus.REFUNDED]: "bg-purple-100 text-purple-700 border-purple-200",
 };
 
 export default function AdminOrderDetails({
@@ -131,53 +144,88 @@ export default function AdminOrderDetails({
   const { orderId } = use(params);
   const router = useRouter();
   const { formatPrice } = usePricing();
+  const queryClient = useQueryClient();
 
-  const order = allOrdersRaw[0];
-
-  const [currentStatus, setCurrentStatus] = useState(order.status);
-  const [timeline, setTimeline] = useState(order.timeline);
-  const [internalNotes, setInternalNotes] = useState(order.internalNotes);
   const [noteInput, setNoteInput] = useState("");
 
-  const handleStatusChange = (newStatus: string) => {
-    setCurrentStatus(newStatus);
-    const description =
-      newStatus === "Cancelled"
-        ? "Order has been cancelled and refund process initiated."
-        : `Order status changed to ${newStatus}. Notification sent to customer.`;
+  const { data: order, isLoading, isError } = useQuery({
+      queryKey: ["admin-order", orderId],
+      queryFn: () => fetchAdminOrderById(orderId),
+  });
 
-    // Add to timeline
-    const newEvent = {
-      status: newStatus,
-      date: "Just now",
-      note:
-        newStatus === "Cancelled"
-          ? "Order cancelled and refunded."
-          : `Status manually updated to ${newStatus}`,
-      actor: "Admin",
-    };
-    setTimeline([newEvent, ...timeline]);
-
-    toast.success(
-      newStatus === "Cancelled" ? "Order Cancelled" : "Status Updated",
-      {
-        description,
+  const updateStatusMutation = useMutation({
+      mutationFn: ({ status, adminNote }: { status: OrderStatus, adminNote?: string }) => 
+           updateOrderStatusAdmin(orderId, { status, adminNote }),
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-order", orderId] });
+          toast.success("Status Updated", {
+              description: "The order status has been successfully updated.",
+          });
       },
-    );
+      onError: (error: any) => {
+          toast.error("Failed to update status", {
+              description: error.message || "An error occurred while updating the order status.",
+          });
+      }
+  });
+
+  const refundMutation = useMutation({
+      mutationFn: ({ reason }: { reason: string }) => refundOrderAdmin(orderId, reason),
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-order", orderId] });
+          toast.success("Order Refunded", {
+              description: "The order has been cancelled and refunded.",
+          });
+      },
+      onError: (error: any) => {
+          toast.error("Refund failed", {
+              description: error.message || "An error occurred while processing the refund.",
+          });
+      }
+  });
+
+  const updatePaymentMutation = useMutation({
+      mutationFn: (status: PaymentStatus) => updateOrderPaymentStatusAdmin(orderId, { paymentStatus: status }),
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-order", orderId] });
+          toast.success("Payment Status Updated");
+      }
+  });
+
+  if (isLoading) {
+    return (
+        <div className="py-20 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500">
+          <Loader2 className="h-10 w-10 text-primary animate-spin" />
+          <p className="text-sm font-medium text-muted-foreground">Loading order details...</p>
+        </div>
+      );
+  }
+
+  if (isError || !order) {
+    return (
+        <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
+          <AlertCircle className="h-12 w-12 text-destructive opacity-20" />
+          <h3 className="text-lg font-bold">Order Not Found</h3>
+          <p className="text-sm text-muted-foreground max-w-xs">We couldn&apos;t find an order with this ID or there was an error loading it.</p>
+          <Button onClick={() => router.push("/admin/orders")} variant="outline" size="sm">Back to Orders</Button>
+        </div>
+      );
+  }
+
+  const handleStatusChange = (newStatus: OrderStatus) => {
+      updateStatusMutation.mutate({ status: newStatus });
+  };
+
+  const handleRefund = () => {
+      refundMutation.mutate({ reason: "Admin requested refund" });
   };
 
   const addNote = () => {
     if (!noteInput.trim()) return;
-    const newNote = {
-      id: internalNotes.length + 1,
-      text: noteInput,
-      date: "Just now",
-      author: "Admin",
-    };
-    setInternalNotes([newNote, ...internalNotes]);
-    setNoteInput("");
-    toast.success("Note Added", {
-      description: "Internal note has been saved.",
+    updateStatusMutation.mutate({ status: order.status as OrderStatus, adminNote: noteInput }, {
+        onSuccess: () => {
+            setNoteInput("");
+        }
     });
   };
 
@@ -196,38 +244,44 @@ export default function AdminOrderDetails({
           </Button>
           <div className="flex items-center gap-4 flex-wrap">
             <h1 className="text-3xl md:text-4xl font-black font-heading tracking-tight">
-              Order #{orderId || order.id.split("-")[1]}
-            </h1>
+              Order</h1>
             <Badge
               className={cn(
                 "rounded-lg py-1 px-3 text-xs font-black uppercase tracking-wider",
-                statusStyles[currentStatus],
+                statusStyles[order.status],
               )}
             >
-              {currentStatus}
+              {order.status.replace(/_/g, ' ')}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground font-medium flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            Placed on {order.date}
+            Placed on {new Date(order.createdAt).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+            })}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {currentStatus !== "Delivered" && currentStatus !== "Cancelled" && (
+          {order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.REFUNDED && (
             <Button
               variant="outline"
               className=" border-rose-200 text-rose-600 hover:bg-rose-50"
-              onClick={() => handleStatusChange("Cancelled")}
+              onClick={handleRefund}
+              disabled={refundMutation.isPending}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              {refundMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Refund & Cancel
             </Button>
           )}
 
-          {(currentStatus === "Shipped" ||
-            currentStatus === "Out for Delivery") && (
-            <Button onClick={() => handleStatusChange("Delivered")}>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
+          {(order.status === OrderStatus.SHIPPED ||
+            order.status === OrderStatus.OUT_FOR_DELIVERY) && (
+            <Button onClick={() => handleStatusChange(OrderStatus.DELIVERED)} disabled={updateStatusMutation.isPending}>
+              {updateStatusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
               Confirm Delivery
             </Button>
           )}
@@ -243,21 +297,15 @@ export default function AdminOrderDetails({
               <DropdownMenuLabel className="text-[10px] font-black uppercase text-muted-foreground px-3 py-2">
                 Set New Status
               </DropdownMenuLabel>
-              {[
-                "Pending",
-                "Processing",
-                "Shipped",
-                "Out for Delivery",
-                "Delivered",
-              ]
-                .filter((st) => st !== currentStatus)
+              {Object.values(OrderStatus)
+                .filter((st) => st !== order.status)
                 .map((st) => (
                   <DropdownMenuItem
                     key={st}
-                    className="rounded-md px-3 py-2.5 cursor-pointer focus:bg-primary/10 focus:text-primary font-bold"
+                    className="rounded-md px-3 py-2.5 cursor-pointer focus:bg-primary/10 focus:text-primary font-bold capitalize"
                     onClick={() => handleStatusChange(st)}
                   >
-                    {st}
+                    {st.replace(/_/g, ' ')}
                   </DropdownMenuItem>
                 ))}
             </DropdownMenuContent>
@@ -290,47 +338,53 @@ export default function AdminOrderDetails({
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y border-b">
-                {order.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-8 flex items-center gap-8 group"
-                  >
-                    <div className="w-24 h-24 rounded-md overflow-hidden border border-border shrink-0 group-hover:scale-105 transition-transform duration-300">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <Link
-                        href={`/admin/products/1/view`}
-                        className="text-lg font-black hover:text-primary transition-colors"
-                      >
-                        {item.name}
-                      </Link>
-                      <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                        SKU: {item.sku}
-                      </p>
-                      <div className="pt-2 flex items-center gap-4">
-                        <p className="text-sm font-bold text-muted-foreground">
-                          Qty: {item.quantity}
+                {order.items.map((item: any) => {
+                  const productImg = item.image || item.product?.images?.find((img: any) => img.isPrimary)?.url || item.product?.images?.[0]?.url || "/placeholder.png";
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-8 flex items-center gap-8 group"
+                    >
+                      <div className="w-24 h-24 rounded-md overflow-hidden border border-border shrink-0 group-hover:scale-105 transition-transform duration-300">
+                        <img
+                          src={productImg}
+                          alt={item.name || "Product"}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <Link
+                          href={`/admin/products/${item.productId}/view`}
+                          className="text-lg font-black hover:text-primary transition-colors"
+                        >
+                          {item.name || "Unknown Product"}
+                        </Link>
+                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">
+                          Ref: {item.id.split('-')[0].toUpperCase()}
                         </p>
-                        <p className="text-sm font-bold text-muted-foreground">
-                          Price: {formatPrice(item.price)}
+                        <div className="pt-2 flex items-center gap-4">
+                          <p className="text-sm font-bold text-muted-foreground">
+                            Qty: {item.quantity}
+                          </p>
+                          <p className="text-sm font-bold text-muted-foreground">
+                            Price: {formatPrice(item.unitPrice || 0)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-black text-foreground">
+                          {formatPrice((item.unitPrice || 0) * item.quantity)}
+                        </p>
+                        <p className={cn(
+                            "text-[10px] font-bold uppercase",
+                            "text-green-600"
+                        )}>
+                          Active
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xl font-black text-foreground">
-                        {formatPrice(item.price * item.quantity)}
-                      </p>
-                      <p className="text-[10px] font-bold text-green-600 uppercase">
-                        Stock: In Hand
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="p-8 bg-muted/10 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
@@ -342,9 +396,12 @@ export default function AdminOrderDetails({
                       <CreditCard className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold">{order.paymentMethod}</p>
+                      <p className="text-sm font-bold capitalize">{order.paymentMethod?.replace(/_/g, ' ') || 'Credit Card'}</p>
                       <p className="text-xs font-medium text-muted-foreground">
-                        Transaction ID: TXN_829402948
+                        Status: <span className={cn(
+                            "font-black uppercase tracking-widest",
+                            order.paymentStatus === 'paid' ? 'text-green-600' : 'text-amber-600'
+                        )}>{order.paymentStatus}</span>
                       </p>
                     </div>
                   </div>
@@ -361,7 +418,7 @@ export default function AdminOrderDetails({
                   {order.discount > 0 && (
                     <div className="flex justify-between items-center text-sm text-rose-600">
                       <span className="font-bold flex items-center gap-1.5">
-                        Discount ({order.discountCode})
+                        Discount
                       </span>
                       <span className="font-black">
                         -{formatPrice(order.discount)}
@@ -373,15 +430,25 @@ export default function AdminOrderDetails({
                       Shipping Fee
                     </span>
                     <span className="font-bold text-foreground">
-                      {formatPrice(order.shipping)}
+                      {formatPrice(order.shippingCost || 0)}
                     </span>
                   </div>
+                  {order.discount > 0 && (
+                    <div className="flex justify-between items-center text-sm text-rose-600">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <Layers className="h-3 w-3" /> Applied Discount
+                      </span>
+                      <span className="font-black">
+                        -{formatPrice(order.discount)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-bold text-muted-foreground">
                       Estimated Tax
                     </span>
                     <span className="font-bold text-foreground">
-                      {formatPrice(order.tax)}
+                      {formatPrice(order.tax || 0)}
                     </span>
                   </div>
                   <div className="h-px bg-border my-2" />
@@ -390,7 +457,7 @@ export default function AdminOrderDetails({
                       Total Amount
                     </span>
                     <span className="text-3xl font-black text-primary">
-                      {formatPrice(order.total)}
+                      {formatPrice(order.totalAmount)}
                     </span>
                   </div>
                 </div>
@@ -406,7 +473,7 @@ export default function AdminOrderDetails({
             </h3>
             <div className="space-y-10 relative">
               <div className="absolute left-6 top-2 bottom-2 w-0.5 bg-muted" />
-              {timeline.map((event, i) => (
+              {order.timeline?.map((event: any, i: number) => (
                 <div key={i} className="flex gap-10 relative">
                   <div className="w-12 h-12 bg-primary rounded-md flex items-center justify-center text-white z-10 shadow-lg shadow-primary/20">
                     <CheckCircle2 className="h-6 w-6" />
@@ -414,16 +481,16 @@ export default function AdminOrderDetails({
                   <div className="flex-1 space-y-1 pt-1">
                     <div className="flex items-center justify-between">
                       <h4 className="font-black text-foreground uppercase text-sm tracking-wide">
-                        {event.status}
+                        {event.status.replace(/_/g, ' ')}
                       </h4>
                       <span className="text-xs font-black text-muted-foreground">
-                        {event.date}
+                        {new Date(event.timestamp).toLocaleDateString()} {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                     <p className="text-sm font-medium text-muted-foreground italic leading-relaxed">
-                      &quot;{event.note}&quot; —{" "}
-                      <span className="font-bold text-foreground not-italic">
-                        {event.actor}
+                      &quot;{event.note || 'Status updated'}&quot; —{" "}
+                      <span className="font-bold text-foreground not-italic capitalize">
+                        {event.actor || 'System'}
                       </span>
                     </p>
                   </div>
@@ -446,15 +513,14 @@ export default function AdminOrderDetails({
               </p>
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-[24px] bg-white border border-border text-primary flex items-center justify-center text-2xl font-black shadow-sm">
-                  {order.customer.name.charAt(0)}
+                  {order.user?.username?.charAt(0) || "U"}
                 </div>
                 <div>
                   <h3 className="text-xl font-black leading-tight text-foreground">
-                    {order.customer.name}
+                    {order.user?.username || `${order.user?.firstName} ${order.user?.lastName}` || "Guest"}
                   </h3>
                   <p className="text-muted-foreground text-sm font-medium">
-                    Customer Hash:{" "}
-                    {order.customer.email.split("@")[0].toUpperCase()}
+                    Email: {order.user?.email || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -469,7 +535,7 @@ export default function AdminOrderDetails({
                     Email Address
                   </p>
                   <p className="font-bold text-foreground">
-                    {order.customer.email}
+                    {order.user?.email || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -482,7 +548,7 @@ export default function AdminOrderDetails({
                     Phone Number
                   </p>
                   <p className="font-bold text-foreground">
-                    {order.customer.phone}
+                    {order.shippingAddress?.phone || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -501,27 +567,39 @@ export default function AdminOrderDetails({
                   Recipient
                 </p>
                 <p className="text-base font-black">
-                  {order.shippingAddress.recipientName}
+                  {order.shippingAddress?.fullName || `${order.user?.firstName} ${order.user?.lastName}`}
                 </p>
-                <p className="font-medium flex items-center gap-2">
-                  <Phone className="h-3 w-3" /> {order.shippingAddress.phone}
+                <p className="font-medium flex items-center gap-2 text-primary">
+                  <Phone className="h-3.5 w-3.5" /> {order.shippingAddress?.phone || order.user?.phone || 'N/A'}
                 </p>
               </div>
               <div className="space-y-1 text-sm font-bold text-foreground">
                 <p className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-1">
                   Address
                 </p>
-                <p className="font-bold">{order.shippingAddress.address}</p>
+                <p className="font-bold">{order.shippingAddress?.street}</p>
                 <p className="text-muted-foreground font-medium uppercase text-[11px] tracking-wider">
-                  {order.shippingAddress.city}, {order.shippingAddress.country}
+                  {order.shippingAddress?.city}, {order.shippingAddress?.state}, {order.shippingAddress?.country} {order.shippingAddress?.zipCode}
                 </p>
               </div>
-              {order.shippingAddress.deliveryNote && (
-                <div className="p-4 rounded-md bg-amber-50 border border-amber-100 italic text-xs font-medium text-amber-900">
-                  <p className="font-black not-italic text-[10px] uppercase mb-1">
-                    Checkout Instruction:
-                  </p>
-                  &quot;{order.shippingAddress.deliveryNote}&quot;
+              {(order.customerNote || order.adminNote) && (
+                <div className="p-4 rounded-md bg-amber-50 border border-amber-100 italic text-xs font-medium text-amber-900 space-y-2">
+                  {order.customerNote && (
+                      <div>
+                        <p className="font-black not-italic text-[10px] uppercase mb-1 flex items-center gap-1.5">
+                            <MessageSquare className="h-3 w-3" /> Customer Instruction:
+                        </p>
+                        &quot;{order.customerNote}&quot;
+                      </div>
+                  )}
+                  {order.adminNote && (
+                      <div>
+                        <p className="font-black not-italic text-[10px] uppercase mb-1 flex items-center gap-1.5">
+                            <FileText className="h-3 w-3" /> Internal Note:
+                        </p>
+                        &quot;{order.adminNote}&quot;
+                      </div>
+                  )}
                 </div>
               )}
             </div>
@@ -543,24 +621,25 @@ export default function AdminOrderDetails({
               Administrative Notes
             </h4>
             <div className="space-y-4">
-              {internalNotes.map((note) => (
+              {order.adminNote ? (
                 <div
-                  key={note.id}
                   className="p-4 rounded-md bg-muted/20 border border-border/40 space-y-2"
                 >
                   <p className="text-xs font-medium text-muted-foreground italic leading-relaxed">
-                    &quot;{note.text}&quot;
+                    &quot;{order.adminNote}&quot;
                   </p>
                   <div className="flex items-center justify-between pt-1 border-t border-border/20">
                     <span className="text-[10px] font-black uppercase text-primary">
-                      {note.author}
+                      Admin
                     </span>
                     <span className="text-[9px] font-bold text-muted-foreground">
-                      {note.date}
+                      Latest note
                     </span>
                   </div>
                 </div>
-              ))}
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-4">No internal notes yet.</p>
+              )}
             </div>
             <div className="space-y-3">
               <textarea
@@ -572,9 +651,10 @@ export default function AdminOrderDetails({
               <Button
                 className="w-full rounded-md h-11 font-bold"
                 onClick={addNote}
+                disabled={updateStatusMutation.isPending}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Internal Note
+                {updateStatusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                Save Internal Note
               </Button>
             </div>
           </Card>
