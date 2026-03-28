@@ -225,3 +225,10 @@ export async function validateDiscountCode(
   >("/discounts/validate", { code });
   return response.data.data!;
 }
+
+export async function fetchActiveDiscounts(): Promise<AdminDiscount[]> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminDiscount[]>>(
+    "/discounts/active",
+  );
+  return response.data.data ?? [];
+}

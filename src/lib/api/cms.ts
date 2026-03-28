@@ -71,7 +71,10 @@ export interface FetchAdminCmsPagesParams {
   pageType?: CmsPageType;
   featured?: "true" | "false";
   categoryId?: string;
-  sort?: "status" | "pageType" | "createdAt" | "featured";
+  language?: string;
+  from?: string;
+  to?: string;
+  sort?: "status" | "pageType" | "createdAt" | "featured" | "publishedAt" | "title";
   order?: "asc" | "desc";
 }
 
@@ -106,6 +109,9 @@ function buildQuery(params: FetchAdminCmsPagesParams): string {
   if (params.pageType) q.set("pageType", params.pageType);
   if (params.featured) q.set("featured", params.featured);
   if (params.categoryId) q.set("categoryId", params.categoryId);
+  if (params.language) q.set("language", params.language);
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
   if (params.sort) q.set("sort", params.sort);
   if (params.order) q.set("order", params.order);
   const str = q.toString();
@@ -116,7 +122,30 @@ function defaultPagination(limit = 10): ApiPagination {
   return { total: 0, page: 1, limit, pages: 1, hasNext: false, hasPrev: false };
 }
 
-/* ─── API functions ─────────────────────────────────────────── */
+/* ─── Public API functions ──────────────────────────────────── */
+
+export async function fetchPublicCmsPages(
+  params: FetchAdminCmsPagesParams = {},
+): Promise<FetchAdminCmsPagesResult> {
+  const response = await apiClient.get<ApiSuccessResponse<CmsPage[]>>(
+    `/cms${buildQuery(params)}`,
+  );
+  return {
+    data: response.data.data ?? [],
+    pagination:
+      response.data.pagination ?? defaultPagination(params.limit ?? 10),
+  };
+}
+
+export async function fetchPublicCmsPageBySlug(slug: string): Promise<CmsPage> {
+  const response = await apiClient.get<ApiSuccessResponse<CmsPage>>(
+    `/cms/slug/${slug}`,
+  );
+  if (!response.data.data) throw new Error("Content not found");
+  return response.data.data;
+}
+
+/* ─── Admin API functions ───────────────────────────────────── */
 
 export async function fetchAdminCmsPages(
   params: FetchAdminCmsPagesParams = {},

@@ -109,6 +109,16 @@ function defaultPagination(limit = 10): ApiPagination {
   };
 }
 
+export async function submitFeedback(payload: any): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    "/feedback",
+    payload,
+  );
+  return response.data;
+}
+
+/* ─── Admin API functions ───────────────────────────────────── */
+
 export async function fetchAdminFeedback(
   params: FetchAdminFeedbackParams = {},
 ): Promise<FetchAdminFeedbackResult> {

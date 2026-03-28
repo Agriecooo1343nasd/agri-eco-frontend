@@ -17,8 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { MessageCircle, Send, Star, CheckCircle } from "lucide-react";
+import { MessageCircle, Send, Star, CheckCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { submitFeedback } from "@/lib/api/feedback";
 
 const feedbackTypes = [
   "General",
@@ -30,24 +31,56 @@ const feedbackTypes = [
 
 export default function Feedback() {
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    name: "",
+    fullName: "",
     email: "",
     phone: "",
-    type: "General",
+    type: "General" as any,
     rating: 0,
+    subject: "",
     message: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      toast.error("Please fill in all required fields.");
+    
+    if (form.rating === 0) {
+      toast.error("Please provide a rating.");
       return;
     }
-    // In production, this would save to backend
-    setSubmitted(true);
-    toast.success("Thank you! Your feedback has been submitted.");
+
+    setLoading(true);
+    try {
+      // Map UI types to backend enum values
+      const typeMap: Record<string, string> = {
+        "General": "general",
+        "Bug Report": "bug_report",
+        "Feature Request": "feature_request",
+        "Compliment": "compliment",
+        "Complaint": "complaint"
+      };
+
+      await submitFeedback({
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone || undefined,
+        type: (typeMap[form.type] || "general") as any,
+        rating: form.rating,
+        subject: form.subject || `Feedback: ${form.type}`,
+        message: form.message,
+      });
+      
+      setSubmitted(true);
+      toast.success("Thank you! Your feedback has been submitted.");
+    } catch (error: any) {
+      console.error("Feedback submission failed:", error);
+      toast.error("Submission Failed", {
+        description: error.response?.data?.message || "There was an error submitting your feedback. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -70,11 +103,12 @@ export default function Feedback() {
               onClick={() => {
                 setSubmitted(false);
                 setForm({
-                  name: "",
+                  fullName: "",
                   email: "",
                   phone: "",
-                  type: "General",
+                  type: "General" as any,
                   rating: 0,
+                  subject: "",
                   message: "",
                 });
               }}
@@ -119,8 +153,8 @@ export default function Feedback() {
                     Full Name <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    value={form.fullName}
+                    onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                     placeholder="Your name"
                     required
                   />
@@ -174,6 +208,15 @@ export default function Feedback() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Subject (optional)</Label>
+                <Input
+                  value={form.subject}
+                  onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                  placeholder="Summarize your feedback"
+                />
+              </div>
+
               {/* Star rating */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
@@ -215,9 +258,13 @@ export default function Feedback() {
                 />
               </div>
 
-              <Button type="submit" className="w-full gap-2">
-                <Send className="h-4 w-4" />
-                Submit Feedback
+              <Button type="submit" className="w-full gap-2" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {loading ? "Submitting..." : "Submit Feedback"}
               </Button>
             </form>
           </CardContent>

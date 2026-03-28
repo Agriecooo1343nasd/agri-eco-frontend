@@ -21,23 +21,57 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { submitContact } from "@/lib/api/contacts";
 
 const ContactPage = () => {
   const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    subject: "",
+    message: "",
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      toast.success("Message Sent!", {
-        description:
-          "Thank you for reaching out. We will get back to you within 24 hours.",
+    try {
+      // Split full name into first and last for backend
+      const names = formData.fullName.trim().split(/\s+/);
+      const firstName = names[0] || "";
+      const lastName = names.slice(1).join(" ") || "";
+
+      await submitContact({
+        firstName,
+        lastName,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
       });
-      (e.target as HTMLFormElement).reset();
-    }, 1500);
+
+      toast.success("Message Sent!", {
+        description: "Thank you for reaching out. We will get back to you soon.",
+      });
+      
+      setFormData({
+        fullName: "",
+        email: "",
+        subject: "",
+        message: "",
+      });
+    } catch (error: any) {
+      console.error("Contact submission failed:", error);
+      toast.error("Submission Failed", {
+        description: error.response?.data?.message || "There was an error sending your message. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -165,6 +199,9 @@ const ContactPage = () => {
                         Full Name
                       </label>
                       <Input
+                        name="fullName"
+                        value={formData.fullName}
+                        onChange={handleChange}
                         placeholder="e.g. Jean Doe"
                         required
                         className="h-14 rounded-xl border-border bg-muted/20 focus:bg-white transition-all text-lg"
@@ -175,6 +212,9 @@ const ContactPage = () => {
                         Email Address
                       </label>
                       <Input
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
                         type="email"
                         placeholder="e.g. jean@example.com"
                         required
@@ -188,6 +228,9 @@ const ContactPage = () => {
                       Subject
                     </label>
                     <Input
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
                       placeholder="How can we help?"
                       required
                       className="h-14 rounded-xl border-border bg-muted/20 focus:bg-white transition-all text-lg"
@@ -199,6 +242,9 @@ const ContactPage = () => {
                       Your Message
                     </label>
                     <Textarea
+                      name="message"
+                      value={formData.message}
+                      onChange={handleChange}
                       placeholder="Write your details here..."
                       required
                       className="min-h-[180px] rounded-2xl border-border bg-muted/20 focus:bg-white transition-all text-lg p-4 resize-none"
