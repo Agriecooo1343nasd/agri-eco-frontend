@@ -348,6 +348,14 @@ export async function fetchAdminPartners(
   };
 }
 
+export async function submitPartnerApplication(payload: any): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    "/partners/apply",
+    payload,
+  );
+  return response.data;
+}
+
 export async function fetchAdminPartnerStats(): Promise<AdminPartnerStats> {
   const response =
     await apiClient.get<ApiSuccessResponse<AdminPartnerStats>>(

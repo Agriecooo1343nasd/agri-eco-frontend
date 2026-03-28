@@ -161,6 +161,56 @@ function buildArtisansQuery(params: FetchAdminArtisansParams): string {
   return queryString ? `?${queryString}` : "";
 }
 
+export async function fetchArtisans(
+  params: FetchAdminArtisansParams,
+): Promise<FetchAdminArtisansResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminArtisan[]>>(
+    `/artisans${buildArtisansQuery(params)}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? {
+      total: 0,
+      page: 1,
+      limit: params.limit ?? 10,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+}
+
+export async function fetchArtisanById(id: string): Promise<AdminArtisan> {
+  // NOTE: Currently using admin endpoint as there's no public detail endpoint in swagger
+  const response = await apiClient.get<ApiSuccessResponse<AdminArtisan>>(
+    `/artisans/admin/${id}`,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Artisan not found");
+  }
+
+  return response.data.data;
+}
+
+export async function submitArtisanApplication(payload: any): Promise<any> {
+  // Ensure shortDescription and fullStory are objects if they are strings
+  const formattedPayload = { ...payload };
+  if (typeof formattedPayload.shortDescription === "string") {
+    formattedPayload.shortDescription = { en: formattedPayload.shortDescription };
+  }
+  if (typeof formattedPayload.fullStory === "string") {
+    formattedPayload.fullStory = { en: formattedPayload.fullStory };
+  }
+
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    "/artisans/applications",
+    formattedPayload,
+  );
+  return response.data;
+}
+
 function buildArtisanProductsQuery(
   params: FetchAdminArtisanProductsParams,
 ): string {
