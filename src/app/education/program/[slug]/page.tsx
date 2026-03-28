@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { trainingPrograms } from "@/data/education";
+import { fetchTrainingProgramBySlug } from "@/lib/api/education";
+import { useLanguage } from "@/context/LanguageContext";
 import {
   ArrowLeft,
   Clock,
@@ -80,9 +82,53 @@ const setModuleCompletion = (programId: string, moduleId: string) => {
 };
 
 export default function ProgramDetail() {
-  const { id } = useParams();
-  const program = trainingPrograms.find((p) => p.id === id);
+  const { slug } = useParams();
+  const router = useRouter();
+  const { t } = useLanguage();
   const { formatPrice } = usePricing();
+
+  const { data: apiProgram, isLoading, isError } = useQuery({
+    queryKey: ["trainingProgram", slug],
+    queryFn: () => fetchTrainingProgramBySlug(slug as string),
+    enabled: !!slug,
+  });
+
+  const program = apiProgram
+    ? {
+        ...apiProgram,
+        price: apiProgram.priceRwf,
+        image:
+          apiProgram.heroImage ||
+          apiProgram.coverImage ||
+          "/assets/tours/educational.jpg",
+        modules: (apiProgram.curriculum || []).map((m: any, idx: number) => ({
+          ...m,
+          order: m.order || idx + 1,
+          id: m.id || `m-${idx}`,
+        })),
+        duration: { en: `${apiProgram.durationWeeks} Weeks` },
+        level: { en: apiProgram.level },
+        startDate: {
+          en: apiProgram.startDate
+            ? new Date(apiProgram.startDate).toLocaleDateString()
+            : "TBD",
+        },
+        maxParticipants: apiProgram.capacity || 0,
+        enrolled: 0, // Placeholder
+        status: "open", // Placeholder
+        topics: (apiProgram.topics || []).map((t: any) => t.name),
+        description: apiProgram.shortDescription || apiProgram.fullDescription,
+        longDescription: apiProgram.fullDescription,
+        certificateTemplate: apiProgram.certificateTemplate || null,
+        instructor: apiProgram.instructor || null,
+        instructorBio: apiProgram.instructorBio || null,
+        requirements: apiProgram.requirements || [],
+        whatYouGet: apiProgram.whatYouGet || [],
+        certificate: apiProgram.type === "certification",
+        location: apiProgram.location || null,
+        language: { en: apiProgram.language === "en" ? "English" : apiProgram.language === "rw" ? "Kinyarwanda" : apiProgram.language },
+      }
+    : null;
 
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
@@ -95,7 +141,7 @@ export default function ProgramDetail() {
   // Module completion tracking
   const [moduleCompletions, setModuleCompletionsState] = useState<
     Record<string, boolean>
-  >(() => (id ? getModuleCompletions(id as string) : {}));
+  >(() => (slug ? getModuleCompletions(slug as string) : {}));
 
   // Quiz state per module
   const [activeQuizModule, setActiveQuizModule] = useState<string | null>(null);
@@ -111,7 +157,7 @@ export default function ProgramDetail() {
   const [quizPassed, setQuizPassed] = useState<Record<string, boolean>>(() => {
     try {
       return typeof window !== "undefined"
-        ? JSON.parse(localStorage.getItem(`quizPassed_${id}`) || "{}")
+        ? JSON.parse(localStorage.getItem(`quizPassed_${slug}`) || "{}")
         : {};
     } catch {
       return {};
@@ -123,12 +169,25 @@ export default function ProgramDetail() {
       const enrolled = JSON.parse(
         localStorage.getItem("enrolledPrograms") || "[]",
       );
-      return enrolled.includes(id);
+      return enrolled.includes(slug);
     }
     return false;
   });
 
-  if (!program) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-20 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground text-sm">Loading program details...</p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (isError || !program) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -137,7 +196,7 @@ export default function ProgramDetail() {
             Program Not Found
           </h1>
           <p className="text-muted-foreground mb-6">
-            The training program you&apos;re looking for doesn&apos;t exist.
+            The training program you&apos;re looking for doesn&apos;t exist or something went wrong.
           </p>
           <Button asChild>
             <Link href="/education">Back to Education</Link>
@@ -177,12 +236,24 @@ export default function ProgramDetail() {
       : 0;
 
   const markModuleComplete = (moduleId: string) => {
-    if (!id) return;
-    setModuleCompletion(id as string, moduleId);
+    if (!slug) return;
+    setModuleCompletion(slug as string, moduleId);
     setModuleCompletionsState((prev) => ({ ...prev, [moduleId]: true }));
     toast.success("Module Completed!", {
       description: "Great progress! Move on to the next module.",
     });
+  };
+
+  const toggleModule = (moduleId: string) => {
+    if (expandedModule === moduleId) {
+      setExpandedModule(null);
+    } else {
+      setExpandedModule(moduleId);
+      if (isEnrolled) {
+        setModuleCompletion(slug as string, moduleId);
+        setModuleCompletionsState(getModuleCompletions(slug as string));
+      }
+    }
   };
 
   const handleEnroll = (e: React.FormEvent) => {
@@ -194,12 +265,12 @@ export default function ProgramDetail() {
       const enrolled = JSON.parse(
         localStorage.getItem("enrolledPrograms") || "[]",
       );
-      if (!enrolled.includes(id)) enrolled.push(id);
+      if (!enrolled.includes(slug)) enrolled.push(slug);
       localStorage.setItem("enrolledPrograms", JSON.stringify(enrolled));
       setIsEnrolled(true);
       toast.success(isFree ? "Enrollment Successful!" : "Payment Processing", {
         description: isFree
-          ? `You're now enrolled in "${program.title}". Check your email for details.`
+          ? `You're now enrolled in "${program.title.en}". Check your email for details.`
           : "Your enrollment is being processed. You'll receive a confirmation shortly.",
       });
     }, 1500);
@@ -209,7 +280,7 @@ export default function ProgramDetail() {
     e.preventDefault();
     setNotifyDialogOpen(false);
     toast.success("Notification Set!", {
-      description: `We'll notify you when "${program.title}" opens for enrollment.`,
+      description: `We'll notify you when "${program.title.en}" opens for enrollment.`,
     });
   };
 
@@ -250,13 +321,17 @@ export default function ProgramDetail() {
     total: number,
     passingScore: number,
   ) => {
-    const pct = Math.round((score / total) * 100);
-    if (pct >= passingScore) {
-      // Mark quiz as passed and module as completed
-      const newPassed = { ...quizPassed, [moduleId]: true };
-      setQuizPassed(newPassed);
-      localStorage.setItem(`quizPassed_${id}`, JSON.stringify(newPassed));
-      markModuleComplete(moduleId);
+    const activeQuiz = program.modules.find((m) => m.id === moduleId)?.quiz;
+    if (quizFinished) {
+      if (quizScore >= (activeQuiz?.passingScore || 0)) {
+        const current = { ...quizPassed, [moduleId]: true };
+        setQuizPassed(current);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`quizPassed_${slug}`, JSON.stringify(current));
+        }
+        setModuleCompletion(slug as string, moduleId);
+        setModuleCompletionsState(getModuleCompletions(slug as string));
+      }
     }
     setActiveQuizModule(null);
   };
@@ -300,14 +375,14 @@ export default function ProgramDetail() {
 <div class="cert">
   <img src="/assets/logo/logo.png" class="logo-img" alt="Agri-Eco Connect">
   <div class="subtitle">Certificate of Completion</div>
-  <h1>${program.certificateTemplate?.title.en || "Certificate of Achievement"}</h1>
+  <h1>${program?.certificateTemplate?.title?.en || "Certificate of Achievement"}</h1>
   <p class="certifies">This certifies that</p>
   <p class="name">[Your Name]</p>
-  <p class="desc">${program.certificateTemplate?.description.en || `Has successfully completed all modules of "${program.title.en}"`}</p>
+  <p class="desc">${program?.certificateTemplate?.description?.en || `Has successfully completed all modules of "${program?.title?.en || "the program"}"`}</p>
   <div class="footer">
     <div class="sig"><div class="title">Date of Completion</div><div class="line">${new Date().toLocaleDateString()}</div></div>
     <div class="qr">QR Code</div>
-    <div class="sig"><div class="title">${program.certificateTemplate?.signatoryTitle || "Director"}</div><div class="line">${program.certificateTemplate?.signatoryName || "Agri-Eco Connect"}</div></div>
+    <div class="sig"><div class="title">${program?.certificateTemplate?.signatoryTitle || "Director"}</div><div class="line">${program?.certificateTemplate?.signatoryName || "Agri-Eco Connect"}</div></div>
   </div>
 </div></body></html>`;
     const blob = new Blob([certHtml], { type: "text/html" });
@@ -567,7 +642,7 @@ export default function ProgramDetail() {
                                 </p>
 
                                 {/* Content blocks */}
-                                {mod.contentBlocks.map((block) => (
+                                {mod.contentBlocks.map((block: any) => (
                                   <div
                                     key={block.id}
                                     className="flex items-start gap-3 bg-card border border-border rounded-lg p-3"
@@ -617,7 +692,7 @@ export default function ProgramDetail() {
                                         <ul className="mt-2 space-y-1">
                                           {block.content.en
                                             .split("|")
-                                            .map((item) => (
+                                            .map((item: string) => (
                                               <li
                                                 key={item}
                                                 className="flex items-center gap-2 text-xs text-foreground"
@@ -708,7 +783,7 @@ export default function ProgramDetail() {
                                         <div className="space-y-2">
                                           {mod.quiz!.questions[
                                             quizCurrentQ
-                                          ].options.map((opt, oi) => (
+                                          ].options.map((opt: any, oi: number) => (
                                             <button
                                               key={oi}
                                               onClick={() =>

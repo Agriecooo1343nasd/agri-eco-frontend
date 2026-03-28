@@ -42,6 +42,12 @@ export interface TrainingProgram {
   endDate?: string;
   createdAt: string;
   updatedAt: string;
+  instructor?: MultiLangText;
+  instructorBio?: MultiLangText;
+  requirements?: MultiLangText[];
+  whatYouGet?: MultiLangText[];
+  certificateTemplate?: any;
+  location?: MultiLangText;
 }
 
 export interface AdminTrainingProgram extends TrainingProgram {}
@@ -160,6 +166,20 @@ export async function fetchTrainingPrograms(
       hasPrev: false,
     },
   };
+}
+
+export async function fetchTrainingProgramById(
+  id: string,
+): Promise<TrainingProgram> {
+  const response = await apiClient.get<ApiSuccessResponse<TrainingProgram>>(
+    `/training-programs/${id}`,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Program not found");
+  }
+
+  return response.data.data;
 }
 
 export async function fetchTrainingProgramBySlug(
