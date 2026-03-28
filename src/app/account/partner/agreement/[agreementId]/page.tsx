@@ -1,153 +1,44 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/context/AuthContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePricing } from "@/context/PricingContext";
-import type { Partner } from "@/data/community";
-import { getPartnerApplications, getPartners } from "@/lib/partner-store";
-
-function buildMockPartner(
-  name?: string | null,
-  email?: string | null,
-): Partner {
-  return {
-    id: "mock-partner",
-    businessName: "Demo Eco Tours",
-    contactPerson: name || "Partner User",
-    email: email || "partner@example.com",
-    phone: "+250 788 000 000",
-    type: "tourism-operator",
-    aboutBusiness:
-      "A showcase partner profile used when your account is not linked to a live partner yet.",
-    status: "active",
-    networkStatus: "verified",
-    commissionRate: 12,
-    partnerSharePercent: 88,
-    platformSharePercent: 12,
-    grossRevenue: 2400000,
-    partnerEarnings: 2112000,
-    platformEarnings: 288000,
-    payoutCycle: "monthly",
-    payoutStatus: "paid",
-    lastPayoutDate: "2026-03-05",
-    totalBookings: 28,
-    totalRevenue: 2400000,
-    joinedDate: "2025-11-14",
-    contractStartDate: "2025-11-14",
-    contractEndDate: "2027-11-13",
-    agreements: [
-      {
-        id: "mock-agr-1",
-        title: "Partnership Service Agreement",
-        status: "active",
-        version: "v2.0",
-        effectiveDate: "2025-11-14",
-        endDate: "2027-11-13",
-        termsSummary:
-          "Defines booking distribution, revenue sharing, quality standards, and guest support expectations.",
-        updatedAt: "2026-02-10",
-      },
-      {
-        id: "mock-agr-2",
-        title: "Regional Campaign Addendum",
-        status: "expired",
-        version: "v1.1",
-        effectiveDate: "2025-08-01",
-        endDate: "2025-12-20",
-        termsSummary:
-          "Campaign-based commission incentives for seasonal group and school tours.",
-        updatedAt: "2025-12-20",
-      },
-      {
-        id: "mock-agr-3",
-        title: "Corporate Group Contract",
-        status: "terminated",
-        version: "v1.0",
-        effectiveDate: "2025-04-10",
-        endDate: "2025-06-30",
-        termsSummary:
-          "Corporate package contract terminated after delivery scope change by client.",
-        updatedAt: "2025-06-30",
-      },
-    ],
-    packages: [],
-    payouts: [
-      {
-        id: "mock-pay-1",
-        amount: 310000,
-        date: "2026-03-05",
-        period: "March 2026",
-        agreementId: "mock-agr-1",
-        agreementTitle: "Partnership Service Agreement",
-        status: "paid",
-      },
-      {
-        id: "mock-pay-2",
-        amount: 295000,
-        date: "2026-02-28",
-        period: "February 2026",
-        agreementId: "mock-agr-1",
-        agreementTitle: "Partnership Service Agreement",
-        status: "paid",
-      },
-      {
-        id: "mock-pay-3",
-        amount: 280000,
-        date: "2026-01-31",
-        period: "January 2026",
-        agreementId: "mock-agr-1",
-        agreementTitle: "Partnership Service Agreement",
-        status: "paid",
-      },
-    ],
-  };
-}
+import { fetchPartnerMe, fetchPartnerAgreementById } from "@/lib/api/partners";
 
 export default function AgreementDetailsPage() {
   const params = useParams<{ agreementId: string }>();
-  const { user } = useAuth();
   const { formatPrice } = usePricing();
 
-  const partners = getPartners();
-  const applications = getPartnerApplications();
-  const userEmail = user?.email?.toLowerCase();
+  const { data: partnerData, isLoading: isLoadingPartner } = useQuery({
+    queryKey: ["partner-me"],
+    queryFn: fetchPartnerMe,
+    retry: false
+  });
 
-  const partner = userEmail
-    ? partners.find((entry) => entry.email.toLowerCase() === userEmail) || null
-    : null;
+  const { data: agreement, isLoading: isLoadingAgreement } = useQuery({
+    queryKey: ["partner-agreement", params.agreementId],
+    queryFn: () => fetchPartnerAgreementById(params.agreementId),
+    retry: false
+  });
 
-  const userApplication = userEmail
-    ? applications.find((entry) => entry.email.toLowerCase() === userEmail) ||
-      null
-    : null;
+  if (isLoadingPartner || isLoadingAgreement) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-[40px] w-32" />
+        <Skeleton className="h-[300px] w-full" />
+      </div>
+    );
+  }
 
-  const displayPartner =
-    partner ||
-    (!userApplication ? buildMockPartner(user?.name, user?.email) : null);
+  const displayPartner = partnerData;
 
-  const agreement = useMemo(
-    () =>
-      displayPartner?.agreements.find(
-        (entry) => entry.id === params.agreementId,
-      ) || null,
-    [displayPartner, params.agreementId],
-  );
-
-  const paidTotal = useMemo(() => {
-    if (!displayPartner || !agreement) return 0;
-    return (displayPartner.payouts ?? [])
-      .filter(
-        (entry) =>
-          entry.agreementId === agreement.id && entry.status === "paid",
-      )
-      .reduce((sum, entry) => sum + entry.amount, 0);
-  }, [displayPartner, agreement]);
+  const paidTotal = agreement?.paidToDate || 0;
 
   if (!displayPartner || !agreement) {
     return (
@@ -178,7 +69,7 @@ export default function AgreementDetailsPage() {
           Agreement Details
         </h1>
         <p className="text-xs text-muted-foreground">
-          {displayPartner.businessName}
+          {displayPartner.name}
         </p>
       </div>
 
@@ -199,15 +90,15 @@ export default function AgreementDetailsPage() {
               </p>
               <p>
                 <span className="text-muted-foreground">Effective:</span>{" "}
-                {agreement.effectiveDate}
+                {new Date(agreement.effectiveDate).toLocaleDateString()}
               </p>
               <p>
                 <span className="text-muted-foreground">End Date:</span>{" "}
-                {agreement.endDate || "Open"}
+                {agreement.endDate ? new Date(agreement.endDate).toLocaleDateString() : "Open"}
               </p>
               <p>
                 <span className="text-muted-foreground">Last Updated:</span>{" "}
-                {agreement.updatedAt}
+                {agreement.updatedAt ? new Date(agreement.updatedAt).toLocaleDateString() : "-"}
               </p>
             </div>
             <div className="border border-border rounded-lg p-3 space-y-1">
@@ -217,7 +108,7 @@ export default function AgreementDetailsPage() {
               </p>
               <p>
                 <span className="text-muted-foreground">Partner:</span>{" "}
-                {displayPartner.contactPerson}
+                {displayPartner.contactName}
               </p>
               <p>
                 <span className="text-muted-foreground">Business Email:</span>{" "}

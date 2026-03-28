@@ -41,6 +41,10 @@ import {
 } from "@/lib/partner-store";
 import { toast } from "sonner";
 
+import { useQuery } from "@tanstack/react-query";
+import { fetchPartnerMe, fetchPartnerAgreements } from "@/lib/api/partners";
+import { Skeleton } from "@/components/ui/skeleton";
+
 const statusBadge: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
   pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -54,169 +58,23 @@ const applicationBadge: Record<string, string> = {
   rejected: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-function buildAgreementEarnings(partner: Partner): Record<string, number> {
-  const earnings: Record<string, number> = {};
-
-  (partner.payouts ?? []).forEach((payout) => {
-    if (payout.status === "paid" && payout.agreementId) {
-      earnings[payout.agreementId] =
-        (earnings[payout.agreementId] || 0) + payout.amount;
-    }
-  });
-
-  return earnings;
-}
-
-function buildMockPartner(
-  name?: string | null,
-  email?: string | null,
-): Partner {
-  return {
-    id: "mock-partner",
-    businessName: "Demo Eco Tours",
-    contactPerson: name || "Partner User",
-    email: email || "partner@example.com",
-    phone: "+250 788 000 000",
-    type: "tourism-operator",
-    aboutBusiness:
-      "A showcase partner profile used when your account is not linked to a live partner yet.",
-    status: "active",
-    networkStatus: "verified",
-    commissionRate: 12,
-    partnerSharePercent: 88,
-    platformSharePercent: 12,
-    grossRevenue: 2400000,
-    partnerEarnings: 2112000,
-    platformEarnings: 288000,
-    payoutCycle: "monthly",
-    payoutStatus: "paid",
-    lastPayoutDate: "2026-03-05",
-    totalBookings: 28,
-    totalRevenue: 2400000,
-    joinedDate: "2025-11-14",
-    contractStartDate: "2025-11-14",
-    contractEndDate: "2027-11-13",
-    agreements: [
-      {
-        id: "mock-agr-1",
-        title: "Partnership Service Agreement",
-        status: "active",
-        version: "v2.0",
-        effectiveDate: "2025-11-14",
-        endDate: "2027-11-13",
-        termsSummary:
-          "Defines booking distribution, revenue-sharing terms, quality standards, and guest support expectations.",
-        updatedAt: "2026-02-10",
-      },
-      {
-        id: "mock-agr-2",
-        title: "Regional Campaign Addendum",
-        status: "expired",
-        version: "v1.1",
-        effectiveDate: "2025-08-01",
-        endDate: "2025-12-20",
-        termsSummary:
-          "Campaign-based commission incentives for seasonal group and school tours.",
-        updatedAt: "2025-12-20",
-      },
-      {
-        id: "mock-agr-3",
-        title: "Corporate Group Contract",
-        status: "terminated",
-        version: "v1.0",
-        effectiveDate: "2025-04-10",
-        endDate: "2025-06-30",
-        termsSummary:
-          "Corporate package contract terminated after delivery scope change by client.",
-        updatedAt: "2025-06-30",
-      },
-    ],
-    packages: [
-      {
-        id: "mock-pkg-1",
-        name: "Farm & Culture Weekend",
-        description: "2-day package with farm immersion and artisan workshop.",
-        tourIds: ["tour-1", "tour-4"],
-        price: 185000,
-        active: true,
-      },
-      {
-        id: "mock-pkg-2",
-        name: "School Eco-Learning Day",
-        description:
-          "Educational day trip package for schools and institutions.",
-        tourIds: ["tour-2"],
-        price: 120000,
-        active: true,
-      },
-    ],
-    payouts: [
-      {
-        id: "mock-pay-1",
-        amount: 310000,
-        date: "2026-03-05",
-        period: "March 2026",
-        agreementId: "mock-agr-1",
-        agreementTitle: "Partnership Service Agreement",
-        status: "paid",
-        notes: "Monthly payout via MTN Mobile Money.",
-      },
-      {
-        id: "mock-pay-2",
-        amount: 295000,
-        date: "2026-02-28",
-        period: "February 2026",
-        agreementId: "mock-agr-1",
-        agreementTitle: "Partnership Service Agreement",
-        status: "paid",
-      },
-      {
-        id: "mock-pay-3",
-        amount: 280000,
-        date: "2026-01-31",
-        period: "January 2026",
-        agreementId: "mock-agr-1",
-        agreementTitle: "Partnership Service Agreement",
-        status: "paid",
-      },
-      {
-        id: "mock-pay-4",
-        amount: 220000,
-        date: "2025-12-20",
-        period: "December 2025",
-        agreementId: "mock-agr-2",
-        agreementTitle: "Regional Campaign Addendum",
-        status: "paid",
-        notes: "Final payment, contract expired.",
-      },
-      {
-        id: "mock-pay-5",
-        amount: 240000,
-        date: "2025-11-30",
-        period: "November 2025",
-        agreementId: "mock-agr-2",
-        agreementTitle: "Regional Campaign Addendum",
-        status: "paid",
-      },
-      {
-        id: "mock-pay-6",
-        amount: 350000,
-        date: "2025-06-30",
-        period: "Q2 2025",
-        agreementId: "mock-agr-3",
-        agreementTitle: "Corporate Group Contract",
-        status: "paid",
-        notes: "Final settlement, contract terminated.",
-      },
-    ],
-  };
-}
-
 export default function AccountPartnerPage() {
   const { user } = useAuth();
   const { formatPrice } = usePricing();
 
-  const [partners] = useState<Partner[]>(() => getPartners());
+  const { data: partnerData, isLoading: isLoadingPartner, isError: isErrorPartner, error: partnerError } = useQuery({
+    queryKey: ["partner-me"],
+    queryFn: fetchPartnerMe,
+    retry: false
+  });
+
+  const { data: partnerAgreements = [], isLoading: isLoadingAgreements } = useQuery({
+    queryKey: ["partner-me-agreements"],
+    queryFn: fetchPartnerAgreements,
+    enabled: !!partnerData,
+    retry: false
+  });
+
   const [applications, setApplications] = useState<PartnerApplication[]>(() =>
     getPartnerApplications(),
   );
@@ -231,34 +89,16 @@ export default function AccountPartnerPage() {
   });
 
   const userEmail = user?.email?.toLowerCase();
-
-  const partner = userEmail
-    ? partners.find((entry) => entry.email.toLowerCase() === userEmail) || null
-    : null;
-
   const userApplication = userEmail
-    ? applications.find((entry) => entry.email.toLowerCase() === userEmail) ||
-      null
+    ? applications.find((entry) => entry.email.toLowerCase() === userEmail) || null
     : null;
 
-  const demoPartner = buildMockPartner(user?.name, user?.email);
-  const displayPartner = partner || (!userApplication ? demoPartner : null);
+  const displayPartner = partnerData; // Using the real partner from the backend API
+  const revenueSummary = displayPartner?.revenueSummary || { gross: 0, earnings: 0, pending: 0, bookings: 0 };
+  
+  const activeAgreements = partnerAgreements.filter((a: any) => a.status === "active");
+  const endedAgreements = partnerAgreements.filter((a: any) => a.status !== "active");
 
-  const agreementEarnings = displayPartner
-    ? buildAgreementEarnings(displayPartner)
-    : {};
-
-  const activeAgreements = displayPartner
-    ? displayPartner.agreements.filter(
-        (agreement) => agreement.status === "active",
-      )
-    : [];
-
-  const endedAgreements = displayPartner
-    ? displayPartner.agreements.filter(
-        (agreement) => agreement.status !== "active",
-      )
-    : [];
 
   const submitApplication = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -312,12 +152,12 @@ export default function AccountPartnerPage() {
                   Partnership Status
                 </p>
                 <Badge
-                  className={`${statusBadge[displayPartner.status]} text-[10px] capitalize`}
+                  className={`${statusBadge[displayPartner.status] || "bg-muted text-muted-foreground"} text-[10px] capitalize`}
                 >
-                  {displayPartner.status}
+                  {displayPartner.status || "Unknown"}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
-                  Network: {displayPartner.networkStatus}
+                  Type: <span className="capitalize">{displayPartner.type?.replace("_", " ")}</span>
                 </p>
               </CardContent>
             </Card>
@@ -328,10 +168,10 @@ export default function AccountPartnerPage() {
                   Gross Revenue
                 </p>
                 <p className="text-lg font-bold">
-                  {formatPrice(displayPartner.grossRevenue)}
+                  {formatPrice(revenueSummary.gross)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Bookings: {displayPartner.totalBookings}
+                  Bookings: {revenueSummary.bookings || 0}
                 </p>
               </CardContent>
             </Card>
@@ -342,10 +182,10 @@ export default function AccountPartnerPage() {
                   Your Earnings
                 </p>
                 <p className="text-lg font-bold">
-                  {formatPrice(displayPartner.partnerEarnings)}
+                  {formatPrice(revenueSummary.earnings)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Share: {displayPartner.partnerSharePercent}%
+                  Pending: {formatPrice(revenueSummary.pending || 0)}
                 </p>
               </CardContent>
             </Card>
@@ -356,10 +196,10 @@ export default function AccountPartnerPage() {
                   Payout Cycle
                 </p>
                 <p className="text-sm font-bold capitalize">
-                  {displayPartner.payoutCycle}
+                  {displayPartner.payoutCycle || "Not configured"}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  {displayPartner.payoutStatus}
+                  Since {displayPartner.createdAt ? new Date(displayPartner.createdAt).toLocaleDateString() : ""}
                 </p>
               </CardContent>
             </Card>
@@ -374,11 +214,11 @@ export default function AccountPartnerPage() {
                 <div className="space-y-1">
                   <p>
                     <span className="text-muted-foreground">Business:</span>{" "}
-                    {displayPartner.businessName}
+                    {displayPartner.name}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Contact:</span>{" "}
-                    {displayPartner.contactPerson}
+                    {displayPartner.contactName}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Email:</span>{" "}
@@ -387,23 +227,17 @@ export default function AccountPartnerPage() {
                 </div>
                 <div className="space-y-1">
                   <p>
-                    <span className="text-muted-foreground">Commission:</span>{" "}
-                    {displayPartner.commissionRate}%
+                    <span className="text-muted-foreground">Default Commission Rate:</span>{" "}
+                    {displayPartner.revenueShareRate || 0}%
                   </p>
                   <p>
-                    <span className="text-muted-foreground">
-                      Platform Share:
-                    </span>{" "}
-                    {displayPartner.platformSharePercent}%
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Last Payout:</span>{" "}
-                    {displayPartner.lastPayoutDate || "Not yet paid"}
+                    <span className="text-muted-foreground">Phone:</span>{" "}
+                    {displayPartner.phone || "N/A"}
                   </p>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                {displayPartner.aboutBusiness}
+                {displayPartner.notes || "Manage your active partner resources, view payouts, and monitor inputs."}
               </p>
             </CardContent>
           </Card>
@@ -414,7 +248,12 @@ export default function AccountPartnerPage() {
                 <FileText className="h-4 w-4" /> Agreements
               </h2>
 
-              {displayPartner.agreements.length === 0 ? (
+              {isLoadingAgreements ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-[80px] w-full rounded-xl" />
+                  <Skeleton className="h-[120px] w-full rounded-xl" />
+                </div>
+              ) : partnerAgreements.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   No agreements found.
                 </p>
@@ -442,7 +281,7 @@ export default function AccountPartnerPage() {
                         Total Contract Earnings
                       </p>
                       <p className="text-sm font-bold mt-2">
-                        {formatPrice(displayPartner.partnerEarnings)}
+                        {formatPrice(revenueSummary.earnings)}
                       </p>
                     </div>
                   </div>
@@ -478,10 +317,8 @@ export default function AccountPartnerPage() {
                           </p>
                           <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                             <p className="text-xs font-medium text-primary">
-                              Earnings:{" "}
-                              {formatPrice(
-                                agreementEarnings[agreement.id] || 0,
-                              )}
+                              Earnings made:{" "}
+                              {formatPrice(agreement.paidToDate || 0)}
                             </p>
                             <div className="flex items-center gap-2">
                               <Button
@@ -547,9 +384,7 @@ export default function AccountPartnerPage() {
                           <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                             <p className="text-xs font-medium text-foreground">
                               Earnings made:{" "}
-                              {formatPrice(
-                                agreementEarnings[agreement.id] || 0,
-                              )}
+                              {formatPrice(agreement.paidToDate || 0)}
                             </p>
                             <div className="flex items-center gap-2">
                               <Button

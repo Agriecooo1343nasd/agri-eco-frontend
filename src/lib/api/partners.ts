@@ -653,3 +653,65 @@ export async function terminateAdminPartner(
 
   return response.data.data;
 }
+
+// ============================================================================
+// Partner Self-Service (Client-facing)
+// ============================================================================
+
+export async function fetchPartnerMe(): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>("/partners/me");
+  if (!response.data.data) throw new Error("Partner profile not found");
+  return response.data.data;
+}
+
+export async function fetchPartnerAgreements(): Promise<any[]> {
+  const response = await apiClient.get<ApiSuccessResponse<any[]>>("/partners/me/agreements");
+  return response.data.data ?? [];
+}
+
+export async function fetchPartnerAgreementById(agreementId: string): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/me/agreements/${agreementId}`);
+  if (!response.data.data) throw new Error("Agreement not found");
+  return response.data.data;
+}
+
+export interface FetchPartnerAgreementQueryParams {
+  page?: number;
+  limit?: number;
+}
+
+export async function fetchPartnerAgreementPayments(
+  agreementId: string,
+  params: FetchPartnerAgreementQueryParams
+): Promise<any> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  const queryString = query.toString() ? `?${query.toString()}` : "";
+  
+  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/me/agreements/${agreementId}/payments${queryString}`);
+  
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10),
+    summary: response.data.meta?.summary ?? {},
+  };
+}
+
+export async function fetchPartnerAgreementInputs(
+  agreementId: string,
+  params: FetchPartnerAgreementQueryParams
+): Promise<any> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  const queryString = query.toString() ? `?${query.toString()}` : "";
+  
+  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/me/agreements/${agreementId}/inputs${queryString}`);
+  
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10),
+    summary: response.data.meta?.summary ?? {},
+  };
+}
