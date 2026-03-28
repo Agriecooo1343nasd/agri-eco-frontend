@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 const slides = [
   {
@@ -85,6 +86,13 @@ const HeroSection = () => {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    slides.forEach((slide) => {
+      const img = new window.Image();
+      img.src = slide.image;
+    });
+  }, []);
+
   return (
     <section className="relative overflow-hidden">
       {/* Main hero carousel */}
@@ -104,9 +112,17 @@ const HeroSection = () => {
               className="absolute inset-0 w-full h-full object-contain"
               loading="eager"
             /> */}
-            <div
+            {/* <div
               className="absolute inset-0 bg-cover bg-center bg-no-repeat"
               style={{ backgroundImage: `url(${slides[current].image})` }}
+            /> */}
+            <Image
+              src={slides[current].image}
+              alt={slides[current].title}
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
           </motion.div>
