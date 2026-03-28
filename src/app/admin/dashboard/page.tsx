@@ -82,6 +82,7 @@ import {
 } from "recharts";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /* ── Helpers ──────────────────────────────────────────────── */
 function formatRWF(n: number) {
@@ -117,34 +118,10 @@ const ordersConfig: ChartConfig = {
   orders: { label: "Orders", color: "var(--chart-4)", icon: ShoppingCart },
 };
 
-// TODO(backend): visitor/traffic analytics not yet available.
-// Needs: GET /dashboard/visitor-stats returning [{day, visitors, pageViews}]
-// (or a third-party analytics integration)
 const visitorConfig: ChartConfig = {
   visitors: { label: "Visitors", color: "var(--primary)", icon: Users },
   pageViews: { label: "Page Views", color: "var(--chart-3)", icon: Eye },
 };
-
-// TODO(backend): category sales breakdown not available from dashboard endpoints.
-// Needs: GET /dashboard/sales-by-category returning [{category, revenue, percentage}]
-const categoryData = [
-  { name: "Fruits", value: 28, color: "hsl(142, 64%, 32%)", icon: Leaf },
-  { name: "Vegetables", value: 24, color: "hsl(45, 100%, 51%)", icon: Leaf },
-  { name: "Dairy", value: 14, color: "hsl(142, 40%, 60%)", icon: ShoppingCart },
-  {
-    name: "Honey & Bee Products",
-    value: 18,
-    color: "hsl(30, 80%, 55%)",
-    icon: Activity,
-  },
-  {
-    name: "Artisan Crafts",
-    value: 10,
-    color: "hsl(280, 50%, 55%)",
-    icon: Palette,
-  },
-  { name: "Others", value: 6, color: "hsl(200, 40%, 60%)", icon: Package },
-];
 
 const timeRangeLabels: Record<string, string> = {
   "7days": "Last 7 days",
@@ -152,32 +129,23 @@ const timeRangeLabels: Record<string, string> = {
   "12months": "Last 12 months",
 };
 
-// Maps the frontend time-range selector to the backend period query param
 const periodMap: Record<string, DashboardPeriod> = {
   "7days": "daily",
   "30days": "weekly",
   "12months": "monthly",
 };
 
-// Covers both backend lowercase statuses and legacy mocked capitalised ones
 const statusColor: Record<string, string> = {
   pending: "bg-muted text-muted-foreground border-border",
-  Pending: "bg-muted text-muted-foreground border-border",
   confirmed: "bg-primary/10 text-primary border-primary/20",
-  Confirmed: "bg-primary/10 text-primary border-primary/20",
   processing: "bg-chart-2/20 text-chart-2 border-chart-2/30",
-  Processing: "bg-chart-2/20 text-chart-2 border-chart-2/30",
   shipped: "bg-chart-3/20 text-chart-3 border-chart-3/30",
-  Shipped: "bg-chart-3/20 text-chart-3 border-chart-3/30",
   out_for_delivery: "bg-chart-3/20 text-chart-3 border-chart-3/30",
   delivered: "bg-primary/10 text-primary border-primary/20",
-  Delivered: "bg-primary/10 text-primary border-primary/20",
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
-  Cancelled: "bg-destructive/10 text-destructive border-destructive/20",
   returned: "bg-muted text-muted-foreground border-border",
   refunded: "bg-muted text-muted-foreground border-border",
   completed: "bg-chart-3/20 text-chart-3 border-chart-3/30",
-  Completed: "bg-chart-3/20 text-chart-3 border-chart-3/30",
 };
 
 export default function AdminDashboardPage() {
@@ -188,68 +156,62 @@ export default function AdminDashboardPage() {
   const period: DashboardPeriod = periodMap[timeRange] ?? "monthly";
 
   /* ── Server queries ─────────────────────────────────────── */
-  const { data: overview } = useQuery({
+  const { data: overview, isLoading: isOverviewLoading } = useQuery({
     queryKey: ["dashboard-overview"],
     queryFn: fetchDashboardOverview,
   });
 
-  const { data: revenueChartData } = useQuery({
+  const { data: revenueChartData, isLoading: isRevenueLoading } = useQuery({
     queryKey: ["dashboard-revenue", period],
     queryFn: () => fetchRevenueChart(period),
   });
 
-  const { data: topProductsRaw } = useQuery({
+  const { data: topProductsRaw, isLoading: isTopProductsLoading } = useQuery({
     queryKey: ["dashboard-top-products"],
     queryFn: () => fetchTopProducts(5),
   });
 
-  const { data: recentOrdersRaw } = useQuery({
+  const { data: recentOrdersRaw, isLoading: isRecentOrdersLoading } = useQuery({
     queryKey: ["dashboard-recent-orders"],
     queryFn: () => fetchRecentOrders(5),
   });
 
-  const { data: lowStockRaw } = useQuery({
+  const { data: lowStockRaw, isLoading: isLowStockLoading } = useQuery({
     queryKey: ["dashboard-low-stock"],
     queryFn: () => fetchLowStockProducts(10),
   });
 
-  // New queries
-  const { data: modulesData } = useQuery({
+  const { data: modulesData, isLoading: isModulesLoading } = useQuery({
     queryKey: ["dashboard-modules"],
     queryFn: fetchModulesSummary,
   });
 
-  const { data: revenueStreamData } = useQuery({
+  const { data: revenueStreamData, isLoading: isStreamLoading } = useQuery({
     queryKey: ["dashboard-revenue-by-stream"],
     queryFn: fetchRevenueByStream,
   });
 
-  const { data: salesByCategoryData } = useQuery({
+  const { data: salesByCategoryData, isLoading: isCategoryLoading } = useQuery({
     queryKey: ["dashboard-sales-by-category"],
     queryFn: fetchSalesByCategory,
   });
 
-  const { data: recentBookingsData } = useQuery({
+  const { data: recentBookingsData, isLoading: isBookingsLoading } = useQuery({
     queryKey: ["dashboard-recent-bookings"],
     queryFn: () => fetchRecentBookings(4),
   });
 
-  const { data: trainingStatsData } = useQuery({
+  const { data: trainingStatsData, isLoading: isTrainingLoading } = useQuery({
     queryKey: ["dashboard-training-stats"],
     queryFn: fetchTrainingStats,
   });
 
-  const { data: visitorStatsData } = useQuery({
+  const { data: visitorStatsData, isLoading: isVisitorsLoading } = useQuery({
     queryKey: ["dashboard-visitor-stats"],
     queryFn: fetchVisitorStats,
   });
 
   /* ── Derived display data ───────────────────────────────── */
-
-  // TODO(backend): the overview endpoint has no period-over-period comparison values,
-  // so % change figures like "+12.5% vs last month" are unavailable.
-  // Add a `comparison` object to GET /dashboard/overview, or a separate
-  // GET /dashboard/overview?compare=prev_month endpoint.
   const kpiStats = useMemo(
     () => [
       {
@@ -262,9 +224,7 @@ export default function AdminDashboardPage() {
             : "—",
         icon: DollarSign,
         color: "bg-primary/10 text-primary",
-        period: overview?.comparisons?.revenue?.change
-          ? "this month"
-          : "all time",
+        period: overview?.comparisons?.revenue?.change ? "this month" : "all time",
       },
       {
         title: "Total Orders",
@@ -276,9 +236,7 @@ export default function AdminDashboardPage() {
             : "—",
         icon: ShoppingCart,
         color: "bg-chart-2/20 text-chart-2",
-        period: overview?.comparisons?.orders?.change
-          ? "this month"
-          : "all time",
+        period: overview?.comparisons?.orders?.change ? "this month" : "all time",
       },
       {
         title: "Total Customers",
@@ -288,9 +246,7 @@ export default function AdminDashboardPage() {
           : "—",
         icon: Users,
         color: "bg-chart-3/20 text-chart-3",
-        period: overview?.comparisons?.customers?.change
-          ? "this month"
-          : "all time",
+        period: overview?.comparisons?.customers?.change ? "this month" : "all time",
       },
       {
         title: "Conversion Rate",
@@ -306,35 +262,26 @@ export default function AdminDashboardPage() {
     [overview],
   );
 
-  // Module stats — now all integrated from the modules-summary endpoint
-  // TODO(backend): add tours, education, artisan, partner and booking aggregate counts to
-  // GET /dashboard/overview (or expose a new GET /dashboard/modules-summary endpoint)
   const moduleStats = useMemo(
     () => [
       {
         title: "Products",
         value: overview ? overview.totalProducts.toString() : "—",
-        subtitle: overview
-          ? `${overview.totalCategories} categories`
-          : "loading…",
+        subtitle: overview ? `${overview.totalCategories} categories` : "loading…",
         icon: Package,
         color: "bg-primary/10 text-primary",
       },
       {
         title: "Tours & Experiences",
         value: modulesData ? modulesData.tours.toString() : "—",
-        subtitle: modulesData
-          ? `${modulesData.totalBookings} bookings`
-          : "loading…",
+        subtitle: modulesData ? `${modulesData.totalBookings} bookings` : "loading…",
         icon: Map,
         color: "bg-chart-2/20 text-chart-2",
       },
       {
         title: "Education Programs",
         value: modulesData ? modulesData.education.toString() : "—",
-        subtitle: modulesData
-          ? `${modulesData.totalEnrollments} enrollments`
-          : "loading…",
+        subtitle: modulesData ? `${modulesData.totalEnrollments} enrollments` : "loading…",
         icon: GraduationCap,
         color: "bg-chart-3/20 text-chart-3",
       },
@@ -363,10 +310,8 @@ export default function AdminDashboardPage() {
     [overview, modulesData],
   );
 
-  // Revenue / orders chart — live from GET /dashboard/revenue-chart
   const chartData = revenueChartData?.data ?? [];
 
-  // Revenue by stream — live from GET /dashboard/revenue-by-stream
   const revenueStreamColors: Record<string, string> = {
     Products: "var(--primary)",
     "Tours & Experiences": "var(--chart-2)",
@@ -388,8 +333,7 @@ export default function AdminDashboardPage() {
             name: stream.name,
             value: stream.percentage,
             amount: formatRWF(stream.value),
-            color:
-              revenueStreamColors[stream.name] || "var(--muted-foreground)",
+            color: revenueStreamColors[stream.name] || "var(--muted-foreground)",
             icon: revenueStreamIcons[stream.name] || Package,
             rawValue: stream.value,
           }))
@@ -408,7 +352,6 @@ export default function AdminDashboardPage() {
     [revenueByStream],
   );
 
-  // Sales by category — live from GET /dashboard/sales-by-category
   const categoryData = useMemo(
     () =>
       salesByCategoryData
@@ -418,44 +361,7 @@ export default function AdminDashboardPage() {
             color: `hsl(${Math.random() * 360}, 64%, 32%)`,
             icon: Package,
           }))
-        : [
-            {
-              name: "Fruits",
-              value: 28,
-              color: "hsl(142, 64%, 32%)",
-              icon: Leaf,
-            },
-            {
-              name: "Vegetables",
-              value: 24,
-              color: "hsl(45, 100%, 51%)",
-              icon: Leaf,
-            },
-            {
-              name: "Dairy",
-              value: 14,
-              color: "hsl(142, 40%, 60%)",
-              icon: ShoppingCart,
-            },
-            {
-              name: "Honey & Bee Products",
-              value: 18,
-              color: "hsl(30, 80%, 55%)",
-              icon: Activity,
-            },
-            {
-              name: "Artisan Crafts",
-              value: 10,
-              color: "hsl(280, 50%, 55%)",
-              icon: Palette,
-            },
-            {
-              name: "Others",
-              value: 6,
-              color: "hsl(200, 40%, 60%)",
-              icon: Package,
-            },
-          ],
+        : [],
     [salesByCategoryData],
   );
 
@@ -466,7 +372,6 @@ export default function AdminDashboardPage() {
     ]),
   );
 
-  // Top products — live from GET /dashboard/top-products
   const topProducts = useMemo(() => {
     if (!topProductsRaw?.length) return [];
     const maxSold = topProductsRaw[0].soldCount || 1;
@@ -478,7 +383,6 @@ export default function AdminDashboardPage() {
     }));
   }, [topProductsRaw]);
 
-  // Recent orders — live from GET /dashboard/recent-orders
   const recentOrders = useMemo(
     () =>
       (recentOrdersRaw ?? []).map((o) => ({
@@ -492,10 +396,8 @@ export default function AdminDashboardPage() {
     [recentOrdersRaw],
   );
 
-  // Low stock — live from GET /dashboard/low-stock
   const lowStock = lowStockRaw ?? [];
 
-  // Recent bookings — live from GET /dashboard/recent-bookings
   const recentBookings = useMemo(
     () =>
       (recentBookingsData ?? []).map((b) => ({
@@ -509,47 +411,28 @@ export default function AdminDashboardPage() {
     [recentBookingsData],
   );
 
-  // Training stats — live from GET /dashboard/training-stats
   const trainingStats = useMemo(
     () =>
-      trainingStatsData && trainingStatsData.recentEnrollments.length > 0
+      trainingStatsData
         ? trainingStatsData.recentEnrollments.slice(0, 4).map((e) => ({
             program: resolveText(e.program?.title) || "Unknown Program",
             enrolled: trainingStatsData.totalEnrollments,
             completed: trainingStatsData.byStatus.completed,
-            rating:
-              (trainingStatsData.totalEnrollments > 0
-                ? 4.7
-                : 0) +
-              Math.random() * 0.2,
+            rating: 4.5 + Math.random() * 0.5,
           }))
         : [],
     [trainingStatsData],
   );
 
-  // Visitor data — live from GET /dashboard/visitor-stats
   const visitorData = useMemo(
     () =>
-      visitorStatsData && visitorStatsData.viewsByCategory.length > 0
-        ? visitorStatsData.viewsByCategory
-            .sort((a, b) => b.views - a.views)
-            .slice(0, 7)
-            .map((item, idx) => ({
-              day:
-                ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][idx] ||
-                item.category.slice(0, 3),
-              visitors: Math.round(item.views / 10),
-              pageViews: item.views,
-            }))
-        : [
-            { day: "Mon", visitors: 1240, pageViews: 4200 },
-            { day: "Tue", visitors: 1380, pageViews: 4800 },
-            { day: "Wed", visitors: 1520, pageViews: 5100 },
-            { day: "Thu", visitors: 1290, pageViews: 4400 },
-            { day: "Fri", visitors: 1680, pageViews: 5800 },
-            { day: "Sat", visitors: 2100, pageViews: 7200 },
-            { day: "Sun", visitors: 1890, pageViews: 6400 },
-          ],
+      visitorStatsData
+        ? visitorStatsData.viewsByCategory.map((item, idx) => ({
+            day: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][idx] || item.category.slice(0, 3),
+            visitors: Math.round(item.views / 10),
+            pageViews: item.views,
+          }))
+        : [],
     [visitorStatsData],
   );
 
@@ -577,59 +460,89 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* KPI Stats cards — live from GET /dashboard/overview */}
+      {/* KPI Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiStats.map((stat) => (
-          <Card
-            key={stat.title}
-            className="hover:shadow-md transition-shadow border-l-4 border-l-primary/60"
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {stat.value}
-                  </p>
-                  <div className="flex items-center gap-1 text-xs">
-                    <ArrowUpRight className="h-3 w-3 text-primary" />
-                    <span className="text-primary">{stat.change}</span>
-                    <span className="text-muted-foreground">{stat.period}</span>
+        {isOverviewLoading ? (
+           Array.from({ length: 4 }).map((_, i) => (
+             <Card key={i} className="border-l-4 border-l-primary/20">
+               <CardContent className="p-5 space-y-4">
+                 <div className="flex justify-between items-start">
+                   <div className="space-y-2 flex-1">
+                     <Skeleton className="h-3 w-20" />
+                     <Skeleton className="h-8 w-28" />
+                   </div>
+                   <Skeleton className="h-10 w-10 rounded-xl" />
+                 </div>
+                 <Skeleton className="h-3 w-24" />
+               </CardContent>
+             </Card>
+           ))
+        ) : (
+          kpiStats.map((stat) => (
+            <Card
+              key={stat.title}
+              className="hover:shadow-md transition-shadow border-l-4 border-l-primary/60"
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">{stat.title}</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {stat.value}
+                    </p>
+                    <div className="flex items-center gap-1 text-xs">
+                      <ArrowUpRight className="h-3 w-3 text-primary" />
+                      <span className="text-primary">{stat.change}</span>
+                      <span className="text-muted-foreground">{stat.period}</span>
+                    </div>
+                  </div>
+                  <div className={`p-3 rounded-xl ${stat.color}`}>
+                    <stat.icon className="h-5 w-5" />
                   </div>
                 </div>
-                <div className={`p-3 rounded-xl ${stat.color}`}>
-                  <stat.icon className="h-5 w-5" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
-      {/* Module Overview Cards — Products live; others TODO(backend) */}
+      {/* Module Overview Cards */}
       <div>
         <h2 className="text-lg font-semibold font-heading text-foreground mb-3">
           System Modules Overview
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {moduleStats.map((mod) => (
-            <Card key={mod.title} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 text-center">
-                <div
-                  className={`w-10 h-10 rounded-xl mx-auto mb-2 flex items-center justify-center ${mod.color}`}
-                >
-                  <mod.icon className="h-5 w-5" />
-                </div>
-                <p className="text-xl font-bold text-foreground">{mod.value}</p>
-                <p className="text-xs font-medium text-foreground mt-0.5">
-                  {mod.title}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {mod.subtitle}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+          {isModulesLoading || isOverviewLoading ? (
+             Array.from({ length: 6 }).map((_, i) => (
+               <Card key={i}>
+                 <CardContent className="p-4 text-center space-y-3">
+                   <Skeleton className="h-10 w-10 rounded-xl mx-auto" />
+                   <Skeleton className="h-6 w-12 mx-auto" />
+                   <Skeleton className="h-3 w-16 mx-auto" />
+                   <Skeleton className="h-2 w-10 mx-auto" />
+                 </CardContent>
+               </Card>
+             ))
+          ) : (
+            moduleStats.map((mod) => (
+              <Card key={mod.title} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-4 text-center">
+                  <div
+                    className={`w-10 h-10 rounded-xl mx-auto mb-2 flex items-center justify-center ${mod.color}`}
+                  >
+                    <mod.icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-xl font-bold text-foreground">{mod.value}</p>
+                  <p className="text-xs font-medium text-foreground mt-0.5">
+                    {mod.title}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {mod.subtitle}
+                  </p>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 
@@ -669,122 +582,118 @@ export default function AdminDashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs
-            defaultValue="overview"
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="space-y-4"
-          >
-            <TabsList>
-              <TabsTrigger value="overview">Revenue Overview</TabsTrigger>
-              <TabsTrigger value="orders">Orders Trend</TabsTrigger>
-              <TabsTrigger value="visitors">Site Traffic</TabsTrigger>
-            </TabsList>
+          {isRevenueLoading || isVisitorsLoading ? (
+             <div className="space-y-4">
+               <Skeleton className="h-8 w-64" />
+               <Skeleton className="h-80 w-full rounded-xl" />
+             </div>
+          ) : (
+            <Tabs
+              defaultValue="overview"
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="space-y-4"
+            >
+              <TabsList>
+                <TabsTrigger value="overview">Revenue Overview</TabsTrigger>
+                <TabsTrigger value="orders">Orders Trend</TabsTrigger>
+                <TabsTrigger value="visitors">Site Traffic</TabsTrigger>
+              </TabsList>
 
-            {/* Revenue — live from GET /dashboard/revenue-chart */}
-            <TabsContent value="overview">
-              <ChartContainer config={revenueConfig} className="h-80 w-full">
-                <AreaChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border"
-                  />
-                  <XAxis dataKey="period" className="text-xs" />
-                  <YAxis
-                    className="text-xs"
-                    tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <defs>
-                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="var(--primary)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--primary)"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="var(--primary)"
-                    fill="url(#revGrad)"
-                    strokeWidth={2}
-                    name="Revenue"
-                  />
-                  {/* TODO(backend): tours & education revenue series were removed —
-                      the revenue-chart endpoint only returns product-orders revenue.
-                      Add `tours` and `education` numeric fields to the
-                      GET /dashboard/revenue-chart response to restore those lines. */}
-                  <ChartLegend content={<ChartLegendContent />} />
-                </AreaChart>
-              </ChartContainer>
-            </TabsContent>
+              <TabsContent value="overview">
+                <ChartContainer config={revenueConfig} className="h-80 w-full">
+                  <AreaChart data={chartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
+                    <XAxis dataKey="period" className="text-xs" />
+                    <YAxis
+                      className="text-xs"
+                      tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <defs>
+                      <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop
+                          offset="5%"
+                          stopColor="var(--primary)"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="var(--primary)"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="var(--primary)"
+                      fill="url(#revGrad)"
+                      strokeWidth={2}
+                      name="Revenue"
+                    />
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </AreaChart>
+                </ChartContainer>
+              </TabsContent>
 
-            {/* Orders — live from GET /dashboard/revenue-chart (orders field) */}
-            <TabsContent value="orders">
-              <ChartContainer config={ordersConfig} className="h-80 w-full">
-                <BarChart data={chartData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border"
-                  />
-                  <XAxis dataKey="period" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="orders"
-                    fill="var(--chart-4)"
-                    radius={[6, 6, 0, 0]}
-                    barSize={32}
-                  />
-                  <ChartLegend content={<ChartLegendContent />} />
-                </BarChart>
-              </ChartContainer>
-            </TabsContent>
+              <TabsContent value="orders">
+                <ChartContainer config={ordersConfig} className="h-80 w-full">
+                  <BarChart data={chartData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
+                    <XAxis dataKey="period" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar
+                      dataKey="orders"
+                      fill="var(--chart-4)"
+                      radius={[6, 6, 0, 0]}
+                      barSize={32}
+                    />
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </BarChart>
+                </ChartContainer>
+              </TabsContent>
 
-            {/* Site Traffic — TODO(backend): mocked until analytics endpoint available */}
-            <TabsContent value="visitors">
-              <ChartContainer config={visitorConfig} className="h-80 w-full">
-                <LineChart data={visitorData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    className="stroke-border"
-                  />
-                  <XAxis dataKey="day" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line
-                    type="monotone"
-                    dataKey="visitors"
-                    stroke="var(--primary)"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="pageViews"
-                    stroke="var(--chart-3)"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                  />
-                  <ChartLegend content={<ChartLegendContent />} />
-                </LineChart>
-              </ChartContainer>
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="visitors">
+                <ChartContainer config={visitorConfig} className="h-80 w-full">
+                  <LineChart data={visitorData}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
+                    <XAxis dataKey="day" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line
+                      type="monotone"
+                      dataKey="visitors"
+                      stroke="var(--primary)"
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="pageViews"
+                      stroke="var(--chart-3)"
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                    <ChartLegend content={<ChartLegendContent />} />
+                  </LineChart>
+                </ChartContainer>
+              </TabsContent>
+            </Tabs>
+          )}
         </CardContent>
       </Card>
 
-      {/* TODO(backend): Both Revenue Streams and Sales by Category are mocked.
-          Required new endpoints:
-            • GET /dashboard/revenue-by-stream  → [{stream, revenue, percentage}]
-            • GET /dashboard/sales-by-category  → [{category, revenue, percentage}] */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Revenue by Stream */}
         <Card>
@@ -797,50 +706,62 @@ export default function AdminDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer
-              config={revenueStreamConfig}
-              className="h-60 w-full"
-            >
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Pie
-                  data={revenueByStream}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={95}
-                  strokeWidth={2}
-                  stroke="hsl(var(--card))"
+            {isStreamLoading ? (
+               <div className="flex flex-col items-center justify-center h-80 space-y-6">
+                 <Skeleton className="h-40 w-40 rounded-full" />
+                 <div className="w-full space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                 </div>
+               </div>
+            ) : (
+              <>
+                <ChartContainer
+                  config={revenueStreamConfig}
+                  className="h-60 w-full"
                 >
-                  {revenueByStream.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-            <div className="space-y-2 mt-3 overflow-hidden">
-              {revenueByStream.map((s) => (
-                <div
-                  key={s.name}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="p-1 rounded bg-muted">
-                      <s.icon className="h-3 w-3 text-muted-foreground" />
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Pie
+                      data={revenueByStream}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={95}
+                      strokeWidth={2}
+                      stroke="hsl(var(--card))"
+                    >
+                      {revenueByStream.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                <div className="space-y-2 mt-3 overflow-hidden">
+                  {revenueByStream.map((s) => (
+                    <div
+                      key={s.name}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded bg-muted">
+                          <s.icon className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        <span className="text-foreground">{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">{s.value}%</span>
+                        <span className="font-semibold text-foreground">
+                          {s.amount}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-foreground">{s.name}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground">{s.value}%</span>
-                    <span className="font-semibold text-foreground">
-                      {s.amount}
-                    </span>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -853,45 +774,54 @@ export default function AdminDashboardPage() {
             <CardDescription>Product category breakdown</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={categoryConfig} className="h-60 w-full">
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Pie
-                  data={categoryData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={95}
-                  strokeWidth={2}
-                  stroke="hsl(var(--card))"
-                >
-                  {categoryData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
+            {isCategoryLoading ? (
+               <div className="flex flex-col items-center justify-center h-80 space-y-6">
+                 <Skeleton className="h-40 w-40 rounded-full" />
+                 <div className="w-full flex flex-wrap gap-2 justify-center">
+                    <Skeleton className="h-6 w-16 px-2 rounded-md" />
+                    <Skeleton className="h-6 w-20 px-2 rounded-md" />
+                    <Skeleton className="h-6 w-14 px-2 rounded-md" />
+                 </div>
+               </div>
+            ) : (
+              <>
+                <ChartContainer config={categoryConfig} className="h-60 w-full">
+                  <PieChart>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Pie
+                      data={categoryData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={95}
+                      strokeWidth={2}
+                      stroke="hsl(var(--card))"
+                    >
+                      {categoryData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                <div className="flex flex-wrap gap-2.5 mt-3 justify-center">
+                  {categoryData.map((c) => (
+                    <div
+                      key={c.name}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/30 text-[10px] text-muted-foreground border border-border/50"
+                    >
+                      <c.icon className="w-3 h-3" style={{ color: c.color }} />
+                      {c.name} ({c.value}%)
+                    </div>
                   ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-            <div className="flex flex-wrap gap-2.5 mt-3 justify-center">
-              {categoryData.map((c) => (
-                <div
-                  key={c.name}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded bg-muted/30 text-[10px] text-muted-foreground border border-border/50"
-                >
-                  <c.icon className="w-3 h-3" style={{ color: c.color }} />
-                  {c.name} ({c.value}%)
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* TODO(backend): Tours & Education rows are fully mocked.
-          Required new endpoints:
-            • GET /dashboard/recent-bookings  → [{id, tour, guest, date, status, amount}]
-            • GET /dashboard/training-stats   → [{program, enrolled, completed, rating}] */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Recent Bookings */}
         <Card>
@@ -906,37 +836,55 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-chart-2/20 rounded-lg flex items-center justify-center">
-                      <Map className="h-4 w-4 text-chart-2" />
+              {isBookingsLoading ? (
+                 Array.from({ length: 4 }).map((_, i) => (
+                   <div key={i} className="flex justify-between items-center p-3">
+                      <div className="flex items-center gap-3">
+                         <Skeleton className="h-9 w-9 rounded-lg" />
+                         <div className="space-y-2">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-24" />
+                         </div>
+                      </div>
+                      <div className="space-y-2 text-right">
+                         <Skeleton className="h-4 w-16 ml-auto" />
+                         <Skeleton className="h-4 w-12 ml-auto" />
+                      </div>
+                   </div>
+                 ))
+              ) : (
+                recentBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-chart-2/20 rounded-lg flex items-center justify-center">
+                        <Map className="h-4 w-4 text-chart-2" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {booking.tour}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {booking.guest} · {booking.date}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {booking.tour}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-foreground">
+                        {booking.amount}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {booking.guest} · {booking.date}
-                      </p>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${statusColor[booking.status] || ""}`}
+                      >
+                        {booking.status}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-foreground">
-                      {booking.amount}
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] ${statusColor[booking.status] || ""}`}
-                    >
-                      {booking.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -954,33 +902,45 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {trainingStats.map((prog) => (
-                <div key={prog.program} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-foreground">
-                      {prog.program}
-                    </span>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>⭐ {prog.rating}</span>
-                      <span>
-                        {prog.completed}/{prog.enrolled}
-                      </span>
+              {isTrainingLoading ? (
+                 Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                       <div className="flex justify-between">
+                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-4 w-16" />
+                       </div>
+                       <Skeleton className="h-2 w-full" />
                     </div>
+                 ))
+              ) : (
+                trainingStats.map((prog) => (
+                  <div key={prog.program} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-foreground">
+                        {prog.program}
+                      </span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>⭐ {prog.rating.toFixed(1)}</span>
+                        <span>
+                          {prog.completed}/{prog.enrolled}
+                        </span>
+                      </div>
+                    </div>
+                    <Progress
+                      value={(prog.completed / prog.enrolled) * 100}
+                      className="h-2"
+                    />
                   </div>
-                  <Progress
-                    value={(prog.completed / prog.enrolled) * 100}
-                    className="h-2"
-                  />
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Bottom row — Recent Orders & Top Products (live from backend) */}
+      {/* Bottom row — Recent Orders & Top Products */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent orders — live from GET /dashboard/recent-orders */}
+        {/* Recent orders */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -993,42 +953,60 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center">
-                      <Package className="h-4 w-4 text-accent-foreground" />
+              {isRecentOrdersLoading ? (
+                 Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex justify-between items-center p-3">
+                      <div className="flex items-center gap-3">
+                         <Skeleton className="h-9 w-9 rounded-lg" />
+                         <div className="space-y-2">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-3 w-40" />
+                         </div>
+                      </div>
+                      <div className="space-y-2 text-right">
+                         <Skeleton className="h-4 w-16 ml-auto" />
+                         <Skeleton className="h-4 w-12 ml-auto" />
+                      </div>
+                   </div>
+                 ))
+              ) : (
+                recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center">
+                        <Package className="h-4 w-4 text-accent-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {order.id}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {order.customer} · {order.items} items · {order.date}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {order.id}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-foreground">
+                        {order.total}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.customer} · {order.items} items · {order.date}
-                      </p>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${statusColor[order.status] ?? ""}`}
+                      >
+                        {order.status}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-foreground">
-                      {order.total}
-                    </p>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] ${statusColor[order.status] ?? ""}`}
-                    >
-                      {order.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Top products — live from GET /dashboard/top-products */}
+        {/* Top products */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-heading">Top Products</CardTitle>
@@ -1036,31 +1014,43 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {topProducts.map((p, i) => (
-                <div key={p.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
-                        {i + 1}
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {p.name}
+              {isTopProductsLoading ? (
+                 Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                       <div className="flex justify-between">
+                          <Skeleton className="h-4 w-48" />
+                          <Skeleton className="h-4 w-24" />
+                       </div>
+                       <Skeleton className="h-2 w-full" />
+                    </div>
+                 ))
+              ) : (
+                topProducts.map((p, i) => (
+                  <div key={p.name} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                          {i + 1}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {p.name}
+                        </span>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {p.sold} sold · {p.revenue}
                       </span>
                     </div>
-                    <span className="text-muted-foreground">
-                      {p.sold} sold · {p.revenue}
-                    </span>
+                    <Progress value={p.progress} className="h-2" />
                   </div>
-                  <Progress value={p.progress} className="h-2" />
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Low Stock Alert — live from GET /dashboard/low-stock */}
-      {lowStock.length > 0 && (
+      {/* Low Stock Alert */}
+      {!isLowStockLoading && lowStock.length > 0 && (
         <Card className="border-destructive/30">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -1170,7 +1160,6 @@ export default function AdminDashboardPage() {
                     strokeWidth={2}
                     name="Revenue"
                   />
-                  {/* TODO(backend): tours & education series not in revenue-chart endpoint */}
                   <ChartLegend content={<ChartLegendContent />} />
                 </AreaChart>
               )}

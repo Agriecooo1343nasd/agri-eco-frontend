@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 
 const HeroSection = () => {
-  const heroBanner = "/assets/hero-banner.jpg";
+  const heroBanner = "/assets/hero-baner.png";
 
   return (
     <section className="relative overflow-hidden">
