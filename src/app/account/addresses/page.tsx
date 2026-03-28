@@ -41,7 +41,7 @@ const AddressesPage = () => {
             Manage your shipping and billing locations for faster checkout.
           </p>
         </div>
-        <Button className="rounded-2xl h-12 px-6 font-bold flex items-center gap-2 shadow-lg shadow-primary/20">
+        <Button >
           <Plus className="h-5 w-5" />
           Add New Address
         </Button>
@@ -51,7 +51,7 @@ const AddressesPage = () => {
         {addresses.map((address) => (
           <div
             key={address.id}
-            className="bg-white rounded-[32px] border border-border p-8 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
+            className="bg-white rounded-md border border-border p-8 transition-all group relative overflow-hidden"
           >
             {address.isDefault && (
               <div className="absolute top-0 right-0">
@@ -104,8 +104,8 @@ const AddressesPage = () => {
       </div>
 
       {/* Tips Section */}
-      <div className="bg-primary/5 border border-primary/10 rounded-[40px] p-8 md:p-10 flex flex-col md:flex-row items-center gap-8">
-        <div className="w-20 h-20 bg-white rounded-3xl shadow-soft flex items-center justify-center shrink-0 animate-bounce">
+      <div className="bg-primary/5 border border-primary/10 rounded-md p-8 md:p-10 flex flex-col md:flex-row items-center gap-8">
+        <div className="w-20 h-20 bg-white rounded-md shadow-soft flex items-center justify-center shrink-0 animate-bounce">
           <Plus className="h-10 w-10 text-primary" />
         </div>
         <div>

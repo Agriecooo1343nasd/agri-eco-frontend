@@ -6,7 +6,7 @@ import {
   ChevronUp,
   ChevronDown,
   Filter,
-  Calendar,
+  Calendar as CalendarIcon,
   Layers,
   X,
   ChevronRight,
@@ -18,10 +18,25 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { usePricing } from "@/context/PricingContext";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { fetchMyOrders, type Order, type FetchOrdersParams } from "@/lib/api/orders";
 import { ApiPagination } from "@/lib/api/types";
-import { format } from "date-fns";
+import { format, startOfToday, endOfToday, subDays } from "date-fns";
 import { OrderStatus } from "@/constants/order-status";
+import { type DateRange } from "react-day-picker";
 
 type SortConfig = {
   key: string | null;
@@ -38,7 +53,7 @@ const OrdersPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "createdAt",
     direction: "desc",
@@ -61,8 +76,8 @@ const OrdersPage = () => {
         status: statusFilter,
         sort: sortConfig.key || undefined,
         order: sortConfig.direction || undefined,
-        startDate: dateRange.start || undefined,
-        endDate: dateRange.end || undefined,
+        startDate: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
+        endDate: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
       };
 
       const result = await fetchMyOrders(params);
@@ -111,14 +126,14 @@ const OrdersPage = () => {
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-6 rounded-[32px] border border-border shadow-sm space-y-6">
+      <div className="bg-white p-6 rounded-sm border border-border shadow-sm space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {/* Search */}
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="Search orders, products..."
-              className="pl-11 h-12 rounded-xl border-border bg-muted/20 focus:bg-white focus:ring-primary/20 transition-all shadow-none"
+              className="pl-11 h-12 rounded-md border-border bg-muted/20 focus:bg-white focus:ring-primary/20 transition-all shadow-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -126,53 +141,68 @@ const OrdersPage = () => {
 
           {/* Status Filter */}
           <div className="relative">
-            <Layers className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <select
-              className="w-full h-12 pl-11 pr-4 bg-muted/20 border border-border rounded-xl text-sm font-medium outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="All">All Statuses</option>
-              <option value="Processing">Processing</option>
-              <option value="Shipped">Shipped</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-12 w-full rounded-md border-border bg-muted/20 pl-11 focus:ring-primary/20 transition-all font-medium">
+                <Layers className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent className="rounded-md border-border">
+                <SelectItem value="All">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="PROCESSING">Processing</SelectItem>
+                <SelectItem value="SHIPPED">Shipped</SelectItem>
+                <SelectItem value="DELIVERED">Delivered</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Date Start */}
-          <div className="relative group">
-            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="date"
-              className="pl-11 h-12 rounded-xl border-border bg-muted/20 focus:bg-white transition-all shadow-none"
-              value={dateRange.start}
-              onChange={(e) =>
-                setDateRange({ ...dateRange, start: e.target.value })
-              }
-            />
-          </div>
-
-          {/* Date End */}
-          <div className="relative group">
-            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="date"
-              className="pl-11 h-12 rounded-xl border-border bg-muted/20 focus:bg-white transition-all shadow-none"
-              value={dateRange.end}
-              onChange={(e) =>
-                setDateRange({ ...dateRange, end: e.target.value })
-              }
-            />
+          {/* Date Range Picker */}
+          <div className="md:col-span-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full h-12 justify-start text-left font-medium rounded-xl border-border bg-muted/20 pl-11 hover:bg-muted/30 focus:ring-primary/20",
+                    !dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Filter by date range...</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 rounded-2xl border-border shadow-xl" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                  className="rounded-2xl"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
         {/* Active Filters Display */}
         {(searchQuery ||
           statusFilter !== "All" ||
-          dateRange.start ||
-          dateRange.end) && (
+          dateRange?.from ||
+          dateRange?.to) && (
           <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border mt-2">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Active Filters:
@@ -195,12 +225,12 @@ const OrdersPage = () => {
                 />
               </span>
             )}
-            {(dateRange.start || dateRange.end) && (
+            {(dateRange?.from || dateRange?.to) && (
               <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full border border-primary/20 flex items-center gap-2">
                 Date Range{" "}
                 <X
                   className="h-3 w-3 cursor-pointer"
-                  onClick={() => setDateRange({ start: "", end: "" })}
+                  onClick={() => setDateRange(undefined)}
                 />
               </span>
             )}
@@ -208,7 +238,7 @@ const OrdersPage = () => {
               onClick={() => {
                 setSearchQuery("");
                 setStatusFilter("All");
-                setDateRange({ start: "", end: "" });
+                setDateRange(undefined);
               }}
               className="text-xs font-bold text-red-500 hover:underline"
             >
@@ -219,7 +249,7 @@ const OrdersPage = () => {
       </div>
 
       {/* Orders Table */}
-      <div className="bg-white rounded-[32px] border border-border overflow-hidden shadow-sm relative">
+      <div className="bg-white rounded-md border border-border overflow-hidden shadow-sm relative">
         {loading && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-20 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -346,7 +376,7 @@ const OrdersPage = () => {
                         onClick={() => {
                           setSearchQuery("");
                           setStatusFilter("All");
-                          setDateRange({ start: "", end: "" });
+                          setDateRange(undefined);
                           if (error) loadOrders();
                         }}
                         variant="outline"
