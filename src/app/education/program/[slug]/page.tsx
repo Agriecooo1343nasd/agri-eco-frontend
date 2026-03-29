@@ -3,16 +3,19 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import {
   fetchTrainingProgramBySlug,
   enrollInProgram,
   fetchMyEnrollments,
+  fetchProgress,
+  updateProgress,
 } from "@/lib/api/education";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
+import { toPng } from "html-to-image";
 import {
   ArrowLeft,
   Clock,
@@ -62,8 +65,6 @@ const statusColors: Record<string, string> = {
   completed: "bg-muted text-muted-foreground border-border",
 };
 
-
-
 export default function ProgramDetail() {
   const { slug } = useParams();
   const router = useRouter();
@@ -71,7 +72,11 @@ export default function ProgramDetail() {
   const { formatPrice } = usePricing();
   const { isAuthenticated, user: authUser } = useAuth();
 
-  const { data: apiProgram, isLoading, isError } = useQuery({
+  const {
+    data: apiProgram,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["trainingProgram", slug],
     queryFn: () => fetchTrainingProgramBySlug(slug as string),
     enabled: !!slug,
@@ -83,32 +88,170 @@ export default function ProgramDetail() {
     enabled: isAuthenticated,
   });
 
+  const activeEnrollment = myEnrollments?.data?.find(
+    (e: any) =>
+      e.trainingProgramId === apiProgram?.id &&
+      ["approved", "completed"].includes(e.status),
+  );
+
+  const pendingEnrollment = myEnrollments?.data?.find(
+    (e: any) =>
+      e.trainingProgramId === apiProgram?.id && e.status === "pending",
+  );
+
+  const { data: progressData, refetch: refetchProgress } = useQuery({
+    queryKey: ["programProgress", activeEnrollment?.id],
+    queryFn: () => fetchProgress(activeEnrollment!.id),
+    enabled: !!activeEnrollment?.id,
+  });
+
+  const queryClient = useQueryClient();
+  const updateProgressMutation = useMutation({
+    mutationFn: (payload: any) => updateProgress(activeEnrollment!.id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["programProgress", activeEnrollment?.id],
+      });
+    },
+  });
+
+  const handleModuleComplete = (
+    moduleId: string,
+    title: string,
+    currentlyCompleted: boolean,
+  ) => {
+    if (!activeEnrollment?.id || !progressData) return;
+
+    const currentProgress = progressData.moduleProgress || [];
+    let updatedProgress = [...currentProgress];
+
+    const existingIdx = updatedProgress.findIndex(
+      (p) => p.moduleId === moduleId,
+    );
+    if (existingIdx >= 0) {
+      updatedProgress[existingIdx].completed = !currentlyCompleted;
+      updatedProgress[existingIdx].completedAt = new Date().toISOString();
+    } else {
+      updatedProgress.push({
+        moduleId,
+        title,
+        completed: !currentlyCompleted,
+        completedAt: new Date().toISOString(),
+      });
+    }
+
+    updateProgressMutation.mutate({ moduleProgress: updatedProgress });
+  };
 
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
   const [certDialogOpen, setCertDialogOpen] = useState(false);
+  const [quizDialogOpen, setQuizDialogOpen] = useState(false);
+  const [activeQuiz, setActiveQuiz] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<"momo" | "card">("momo");
   const [enrolling, setEnrolling] = useState(false);
   const certRef = useRef<HTMLDivElement>(null);
 
+  // Quiz state
+  const [quizStep, setQuizStep] = useState(0); // current question index
+  const [quizAnswers, setQuizAnswers] = useState<any>({}); // { [questionIdx]: optionIdx }
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState<number | null>(null);
+
+  // Helper: get correct index (backend may use correctIndex or correctOption)
+  const getCorrectIndex = (q: any) =>
+    typeof q.correctIndex === "number"
+      ? q.correctIndex
+      : typeof q.correctOption === "number"
+        ? q.correctOption
+        : undefined;
+
+  const startQuiz = (quiz: any) => {
+    if (!quiz) {
+      console.warn("No quiz data found for this module.", quiz);
+      return;
+    }
+    setActiveQuiz(quiz);
+    setQuizDialogOpen(true);
+    setQuizStep(0);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(null);
+  };
+
+  // Handle answer selection
+  const handleQuizAnswer = (qIdx: number, oIdx: number) => {
+    setQuizAnswers((prev: any) => ({ ...prev, [qIdx]: oIdx }));
+  };
+
+  // Handle quiz submission (compare answers, persist to backend)
+  const handleSubmitQuiz = async () => {
+    if (!activeQuiz?.questions) return;
+    let score = 0;
+    activeQuiz.questions.forEach((q: any, idx: number) => {
+      const correctIdx = getCorrectIndex(q);
+      if (
+        quizAnswers[idx] !== undefined &&
+        correctIdx !== undefined &&
+        quizAnswers[idx] === correctIdx
+      ) {
+        score++;
+      }
+    });
+    setQuizScore(score);
+    setQuizSubmitted(true);
+
+    // Persist quiz score to backend progress if enrolled
+    if (activeEnrollment?.id && progressData) {
+      const prevQuizScores = progressData.quizScores || [];
+      // Only one quiz per module, so use quiz.id as unique
+      const maxScore = activeQuiz.questions.length;
+      const quizScoreItem = {
+        quizId: activeQuiz.id,
+        title:
+          typeof activeQuiz.title === "string"
+            ? activeQuiz.title
+            : activeQuiz.title?.en || "Quiz",
+        score,
+        maxScore,
+        attemptedAt: new Date().toISOString(),
+      };
+      // Replace or add
+      const updatedQuizScores = [
+        ...prevQuizScores.filter((q: any) => q.quizId !== activeQuiz.id),
+        quizScoreItem,
+      ];
+      updateProgressMutation.mutate({ quizScores: updatedQuizScores });
+    }
+  };
+
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && myEnrollments?.data && apiProgram) {
-      const isEnrolledBackend = myEnrollments.data.some(
-        (e: any) =>
-          e.trainingProgramId === apiProgram.id &&
-          ["approved", "completed"].includes(e.status),
-      );
-      setIsEnrolled(isEnrolledBackend);
+      setIsEnrolled(!!activeEnrollment);
+      setIsPending(!!pendingEnrollment);
     } else if (!isAuthenticated && typeof window !== "undefined") {
       const enrolled = JSON.parse(
         localStorage.getItem("enrolledPrograms") || "[]",
       );
       setIsEnrolled(enrolled.includes(slug));
+
+      const pendingLocal = JSON.parse(
+        localStorage.getItem("pendingPrograms") || "[]",
+      );
+      setIsPending(pendingLocal.includes(slug));
     }
-  }, [isAuthenticated, myEnrollments, apiProgram, slug]);
+  }, [
+    isAuthenticated,
+    myEnrollments,
+    apiProgram,
+    slug,
+    activeEnrollment,
+    pendingEnrollment,
+  ]);
 
   if (isLoading) {
     return (
@@ -116,7 +259,9 @@ export default function ProgramDetail() {
         <Header />
         <main className="container py-20 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground text-sm">Loading program details...</p>
+          <p className="text-muted-foreground text-sm">
+            Loading program details...
+          </p>
         </main>
         <Footer />
       </div>
@@ -132,7 +277,8 @@ export default function ProgramDetail() {
             Program Not Found
           </h1>
           <p className="text-muted-foreground mb-6">
-            The training program you&apos;re looking for doesn&apos;t exist or something went wrong.
+            The training program you&apos;re looking for doesn&apos;t exist or
+            something went wrong.
           </p>
           <Button asChild>
             <Link href="/education">Back to Education</Link>
@@ -146,7 +292,10 @@ export default function ProgramDetail() {
   const program = {
     ...apiProgram,
     price: apiProgram.priceRwf,
-    image: apiProgram.heroImage || apiProgram.coverImage || "/assets/tours/educational.jpg",
+    image:
+      apiProgram.heroImage ||
+      apiProgram.coverImage ||
+      "/assets/tours/educational.jpg",
     modules: (apiProgram.curriculum || []).map((m: any, idx: number) => ({
       ...m,
       order: m.order || idx + 1,
@@ -160,21 +309,49 @@ export default function ProgramDetail() {
         : "TBD",
     },
     maxParticipants: apiProgram.capacity || 0,
-    enrolled: 0, 
-    status: "open", 
+    enrolled: apiProgram.enrolledCount || 0,
+    status:
+      apiProgram.status === "completed"
+        ? "completed"
+        : apiProgram.status === "upcoming"
+          ? "upcoming"
+          : apiProgram.capacity &&
+              apiProgram.enrolledCount &&
+              apiProgram.enrolledCount >= apiProgram.capacity
+            ? "full"
+            : "open",
     topics: (apiProgram.topics || []).map((t: any) => t.name),
     description: apiProgram.shortDescription || apiProgram.fullDescription,
     longDescription: apiProgram.fullDescription,
-    certificateTemplate: apiProgram.certificateTemplate || null,
-    instructor: apiProgram.instructor || { en: "", rw: "" },
+    certificateTemplate: apiProgram.certificateTemplate
+      ? (function () {
+          try {
+            return JSON.parse(apiProgram.certificateTemplate);
+          } catch {
+            return null;
+          }
+        })()
+      : null,
+    instructor: apiProgram.instructorName || { en: "", rw: "" },
     instructorBio: apiProgram.instructorBio || { en: "", rw: "" },
-    requirements: apiProgram.requirements || [],
-    whatYouGet: apiProgram.whatYouGet || [],
-    certificate: apiProgram.type === "certification",
+    requirements: apiProgram.requirements || { en: "" },
+    whatYouGet: apiProgram.whatStudentsGet || { en: "" },
+    certificate:
+      apiProgram.type === "certification" || !!apiProgram.certificateTemplate,
     location: apiProgram.location || { en: "", rw: "" },
-    language: { 
-      en: apiProgram.language === "en" ? "English" : apiProgram.language === "rw" ? "Kinyarwanda" : apiProgram.language,
-      rw: apiProgram.language === "en" ? "Icyongereza" : apiProgram.language === "rw" ? "Ikinyarwanda" : apiProgram.language
+    language: {
+      en:
+        apiProgram.language === "en"
+          ? "English"
+          : apiProgram.language === "rw"
+            ? "Kinyarwanda"
+            : apiProgram.language,
+      rw:
+        apiProgram.language === "en"
+          ? "Icyongereza"
+          : apiProgram.language === "rw"
+            ? "Ikinyarwanda"
+            : apiProgram.language,
     },
   };
 
@@ -201,11 +378,18 @@ export default function ProgramDetail() {
 
       await enrollInProgram(apiProgram.id, payload);
 
+      // Locally track pending enrollment
       if (!isAuthenticated) {
-        const enrolled = JSON.parse(localStorage.getItem("enrolledPrograms") || "[]");
-        if (!enrolled.includes(slug)) enrolled.push(slug);
-        localStorage.setItem("enrolledPrograms", JSON.stringify(enrolled));
-        setIsEnrolled(true);
+        const key = isFree ? "enrolledPrograms" : "pendingPrograms";
+        const stored = JSON.parse(localStorage.getItem(key) || "[]");
+        if (!stored.includes(slug)) stored.push(slug);
+        localStorage.setItem(key, JSON.stringify(stored));
+
+        if (isFree) setIsEnrolled(true);
+        else setIsPending(true);
+      } else {
+        setIsPending(!isFree);
+        setIsEnrolled(isFree);
       }
 
       setEnrollDialogOpen(false);
@@ -217,8 +401,7 @@ export default function ProgramDetail() {
 
       // Refresh enrollments if authenticated
       if (isAuthenticated) {
-        // queryClient.invalidateQueries(["myEnrollments"]) would be better here
-        // for now we just rely on the next poll or navigation
+        queryClient.invalidateQueries({ queryKey: ["myEnrollments"] });
       }
     } catch (err: any) {
       toast.error("Enrollment Failed", {
@@ -254,49 +437,21 @@ export default function ProgramDetail() {
     }
   };
 
-  const handleDownloadCertificate = () => {
-    const certHtml = `
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Certificate - ${t(program.title)}</title>
-<style>
-  body { font-family: Georgia, serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f9f9f6; }
-  .cert { border: 6px double ${program?.certificateTemplate?.badgeColor || "#16a34a"}; border-radius: 16px; padding: 60px; max-width: 800px; text-align: center; background: white; position: relative; }
-  .logo-img { height: 64px; width: auto; margin-bottom: 20px; }
-  .subtitle { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 30px; }
-  h1 { font-size: 32px; color: #333; margin: 0 0 8px; }
-  .certifies { font-size: 14px; color: #666; margin: 20px 0 6px; }
-  .name { font-size: 28px; color: ${program?.certificateTemplate?.badgeColor || "#16a34a"}; font-weight: bold; margin: 10px 0 20px; }
-  .desc { font-size: 13px; color: #666; max-width: 500px; margin: 0 auto 30px; }
-  .footer { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px; }
-  .sig { text-align: center; }
-  .sig .line { border-top: 1px solid #333; padding-top: 4px; font-size: 12px; min-width: 150px; }
-  .sig .title { font-size: 10px; color: #888; margin-bottom: 4px; }
-  .qr { width: 80px; height: 80px; border: 1px solid #ddd; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #aaa; }
-</style></head><body>
-<div class="cert">
-  <img src="/assets/logo/logo.png" class="logo-img" alt="Agri-Eco Connect">
-  <div class="subtitle">${t({ en: "Certificate of Completion", rw: "Icyemezo cy'uko wasoje inyigisho" })}</div>
-  <h1>${t(program?.certificateTemplate?.title) || "Certificate of Achievement"}</h1>
-  <p class="certifies">${t({ en: "This certifies that", rw: "Ibi biremeza ko" })}</p>
-  <p class="name">${authUser?.name || "[Your Name]"}</p>
-  <p class="desc">${t(program?.certificateTemplate?.description) || t({ en: `Has successfully completed all modules of "${t(program.title)}"`, rw: `Yasoje neza inyigisho zose za "${t(program.title)}"` })}</p>
-  <div class="footer">
-    <div class="sig"><div class="title">${t({ en: "Date of Completion", rw: "Itariki yuzuyeho" })}</div><div class="line">${new Date().toLocaleDateString()}</div></div>
-    <div class="qr">QR Code</div>
-    <div class="sig"><div class="title">${t(program?.certificateTemplate?.signatoryTitle) || "Director"}</div><div class="line">${t(program?.certificateTemplate?.signatoryName) || "Agri-Eco Connect"}</div></div>
-  </div>
-</div></body></html>`;
-    const blob = new Blob([certHtml], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `certificate-${program.id}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Certificate Downloaded!", {
-      description:
-        "Open the HTML file in your browser to print or save as PDF.",
-    });
+  const handleDownloadCertificate = async () => {
+    if (!certRef.current) return;
+    try {
+      const dataUrl = await toPng(certRef.current, {
+        cacheBust: true,
+        backgroundColor: "#ffffff",
+      });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `certificate-${program.id}.png`;
+      a.click();
+      toast.success("Certificate Downloaded!");
+    } catch (err) {
+      toast.error("Failed to generate PNG", { description: String(err) });
+    }
   };
 
   return (
@@ -316,14 +471,21 @@ export default function ProgramDetail() {
               href="/education"
               className="inline-flex items-center gap-1.5 text-card/70 hover:text-card text-sm mb-4 transition-colors w-fit"
             >
-              <ArrowLeft className="h-4 w-4" /> {t({ en: "Back to Education", rw: "Subira kuri Education" })}
+              <ArrowLeft className="h-4 w-4" />{" "}
+              {t({ en: "Back to Education", rw: "Subira kuri Education" })}
             </Link>
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <Badge
                 variant="outline"
                 className="capitalize text-xs border-card/30 text-card"
               >
-                {t({ en: program.type, rw: program.type === "certification" ? "Impamyabumenyi" : program.type })}
+                {t({
+                  en: program.type,
+                  rw:
+                    program.type === "certification"
+                      ? "Impamyabumenyi"
+                      : program.type,
+                })}
               </Badge>
               <Badge
                 variant="outline"
@@ -334,7 +496,10 @@ export default function ProgramDetail() {
               <Badge
                 className={`${statusColors[program.status]} border text-xs capitalize`}
               >
-                {t({ en: program.status, rw: program.status === "open" ? "Bifunguye" : program.status })}
+                {t({
+                  en: program.status,
+                  rw: program.status === "open" ? "Bifunguye" : program.status,
+                })}
               </Badge>
             </div>
             <h1 className="text-3xl md:text-4xl font-bold font-heading text-card mb-2">
@@ -342,7 +507,9 @@ export default function ProgramDetail() {
             </h1>
             {program.instructor && (
               <p className="text-card/70 flex items-center gap-2 text-sm">
-                <User className="h-4 w-4" /> {t({ en: "Instructor", rw: "Umuhazabumenyi" })}: {t(program.instructor)}
+                <User className="h-4 w-4" />{" "}
+                {t({ en: "Instructor", rw: "Umuhazabumenyi" })}:{" "}
+                {t(program.instructor)}
               </p>
             )}
           </div>
@@ -357,7 +524,10 @@ export default function ProgramDetail() {
                 {/* About */}
                 <div className="bg-card border border-border rounded-2xl p-6">
                   <h2 className="text-xl font-bold font-heading text-foreground mb-3">
-                    {t({ en: "About This Program", rw: "Ibihereranye n'iyi gahunda" })}
+                    {t({
+                      en: "About This Program",
+                      rw: "Ibihereranye n'iyi gahunda",
+                    })}
                   </h2>
                   <p className="text-muted-foreground leading-relaxed text-sm">
                     {t(program.longDescription) || t(program.description)}
@@ -382,23 +552,31 @@ export default function ProgramDetail() {
                 </div>
 
                 {/* What You Get */}
-                {program.whatYouGet && program.whatYouGet.length > 0 && (
-                  <div className="bg-card border border-border rounded-2xl p-6">
-                    <h2 className="text-xl font-bold font-heading text-foreground mb-4">
-                      {t({ en: "What You'll Get", rw: "Icyo uzahabwa" })}
-                    </h2>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {program.whatYouGet.map((item: any, iidx: number) => (
-                        <div key={iidx} className="flex items-start gap-2.5">
-                          <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                          <span className="text-sm text-foreground">
-                            {t(item)}
-                          </span>
-                        </div>
-                      ))}
+                {program.whatYouGet &&
+                  t(program.whatYouGet) &&
+                  t(program.whatYouGet).length > 0 && (
+                    <div className="bg-card border border-border rounded-2xl p-6">
+                      <h2 className="text-xl font-bold font-heading text-foreground mb-4">
+                        {t({ en: "What You'll Get", rw: "Icyo uzahabwa" })}
+                      </h2>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        {(t(program.whatYouGet) || "")
+                          .split("\n")
+                          .filter(Boolean)
+                          .map((item: string, iidx: number) => (
+                            <div
+                              key={iidx}
+                              className="flex items-start gap-2.5"
+                            >
+                              <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                              <span className="text-sm text-foreground">
+                                {item}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Curriculum / Modules */}
                 <div
@@ -407,19 +585,24 @@ export default function ProgramDetail() {
                 >
                   <h2 className="text-xl font-bold font-heading text-foreground mb-4">
                     <BookOpen className="h-5 w-5 inline-block mr-2 text-primary" />
-                    {t({ en: "Curriculum", rw: "Intekanyanyigisho" })} ({program.modules.length} {t({ en: "Modules", rw: "Inyongerabyigwa" })})
+                    {t({ en: "Curriculum", rw: "Intekanyanyigisho" })} (
+                    {program.modules.length}{" "}
+                    {t({ en: "Modules", rw: "Inyongerabyigwa" })})
                   </h2>
 
                   {!isEnrolled && (
                     <div className="bg-accent/30 border border-border rounded-xl p-5 mb-4 text-center">
                       <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm font-medium text-foreground mb-1">
-                        {t({ en: "Course content is locked", rw: "Ibirimo birafunze" })}
+                        {t({
+                          en: "Course content is locked",
+                          rw: "Ibirimo birafunze",
+                        })}
                       </p>
                       <p className="text-xs text-muted-foreground mb-3">
-                        {t({ 
-                          en: "Enroll in this program to access all modules, videos, downloads, and materials.", 
-                          rw: "Yandikishe muri iyi gahunda kugira ngo ubashe kubona amasomo, amavideo, no gukuraho ibitabo." 
+                        {t({
+                          en: "Enroll in this program to access all modules, videos, downloads, and materials.",
+                          rw: "Yandikishe muri iyi gahunda kugira ngo ubashe kubona amasomo, amavideo, no gukuraho ibitabo.",
                         })}
                       </p>
                       {program.status === "open" && (
@@ -428,7 +611,11 @@ export default function ProgramDetail() {
                           onClick={() => setEnrollDialogOpen(true)}
                           className="gap-1.5 text-xs h-9"
                         >
-                          <BookOpen className="h-3.5 w-3.5" /> {t({ en: "Enroll to Unlock", rw: "Yandikishe kugira ngo ufungure" })}
+                          <BookOpen className="h-3.5 w-3.5" />{" "}
+                          {t({
+                            en: "Enroll to Unlock",
+                            rw: "Yandikishe kugira ngo ufungure",
+                          })}
                         </Button>
                       )}
                     </div>
@@ -443,9 +630,7 @@ export default function ProgramDetail() {
                         >
                           <button
                             onClick={() =>
-                              isEnrolled
-                                ? toggleModule(mod.id)
-                                : undefined
+                              isEnrolled ? toggleModule(mod.id) : undefined
                             }
                             className={`w-full flex items-center justify-between p-4 transition-colors text-left ${
                               isEnrolled
@@ -460,10 +645,38 @@ export default function ProgramDetail() {
                               <div>
                                 <h4 className="font-semibold text-foreground text-sm flex items-center gap-2">
                                   {t(mod.title)}
+                                  {isEnrolled && activeEnrollment && (
+                                    <div
+                                      className="ml-2 cursor-pointer z-10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const isCompleted =
+                                          progressData?.moduleProgress?.find(
+                                            (p: any) => p.moduleId === mod.id,
+                                          )?.completed;
+                                        handleModuleComplete(
+                                          mod.id,
+                                          t(mod.title),
+                                          isCompleted || false,
+                                        );
+                                      }}
+                                    >
+                                      {progressData?.moduleProgress?.find(
+                                        (p: any) => p.moduleId === mod.id,
+                                      )?.completed ? (
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                      ) : (
+                                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 hover:border-primary transition-colors" />
+                                      )}
+                                    </div>
+                                  )}
                                 </h4>
                                 <p className="text-xs text-muted-foreground">
                                   {t(mod.duration)} • {mod.contentBlocks.length}{" "}
-                                  {t({ en: "content blocks", rw: "ibice bigize isomo" })}
+                                  {t({
+                                    en: "content blocks",
+                                    rw: "ibice bigize isomo",
+                                  })}
                                 </p>
                               </div>
                             </div>
@@ -517,7 +730,11 @@ export default function ProgramDetail() {
                                         size="sm"
                                         className="mt-2 gap-1.5 text-xs h-8"
                                       >
-                                        <Play className="h-3.5 w-3.5" /> {t({ en: "Watch Video", rw: "Reba Video" })}
+                                        <Play className="h-3.5 w-3.5" />{" "}
+                                        {t({
+                                          en: "Watch Video",
+                                          rw: "Reba Video",
+                                        })}
                                       </Button>
                                     )}
                                     {block.type === "download" && (
@@ -525,9 +742,42 @@ export default function ProgramDetail() {
                                         variant="outline"
                                         size="sm"
                                         className="mt-2 gap-1.5 text-xs h-8"
+                                        onClick={async () => {
+                                          const url = t(block.content);
+                                          if (!url) {
+                                            toast.error(
+                                              "Download link is broken",
+                                            );
+                                            return;
+                                          }
+                                          try {
+                                            const response = await fetch(url);
+                                            if (!response.ok)
+                                              throw new Error("File not found");
+                                            const blob = await response.blob();
+                                            const fileName =
+                                              url.split("/").pop() ||
+                                              "resource";
+                                            const a =
+                                              document.createElement("a");
+                                            a.href = URL.createObjectURL(blob);
+                                            a.download = fileName;
+                                            a.click();
+                                            URL.revokeObjectURL(a.href);
+                                            toast.success("Download started");
+                                          } catch (err) {
+                                            window.open(url, "_blank");
+                                            toast.error(
+                                              "Direct download failed, opened in new tab.",
+                                            );
+                                          }
+                                        }}
                                       >
                                         <Download className="h-3.5 w-3.5" />{" "}
-                                        {t({ en: "Download", rw: "Kuraho" })}
+                                        {t({
+                                          en: "Download Resource",
+                                          rw: "Kuraho",
+                                        })}
                                       </Button>
                                     )}
                                     {block.type === "checklist" && (
@@ -556,6 +806,46 @@ export default function ProgramDetail() {
                               ))}
                             </div>
                           )}
+
+                          {isEnrolled &&
+                            expandedModule === mod.id &&
+                            mod.quiz && (
+                              <div className="border-t border-border p-4 bg-muted/30">
+                                <div className="flex items-center gap-3 bg-card border border-border rounded-lg p-3">
+                                  <div className="mt-0.5">
+                                    <Brain className="h-4 w-4 text-green-500" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h5 className="text-sm font-medium text-foreground">
+                                      {t(mod.quiz.title) ||
+                                        t({
+                                          en: "Module Quiz",
+                                          rw: "Isuzumabumenyi",
+                                        })}
+                                    </h5>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {t(mod.quiz.description) ||
+                                        t({
+                                          en: "Test your knowledge on this module.",
+                                          rw: "Gerageza ubumenyi bwawe",
+                                        })}
+                                    </p>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => startQuiz(mod.quiz)}
+                                      className="mt-3 gap-1.5 text-xs h-8 text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-900/50 dark:hover:bg-green-900/20"
+                                    >
+                                      <Brain className="h-3.5 w-3.5" />
+                                      {t({
+                                        en: "Take Quiz",
+                                        rw: "Kora Isuzuma",
+                                      })}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                         </div>
                       );
                     })}
@@ -563,43 +853,50 @@ export default function ProgramDetail() {
                 </div>
 
                 {/* Certificate Section */}
-                {program.certificate && (
-                  <div className="bg-card border border-border rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold font-heading text-foreground">
-                        <Award className="h-5 w-5 inline-block mr-2 text-primary" />
-                        {t({ en: "Certificate", rw: "Impamyabumenyi" })}
-                      </h2>
-                    </div>
+                {program.certificate &&
+                  typeof progressData?.completionPercentage === "number" &&
+                  progressData.completionPercentage >= 100 && (
+                    <div className="bg-card border border-border rounded-2xl p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold font-heading text-foreground">
+                          <Award className="h-5 w-5 inline-block mr-2 text-primary" />
+                          {t({ en: "Certificate", rw: "Impamyabumenyi" })}
+                        </h2>
+                      </div>
 
-                    {!isEnrolled ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Lock className="h-4 w-4" /> {t({ en: "Enroll in this program to earn your certificate.", rw: "Yandikishe muri iyi gahunda kugira ngo uhabwe impamyabumenyi." })}
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-sm text-primary font-medium">
-                          <CheckCircle className="h-4 w-4" /> {t({ en: "You're enrolled! Complete the curriculum to get your certificate.", rw: "Wiyandikishije! Reba inyigisho zose kugira ngo uhabwe impamyabumenyi." })}
+                      {!isEnrolled ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Lock className="h-4 w-4" />{" "}
+                          {t({
+                            en: "Enroll in this program to earn your certificate.",
+                            rw: "Yandikishe muri iyi gahunda kugira ngo uhabwe impamyabumenyi.",
+                          })}
                         </div>
-                        <div className="flex gap-3">
-                          <Button
-                            className="gap-2 text-xs h-10"
-                            onClick={() => setCertDialogOpen(true)}
-                          >
-                            <Award className="h-4 w-4" /> {t({ en: "View Certificate Template", rw: "Reba uko impamyabumenyi isa" })}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            className="gap-2 text-xs h-10"
-                            onClick={handleDownloadCertificate}
-                          >
-                            <Download className="h-4 w-4" /> {t({ en: "Download", rw: "Kuraho" })}
-                          </Button>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                            <CheckCircle className="h-4 w-4" />{" "}
+                            {t({
+                              en: "You're enrolled! Complete the curriculum to get your certificate.",
+                              rw: "Wiyandikishije! Reba inyigisho zose kugira ngo uhabwe impamyabumenyi.",
+                            })}
+                          </div>
+                          <div className="flex gap-3">
+                            <Button
+                              className="gap-2 text-xs h-10"
+                              onClick={() => setCertDialogOpen(true)}
+                            >
+                              <Award className="h-4 w-4" />{" "}
+                              {t({
+                                en: "View Certificate Template",
+                                rw: "Reba uko impamyabumenyi isa",
+                              })}
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
 
                 {program.instructor && (
                   <div className="bg-card border border-border rounded-2xl p-6">
@@ -630,11 +927,17 @@ export default function ProgramDetail() {
                   <div className="bg-card border border-border rounded-2xl p-6">
                     <div className="text-center mb-5">
                       <p className="text-3xl font-bold text-foreground">
-                        {isFree ? t({ en: "FREE", rw: "UBUNTU" }) : formatPrice(program.price)}
+                        {isFree
+                          ? t({ en: "FREE", rw: "UBUNTU" })
+                          : formatPrice(program.price)}
                       </p>
                       {program.certificate && (
                         <p className="text-xs text-primary flex items-center justify-center gap-1 mt-1">
-                          <Award className="h-3.5 w-3.5" /> {t({ en: "Certificate included", rw: "Harimo n'impamyabumenyi" })}
+                          <Award className="h-3.5 w-3.5" />{" "}
+                          {t({
+                            en: "Certificate included",
+                            rw: "Harimo n'impamyabumenyi",
+                          })}
                         </p>
                       )}
                     </div>
@@ -642,7 +945,8 @@ export default function ProgramDetail() {
                     {isEnrolled ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 justify-center text-sm text-primary font-medium">
-                          <CheckCircle className="h-4 w-4" /> {t({ en: "You're Enrolled", rw: "Wiyandikishije" })}
+                          <CheckCircle className="h-4 w-4" />{" "}
+                          {t({ en: "You're Enrolled", rw: "Wiyandikishije" })}
                         </div>
                         <Button
                           className="w-full gap-2 text-xs h-10"
@@ -653,7 +957,29 @@ export default function ProgramDetail() {
                               ?.scrollIntoView({ behavior: "smooth" });
                           }}
                         >
-                          <Play className="h-4 w-4" /> {t({ en: "View Curriculum", rw: "Reba inyigisho" })}
+                          <Play className="h-4 w-4" />{" "}
+                          {t({ en: "View Curriculum", rw: "Reba inyigisho" })}
+                        </Button>
+                      </div>
+                    ) : isPending ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 justify-center text-sm text-yellow-500 font-medium">
+                          <Clock className="h-4 w-4" />{" "}
+                          {t({
+                            en: "Enrollment Pending",
+                            rw: "Itagereje Kwemezwa",
+                          })}
+                        </div>
+                        <Button
+                          className="w-full gap-2 text-xs h-10"
+                          size="sm"
+                          variant="secondary"
+                          disabled
+                        >
+                          {t({
+                            en: "Awaiting Approval",
+                            rw: "Itegereje Kwemezwa",
+                          })}
                         </Button>
                       </div>
                     ) : (
@@ -664,7 +990,8 @@ export default function ProgramDetail() {
                             size="sm"
                             onClick={() => setEnrollDialogOpen(true)}
                           >
-                            <BookOpen className="h-4 w-4" /> {t({ en: "Enroll Now", rw: "Iyandikishe ubu" })}
+                            <BookOpen className="h-4 w-4" />{" "}
+                            {t({ en: "Enroll Now", rw: "Iyandikishe ubu" })}
                           </Button>
                         )}
                         {program.status === "full" && (
@@ -674,7 +1001,11 @@ export default function ProgramDetail() {
                             variant="secondary"
                             onClick={() => setNotifyDialogOpen(true)}
                           >
-                            <Bell className="h-4 w-4" /> {t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde" })}
+                            <Bell className="h-4 w-4" />{" "}
+                            {t({
+                              en: "Join Waitlist",
+                              rw: "Yiyandikishe ku rutonde",
+                            })}
                           </Button>
                         )}
                         {program.status === "upcoming" && (
@@ -684,7 +1015,8 @@ export default function ProgramDetail() {
                             variant="outline"
                             onClick={() => setNotifyDialogOpen(true)}
                           >
-                            <Bell className="h-4 w-4" /> {t({ en: "Notify Me", rw: "Unyibutse" })}
+                            <Bell className="h-4 w-4" />{" "}
+                            {t({ en: "Notify Me", rw: "Unyibutse" })}
                           </Button>
                         )}
                         {program.status === "completed" && (
@@ -694,7 +1026,10 @@ export default function ProgramDetail() {
                             variant="secondary"
                             disabled
                           >
-                            {t({ en: "Program Completed", rw: "Gahunda yarangiye" })}
+                            {t({
+                              en: "Program Completed",
+                              rw: "Gahunda yarangiye",
+                            })}
                           </Button>
                         )}
                       </>
@@ -704,7 +1039,10 @@ export default function ProgramDetail() {
                   {/* Details Card */}
                   <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
                     <h3 className="font-semibold text-foreground text-sm">
-                      {t({ en: "Program Details", rw: "Ibisobanuro bya Gahunda" })}
+                      {t({
+                        en: "Program Details",
+                        rw: "Ibisobanuro bya Gahunda",
+                      })}
                     </h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex items-center gap-3">
@@ -736,7 +1074,8 @@ export default function ProgramDetail() {
                             {t({ en: "Class Size", rw: "Ingano y'ishuri" })}
                           </p>
                           <p className="font-medium text-foreground text-sm">
-                            {t({ en: "Max", rw: "Kugeza ku" })} {program.maxParticipants} {t({ en: "participants", rw: "abanyeshuri" })}
+                            {program.enrolled} / {program.maxParticipants}{" "}
+                            {t({ en: "enrolled", rw: "biyandikishije" })}
                           </p>
                         </div>
                       </div>
@@ -769,24 +1108,30 @@ export default function ProgramDetail() {
                     </div>
                   </div>
 
-                  {/* Requirements */}                 {program.requirements && program.requirements.length > 0 && (
-                    <div className="bg-card border border-border rounded-2xl p-6">
-                      <h3 className="font-semibold text-foreground text-sm mb-3">
-                        {t({ en: "Requirements", rw: "Ibisabwa" })}
-                      </h3>
-                      <ul className="space-y-2">
-                        {program.requirements.map((req: any, ridx: number) => (
-                          <li
-                            key={ridx}
-                            className="flex items-start gap-2 text-sm text-muted-foreground"
-                          >
-                            <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />{" "}
-                            {t(req)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {/* Requirements */}
+                  {program.requirements &&
+                    t(program.requirements) &&
+                    t(program.requirements).length > 0 && (
+                      <div className="bg-card border border-border rounded-2xl p-6">
+                        <h3 className="font-semibold text-foreground text-sm mb-3">
+                          {t({ en: "Requirements", rw: "Ibisabwa" })}
+                        </h3>
+                        <ul className="space-y-2">
+                          {(t(program.requirements) || "")
+                            .split("\n")
+                            .filter(Boolean)
+                            .map((req: string, ridx: number) => (
+                              <li
+                                key={ridx}
+                                className="flex items-start gap-2 text-sm text-muted-foreground"
+                              >
+                                <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />{" "}
+                                {req}
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -804,23 +1149,36 @@ export default function ProgramDetail() {
             </DialogTitle>
             <DialogDescription className="text-xs">
               {isFree
-                ? t({ en: "This is a free program. Fill in your details to enroll.", rw: "Iyi ni gahunda y'ubuntu. Uzuza neza amakuru yawe kugira ngo wiyandikishe." })
-                : t({ en: `Complete your enrollment for ${formatPrice(program.price)}.`, rw: `Uzuza iyandikisha ryawe wishyura ${formatPrice(program.price)}.` })}
+                ? t({
+                    en: "This is a free program. Fill in your details to enroll.",
+                    rw: "Iyi ni gahunda y'ubuntu. Uzuza neza amakuru yawe kugira ngo wiyandikishe.",
+                  })
+                : t({
+                    en: `Complete your enrollment for ${formatPrice(program.price)}.`,
+                    rw: `Uzuza iyandikisha ryawe wishyura ${formatPrice(program.price)}.`,
+                  })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEnroll} className="space-y-4 pt-2">
             <div>
-              <Label className="text-[11px] mb-1 block">{t({ en: "Full Name *", rw: "Amazina Yose *" })}</Label>
+              <Label className="text-[11px] mb-1 block">
+                {t({ en: "Full Name *", rw: "Amazina Yose *" })}
+              </Label>
               <Input
                 name="fullName"
                 required
-                placeholder={t({ en: "Your full name", rw: "Amazina yawe yose" })}
+                placeholder={t({
+                  en: "Your full name",
+                  rw: "Amazina yawe yose",
+                })}
                 className="h-9 text-xs"
                 defaultValue={authUser?.name || ""}
               />
             </div>
             <div>
-              <Label className="text-[11px] mb-1 block">{t({ en: "Email *", rw: "Imeri *" })}</Label>
+              <Label className="text-[11px] mb-1 block">
+                {t({ en: "Email *", rw: "Imeri *" })}
+              </Label>
               <Input
                 name="email"
                 type="email"
@@ -831,7 +1189,9 @@ export default function ProgramDetail() {
               />
             </div>
             <div>
-              <Label className="text-[11px] mb-1 block">{t({ en: "Phone *", rw: "Telefoni *" })}</Label>
+              <Label className="text-[11px] mb-1 block">
+                {t({ en: "Phone *", rw: "Telefoni *" })}
+              </Label>
               <Input
                 name="phone"
                 required
@@ -841,7 +1201,9 @@ export default function ProgramDetail() {
             </div>
             {!isFree && (
               <div className="space-y-3">
-                <Label className="text-[11px]">{t({ en: "Payment Method", rw: "Uburyo bwo kwishyura" })}</Label>
+                <Label className="text-[11px]">
+                  {t({ en: "Payment Method", rw: "Uburyo bwo kwishyura" })}
+                </Label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -852,7 +1214,8 @@ export default function ProgramDetail() {
                         : "border-border text-foreground hover:bg-accent"
                     }`}
                   >
-                    <Smartphone className="h-4 w-4" /> {t({ en: "Mobile Money", rw: "Momo" })}
+                    <Smartphone className="h-4 w-4" />{" "}
+                    {t({ en: "Mobile Money", rw: "Momo" })}
                   </button>
                   <button
                     type="button"
@@ -863,7 +1226,8 @@ export default function ProgramDetail() {
                         : "border-border text-foreground hover:bg-accent"
                     }`}
                   >
-                    <CreditCard className="h-4 w-4" /> {t({ en: "Card", rw: "Ikarita" })}
+                    <CreditCard className="h-4 w-4" />{" "}
+                    {t({ en: "Card", rw: "Ikarita" })}
                   </button>
                 </div>
                 {paymentMethod === "momo" && (
@@ -919,7 +1283,9 @@ export default function ProgramDetail() {
                 )}
                 <div className="bg-accent/50 border border-border rounded-lg p-3">
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{t({ en: "Program Fee", rw: "Ikiguzi cya Gahunda" })}</span>
+                    <span className="text-muted-foreground">
+                      {t({ en: "Program Fee", rw: "Ikiguzi cya Gahunda" })}
+                    </span>
                     <span className="font-semibold text-foreground">
                       {formatPrice(program.price)}
                     </span>
@@ -947,25 +1313,40 @@ export default function ProgramDetail() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="font-heading text-lg">
-              {program.status === "full" ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde" }) : t({ en: "Get Notified", rw: "Unyibutse" })}
+              {program.status === "full"
+                ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde" })
+                : t({ en: "Get Notified", rw: "Unyibutse" })}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {program.status === "full"
-                ? t({ en: "We'll contact you when a spot opens up.", rw: "Tuzakumenyesha umwanya niboneka." })
-                : t({ en: "We'll notify you when enrollment opens.", rw: "Tuzakumenyesha kwiyandikisha nibitangira." })}
+                ? t({
+                    en: "We'll contact you when a spot opens up.",
+                    rw: "Tuzakumenyesha umwanya niboneka.",
+                  })
+                : t({
+                    en: "We'll notify you when enrollment opens.",
+                    rw: "Tuzakumenyesha kwiyandikisha nibitangira.",
+                  })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleNotify} className="space-y-4 pt-2">
             <div>
-              <Label className="text-[11px] mb-1 block">{t({ en: "Full Name *", rw: "Amazina Yose *" })}</Label>
+              <Label className="text-[11px] mb-1 block">
+                {t({ en: "Full Name *", rw: "Amazina Yose *" })}
+              </Label>
               <Input
                 required
-                placeholder={t({ en: "Your full name", rw: "Amazina yawe yose" })}
+                placeholder={t({
+                  en: "Your full name",
+                  rw: "Amazina yawe yose",
+                })}
                 className="h-9 text-xs"
               />
             </div>
             <div>
-              <Label className="text-[11px] mb-1 block">{t({ en: "Email *", rw: "Imeri *" })}</Label>
+              <Label className="text-[11px] mb-1 block">
+                {t({ en: "Email *", rw: "Imeri *" })}
+              </Label>
               <Input
                 type="email"
                 required
@@ -974,11 +1355,15 @@ export default function ProgramDetail() {
               />
             </div>
             <div>
-              <Label className="text-[11px] mb-1 block">{t({ en: "Phone (optional)", rw: "Telefoni (niba uayifite)" })}</Label>
+              <Label className="text-[11px] mb-1 block">
+                {t({ en: "Phone (optional)", rw: "Telefoni (niba uayifite)" })}
+              </Label>
               <Input placeholder="+250 7XX XXX XXX" className="h-9 text-xs" />
             </div>
             <Button type="submit" className="w-full text-xs h-10">
-              {program.status === "full" ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde" }) : t({ en: "Notify Me", rw: "Unyibutse" })}
+              {program.status === "full"
+                ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde" })
+                : t({ en: "Notify Me", rw: "Unyibutse" })}
             </Button>
           </form>
         </DialogContent>
@@ -993,85 +1378,222 @@ export default function ProgramDetail() {
                 {t({ en: "Your Certificate", rw: "Impamyabumenyi Yawe" })}
               </DialogTitle>
               <DialogDescription className="text-xs">
-                {t({ en: "Congratulations on completing the program!", rw: "Urashimwa ko wasoje iyi gahunda!" })}
+                {t({
+                  en: "Congratulations on completing the program!",
+                  rw: "Urashimwa ko wasoje iyi gahunda!",
+                })}
               </DialogDescription>
             </DialogHeader>
-            <div
-              ref={certRef}
-              className="border-4 border-double rounded-xl p-8 text-center space-y-4 bg-card"
-              style={{ borderColor: program.certificateTemplate.badgeColor }}
-            >
-              <div className="flex justify-center items-center gap-2 mb-6">
-                <img
-                  src="/assets/logo/logo.png"
-                  alt="Company Logo"
-                  className="h-12 w-auto object-contain"
-                />
-              </div>
-              <div className="flex justify-center">
-                <Award
-                  className="h-12 w-12"
-                  style={{ color: program.certificateTemplate.badgeColor }}
-                />
-              </div>
-              <h2 className="text-2xl font-bold font-heading text-foreground">
-                {t(program.certificateTemplate.title)}
-              </h2>
-              <p className="text-sm text-muted-foreground uppercase tracking-widest">
-                {t(program.certificateTemplate.subtitle)}
-              </p>
-              <div className="py-4">
-                <p className="text-lg text-foreground font-medium">
-                  {t({ en: "This certifies that", rw: "Ibi biremeza ko" })}
-                </p>
-                <p className="text-2xl font-bold text-primary my-2 font-heading">
-                  {authUser?.name || "[Your Name]"}
-                </p>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  {t(program.certificateTemplate.description)}
-                </p>
-              </div>
-              <div className="pt-6 border-t border-border">
-                <div className="flex justify-between items-end px-4">
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {t({ en: "Date of Completion", rw: "Itariki yuzuyeho" })}
-                    </p>
-                    <p className="text-sm font-medium text-foreground border-t border-foreground pt-1 px-4">
-                      {new Date().toLocaleDateString()}
-                    </p>
-                  </div>
-                  {/* QR Code placeholder */}
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="w-16 h-16 border-2 border-border rounded-lg flex items-center justify-center bg-accent/30">
-                      <QrCode className="h-10 w-10 text-muted-foreground" />
+            {/* Sanitize badgeColor for html2canvas compatibility */}
+            {(() => {
+              let safeBadgeColor = program.certificateTemplate.badgeColor;
+              if (
+                typeof safeBadgeColor === "string" &&
+                safeBadgeColor.trim().startsWith("oklch")
+              ) {
+                safeBadgeColor = "#16a34a"; // fallback to green
+              }
+              return (
+                <>
+                  <div
+                    ref={certRef}
+                    className="border-4 border-double rounded-xl p-8 text-center space-y-4 bg-card"
+                    style={{ borderColor: safeBadgeColor }}
+                  >
+                    <div className="flex justify-center items-center gap-2 mb-6">
+                      <img
+                        src="/assets/logo/logo.png"
+                        alt="Company Logo"
+                        className="h-12 w-auto object-contain"
+                      />
                     </div>
-                    <span className="text-[10px] text-muted-foreground">
-                      {t({ en: "Verify", rw: "Check" })}
-                    </span>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {t(program.certificateTemplate.signatoryTitle)}
+                    <div className="flex justify-center">
+                      <Award
+                        className="h-12 w-12"
+                        style={{ color: safeBadgeColor }}
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold font-heading text-foreground">
+                      {t(program.certificateTemplate.title)}
+                    </h2>
+                    <p className="text-sm text-muted-foreground uppercase tracking-widest">
+                      {t(program.certificateTemplate.subtitle)}
                     </p>
-                    <p className="text-sm font-medium text-foreground border-t border-foreground pt-1 px-4 italic">
-                      {t(program.certificateTemplate.signatoryName)}
-                    </p>
+                    <div className="py-4">
+                      <p className="text-lg text-foreground font-medium">
+                        {t({
+                          en: "This certifies that",
+                          rw: "Ibi biremeza ko",
+                        })}
+                      </p>
+                      <p className="text-2xl font-bold text-primary my-2 font-heading">
+                        {authUser?.name || "[Your Name]"}
+                      </p>
+                      <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                        {t(program.certificateTemplate.description)}
+                      </p>
+                    </div>
+                    <div className="pt-6 border-t border-border">
+                      <div className="flex justify-between items-end px-4">
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {t({
+                              en: "Date of Completion",
+                              rw: "Itariki yuzuyeho",
+                            })}
+                          </p>
+                          <p className="text-sm font-medium text-foreground border-t border-foreground pt-1 px-4">
+                            {new Date().toLocaleDateString()}
+                          </p>
+                        </div>
+                        {/* QR Code placeholder */}
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-16 h-16 border-2 border-border rounded-lg flex items-center justify-center bg-accent/30">
+                            <QrCode className="h-10 w-10 text-muted-foreground" />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">
+                            {t({ en: "Verify", rw: "Check" })}
+                          </span>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-muted-foreground mb-1">
+                            {t(program.certificateTemplate.signatoryTitle)}
+                          </p>
+                          <p className="text-sm font-medium text-foreground border-t border-foreground pt-1 px-4 italic">
+                            {t(program.certificateTemplate.signatoryName)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-center gap-3 mt-4">
-              <Button
-                className="gap-2 text-xs h-10"
-                onClick={handleDownloadCertificate}
-              >
-                <Download className="h-4 w-4" /> {t({ en: "Download Certificate", rw: "Kuraho Impamyabumenyi" })}
-              </Button>
-            </div>
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      variant="outline"
+                      className="gap-2 text-xs h-10"
+                      onClick={handleDownloadCertificate}
+                    >
+                      <Download className="h-4 w-4" />{" "}
+                      {t({ en: "Download", rw: "Kuraho" })}
+                    </Button>
+                  </div>
+                </>
+              );
+            })()}
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog open={quizDialogOpen} onOpenChange={setQuizDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-border bg-card">
+          <div className="p-6 bg-green-50/50 dark:bg-green-950/20 border-b border-border">
+            <h2 className="text-lg font-bold font-heading flex items-center gap-2">
+              <Brain className="h-5 w-5 text-green-600 dark:text-green-400" />
+              {activeQuiz
+                ? t(activeQuiz.title)
+                : t({ en: "Module Quiz", rw: "Isuzumabumenyi" })}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t({
+                en: "To complete this module, you need a passing score.",
+                rw: "Gutsinda neza ni ngombwa ngo wemerewe gukomeza.",
+              })}
+            </p>
+          </div>
+          <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+            {(!activeQuiz?.questions || activeQuiz.questions.length === 0) && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No questions available for this quiz yet.
+              </div>
+            )}
+            {activeQuiz?.questions && activeQuiz.questions.length > 0 && (
+              <>
+                <div className="space-y-3">
+                  <h3 className="font-medium text-sm text-foreground">
+                    {quizStep + 1}. {t(activeQuiz.questions[quizStep].question)}
+                  </h3>
+                  <div className="space-y-2">
+                    {activeQuiz.questions[quizStep].options?.map(
+                      (opt: any, oIdx: number) => (
+                        <label
+                          key={oIdx}
+                          className={`flex items-center gap-3 p-3 border border-border rounded-lg bg-background hover:bg-muted/50 cursor-pointer transition-colors ${quizAnswers[quizStep] === oIdx ? "ring-2 ring-primary" : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name={`q-${quizStep}`}
+                            className="text-primary focus:ring-primary"
+                            checked={quizAnswers[quizStep] === oIdx}
+                            onChange={() => handleQuizAnswer(quizStep, oIdx)}
+                            disabled={quizSubmitted}
+                          />
+                          <span className="text-sm">{t(opt)}</span>
+                        </label>
+                      ),
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setQuizStep((s) => Math.max(0, s - 1))}
+                    disabled={quizStep === 0}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Question {quizStep + 1} of {activeQuiz.questions.length}
+                  </span>
+                  {quizStep < activeQuiz.questions.length - 1 ? (
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setQuizStep((s) =>
+                          Math.min(activeQuiz.questions.length - 1, s + 1),
+                        )
+                      }
+                    >
+                      Next
+                    </Button>
+                  ) : (
+                    <span style={{ width: 75 }} />
+                  )}
+                </div>
+              </>
+            )}
+            {quizSubmitted && (
+              <div className="mt-6 text-center">
+                <div className="text-lg font-bold">
+                  Score: {quizScore} / {activeQuiz.questions.length}
+                </div>
+                <div
+                  className={`mt-2 text-${quizScore && quizScore >= Math.ceil(activeQuiz.questions.length * 0.6) ? "green-600" : "red-600"} font-semibold`}
+                >
+                  {quizScore &&
+                  quizScore >= Math.ceil(activeQuiz.questions.length * 0.6)
+                    ? t({ en: "Passed!", rw: "Watsinze!" })
+                    : t({ en: "Try Again", rw: "Gerageza nanone" })}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="p-4 border-t border-border bg-muted/20 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setQuizDialogOpen(false)}>
+              Cancel
+            </Button>
+            {!quizSubmitted &&
+              activeQuiz?.questions &&
+              activeQuiz.questions.length > 0 &&
+              quizStep === activeQuiz.questions.length - 1 && (
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleSubmitQuiz}
+                >
+                  Submit Quiz
+                </Button>
+              )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

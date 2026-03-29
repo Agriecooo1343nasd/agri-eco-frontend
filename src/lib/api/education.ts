@@ -47,6 +47,7 @@ export interface TrainingProgram {
   location?: string;
   averageRating: number;
   reviewCount: number;
+  enrolledCount?: number;
   startDate?: string;
   endDate?: string;
   createdAt: string;
@@ -214,6 +215,21 @@ export async function enrollInProgram(
   return response.data.data;
 }
 
+export interface ModuleProgressItem {
+  moduleId: string;
+  title: string;
+  completed: boolean;
+  completedAt?: string;
+}
+
+export interface QuizScoreItem {
+  quizId: string;
+  title: string;
+  score: number;
+  maxScore: number;
+  attemptedAt: string;
+}
+
 export interface TrainingEnrollment {
   id: string;
   userId: string;
@@ -223,6 +239,11 @@ export interface TrainingEnrollment {
   email: string;
   phone: string;
   notes?: string;
+  completionPercentage: number;
+  moduleProgress: ModuleProgressItem[];
+  quizScores: QuizScoreItem[];
+  certificateUrl?: string;
+  certificateNumber?: string;
   createdAt: string;
   updatedAt: string;
   trainingProgram: TrainingProgram;
@@ -282,6 +303,39 @@ export async function fetchCertificate(enrollmentId: string): Promise<any> {
     `/training-programs/me/enrollments/${enrollmentId}/certificate`,
   );
   if (!response.data.data) throw new Error("Certificate not found");
+  return response.data.data;
+}
+
+export interface ProgressResult {
+  enrollmentId: string;
+  status: string;
+  completionPercentage: number;
+  moduleProgress: ModuleProgressItem[];
+  quizScores: QuizScoreItem[];
+  program: string;
+}
+
+export async function fetchProgress(enrollmentId: string): Promise<ProgressResult> {
+  const response = await apiClient.get<ApiSuccessResponse<ProgressResult>>(
+    `/training-programs/me/enrollments/${enrollmentId}/progress`,
+  );
+  if (!response.data.data) throw new Error("Progress not found");
+  return response.data.data;
+}
+
+export async function updateProgress(
+  enrollmentId: string,
+  payload: {
+    moduleProgress?: ModuleProgressItem[];
+    quizScores?: QuizScoreItem[];
+    completionPercentage?: number;
+  },
+): Promise<TrainingEnrollment> {
+  const response = await apiClient.patch<ApiSuccessResponse<TrainingEnrollment>>(
+    `/training-programs/me/enrollments/${enrollmentId}/progress`,
+    payload,
+  );
+  if (!response.data.data) throw new Error("Failed to update progress");
   return response.data.data;
 }
 
@@ -403,6 +457,30 @@ export async function toggleAdminTrainingProgramArchive(
   >(`/training-programs/admin/programs/${id}/archive`);
   if (!response.data.data) throw new Error("Failed to toggle archive");
   return response.data.data;
+}
+
+export async function updateAdminEnrollmentStatus(
+  id: string,
+  payload: { status: string; notes?: string },
+): Promise<any> {
+  const response = await apiClient.patch<ApiSuccessResponse<any>>(
+    `/training-programs/admin/enrollments/${id}/status`,
+    payload,
+  );
+  if (!response.data.data) throw new Error("Failed to update enrollment status");
+  return response.data.data;
+}
+
+export async function fetchAdminEnrollments(
+  params: Record<string, any>,
+): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(
+    `/training-programs/admin/enrollments${buildQuery(params)}`,
+  );
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
+  };
 }
 
 export async function deleteAdminTrainingProgram(id: string): Promise<void> {

@@ -25,7 +25,10 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAdminTrainingProgramById, fetchAdminTrainingEnrollments } from "@/lib/api/education";
+import {
+  fetchAdminTrainingProgramById,
+  fetchAdminTrainingEnrollments,
+} from "@/lib/api/education";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function Page() {
@@ -91,8 +94,9 @@ export default function Page() {
         )
       : 0;
 
-  const activeStudents = enrollments.filter((e: any) => e.status === "approved")
-    .length;
+  const activeStudents = enrollments.filter(
+    (e: any) => e.status === "approved",
+  ).length;
 
   // Since backend doesn't track granular progress yet,
   // we use status as a proxy: Completed = 100%, Approved = 50%, Pending/Rejected = 0%
@@ -202,7 +206,9 @@ export default function Page() {
           <div>
             <p className="text-xs text-muted-foreground">Duration</p>
             <p className="text-sm font-medium text-foreground">
-              {program.durationWeeks ? `${program.durationWeeks} Weeks` : "Self-paced"}
+              {program.durationWeeks
+                ? `${program.durationWeeks} Weeks`
+                : "Self-paced"}
             </p>
           </div>
         </div>
@@ -211,7 +217,9 @@ export default function Page() {
           <div>
             <p className="text-xs text-muted-foreground">Start Date</p>
             <p className="text-sm font-medium text-foreground">
-              {program.startDate ? new Date(program.startDate).toLocaleDateString() : "TBD"}
+              {program.startDate
+                ? new Date(program.startDate).toLocaleDateString()
+                : "TBD"}
             </p>
           </div>
         </div>
@@ -221,7 +229,10 @@ export default function Page() {
             <p className="text-xs text-muted-foreground">Curriculum</p>
             <p className="text-sm font-medium text-foreground">
               {program.curriculum?.length || 0} Modules ·{" "}
-              {program.curriculum?.reduce((s: number, m: any) => s + (m.contentBlocks?.length || 0), 0) || 0}{" "}
+              {program.curriculum?.reduce(
+                (s: number, m: any) => s + (m.contentBlocks?.length || 0),
+                0,
+              ) || 0}{" "}
               Content Blocks
             </p>
           </div>
@@ -249,16 +260,30 @@ export default function Page() {
               </TableHeader>
               <TableBody>
                 {enrollments.map((e: any) => {
-                  const progress = e.status === "completed" ? 100 : e.status === "approved" ? 50 : 0;
-                  const completedModules = e.status === "completed" ? (program.curriculum?.length || 0) : 0;
-                  
+                  // Use real progress if available, fallback to status proxy
+                  const progress =
+                    typeof e.completionPercentage === "number"
+                      ? e.completionPercentage
+                      : e.status === "completed"
+                        ? 100
+                        : e.status === "approved"
+                          ? 50
+                          : 0;
+                  const completedModules = Array.isArray(e.moduleProgress)
+                    ? e.moduleProgress.filter((m: any) => m.completed).length
+                    : e.status === "completed"
+                      ? program.curriculum?.length || 0
+                      : 0;
+
                   return (
                     <TableRow key={e.id}>
                       <TableCell>
                         <p className="font-medium text-foreground text-sm">
                           {e.fullName}
                         </p>
-                        <p className="text-xs text-muted-foreground">{e.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {e.email}
+                        </p>
                       </TableCell>
                       <TableCell className="text-sm">
                         {new Date(e.createdAt).toLocaleDateString()}
@@ -298,11 +323,12 @@ export default function Page() {
           <div className="space-y-3">
             {(program.curriculum || []).map((mod: any, i: number) => {
               const completedCount = enrollments.filter(
-                (e: any) => e.status === "completed"
+                (e: any) => e.status === "completed",
               ).length;
-              const percentage = enrollments.length > 0 
-                ? Math.round((completedCount / enrollments.length) * 100)
-                : 0;
+              const percentage =
+                enrollments.length > 0
+                  ? Math.round((completedCount / enrollments.length) * 100)
+                  : 0;
               return (
                 <div
                   key={mod.id || i}
@@ -316,7 +342,10 @@ export default function Page() {
                       {t(mod.title)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {mod.durationWeeks ? `${mod.durationWeeks} Weeks` : "Self-paced"} · {mod.contentBlocks?.length || 0} blocks
+                      {mod.durationWeeks
+                        ? `${mod.durationWeeks} Weeks`
+                        : "Self-paced"}{" "}
+                      · {mod.contentBlocks?.length || 0} blocks
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
