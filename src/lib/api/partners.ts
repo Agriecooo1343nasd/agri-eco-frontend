@@ -47,6 +47,12 @@ export interface AdminPartnerStats {
   inactive: number;
   totalRevenue: number;
   pendingPayouts: number;
+  totalBookings: number;
+  agreements?: {
+    active: number;
+    expired: number;
+    terminated: number;
+  };
 }
 
 export interface UpsertAdminPartnerPayload {
@@ -370,6 +376,12 @@ export async function fetchAdminPartnerStats(): Promise<AdminPartnerStats> {
       inactive: 0,
       totalRevenue: 0,
       pendingPayouts: 0,
+      totalBookings: 0,
+      agreements: {
+        active: 0,
+        expired: 0,
+        terminated: 0,
+      },
     }
   );
 }

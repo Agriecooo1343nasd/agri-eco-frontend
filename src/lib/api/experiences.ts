@@ -37,9 +37,9 @@ export interface Experience {
   cancellationPolicy?: MultiLangText;
   heroImage?: string;
   gallery: string[];
-  highlights: string[];
-  requirements: string[];
-  inclusions: string[];
+  highlights: Array<MultiLangText | string>;
+  requirements: Array<MultiLangText | string>;
+  inclusions: Array<MultiLangText | string>;
   priceRwf: number;
   pricePerGroupRwf: number;
   capacity: number;
@@ -87,9 +87,9 @@ export interface CreateAdminExperiencePayload {
   cancellationPolicy?: MultiLangText;
   heroImage?: string;
   gallery?: string[];
-  highlights?: string[];
-  requirements?: string[];
-  inclusions?: string[];
+  highlights?: Array<MultiLangText | string>;
+  requirements?: Array<MultiLangText | string>;
+  inclusions?: Array<MultiLangText | string>;
   priceRwf?: number;
   pricePerGroupRwf?: number;
   capacity?: number;

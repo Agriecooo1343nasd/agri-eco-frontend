@@ -2,19 +2,17 @@
 
 import { Star, Quote } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAdminFeedback } from "@/lib/api/feedback";
+import { fetchPublicFeedback } from "@/lib/api/feedback";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useLanguage } from "@/context/LanguageContext";
 import { useState, useEffect } from "react";
 
 const Testimonials = () => {
-  const { locale, t } = useLanguage();
   const [page, setPage] = useState(1);
   const [allFeedback, setAllFeedback] = useState<any[]>([]);
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["public-feedback-list", page],
-    queryFn: () => fetchAdminFeedback({ page, limit: 3 }),
+    queryFn: () => fetchPublicFeedback({ page, limit: 3 }),
   });
 
   useEffect(() => {

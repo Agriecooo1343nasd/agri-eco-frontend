@@ -1,6 +1,66 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
+// Type definitions for program modules and content blocks
+type MultiLangText = { en: string; rw?: string } | string;
+
+type ContentBlock = {
+  id: string;
+  type: "text" | "image" | "video" | "download" | "checklist";
+  title?: MultiLangText;
+  content: MultiLangText;
+  caption?: MultiLangText;
+};
+
+type Module = {
+  id: string;
+  title: MultiLangText;
+  description?: MultiLangText;
+  duration?: MultiLangText;
+  contentBlocks: ContentBlock[];
+  quiz?: {
+    id: string;
+    title?: MultiLangText;
+    description?: MultiLangText;
+  };
+};
+
+type Program = {
+  id: string;
+  title: MultiLangText;
+  description?: MultiLangText;
+  longDescription?: MultiLangText;
+  image?: string;
+  type: string;
+  level: string;
+  status: string;
+  instructor?: MultiLangText;
+  instructorBio?: MultiLangText;
+  topics: MultiLangText[];
+  whatYouGet?: MultiLangText;
+  requirements?: MultiLangText;
+  modules: Module[];
+  certificate?: boolean;
+  certificateTemplate?: string;
+  price?: number;
+  duration?: MultiLangText;
+  startDate?: MultiLangText;
+  enrolled?: number;
+  maxParticipants?: number;
+  location?: MultiLangText;
+  language?: MultiLangText;
+};
+
+type ModuleProgress = {
+  moduleId: string;
+  completed: boolean;
+};
+
+type ProgressData = {
+  completionPercentage: number;
+  moduleProgress: ModuleProgress[];
+};
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -538,14 +598,16 @@ export default function ProgramDetail() {
                         {t({ en: "Topics Covered", rw: "Ibizigwa" })}
                       </h3>
                       <div className="flex flex-wrap gap-2">
-                        {program.topics.map((topicName: any, tidx: number) => (
-                          <span
-                            key={tidx}
-                            className="text-xs bg-accent text-accent-foreground px-3 py-1 rounded-full"
-                          >
-                            {t(topicName)}
-                          </span>
-                        ))}
+                        {program.topics.map(
+                          (topicName: MultiLangText, tidx: number) => (
+                            <span
+                              key={tidx}
+                              className="text-xs bg-accent text-accent-foreground px-3 py-1 rounded-full"
+                            >
+                              {t(topicName)}
+                            </span>
+                          ),
+                        )}
                       </div>
                     </div>
                   )}
@@ -622,7 +684,7 @@ export default function ProgramDetail() {
                   )}
 
                   <div className="space-y-3">
-                    {sortedModules.map((mod: any, idx) => {
+                    {sortedModules.map((mod: Module, idx: number) => {
                       return (
                         <div
                           key={mod.id}
@@ -652,7 +714,8 @@ export default function ProgramDetail() {
                                         e.stopPropagation();
                                         const isCompleted =
                                           progressData?.moduleProgress?.find(
-                                            (p: any) => p.moduleId === mod.id,
+                                            (p: ModuleProgress) =>
+                                              p.moduleId === mod.id,
                                           )?.completed;
                                         handleModuleComplete(
                                           mod.id,
@@ -662,7 +725,8 @@ export default function ProgramDetail() {
                                       }}
                                     >
                                       {progressData?.moduleProgress?.find(
-                                        (p: any) => p.moduleId === mod.id,
+                                        (p: ModuleProgress) =>
+                                          p.moduleId === mod.id,
                                       )?.completed ? (
                                         <CheckCircle className="h-4 w-4 text-green-500" />
                                       ) : (
@@ -698,7 +762,7 @@ export default function ProgramDetail() {
                               </p>
 
                               {/* Content blocks */}
-                              {mod.contentBlocks.map((block: any) => (
+                              {mod.contentBlocks.map((block: ContentBlock) => (
                                 <div
                                   key={block.id}
                                   className="flex items-start gap-3 bg-card border border-border rounded-lg p-3"
@@ -718,10 +782,22 @@ export default function ProgramDetail() {
                                       </p>
                                     )}
                                     {block.type === "image" && (
-                                      <img
-                                        src={t(block.content)}
-                                        alt={t(block.caption)}
+                                      <Image
+                                        src={
+                                          t(block.content) ||
+                                          "/assets/placeholder.png"
+                                        }
+                                        alt={
+                                          t(block.caption) || "Program image"
+                                        }
+                                        width={800}
+                                        height={300}
                                         className="mt-2 rounded-lg w-full max-h-48 object-cover"
+                                        style={{
+                                          width: "100%",
+                                          height: "auto",
+                                        }}
+                                        unoptimized
                                       />
                                     )}
                                     {block.type === "video" && (

@@ -133,6 +133,25 @@ export async function fetchAdminFeedback(
   };
 }
 
+export async function fetchPublicFeedback(
+  params: Pick<FetchAdminFeedbackParams, "page" | "limit"> = {},
+): Promise<FetchAdminFeedbackResult> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  const qs = query.toString();
+
+  const response = await apiClient.get<ApiSuccessResponse<AdminFeedback[]>>(
+    `/feedback/public${qs ? `?${qs}` : ""}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination:
+      response.data.pagination ?? defaultPagination(params.limit ?? 10),
+  };
+}
+
 export async function fetchAdminFeedbackById(
   id: string,
 ): Promise<AdminFeedback> {

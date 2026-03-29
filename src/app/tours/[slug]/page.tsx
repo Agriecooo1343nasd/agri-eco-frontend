@@ -191,6 +191,8 @@ export default function TourDetailPage({
         timeSlot: selectedTimeSlot,
         specialRequirements: specialReqs,
         paymentMethod,
+        accommodationId: accomOption?.id,
+        accommodationNights: accomOption ? accomNights : undefined,
         amountRwf: grandTotal,
       });
 
@@ -369,13 +371,13 @@ export default function TourDetailPage({
                       Requirements
                     </h3>
                     <ul className="space-y-1">
-                      {experience.requirements.map((r: string, idx: number) => (
+                      {experience.requirements.map((r: any, idx: number) => (
                         <li
                           key={idx}
                           className="flex items-start gap-2 text-xs text-muted-foreground"
                         >
                           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          {r}
+                          {typeof r === "string" ? r : t(r)}
                         </li>
                       ))}
                     </ul>
@@ -397,13 +399,13 @@ export default function TourDetailPage({
               </TabsContent>
               <TabsContent value="highlights" className="mt-4">
                 <div className="space-y-2">
-                  {experience.highlights.map((h: string, i: number) => (
+                  {experience.highlights.map((h: any, i: number) => (
                     <div key={i} className="flex items-start gap-3 text-xs">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
                         {i + 1}
                       </span>
                       <span className="text-foreground leading-relaxed">
-                        {h}
+                        {typeof h === "string" ? h : t(h)}
                       </span>
                     </div>
                   ))}

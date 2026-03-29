@@ -22,6 +22,15 @@ export interface Booking {
   paymentStatus: BookingPaymentStatus;
   paymentMethod?: string;
   amountRwf: number;
+  accommodationId?: string;
+  accommodationNights?: number;
+  accommodationAmountRwf?: number | null;
+  accommodation?: {
+    id: string;
+    name?: { en: string; rw?: string; fr?: string; sw?: string } | string;
+    category?: string;
+    ratePerNightRwf?: number;
+  };
   currency: string;
   cancellationReason?: string;
   experience?: {
@@ -54,6 +63,8 @@ export interface CreateBookingPayload {
   paymentMethod?: string;
   partnerId?: string;
   amountRwf?: number;
+  accommodationId?: string;
+  accommodationNights?: number;
 }
 
 export async function createBooking(payload: CreateBookingPayload): Promise<Booking> {

@@ -35,7 +35,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { fetchArtisanById, fetchAdminArtisanProducts, type AdminArtisan, type AdminArtisanProduct, toAbsoluteArtisanImage } from "@/lib/api/artisans";
+import {
+  fetchArtisanById,
+  fetchPublicArtisanProducts,
+  type AdminArtisan,
+  type AdminArtisanProduct,
+  toAbsoluteArtisanImage,
+} from "@/lib/api/artisans";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ArtisanProfilePage({
@@ -53,6 +59,7 @@ export default function ArtisanProfilePage({
   const { formatPrice } = usePricing();
   const [contactOpen, setContactOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [activeLang, setActiveLang] = useState<"en" | "rw" | "fr" | "sw">("en");
 
   useEffect(() => {
     async function loadData() {
@@ -60,10 +67,10 @@ export default function ArtisanProfilePage({
         setIsLoading(true);
         const [artisanData, productsData] = await Promise.all([
           fetchArtisanById(id),
-          fetchAdminArtisanProducts({ artisanId: id, limit: 100 })
+          fetchPublicArtisanProducts(id, { limit: 100 }),
         ]);
         setArtisan(artisanData);
-        setProducts(productsData.data);
+        setProducts(Array.isArray(productsData.data) ? productsData.data : []);
       } catch (err) {
         console.error("Failed to load artisan profile:", err);
         setError(true);
@@ -115,8 +122,6 @@ export default function ArtisanProfilePage({
       </div>
     );
   }
-
-  const [activeLang, setActiveLang] = useState<"en" | "rw" | "fr" | "sw">("en");
 
   const getLangText = (text?: any, lang?: string) => {
     if (!text) return "";

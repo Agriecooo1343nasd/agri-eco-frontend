@@ -37,6 +37,7 @@ import {
 import { toast } from "sonner";
 import { fetchArtisans, submitArtisanApplication, type AdminArtisan, toAbsoluteArtisanImage } from "@/lib/api/artisans";
 import { submitPartnerApplication } from "@/lib/api/partners";
+import { fetchCommunityStats } from "@/lib/api/community";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CommunityPage() {
@@ -45,6 +46,12 @@ export default function CommunityPage() {
   
   const [artisans, setArtisans] = useState<AdminArtisan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalArtisans: 0,
+    totalPartners: 0,
+    totalProducts: 0,
+    totalExperiences: 0,
+  });
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
@@ -72,6 +79,14 @@ export default function CommunityPage() {
   useEffect(() => {
     loadArtisans();
   }, [page]);
+
+  useEffect(() => {
+    fetchCommunityStats()
+      .then((result) => setStats(result))
+      .catch(() => {
+        // Keep graceful fallback values already in UI.
+      });
+  }, []);
 
   const loadArtisans = async () => {
     try {
@@ -196,12 +211,30 @@ export default function CommunityPage() {
               {[
                 {
                   label: "Local Artisans",
-                  value: artisans.length > 0 ? `${artisans.length}+` : "20+",
+                  value:
+                    stats.totalArtisans > 0
+                      ? `${stats.totalArtisans}+`
+                      : artisans.length > 0
+                        ? `${artisans.length}+`
+                        : "20+",
                   icon: Users,
                 },
-                { label: "Tourism Partners", value: "12", icon: Handshake },
-                { label: "Crafts Available", value: "50+", icon: ShoppingBag },
-                { label: "Community Members", value: "200+", icon: Heart },
+                {
+                  label: "Tourism Partners",
+                  value: stats.totalPartners > 0 ? `${stats.totalPartners}` : "12",
+                  icon: Handshake,
+                },
+                {
+                  label: "Crafts Available",
+                  value: stats.totalProducts > 0 ? `${stats.totalProducts}+` : "50+",
+                  icon: ShoppingBag,
+                },
+                {
+                  label: "Community Experiences",
+                  value:
+                    stats.totalExperiences > 0 ? `${stats.totalExperiences}` : "200+",
+                  icon: Heart,
+                },
               ].map((s) => (
                 <div key={s.label} className="flex flex-col items-center">
                   <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-2">

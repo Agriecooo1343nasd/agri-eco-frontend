@@ -103,12 +103,22 @@ function toFormLangValue(
 }
 
 function toFormList(
-  items: string[] | undefined,
+  items:
+    | Array<string | { en: string; rw?: string; fr?: string; sw?: string }>
+    | undefined,
 ): { id: string; text: MultiLangValue }[] {
   if (!items?.length) return [];
   return items.map((item) => ({
     id: Math.random().toString(36).substr(2, 9),
-    text: { en: item, rw: "", fr: "", sw: "" },
+    text:
+      typeof item === "string"
+        ? { en: item, rw: "", fr: "", sw: "" }
+        : {
+            en: item.en ?? "",
+            rw: item.rw ?? "",
+            fr: item.fr ?? "",
+            sw: item.sw ?? "",
+          },
   }));
 }
 
@@ -128,8 +138,10 @@ const normalizeLang = (value: MultiLangValue): MultiLangValue => ({
   sw: value.sw.trim(),
 });
 
-const toEnglishList = (items: { id: string; text: MultiLangValue }[]) =>
-  items.map((item) => item.text.en.trim()).filter(Boolean);
+const toMultiLangList = (items: { id: string; text: MultiLangValue }[]) =>
+  items
+    .map((item) => normalizeLang(item.text))
+    .filter((value) => Boolean(value.en));
 
 const parseDurationMinutes = (value: string): number => {
   const trimmed = value.trim().toLowerCase();
@@ -495,9 +507,9 @@ export function TourForm({ initialData, mode }: TourFormProps) {
             : undefined,
           heroImage: heroImageUrl.trim() || undefined,
           gallery: galleryUrls,
-          highlights: toEnglishList(highlights),
-          requirements: toEnglishList(requirements),
-          inclusions: toEnglishList(included),
+          highlights: toMultiLangList(highlights),
+          requirements: toMultiLangList(requirements),
+          inclusions: toMultiLangList(included),
           priceRwf: Number.parseFloat(price || "0") || 0,
           pricePerGroupRwf: Number.parseFloat(groupPrice || "0") || 0,
           capacity: Number.parseInt(maxParticipants || "20", 10) || 20,
@@ -577,9 +589,9 @@ export function TourForm({ initialData, mode }: TourFormProps) {
             : undefined,
           heroImage: heroImageUrl.trim() || undefined,
           gallery: galleryUrls,
-          highlights: toEnglishList(highlights),
-          requirements: toEnglishList(requirements),
-          inclusions: toEnglishList(included),
+          highlights: toMultiLangList(highlights),
+          requirements: toMultiLangList(requirements),
+          inclusions: toMultiLangList(included),
           priceRwf: Number.parseFloat(price || "0") || 0,
           pricePerGroupRwf: Number.parseFloat(groupPrice || "0") || 0,
           capacity: Number.parseInt(maxParticipants || "20", 10) || 20,
