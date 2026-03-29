@@ -292,7 +292,7 @@ const Header = () => {
                         onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
                       >
-                        <span className="text-base">⚙️</span> Go to Dashboard
+                      Go to Dashboard
                       </Link>
                     )}
                     <Link
