@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
   CreditCard,
@@ -11,6 +12,7 @@ import {
   ShieldCheck,
   ArrowRight,
   Loader2,
+  MapPin,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -21,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { fetchMyAddresses, UserAddress, addAddress } from "@/lib/api/user";
 import { validateDiscountCode } from "@/lib/api/discounts";
 import { placeOrder } from "@/lib/api/orders";
+import { fetchPublicDeliveryZones } from "@/lib/api/delivery-zones";
 import { toast } from "sonner";
 
 type PaymentMethod = "momo" | "card" | "cod" | null;
@@ -59,6 +62,17 @@ const CheckoutPage = () => {
   });
 
   const [saveAddress, setSaveAddress] = useState(false);
+
+  const { data: zonesPreview } = useQuery({
+    queryKey: ["checkout-delivery-zones-preview"],
+    queryFn: () =>
+      fetchPublicDeliveryZones({
+        limit: 10,
+        page: 1,
+        sort: "name",
+        order: "asc",
+      }),
+  });
 
   // Fetch addresses on load
   useEffect(() => {
@@ -272,6 +286,39 @@ const CheckoutPage = () => {
               <h2 className="font-heading font-bold text-foreground text-lg mb-5 flex items-center gap-2">
                 <Truck className="h-5 w-5 text-primary" /> Shipping Information
               </h2>
+
+              <Link
+                href="/delivery-areas"
+                className="group mb-6 flex w-full flex-col gap-3 rounded-xl border-2 border-amber-600/40 bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent p-4 text-left transition-colors hover:border-amber-600/60 hover:from-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex-row sm:items-center sm:gap-4"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/25 text-amber-800 dark:text-amber-200">
+                  <MapPin className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-bold text-foreground">
+                    Is your address inside our delivery area?
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    We only ship to locations covered by our active delivery zones.
+                    Open the full list to search, sort, and confirm your city or sector
+                    before you finish this form.
+                  </p>
+                  {zonesPreview?.data && zonesPreview.data.length > 0 ? (
+                    <p className="text-[11px] text-muted-foreground pt-1">
+                      <span className="font-medium text-foreground">Examples: </span>
+                      {zonesPreview.data.slice(0, 4).map((z) => z.name).join(" · ")}
+                      {zonesPreview.pagination && zonesPreview.pagination.total > 4
+                        ? " · …"
+                        : ""}
+                    </p>
+                  ) : null}
+                </div>
+
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary sm:shrink-0">
+                  View delivery areas
+                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
 
               {isAuthenticated && (
                 <div className="mb-6 space-y-3">

@@ -55,8 +55,17 @@ import {
   AdminAccommodation,
   toAbsoluteAccommodationImage,
 } from "@/lib/api/accommodations";
-import { createBooking, type BookingType } from "@/lib/api/bookings";
-import { fetchExperienceReviews, type Review } from "@/lib/api/reviews";
+import {
+  createBooking,
+  fetchMyBookings,
+  type Booking,
+  type BookingType,
+} from "@/lib/api/bookings";
+import {
+  createExperienceReview,
+  fetchExperienceReviews,
+  type Review,
+} from "@/lib/api/reviews";
 import { useAuth } from "@/context/AuthContext";
 
 const DEFAULT_SLOTS = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
@@ -103,6 +112,12 @@ export default function TourDetailPage({
   const [viewAccomDetail, setViewAccomDetail] = useState<AdminAccommodation | null>(null);
   const [accomGalleryIdx, setAccomGalleryIdx] = useState(0);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [completedTourBookings, setCompletedTourBookings] = useState<Booking[]>(
+    [],
+  );
+  const [tourRateStars, setTourRateStars] = useState(5);
+  const [tourRateComment, setTourRateComment] = useState("");
+  const [submittingTourReview, setSubmittingTourReview] = useState(false);
 
   // Pre-fill user data
   useEffect(() => {
@@ -141,7 +156,7 @@ export default function TourDetailPage({
       if (!experience?.id) return;
       try {
         const result = await fetchExperienceReviews(experience.id, {
-          limit: 20,
+          limit: 50,
           page: 1,
         });
         setReviews(result.data ?? []);
@@ -151,6 +166,24 @@ export default function TourDetailPage({
     }
     void loadReviews();
   }, [experience?.id]);
+
+  useEffect(() => {
+    async function loadCompletedBookings() {
+      if (!isAuthenticated || !experience?.id) {
+        setCompletedTourBookings([]);
+        return;
+      }
+      try {
+        const res = await fetchMyBookings({ status: "completed", limit: 100 });
+        setCompletedTourBookings(
+          res.data.filter((b) => b.experienceId === experience.id),
+        );
+      } catch {
+        setCompletedTourBookings([]);
+      }
+    }
+    void loadCompletedBookings();
+  }, [isAuthenticated, experience?.id]);
 
   const normalizedSlots = (experience?.slots ?? []).map((slot: any) => {
     const slotDate = slot?.date ? new Date(slot.date) : null;
@@ -277,6 +310,43 @@ export default function TourDetailPage({
 
   const gallery = experience.gallery.length > 0 ? experience.gallery : [experience.heroImage].filter(Boolean) as string[];
 
+  const myTourReview =
+    user?.id != null
+      ? reviews.find((r) => r.userId === user.id)
+      : undefined;
+
+  const handleSubmitTourReview = async () => {
+    if (!experience) return;
+    if (tourRateComment.trim().length < 10) {
+      toast.error("Review too short", {
+        description: "Please write at least 10 characters about your visit.",
+      });
+      return;
+    }
+    try {
+      setSubmittingTourReview(true);
+      await createExperienceReview(experience.id, {
+        rating: tourRateStars,
+        comment: tourRateComment.trim(),
+      });
+      toast.success("Thanks for your review!");
+      setTourRateComment("");
+      setTourRateStars(5);
+      const result = await fetchExperienceReviews(experience.id, {
+        limit: 50,
+        page: 1,
+      });
+      setReviews(result.data ?? []);
+    } catch (err: any) {
+      toast.error("Could not submit review", {
+        description:
+          err.response?.data?.message || err.message || "Please try again.",
+      });
+    } finally {
+      setSubmittingTourReview(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-xs">
       <Header />
@@ -370,6 +440,100 @@ export default function TourDetailPage({
               </div>
             </div>
 
+            <div className="rounded-xl border-2 border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                  <Star className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <h3 className="font-heading font-semibold text-foreground text-sm">
+                      Rate this tour
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                      Joined one of our departures? Tell future guests how it went.
+                      A completed booking for this experience is required.
+                    </p>
+                  </div>
+                  {!isAuthenticated ? (
+                    <Button asChild size="sm" className="text-xs h-9 w-full sm:w-auto">
+                      <Link href={`/login?redirect=${encodeURIComponent(`/tours/${slug}`)}`}>
+                        Sign in to rate
+                      </Link>
+                    </Button>
+                  ) : myTourReview ? (
+                    <div className="rounded-lg border border-border bg-background/90 p-3">
+                      <p className="text-xs font-semibold text-foreground">
+                        Your rating: {myTourReview.rating}/5
+                      </p>
+                      {[myTourReview.title, myTourReview.comment]
+                        .filter(Boolean)
+                        .length > 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                          {[myTourReview.title, myTourReview.comment]
+                            .filter(Boolean)
+                            .join(" — ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : completedTourBookings.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      After you complete a booking for this tour, you can submit a
+                      review here or from{" "}
+                      <Link
+                        href="/account/bookings"
+                        className="font-medium text-primary underline underline-offset-2"
+                      >
+                        My bookings
+                      </Link>
+                      .
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setTourRateStars(star)}
+                            className="rounded-md p-1 transition-colors hover:bg-accent"
+                          >
+                            <Star
+                              className={`h-5 w-5 ${star <= tourRateStars ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      <Textarea
+                        value={tourRateComment}
+                        onChange={(e) => setTourRateComment(e.target.value)}
+                        placeholder="What stood out? Tips for other travelers? (min. 10 characters)"
+                        className="text-xs min-h-[80px] resize-y"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="text-xs"
+                        disabled={
+                          submittingTourReview || tourRateComment.trim().length < 10
+                        }
+                        onClick={() => void handleSubmitTourReview()}
+                      >
+                        {submittingTourReview ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Submitting…
+                          </span>
+                        ) : (
+                          "Submit review"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="bg-card border border-border rounded-xl p-4">
               <h3 className="font-semibold text-foreground text-sm mb-2">Guest Reviews</h3>
               <p className="text-xs text-muted-foreground mb-3">
@@ -387,8 +551,13 @@ export default function TourDetailPage({
                         </p>
                         <p className="text-[10px] text-muted-foreground">{review.rating}/5</p>
                       </div>
-                      {review.comment ? (
-                        <p className="text-xs text-muted-foreground mt-1">{review.comment}</p>
+                      {[review.title, review.comment].filter(Boolean).length >
+                      0 ? (
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                          {[review.title, review.comment]
+                            .filter(Boolean)
+                            .join(" — ")}
+                        </p>
                       ) : null}
                     </div>
                   ))}

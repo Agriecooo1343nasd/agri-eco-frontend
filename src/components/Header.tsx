@@ -350,14 +350,15 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Navigation bar */}
+      {/* Navigation bar — scroll on mid widths so “Hot Deals” etc. never overflow */}
       <nav className="bg-card border-b border-border hidden md:block">
-        <div className="container flex items-center gap-0">
+        <div className="container min-w-0 max-w-full">
+          <div className="flex min-w-0 items-stretch overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {/* Categories dropdown */}
-          <div className="relative">
+          <div className="relative shrink-0 border-r border-border/70">
             <button
               onClick={() => setCatOpen(!catOpen)}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-3 font-semibold text-sm hover:bg-primary/90 transition-colors"
+              className="flex h-full items-center gap-2 bg-primary text-primary-foreground px-4 py-3 font-semibold text-xs lg:text-sm lg:px-5 hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               <Menu className="h-4 w-4" />
               All Categories
@@ -432,13 +433,13 @@ const Header = () => {
           </div>
 
           {/* Nav links */}
-          <div className="flex items-center">
+          <div className="flex min-w-0 flex-1 items-center">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
                 className={cn(
-                  "px-5 py-3 text-sm font-medium transition-colors hover:text-primary",
+                  "shrink-0 px-3 py-3 text-xs font-medium transition-colors hover:text-primary lg:px-4 lg:text-sm xl:px-5 whitespace-nowrap",
                   isActive(link.href)
                     ? "text-primary font-bold underline decoration-primary underline-offset-8"
                     : "text-foreground",
@@ -447,6 +448,7 @@ const Header = () => {
                 {link.label}
               </Link>
             ))}
+          </div>
           </div>
         </div>
       </nav>

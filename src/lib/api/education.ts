@@ -244,6 +244,7 @@ export interface TrainingEnrollment {
   quizScores: QuizScoreItem[];
   certificateUrl?: string;
   certificateNumber?: string;
+  certificateIssuedAt?: string;
   createdAt: string;
   updatedAt: string;
   trainingProgram: TrainingProgram;

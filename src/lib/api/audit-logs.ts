@@ -93,3 +93,23 @@ export async function createAuditLog(
 
   return response.data.data;
 }
+
+export async function updateAuditLog(
+  id: string,
+  payload: CreateAuditLogPayload,
+): Promise<AdminAuditLog> {
+  const response = await apiClient.put<ApiSuccessResponse<AdminAuditLog>>(
+    `/audit-logs/${id}`,
+    payload,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated audit log response data");
+  }
+
+  return response.data.data;
+}
+
+export async function deleteAuditLog(id: string): Promise<void> {
+  await apiClient.delete(`/audit-logs/${id}`);
+}

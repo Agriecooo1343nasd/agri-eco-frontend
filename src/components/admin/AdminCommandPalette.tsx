@@ -246,11 +246,19 @@ const commandGroups = [
         keywords: ["contacts", "messages", "inquiries", "admin contacts"],
       },
       {
-        label: "Logs",
-        description: "View audit logs",
+        label: "Audit Logs",
+        description: "View and manage audit logs",
         href: "/admin/logs",
         icon: ClipboardList,
-        keywords: ["logs", "audit", "history", "admin logs"],
+        keywords: [
+          "logs",
+          "log",
+          "audit",
+          "audit logs",
+          "history",
+          "trail",
+          "activity",
+        ],
       },
       {
         label: "Wishlist",
@@ -327,9 +335,23 @@ export function AdminCommandPalette({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, onOpenChange]);
 
+  const commandFilter = (value: string, search: string) => {
+    if (!search.trim()) return 1;
+    const q = search.trim().toLowerCase();
+    const hay = value.toLowerCase();
+    if (hay.includes(q)) return 1;
+    const parts = q.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 1;
+    return parts.every((p) => hay.includes(p)) ? 1 : 0;
+  };
+
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search pages, actions…" />
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      commandFilter={commandFilter}
+    >
+      <CommandInput placeholder="Search by page name or route (e.g. logs, orders)…" />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
@@ -340,7 +362,8 @@ export function AdminCommandPalette({
               {group.items.map((item) => (
                 <CommandItem
                   key={item.href}
-                  value={`${item.label} ${item.description} ${item.keywords.join(" ")}`}
+                  keywords={item.keywords}
+                  value={`${item.label} ${item.description} ${item.href.replace(/^\//, "").replaceAll("/", " ")} ${item.keywords.join(" ")}`}
                   onSelect={() => runCommand(item.href)}
                   className="flex items-center gap-3 cursor-pointer"
                 >

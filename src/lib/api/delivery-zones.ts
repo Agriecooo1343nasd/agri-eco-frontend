@@ -63,6 +63,20 @@ function defaultPagination(limit = 10): ApiPagination {
   };
 }
 
+/** Public catalog: active zones only (see GET /delivery-zones in API docs). */
+export async function fetchPublicDeliveryZones(
+  params: FetchAdminDeliveryZonesParams = {},
+): Promise<FetchAdminDeliveryZonesResult> {
+  const response = await apiClient.get<ApiSuccessResponse<DeliveryZone[]>>(
+    `/delivery-zones${buildQuery(params)}`,
+  );
+  return {
+    data: response.data.data ?? [],
+    pagination:
+      response.data.pagination ?? defaultPagination(params.limit ?? 10),
+  };
+}
+
 export async function fetchAdminDeliveryZones(
   params: FetchAdminDeliveryZonesParams = {},
 ): Promise<FetchAdminDeliveryZonesResult> {

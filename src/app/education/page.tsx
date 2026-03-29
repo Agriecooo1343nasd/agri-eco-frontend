@@ -479,7 +479,7 @@ export default function EducationPage() {
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                               />
                             </Link>
-                            <div className="p-6 flex flex-col flex-1">
+                            <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-6">
                               <div className="flex items-center gap-2 mb-3">
                                 <Badge
                                   variant="outline"
@@ -500,29 +500,33 @@ export default function EducationPage() {
                                 </Badge>
                               </div>
                               <Link href={`/education/program/${p.slug}`} className="hover:text-primary transition-colors">
-                                <h3 className="font-bold font-heading text-foreground text-lg mb-2 line-clamp-1">
+                                <h3 className="font-bold text-foreground text-base font-sans sm:text-lg mb-2 line-clamp-2 leading-snug">
                                   {t(p.title)}
                                 </h3>
                               </Link>
                               <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">
                                 {t(p.description)}
                               </p>
-                              <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  {t(p.duration)}
+                              <div className="mb-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] text-muted-foreground sm:flex sm:flex-wrap sm:items-center">
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">{t(p.duration)}</span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3.5 w-3.5" />
-                                  {t(p.startDate)}
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">{t(p.startDate)}</span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Users className="h-3.5 w-3.5" />
-                                  {p.enrolled}/{p.maxParticipants}
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <Users className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {p.enrolled}/{Math.max(p.maxParticipants, 1)}
+                                  </span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Award className="h-3.5 w-3.5" />
-                                  {(Number(p.averageRating || 0)).toFixed(1)} ({p.reviewCount})
+                                <span className="flex min-w-0 items-center gap-1 col-span-2 sm:col-span-1">
+                                  <Award className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {(Number(p.averageRating || 0)).toFixed(1)} ({p.reviewCount})
+                                  </span>
                                 </span>
                               </div>
                               
@@ -530,14 +534,20 @@ export default function EducationPage() {
                                 <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                                   <span>Enrollment</span>
                                   <span>
-                                    {Math.round(
-                                      (p.enrolled / p.maxParticipants) * 100,
-                                    ) || 0}
+                                    {p.maxParticipants > 0
+                                      ? Math.round(
+                                          (p.enrolled / p.maxParticipants) * 100,
+                                        )
+                                      : 0}
                                     %
                                   </span>
                                 </div>
                                 <Progress
-                                  value={(p.enrolled / p.maxParticipants) * 100}
+                                  value={
+                                    p.maxParticipants > 0
+                                      ? (p.enrolled / p.maxParticipants) * 100
+                                      : 0
+                                  }
                                   className="h-1.5"
                                 />
                               </div>
@@ -553,11 +563,15 @@ export default function EducationPage() {
                                 ))}
                               </div>
 
-                              <div className="mt-auto flex items-center justify-between border-t p-6 bg-accent/10">
-                                <span className="font-bold text-primary text-lg">
+                              <div className="mt-auto flex w-full min-w-0 flex-col gap-3 border-t border-border bg-accent/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                                <span className="font-bold text-primary text-base sm:text-lg shrink-0">
                                   {formatPrice(p.priceRwf || 0)}
                                 </span>
-                                <Button size="sm" asChild className="gap-2 text-xs">
+                                <Button
+                                  size="sm"
+                                  asChild
+                                  className="w-full gap-2 text-xs sm:w-auto shrink-0"
+                                >
                                   <Link href={`/education/program/${p.slug}`}>
                                     View Details
                                     <ChevronRight className="h-4 w-4" />

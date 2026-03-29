@@ -75,7 +75,11 @@ import {
 } from "@/lib/api/education";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
-import { toPng } from "html-to-image";
+import { TrainingCertificateVisual } from "@/components/certificate/TrainingCertificateVisual";
+import {
+  mergeTemplateWithDefaults,
+  exportCertificateToPng,
+} from "@/lib/certificate-template";
 import {
   ArrowLeft,
   Clock,
@@ -101,7 +105,6 @@ import {
   Brain,
   ChevronRight,
   RotateCcw,
-  QrCode,
   Star,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -454,6 +457,9 @@ export default function ProgramDetail() {
   const isFree = program.price === 0;
   const programReviews = programReviewsResult?.data ?? [];
   const myProgramReview = programReviews.find((review) => review.userId === authUser?.id);
+  const publicProgramReviews = programReviews.filter(
+    (review) => review.userId !== authUser?.id,
+  );
   const isCourseCompleted =
     (typeof progressData?.completionPercentage === "number" &&
       progressData.completionPercentage >= 100) ||
@@ -541,13 +547,14 @@ export default function ProgramDetail() {
   const handleDownloadCertificate = async () => {
     if (!certRef.current) return;
     try {
-      const dataUrl = await toPng(certRef.current, {
-        cacheBust: true,
-        backgroundColor: "#ffffff",
-      });
+      const dataUrl = await exportCertificateToPng(certRef.current);
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `certificate-${program.id}.png`;
+      const certKey =
+        activeEnrollment?.certificateNumber?.trim() ||
+        activeEnrollment?.id ||
+        String(program.id);
+      a.download = `certificate-${certKey}.png`;
       a.click();
       toast.success("Certificate Downloaded!");
     } catch (err) {
@@ -1091,17 +1098,22 @@ export default function ProgramDetail() {
                       <p className="text-sm font-semibold text-foreground">
                         Your review ({myProgramReview.rating}/5)
                       </p>
-                      {myProgramReview.comment ? (
-                        <p className="text-xs text-muted-foreground mt-1">{myProgramReview.comment}</p>
+                      {[myProgramReview.title, myProgramReview.comment].filter(Boolean)
+                        .length > 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                          {[myProgramReview.title, myProgramReview.comment]
+                            .filter(Boolean)
+                            .join(" — ")}
+                        </p>
                       ) : null}
                     </div>
                   ) : null}
 
                   <div className="space-y-2">
-                    {programReviews.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No reviews yet.</p>
+                    {publicProgramReviews.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No public reviews yet.</p>
                     ) : (
-                      programReviews.slice(0, 6).map((review) => (
+                      publicProgramReviews.slice(0, 6).map((review) => (
                         <div key={review.id} className="rounded-lg border border-border p-3">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-semibold text-foreground">
@@ -1109,9 +1121,15 @@ export default function ProgramDetail() {
                             </p>
                             <p className="text-xs text-muted-foreground">{review.rating}/5</p>
                           </div>
-                          {review.comment ? (
-                            <p className="text-xs text-muted-foreground mt-1">{review.comment}</p>
-                          ) : null}
+                          {[review.title, review.comment].filter(Boolean).length > 0 ? (
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                              {[review.title, review.comment].filter(Boolean).join(" — ")}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-muted-foreground/80 mt-1 italic">
+                              Rating only ({review.rating}/5)
+                            </p>
+                          )}
                         </div>
                       ))
                     )}
@@ -1585,101 +1603,38 @@ export default function ProgramDetail() {
                 })}
               </DialogDescription>
             </DialogHeader>
-            {/* Sanitize badgeColor for html2canvas compatibility */}
-            {(() => {
-              let safeBadgeColor = program.certificateTemplate.badgeColor;
-              if (
-                typeof safeBadgeColor === "string" &&
-                safeBadgeColor.trim().startsWith("oklch")
-              ) {
-                safeBadgeColor = "#16a34a"; // fallback to green
+            <TrainingCertificateVisual
+              ref={certRef}
+              template={mergeTemplateWithDefaults(program.certificateTemplate)}
+              recipientName={
+                authUser?.name ||
+                activeEnrollment?.fullName ||
+                t({ en: "[Your Name]", rw: "[Amazina]" })
               }
-              return (
-                <>
-                  <div
-                    ref={certRef}
-                    className="border-4 border-double rounded-xl p-8 text-center space-y-4 bg-card"
-                    style={{ borderColor: safeBadgeColor }}
-                  >
-                    <div className="flex justify-center items-center gap-2 mb-6">
-                      <img
-                        src="/assets/logo/logo.png"
-                        alt="Company Logo"
-                        className="h-12 w-auto object-contain"
-                      />
-                    </div>
-                    <div className="flex justify-center">
-                      <Award
-                        className="h-12 w-12"
-                        style={{ color: safeBadgeColor }}
-                      />
-                    </div>
-                    <h2 className="text-2xl font-bold font-heading text-foreground">
-                      {t(program.certificateTemplate.title)}
-                    </h2>
-                    <p className="text-sm text-muted-foreground uppercase tracking-widest">
-                      {t(program.certificateTemplate.subtitle)}
-                    </p>
-                    <div className="py-4">
-                      <p className="text-lg text-foreground font-medium">
-                        {t({
-                          en: "This certifies that",
-                          rw: "Ibi biremeza ko",
-                        })}
-                      </p>
-                      <p className="text-2xl font-bold text-primary my-2 font-heading">
-                        {authUser?.name || "[Your Name]"}
-                      </p>
-                      <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                        {t(program.certificateTemplate.description)}
-                      </p>
-                    </div>
-                    <div className="pt-6 border-t border-border">
-                      <div className="flex justify-between items-end px-4">
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-1">
-                            {t({
-                              en: "Date of Completion",
-                              rw: "Itariki yuzuyeho",
-                            })}
-                          </p>
-                          <p className="text-sm font-medium text-foreground border-t border-foreground pt-1 px-4">
-                            {new Date().toLocaleDateString()}
-                          </p>
-                        </div>
-                        {/* QR Code placeholder */}
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="w-16 h-16 border-2 border-border rounded-lg flex items-center justify-center bg-accent/30">
-                            <QrCode className="h-10 w-10 text-muted-foreground" />
-                          </div>
-                          <span className="text-[10px] text-muted-foreground">
-                            {t({ en: "Verify", rw: "Check" })}
-                          </span>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground mb-1">
-                            {t(program.certificateTemplate.signatoryTitle)}
-                          </p>
-                          <p className="text-sm font-medium text-foreground border-t border-foreground pt-1 px-4 italic">
-                            {t(program.certificateTemplate.signatoryName)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-center mt-6">
-                    <Button
-                      variant="outline"
-                      className="gap-2 text-xs h-10"
-                      onClick={handleDownloadCertificate}
-                    >
-                      <Download className="h-4 w-4" />{" "}
-                      {t({ en: "Download", rw: "Kuraho" })}
-                    </Button>
-                  </div>
-                </>
-              );
-            })()}
+              issueDate={
+                activeEnrollment?.certificateIssuedAt
+                  ? new Date(
+                      activeEnrollment.certificateIssuedAt,
+                    ).toLocaleDateString()
+                  : new Date().toLocaleDateString()
+              }
+              certificateId={(
+                activeEnrollment?.certificateNumber?.trim() ||
+                activeEnrollment?.id ||
+                program.id
+              ).trim()}
+              t={t}
+            />
+            <div className="flex justify-center mt-6">
+              <Button
+                variant="outline"
+                className="gap-2 text-xs h-10"
+                onClick={handleDownloadCertificate}
+              >
+                <Download className="h-4 w-4" />{" "}
+                {t({ en: "Download", rw: "Kuraho" })}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       )}

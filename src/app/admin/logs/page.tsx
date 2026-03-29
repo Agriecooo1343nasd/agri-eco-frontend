@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Eye,
   FileText,
   Filter,
   Loader2,
+  Pencil,
   Plus,
   Search,
   Shield,
@@ -17,9 +17,19 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -50,16 +60,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   createAuditLog,
+  deleteAuditLog,
   fetchAdminAuditLogs,
+  updateAuditLog,
   type AdminAuditLog,
   type CreateAuditLogPayload,
   type FetchAdminAuditLogsParams,
 } from "@/lib/api/audit-logs";
 
+type MetadataPair = { id: string; key: string; value: string };
+
 type LogFormState = {
   action: string;
   entityType: string;
   entityId: string;
+  metadataPairs: MetadataPair[];
+  useAdvancedJson: boolean;
   metadataJson: string;
 };
 
@@ -82,11 +98,66 @@ function formatDate(value?: string | null): string {
   }).format(date);
 }
 
+function newPairId(): string {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `p-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function emptyPair(): MetadataPair {
+  return { id: newPairId(), key: "", value: "" };
+}
+
+function pairsFromMetadata(
+  meta: Record<string, unknown> | null | undefined,
+): MetadataPair[] {
+  if (!meta || typeof meta !== "object") return [emptyPair()];
+  const keys = Object.keys(meta);
+  if (keys.length === 0) return [emptyPair()];
+  return keys.map((key) => {
+    const raw = meta[key];
+    let valueStr = "";
+    if (raw === undefined || raw === null) valueStr = "";
+    else if (typeof raw === "string") valueStr = raw;
+    else valueStr = JSON.stringify(raw);
+    return { id: newPairId(), key, value: valueStr };
+  });
+}
+
+function metadataFromPairs(pairs: MetadataPair[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const p of pairs) {
+    const k = p.key.trim();
+    if (!k) continue;
+    const v = p.value.trim();
+    if (!v) {
+      out[k] = "";
+      continue;
+    }
+    if (v === "true") out[k] = true;
+    else if (v === "false") out[k] = false;
+    else if (/^-?\d+(\.\d+)?$/.test(v)) out[k] = Number(v);
+    else if (
+      (v.startsWith("{") && v.endsWith("}")) ||
+      (v.startsWith("[") && v.endsWith("]"))
+    ) {
+      try {
+        out[k] = JSON.parse(v) as unknown;
+      } catch {
+        out[k] = v;
+      }
+    } else out[k] = v;
+  }
+  return out;
+}
+
 function emptyForm(): LogFormState {
   return {
     action: "",
     entityType: "",
     entityId: "",
+    metadataPairs: [emptyPair()],
+    useAdvancedJson: false,
     metadataJson: "{}",
   };
 }
@@ -96,6 +167,8 @@ function formFromLog(log: AdminAuditLog): LogFormState {
     action: log.action,
     entityType: log.entityType,
     entityId: log.entityId ?? "",
+    metadataPairs: pairsFromMetadata(log.metadata ?? undefined),
+    useAdvancedJson: false,
     metadataJson: JSON.stringify(log.metadata ?? {}, null, 2),
   };
 }
@@ -134,18 +207,23 @@ function buildCreatePayload(
     return { ok: false, message: "Entity type must be at least 2 characters." };
   }
 
-  const metadata = tryParseMetadata(form.metadataJson);
-  if (!metadata.ok) {
-    return { ok: false, message: metadata.message };
+  let metadata: Record<string, unknown> | undefined;
+
+  if (form.useAdvancedJson) {
+    const parsed = tryParseMetadata(form.metadataJson);
+    if (!parsed.ok) return { ok: false, message: parsed.message };
+    metadata =
+      Object.keys(parsed.value).length > 0 ? parsed.value : undefined;
+  } else {
+    const built = metadataFromPairs(form.metadataPairs);
+    metadata = Object.keys(built).length > 0 ? built : undefined;
   }
 
   const payload: CreateAuditLogPayload = {
     action: form.action.trim(),
     entityType: form.entityType.trim(),
     ...(form.entityId.trim() ? { entityId: form.entityId.trim() } : {}),
-    ...(Object.keys(metadata.value).length > 0
-      ? { metadata: metadata.value }
-      : {}),
+    ...(metadata ? { metadata } : {}),
   };
 
   return { ok: true, payload };
@@ -175,6 +253,7 @@ function TableSkeleton() {
             <div className="flex justify-end gap-1">
               <Skeleton className="h-8 w-8 rounded-md" />
               <Skeleton className="h-8 w-8 rounded-md" />
+              <Skeleton className="h-8 w-8 rounded-md" />
             </div>
           </TableCell>
         </TableRow>
@@ -202,6 +281,7 @@ export default function AdminLogsPage() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AdminAuditLog | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminAuditLog | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -243,6 +323,40 @@ export default function AdminLogsPage() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: CreateAuditLogPayload;
+    }) => updateAuditLog(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
+      toast.success("Audit log updated");
+      setDialogOpen(false);
+      setEditingLog(null);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to update audit log"));
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteAuditLog(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
+      toast.success("Audit log deleted");
+      setDeleteTarget(null);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to delete audit log"));
+    },
+  });
+
+  const savePending =
+    createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
   const logs = useMemo(() => data?.data ?? [], [data?.data]);
   const pagination = data?.pagination;
 
@@ -271,26 +385,17 @@ export default function AdminLogsPage() {
   }
 
   function handleSubmitDialog() {
-    if (editingLog) {
-      toast.error(
-        "Update endpoint is missing in backend. Ask backend dev to add PATCH/PUT /audit-logs/:id.",
-      );
-      return;
-    }
-
     const built = buildCreatePayload(form);
     if (!built.ok) {
       toast.error(built.message);
       return;
     }
 
-    createMutation.mutate(built.payload);
-  }
-
-  function handleDeleteRequest() {
-    toast.error(
-      "Delete endpoint is missing in backend. Ask backend dev to add DELETE /audit-logs/:id.",
-    );
+    if (editingLog) {
+      updateMutation.mutate({ id: editingLog.id, payload: built.payload });
+    } else {
+      createMutation.mutate(built.payload);
+    }
   }
 
   return (
@@ -311,22 +416,6 @@ export default function AdminLogsPage() {
           Create Log
         </Button>
       </div>
-
-      <Card className="border-amber-300/50 bg-amber-50/60 dark:bg-amber-950/10">
-        <CardContent className="p-4 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5" />
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-              Backend limitation detected
-            </p>
-            <p className="text-xs text-amber-800/90 dark:text-amber-200/80">
-              Only list and create endpoints exist for audit logs right now.
-              Update and delete actions need backend endpoints before they can
-              be functional.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-border">
@@ -525,14 +614,16 @@ export default function AdminLogsPage() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => openUpdateDialog(log)}
+                          title="Edit log"
                         >
-                          <FileText className="h-4 w-4" />
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          onClick={handleDeleteRequest}
+                          onClick={() => setDeleteTarget(log)}
+                          title="Delete log"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -585,12 +676,12 @@ export default function AdminLogsPage() {
             </DialogTitle>
             <DialogDescription>
               {editingLog
-                ? "Backend update endpoint is missing. Ask backend dev to enable updating audit logs."
-                : "Create a new audit entry using action, entity type and optional metadata."}
+                ? "Adjust action, entity, or metadata. Actor and timestamps are unchanged."
+                : "Add an audit entry with optional structured details (no raw JSON required)."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-2">
+          <div className="grid gap-4 py-2 max-h-[min(70vh,520px)] overflow-y-auto pr-1">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="action">Action</Label>
@@ -600,18 +691,18 @@ export default function AdminLogsPage() {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, action: e.target.value }))
                   }
-                  placeholder="create_order"
+                  placeholder="e.g. manual_correction"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="entityType">Entity Type</Label>
+                <Label htmlFor="entityType">Entity type</Label>
                 <Input
                   id="entityType"
                   value={form.entityType}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, entityType: e.target.value }))
                   }
-                  placeholder="order"
+                  placeholder="e.g. order, product, booking"
                 />
               </div>
             </div>
@@ -624,41 +715,180 @@ export default function AdminLogsPage() {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, entityId: e.target.value }))
                 }
-                placeholder="UUID or any entity identifier"
+                placeholder="UUID or reference the admin relates this log to"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="metadata">Metadata JSON (optional)</Label>
-              <Textarea
-                id="metadata"
-                rows={8}
-                className="font-mono text-xs"
-                value={form.metadataJson}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, metadataJson: e.target.value }))
-                }
+            <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <Checkbox
+                id="useAdvancedJson"
+                checked={form.useAdvancedJson}
+                onCheckedChange={(checked) => {
+                  const on = checked === true;
+                  setForm((prev) => {
+                    if (on) {
+                      return {
+                        ...prev,
+                        useAdvancedJson: true,
+                        metadataJson: JSON.stringify(
+                          metadataFromPairs(prev.metadataPairs),
+                          null,
+                          2,
+                        ),
+                      };
+                    }
+                    const parsed = tryParseMetadata(prev.metadataJson);
+                    if (parsed.ok) {
+                      return {
+                        ...prev,
+                        useAdvancedJson: false,
+                        metadataPairs: pairsFromMetadata(parsed.value),
+                      };
+                    }
+                    toast.error(
+                      "Fix JSON before switching back to key–value fields.",
+                    );
+                    return prev;
+                  });
+                }}
               />
+              <div className="space-y-1">
+                <Label
+                  htmlFor="useAdvancedJson"
+                  className="text-sm font-medium leading-none cursor-pointer"
+                >
+                  Edit metadata as raw JSON
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Leave off to use simple key–value rows below. Turn on only if
+                  you need nested objects.
+                </p>
+              </div>
             </div>
+
+            {form.useAdvancedJson ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="metadata">Metadata (JSON object)</Label>
+                <Textarea
+                  id="metadata"
+                  rows={10}
+                  className="font-mono text-xs"
+                  value={form.metadataJson}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      metadataJson: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <Label className="m-0">Extra details (optional)</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 shrink-0"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        metadataPairs: [...prev.metadataPairs, emptyPair()],
+                      }))
+                    }
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add field
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Plain text stays as text. Whole numbers and decimals become
+                  numbers; <code className="text-foreground">true</code> /{" "}
+                  <code className="text-foreground">false</code> become
+                  booleans. Put JSON objects or arrays in a value to store
+                  structured data.
+                </p>
+                <div className="space-y-2">
+                  {form.metadataPairs.map((pair) => (
+                    <div
+                      key={pair.id}
+                      className="flex flex-col gap-2 sm:flex-row sm:items-start"
+                    >
+                      <Input
+                        placeholder="Field name"
+                        value={pair.key}
+                        className="sm:max-w-[40%]"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setForm((prev) => ({
+                            ...prev,
+                            metadataPairs: prev.metadataPairs.map((row) =>
+                              row.id === pair.id
+                                ? { ...row, key: v }
+                                : row,
+                            ),
+                          }));
+                        }}
+                      />
+                      <Input
+                        placeholder="Value"
+                        value={pair.value}
+                        className="min-w-0 flex-1"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setForm((prev) => ({
+                            ...prev,
+                            metadataPairs: prev.metadataPairs.map((row) =>
+                              row.id === pair.id
+                                ? { ...row, value: v }
+                                : row,
+                            ),
+                          }));
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        disabled={form.metadataPairs.length <= 1}
+                        onClick={() =>
+                          setForm((prev) => ({
+                            ...prev,
+                            metadataPairs: prev.metadataPairs.filter(
+                              (row) => row.id !== pair.id,
+                            ),
+                          }))
+                        }
+                        title="Remove row"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}
-              disabled={createMutation.isPending}
+              disabled={savePending}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmitDialog}
-              disabled={createMutation.isPending}
+              disabled={savePending}
               className="gap-2"
             >
-              {createMutation.isPending && (
+              {(createMutation.isPending || updateMutation.isPending) && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
-              {editingLog ? "Request Update" : "Create Log"}
+              {editingLog ? "Save changes" : "Create log"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -726,6 +956,38 @@ export default function AdminLogsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this audit log?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The entry for action &quot;{deleteTarget?.action}&quot; will be
+              removed permanently. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+              }}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

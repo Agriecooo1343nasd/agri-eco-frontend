@@ -9,7 +9,7 @@ export interface Review {
   userId: string;
   rating: number;
   title?: string;
-  comment: string;
+  comment?: string;
   isApproved: boolean;
   isVerifiedPurchase: boolean;
   helpfulCount: number;
@@ -33,7 +33,7 @@ export interface CreateReviewPayload {
   trainingProgramId?: string;
   rating: number;
   title?: string;
-  comment: string;
+  comment?: string;
 }
 
 export interface ReviewList {
