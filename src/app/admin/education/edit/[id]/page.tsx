@@ -284,17 +284,17 @@ export default function Page() {
   const [formDuration, setFormDuration] = useState("");
   const [formStartDate, setFormStartDate] = useState("");
   const [formTopics, setFormTopics] = useState("");
-  const [formInstructor, setFormInstructor] = useState("");
+  const [formInstructorName, setFormInstructorName] = useState("");
   const [formInstructorBio, setFormInstructorBio] =
     useState<MultiLangValue>(emptyLangValue());
   const [formRequirements, setFormRequirements] =
     useState<MultiLangValue>(emptyLangValue());
-  const [formWhatYouGet, setFormWhatYouGet] =
+  const [formWhatStudentsGet, setFormWhatStudentsGet] =
     useState<MultiLangValue>(emptyLangValue());
   const [formLanguage, setFormLanguage] = useState("");
   const [formLocation, setFormLocation] = useState("");
   const [formStatus, setFormStatus] = useState<
-    "open" | "upcoming" | "full" | "completed"
+    "in_progress" | "upcoming" | "draft" | "cancelled" | "completed"
   >("upcoming");
 
   const [heroImageUrl, setHeroImageUrl] = useState<string | undefined>();
@@ -361,7 +361,36 @@ export default function Page() {
             : "",
         );
         setFormLanguage(program.language || "en");
-        setFormStatus(program.isPublished ? "open" : "upcoming");
+        setFormStatus(program.status || (program.isPublished ? "in_progress" : "upcoming"));
+        setFormInstructorName(program.instructorName || "");
+        setFormInstructorBio(toMultiLangFromUnknown(program.instructorBio));
+        setFormRequirements({
+          ...emptyLangValue(),
+          en: Array.isArray(program.requirements)
+            ? program.requirements.map(r => r.en).join("\n")
+            : ""
+        });
+        setFormWhatStudentsGet({
+          ...emptyLangValue(),
+          en: Array.isArray(program.whatStudentsGet)
+            ? program.whatStudentsGet.map(r => r.en).join("\n")
+            : ""
+        });
+        setFormLocation(program.location || "");
+        
+        if (program.certificateTemplate) {
+          const ct = program.certificateTemplate;
+          setCertTemplate({
+            enabled: true,
+            title: toMultiLangFromUnknown(ct.title),
+            subtitle: toMultiLangFromUnknown(ct.programName),
+            description: toMultiLangFromUnknown(ct.description),
+            signatoryName: toMultiLangFromUnknown(ct.signatoryName).en,
+            signatoryTitle: toMultiLangFromUnknown(ct.signatoryTitle).en,
+            badgeColor: "#16a34a",
+            logoUrl: "",
+          });
+        }
         setModules(
           Array.isArray(program.curriculum)
             ? mapCurriculumToModules(program.curriculum)
@@ -731,7 +760,7 @@ export default function Page() {
       durationWeeks: parseDurationWeeks(formDuration),
       capacity: Number.parseInt(formMaxParticipants || "30", 10) || 30,
       language: formLanguage.trim() || "en",
-      isPublished: formStatus === "open",
+      isPublished: formStatus === "in_progress",
       isFeatured,
       heroImage: isLocalImageData(normalizedHeroImage)
         ? undefined
@@ -741,6 +770,35 @@ export default function Page() {
         : normalizedCoverImage,
       topics,
       curriculum,
+      status: formStatus,
+      instructorName: formInstructorName.trim() || undefined,
+      instructorBio: toOptionalML(formInstructorBio),
+      requirements: formRequirements.en.trim()
+        ? formRequirements.en
+            .split("\n")
+            .filter(Boolean)
+            .map((line) => ({ en: line.trim() }))
+        : undefined,
+      whatStudentsGet: formWhatStudentsGet.en.trim()
+        ? formWhatStudentsGet.en
+            .split("\n")
+            .filter(Boolean)
+            .map((line) => ({ en: line.trim() }))
+        : undefined,
+      location: formLocation.trim() || undefined,
+      certificateTemplate: certTemplate.enabled
+        ? {
+            title: toOptionalML(certTemplate.title),
+            programName: toOptionalML(certTemplate.subtitle),
+            description: toOptionalML(certTemplate.description),
+            signatoryName: certTemplate.signatoryName
+              ? { en: certTemplate.signatoryName }
+              : undefined,
+            signatoryTitle: certTemplate.signatoryTitle
+              ? { en: certTemplate.signatoryTitle }
+              : undefined,
+          }
+        : undefined,
       startDate: formStartDate
         ? new Date(`${formStartDate}T00:00:00.000Z`).toISOString()
         : undefined,
@@ -920,9 +978,10 @@ export default function Page() {
                   Instructor <NotPersistedBadge />
                 </Label>
                 <Input
-                  value={formInstructor}
-                  onChange={(e) => setFormInstructor(e.target.value)}
-                  className="mt-1.5"
+                  value={formInstructorName}
+                  onChange={(e) => setFormInstructorName(e.target.value)}
+                  placeholder="Jean-Pierre Habimana"
+                  className="h-10 text-xs shadow-sm"
                 />
               </div>
             </div>
@@ -995,9 +1054,10 @@ export default function Page() {
               rows={3}
             />
             <MultiLangInput
-              label="What Students Get (one per line) (Not persisted yet)"
-              value={formWhatYouGet}
-              onChange={setFormWhatYouGet}
+              label="What Students Get (one per line)"
+              value={formWhatStudentsGet}
+              onChange={setFormWhatStudentsGet}
+              placeholder="Certificate of Completion"
               type="textarea"
               rows={3}
             />
@@ -1827,10 +1887,21 @@ export default function Page() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="upcoming">Upcoming</SelectItem>
-                  <SelectItem value="open">Open for Enrollment</SelectItem>
-                  <SelectItem value="full">Full</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="upcoming" className="text-xs">
+                    Upcoming
+                  </SelectItem>
+                  <SelectItem value="in_progress" className="text-xs">
+                    Open (In Progress)
+                  </SelectItem>
+                  <SelectItem value="completed" className="text-xs">
+                    Completed
+                  </SelectItem>
+                  <SelectItem value="draft" className="text-xs">
+                    Draft (Hidden)
+                  </SelectItem>
+                  <SelectItem value="cancelled" className="text-xs">
+                    Cancelled (Disabled)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

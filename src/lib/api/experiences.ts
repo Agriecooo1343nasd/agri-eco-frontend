@@ -49,6 +49,9 @@ export interface Experience {
   marketSector?: string;
   destination?: string;
   linkedAccommodationIds: string[];
+  averageRating: number;
+  reviewCount: number;
+  availabilityStatus: "available" | "limited" | "sold_out" | "upcoming";
   isActive: boolean;
   isFeatured: boolean;
   seasonStart?: string;
@@ -96,6 +99,7 @@ export interface CreateAdminExperiencePayload {
   marketSector?: string;
   destination?: string;
   linkedAccommodationIds?: string[];
+  availabilityStatus?: "available" | "limited" | "sold_out" | "upcoming";
   isActive?: boolean;
   isFeatured?: boolean;
   seasonStart?: string;
@@ -214,6 +218,44 @@ export async function updateAdminExperience(
 
 export async function deleteAdminExperience(id: string): Promise<void> {
   await apiClient.delete(`/experiences/${id}`);
+}
+
+/* ---------- Admin: Slot Management ---------- */
+
+export async function createExperienceSlot(
+  experienceId: string,
+  payload: { date: string; timeSlot: string; capacity: number },
+): Promise<ExperienceSlot> {
+  const response = await apiClient.post<ApiSuccessResponse<ExperienceSlot>>(
+    `/experiences/admin/${experienceId}/slots`,
+    payload,
+  );
+  if (!response.data.data) {
+    throw new Error("Failed to create slot");
+  }
+  return response.data.data;
+}
+
+export async function updateExperienceSlot(
+  experienceId: string,
+  slotId: string,
+  payload: Partial<{ date: string; timeSlot: string; capacity: number; isClosed: boolean }>,
+): Promise<ExperienceSlot> {
+  const response = await apiClient.patch<ApiSuccessResponse<ExperienceSlot>>(
+    `/experiences/admin/${experienceId}/slots/${slotId}`,
+    payload,
+  );
+  if (!response.data.data) {
+    throw new Error("Failed to update slot");
+  }
+  return response.data.data;
+}
+
+export async function deleteExperienceSlot(
+  experienceId: string,
+  slotId: string,
+): Promise<void> {
+  await apiClient.delete(`/experiences/admin/${experienceId}/slots/${slotId}`);
 }
 
 /* ---------- Asset Helpers ---------- */

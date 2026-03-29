@@ -44,6 +44,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import Link from "next/link";
 
+
 const statusConfig: Record<
   string,
   { label: { en: string; rw: string }; className: string; textColor: string }
@@ -271,7 +272,7 @@ export default function Enrollments() {
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
                               <span className="flex items-center gap-1.5 border-r border-border pr-4 last:border-0 last:pr-0">
                                 <UserIcon className="h-3 w-3" />
-                                {t(program.instructor)}
+                                {program.instructorName || "Agri-Eco Specialist"}
                               </span>
                               <span className="flex items-center gap-1.5">
                                 <Calendar className="h-3 w-3" />

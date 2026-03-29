@@ -40,13 +40,23 @@ export default function Page() {
     enabled: !!id,
   });
 
-  const { data: enrollmentsData, isLoading: isLoadingEnrollments } = useQuery({
-    queryKey: ["admin", "training-enrollments", id],
-    queryFn: () => fetchAdminTrainingEnrollments({ trainingProgramId: id, limit: 100 }),
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["admin", "training-stats", id],
+    queryFn: () => {
+      const { fetchAdminProgramStats } = require("@/lib/api/education");
+      return fetchAdminProgramStats(id);
+    },
     enabled: !!id,
   });
 
-  if (isLoadingProgram || isLoadingEnrollments) {
+  const { data: enrollmentsData, isLoading: isLoadingEnrollments } = useQuery({
+    queryKey: ["admin", "training-enrollments", id],
+    queryFn: () =>
+      fetchAdminTrainingEnrollments({ trainingProgramId: id, limit: 100 }),
+    enabled: !!id,
+  });
+
+  if (isLoadingProgram || isLoadingEnrollments || isLoadingStats) {
     return (
       <div className="flex flex-col items-center justify-center py-40 text-muted-foreground">
         <Loader2 className="h-10 w-10 animate-spin mb-4" />
@@ -71,30 +81,31 @@ export default function Page() {
   }
 
   const enrollments = enrollmentsData?.data || [];
-  
-  const completionRate = enrollments.length > 0 
-    ? Math.round((enrollments.filter((e: any) => e.status === "completed").length / enrollments.length) * 100)
-    : 0;
 
-  const activeStudents = enrollments.filter(
-    (e: any) => e.status === "approved"
-  ).length;
+  const completionRate =
+    enrollments.length > 0
+      ? Math.round(
+          (enrollments.filter((e: any) => e.status === "completed").length /
+            enrollments.length) *
+            100,
+        )
+      : 0;
 
-  const pendingStudents = enrollments.filter(
-    (e: any) => e.status === "pending"
-  ).length;
+  const activeStudents = enrollments.filter((e: any) => e.status === "approved")
+    .length;
 
-  // Since backend doesn't track granular progress yet, 
+  // Since backend doesn't track granular progress yet,
   // we use status as a proxy: Completed = 100%, Approved = 50%, Pending/Rejected = 0%
-  const avgProgress = enrollments.length > 0
-    ? Math.round(
-        enrollments.reduce((s: number, e: any) => {
-          if (e.status === "completed") return s + 100;
-          if (e.status === "approved") return s + 50;
-          return s;
-        }, 0) / enrollments.length
-      )
-    : 0;
+  const avgProgress =
+    enrollments.length > 0
+      ? Math.round(
+          enrollments.reduce((s: number, e: any) => {
+            if (e.status === "completed") return s + 100;
+            if (e.status === "approved") return s + 50;
+            return s;
+          }, 0) / enrollments.length,
+        )
+      : 0;
 
   const statusColor: Record<string, string> = {
     pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
@@ -118,24 +129,30 @@ export default function Page() {
           <h1 className="text-2xl font-bold font-heading text-foreground">
             {program.title.en}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground font-medium">
             Program Statistics & Enrollment Analytics
           </p>
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2 h-9 text-xs">
           <Download className="h-4 w-4" /> Export Report
         </Button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           {
             label: "Total Enrolled",
-            value: enrollments.length,
+            value: stats?.enrollments?.total || enrollments.length,
             max: program.capacity,
             icon: Users,
             color: "text-primary",
+          },
+          {
+            label: "Revenue (RWF)",
+            value: (stats?.revenue || 0).toLocaleString(),
+            icon: TrendingUp,
+            color: "text-emerald-600",
           },
           {
             label: "Active Students",
@@ -158,16 +175,22 @@ export default function Page() {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-card border border-border rounded-xl p-5"
+            className="bg-card border border-border rounded-xl p-5 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 border-b border-border/50 pb-2">
               <s.icon className={`h-5 w-5 ${s.color}`} />
               {s.max && (
-                <span className="text-xs text-muted-foreground">/ {s.max}</span>
+                <span className="text-[10px] font-bold text-muted-foreground">
+                  LIMIT: {s.max}
+                </span>
               )}
             </div>
-            <p className="text-3xl font-bold text-foreground">{s.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+            <p className="text-2xl font-bold text-foreground font-heading">
+              {s.value}
+            </p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wider">
+              {s.label}
+            </p>
           </div>
         ))}
       </div>

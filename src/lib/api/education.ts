@@ -30,6 +30,7 @@ export interface TrainingProgram {
   coverImage?: string;
   type: "course" | "certification" | "workshop";
   level: "beginner" | "intermediate" | "advanced";
+  status: "draft" | "upcoming" | "in_progress" | "completed" | "cancelled";
   priceRwf: number;
   durationWeeks: number;
   capacity: number;
@@ -38,16 +39,24 @@ export interface TrainingProgram {
   isFeatured: boolean;
   curriculum: any[];
   topics: TrainingTopic[];
+  instructorName?: string;
+  instructorBio?: MultiLangText;
+  requirements?: MultiLangText[];
+  whatStudentsGet?: MultiLangText[];
+  certificateTemplate?: {
+    title?: MultiLangText;
+    programName?: MultiLangText;
+    description?: MultiLangText;
+    signatoryName?: MultiLangText;
+    signatoryTitle?: MultiLangText;
+  };
+  location?: string;
+  averageRating: number;
+  reviewCount: number;
   startDate?: string;
   endDate?: string;
   createdAt: string;
   updatedAt: string;
-  instructor?: MultiLangText;
-  instructorBio?: MultiLangText;
-  requirements?: MultiLangText[];
-  whatYouGet?: MultiLangText[];
-  certificateTemplate?: any;
-  location?: MultiLangText;
 }
 
 export interface AdminTrainingProgram extends TrainingProgram {}
@@ -100,6 +109,7 @@ export interface CreateAdminTrainingProgramPayload {
   coverImage?: string;
   type: "course" | "certification" | "workshop";
   level: "beginner" | "intermediate" | "advanced";
+  status?: "draft" | "upcoming" | "in_progress" | "completed" | "cancelled";
   priceRwf: number;
   durationWeeks: number;
   capacity: number;
@@ -108,6 +118,18 @@ export interface CreateAdminTrainingProgramPayload {
   isFeatured: boolean;
   curriculum: any[];
   topics: { name: MultiLangText; sortOrder: number }[];
+  instructorName?: string;
+  instructorBio?: MultiLangText;
+  requirements?: MultiLangText[];
+  whatStudentsGet?: MultiLangText[];
+  certificateTemplate?: {
+    title?: MultiLangText;
+    programName?: MultiLangText;
+    description?: MultiLangText;
+    signatoryName?: MultiLangText;
+    signatoryTitle?: MultiLangText;
+  };
+  location?: string;
   startDate?: string;
 }
 
@@ -377,6 +399,28 @@ export async function updateAdminSchoolVisitSettings(
   return response.data.data;
 }
 
+export async function fetchAdminProgramStats(id: string): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(
+    `/training-programs/admin/programs/${id}/stats`,
+  );
+  if (!response.data.data) throw new Error("Stats not found");
+  return response.data.data;
+}
+
+export async function toggleAdminTrainingProgramArchive(
+  id: string,
+): Promise<AdminTrainingProgram> {
+  const response = await apiClient.patch<
+    ApiSuccessResponse<AdminTrainingProgram>
+  >(`/training-programs/admin/programs/${id}/archive`);
+  if (!response.data.data) throw new Error("Failed to toggle archive");
+  return response.data.data;
+}
+
+export async function deleteAdminTrainingProgram(id: string): Promise<void> {
+  await apiClient.delete(`/training-programs/${id}`);
+}
+
 export interface CreateSchoolVisitPayload {
   institutionName: string;
   contactName: string;
@@ -389,8 +433,14 @@ export interface CreateSchoolVisitPayload {
   specialRequirements?: string;
 }
 
-export async function submitSchoolVisit(payload: CreateSchoolVisitPayload): Promise<any> {
-  const response = await apiClient.post<ApiSuccessResponse<any>>("/school-visits", payload);
-  if (!response.data.data) throw new Error(response.data.message || "Failed to submit visit");
+export async function submitSchoolVisit(
+  payload: CreateSchoolVisitPayload,
+): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    "/school-visits",
+    payload,
+  );
+  if (!response.data.data)
+    throw new Error(response.data.message || "Failed to submit visit");
   return response.data;
 }
