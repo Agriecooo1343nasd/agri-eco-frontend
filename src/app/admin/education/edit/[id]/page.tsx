@@ -55,6 +55,8 @@ import {
   type CreateAdminTrainingProgramPayload,
   type MultiLangText,
 } from "@/lib/api/education";
+import { getMediaUrl } from "@/lib/config/api";
+import { uploadSingleImage } from "@/lib/api/uploads";
 
 const emptyModule = (): ProgramModule => ({
   id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -364,32 +366,36 @@ export default function Page() {
         setFormStatus(program.status || (program.isPublished ? "in_progress" : "upcoming"));
         setFormInstructorName(program.instructorName || "");
         setFormInstructorBio(toMultiLangFromUnknown(program.instructorBio));
-        setFormRequirements({
-          ...emptyLangValue(),
-          en: Array.isArray(program.requirements)
-            ? program.requirements.map(r => r.en).join("\n")
-            : ""
-        });
-        setFormWhatStudentsGet({
-          ...emptyLangValue(),
-          en: Array.isArray(program.whatStudentsGet)
-            ? program.whatStudentsGet.map(r => r.en).join("\n")
-            : ""
-        });
+        setFormRequirements(toMultiLangFromUnknown(program.requirements));
+        setFormWhatStudentsGet(toMultiLangFromUnknown(program.whatStudentsGet));
         setFormLocation(program.location || "");
         
         if (program.certificateTemplate) {
-          const ct = program.certificateTemplate;
-          setCertTemplate({
-            enabled: true,
-            title: toMultiLangFromUnknown(ct.title),
-            subtitle: toMultiLangFromUnknown(ct.programName),
-            description: toMultiLangFromUnknown(ct.description),
-            signatoryName: toMultiLangFromUnknown(ct.signatoryName).en,
-            signatoryTitle: toMultiLangFromUnknown(ct.signatoryTitle).en,
-            badgeColor: "#16a34a",
-            logoUrl: "",
-          });
+          try {
+            const ct = JSON.parse(program.certificateTemplate) as Record<string, unknown>;
+            setCertTemplate({
+              enabled: true,
+              title: toMultiLangFromUnknown(ct.title),
+              subtitle: toMultiLangFromUnknown(ct.programName),
+              description: toMultiLangFromUnknown(ct.description),
+              signatoryName: typeof ct.signatoryName === "string" ? ct.signatoryName : "",
+              signatoryTitle: typeof ct.signatoryTitle === "string" ? ct.signatoryTitle : "",
+              badgeColor: typeof ct.badgeColor === "string" ? ct.badgeColor : "#16a34a",
+              logoUrl: typeof ct.logoUrl === "string" ? ct.logoUrl : "",
+            });
+          } catch {
+            // Fallback: treat raw string as a title
+            setCertTemplate({
+              enabled: true,
+              title: { ...emptyLangValue(), en: program.certificateTemplate },
+              subtitle: emptyLangValue(),
+              description: emptyLangValue(),
+              signatoryName: "",
+              signatoryTitle: "",
+              badgeColor: "#16a34a",
+              logoUrl: "",
+            });
+          }
         }
         setModules(
           Array.isArray(program.curriculum)
@@ -518,26 +524,30 @@ export default function Page() {
     }));
   };
 
-  const handleBlockFileUpload = (
+  const handleBlockFileUpload = async (
     moduleId: string,
     blockId: string,
     file: File,
   ) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      if (!result) return;
-
+    const toastId = toast.loading("Uploading file...");
+    try {
+      const result = await uploadSingleImage(file);
       const current = modules
         .find((m) => m.id === moduleId)
         ?.contentBlocks.find((cb) => cb.id === blockId)?.content;
 
       updateContentBlockML(moduleId, blockId, "content", {
         ...toML(current),
-        en: result,
+        en: result.path,
       });
-    };
-    reader.readAsDataURL(file);
+      toast.success("File uploaded successfully", { id: toastId });
+    } catch (err) {
+      console.error("Block upload error:", err);
+      toast.error(
+        `Upload failed: ${err instanceof Error ? err.message : "Backend error"}`,
+        { id: toastId },
+      );
+    }
   };
 
   const toggleModuleQuiz = (moduleId: string) => {
@@ -772,32 +782,20 @@ export default function Page() {
       curriculum,
       status: formStatus,
       instructorName: formInstructorName.trim() || undefined,
-      instructorBio: toOptionalML(formInstructorBio),
-      requirements: formRequirements.en.trim()
-        ? formRequirements.en
-            .split("\n")
-            .filter(Boolean)
-            .map((line) => ({ en: line.trim() }))
-        : undefined,
-      whatStudentsGet: formWhatStudentsGet.en.trim()
-        ? formWhatStudentsGet.en
-            .split("\n")
-            .filter(Boolean)
-            .map((line) => ({ en: line.trim() }))
-        : undefined,
+      instructorBio: formInstructorBio.en.trim() || undefined,
+      requirements: toOptionalML(formRequirements),
+      whatStudentsGet: toOptionalML(formWhatStudentsGet),
       location: formLocation.trim() || undefined,
       certificateTemplate: certTemplate.enabled
-        ? {
+        ? JSON.stringify({
             title: toOptionalML(certTemplate.title),
             programName: toOptionalML(certTemplate.subtitle),
             description: toOptionalML(certTemplate.description),
-            signatoryName: certTemplate.signatoryName
-              ? { en: certTemplate.signatoryName }
-              : undefined,
-            signatoryTitle: certTemplate.signatoryTitle
-              ? { en: certTemplate.signatoryTitle }
-              : undefined,
-          }
+            signatoryName: certTemplate.signatoryName || undefined,
+            signatoryTitle: certTemplate.signatoryTitle || undefined,
+            badgeColor: certTemplate.badgeColor,
+            logoUrl: certTemplate.logoUrl || undefined,
+          }).slice(0, 500)
         : undefined,
       startDate: formStartDate
         ? new Date(`${formStartDate}T00:00:00.000Z`).toISOString()
@@ -818,10 +816,6 @@ export default function Page() {
         toast.success(
           `Program Updated! \"${formTitle.en}\" has been saved successfully.`,
         );
-        toast.warning("Some fields are not persisted by backend yet", {
-          description:
-            "Instructor details, requirements, outcomes, location, certificate template, and rich status are currently frontend-only.",
-        });
         router.push("/admin/education");
       })
       .catch((error) => {
@@ -974,9 +968,7 @@ export default function Page() {
                 />
               </div>
               <div>
-                <Label>
-                  Instructor <NotPersistedBadge />
-                </Label>
+                <Label>Instructor</Label>
                 <Input
                   value={formInstructorName}
                   onChange={(e) => setFormInstructorName(e.target.value)}
@@ -987,7 +979,7 @@ export default function Page() {
             </div>
 
             <MultiLangInput
-              label="Instructor Bio (Not persisted yet)"
+              label="Instructor Bio"
               value={formInstructorBio}
               onChange={setFormInstructorBio}
               type="textarea"
@@ -1016,9 +1008,7 @@ export default function Page() {
                 />
               </div>
               <div>
-                <Label>
-                  Location <NotPersistedBadge />
-                </Label>
+                <Label>Location</Label>
                 <Input
                   value={formLocation}
                   onChange={(e) => setFormLocation(e.target.value)}
@@ -1034,7 +1024,7 @@ export default function Page() {
                 setCoverImageUrl(value);
                 setHeroImageUrl(value);
               }}
-              description="Persisted when entered as URL. Local uploads are preview-only until backend media upload is added."
+              description="Images are uploaded and persisted to the backend server automatically."
             />
 
             <div>
@@ -1047,17 +1037,17 @@ export default function Page() {
             </div>
 
             <MultiLangInput
-              label="Requirements (one per line) (Not persisted yet)"
+              label="Requirements (Multiline description)"
               value={formRequirements}
               onChange={setFormRequirements}
               type="textarea"
               rows={3}
             />
             <MultiLangInput
-              label="What Students Get (one per line)"
+              label="What Students Get"
               value={formWhatStudentsGet}
               onChange={setFormWhatStudentsGet}
-              placeholder="Certificate of Completion"
+              placeholder="Full Certificate of Completion and Hands-on experience"
               type="textarea"
               rows={3}
             />
@@ -1393,7 +1383,7 @@ export default function Page() {
                                       {block.type === "image" && (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
-                                          src={toML(block.content).en}
+                                          src={getMediaUrl(toML(block.content).en)}
                                           alt={
                                             toML(block.title).en || "Preview"
                                           }
@@ -1402,7 +1392,7 @@ export default function Page() {
                                       )}
                                       {block.type === "video" && (
                                         <video
-                                          src={toML(block.content).en}
+                                          src={getMediaUrl(toML(block.content).en)}
                                           controls
                                           className="w-full max-h-48"
                                         />
@@ -1677,11 +1667,6 @@ export default function Page() {
 
         <TabsContent value="certificate">
           <div className="bg-card border border-border rounded-xl p-6 space-y-5">
-            <div className="text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              Certificate settings are currently not persisted by backend
-              program DTO.
-            </div>
-
             <div className="flex items-center justify-between p-4 bg-accent/30 rounded-xl">
               <div>
                 <Label>Enable Certificate</Label>

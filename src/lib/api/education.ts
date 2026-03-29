@@ -40,16 +40,10 @@ export interface TrainingProgram {
   curriculum: any[];
   topics: TrainingTopic[];
   instructorName?: string;
-  instructorBio?: MultiLangText;
-  requirements?: MultiLangText[];
-  whatStudentsGet?: MultiLangText[];
-  certificateTemplate?: {
-    title?: MultiLangText;
-    programName?: MultiLangText;
-    description?: MultiLangText;
-    signatoryName?: MultiLangText;
-    signatoryTitle?: MultiLangText;
-  };
+  instructorBio?: string;
+  requirements?: MultiLangText;
+  whatStudentsGet?: MultiLangText;
+  certificateTemplate?: string;
   location?: string;
   averageRating: number;
   reviewCount: number;
@@ -61,7 +55,7 @@ export interface TrainingProgram {
 
 export interface AdminTrainingProgram extends TrainingProgram {}
 
-export interface AdminSchoolVisit {
+export interface AdminSchoolVisit { 
   id: string;
   institutionName: string;
   contactName: string;
@@ -119,16 +113,10 @@ export interface CreateAdminTrainingProgramPayload {
   curriculum: any[];
   topics: { name: MultiLangText; sortOrder: number }[];
   instructorName?: string;
-  instructorBio?: MultiLangText;
-  requirements?: MultiLangText[];
-  whatStudentsGet?: MultiLangText[];
-  certificateTemplate?: {
-    title?: MultiLangText;
-    programName?: MultiLangText;
-    description?: MultiLangText;
-    signatoryName?: MultiLangText;
-    signatoryTitle?: MultiLangText;
-  };
+  instructorBio?: string;
+  requirements?: MultiLangText;
+  whatStudentsGet?: MultiLangText;
+  certificateTemplate?: string;
   location?: string;
   startDate?: string;
 }

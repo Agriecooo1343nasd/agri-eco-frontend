@@ -21,8 +21,13 @@ export const metadata: Metadata = {
   title: "Agri-Eco | Fresh Organic Products",
   description:
     "Your trusted source for 100% organic, farm-fresh agricultural products.",
-  icons: {
-    icon: "/assets/logo/logo.png",
+   icons: {
+    icon: [
+      { url: "/assets/logo/logo.png", sizes: "32x32", type: "image/png" },
+      { url: "/assets/logo/logo.png", sizes: "48x48", type: "image/png" },
+      { url: "/assets/logo/logo.png", sizes: "96x96", type: "image/png" },
+      { url: "/assets/logo/logo.png", sizes: "192x192", type: "image/png" },
+    ],
   },
 };
 

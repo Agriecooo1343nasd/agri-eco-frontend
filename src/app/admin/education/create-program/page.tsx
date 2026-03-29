@@ -504,32 +504,20 @@ export default function CreateProgramPage() {
         curriculum,
         topics,
         instructorName: formInstructorName.trim() || undefined,
-        instructorBio: toOptionalMultiLang(formInstructorBio),
-        requirements: formRequirements.en.trim()
-          ? formRequirements.en
-              .split("\n")
-              .filter(Boolean)
-              .map((line) => ({ en: line.trim() }))
-          : undefined,
-        whatStudentsGet: formWhatStudentsGet.en.trim()
-          ? formWhatStudentsGet.en
-              .split("\n")
-              .filter(Boolean)
-              .map((line) => ({ en: line.trim() }))
-          : undefined,
+        instructorBio: formInstructorBio.en.trim() || undefined,
+        requirements: toOptionalMultiLang(formRequirements),
+        whatStudentsGet: toOptionalMultiLang(formWhatStudentsGet),
         location: formLocation.trim() || undefined,
         certificateTemplate: certTemplate.enabled
-          ? {
+          ? JSON.stringify({
               title: toOptionalMultiLang(certTemplate.title),
               programName: toOptionalMultiLang(certTemplate.subtitle),
               description: toOptionalMultiLang(certTemplate.description),
-              signatoryName: certTemplate.signatoryName
-                ? { en: certTemplate.signatoryName }
-                : undefined,
-              signatoryTitle: certTemplate.signatoryTitle
-                ? { en: certTemplate.signatoryTitle }
-                : undefined,
-            }
+              signatoryName: certTemplate.signatoryName || undefined,
+              signatoryTitle: certTemplate.signatoryTitle || undefined,
+              badgeColor: certTemplate.badgeColor,
+              logoUrl: certTemplate.logoUrl || undefined,
+            }).slice(0, 500)
           : undefined,
         startDate: formStartDate
           ? new Date(`${formStartDate}T00:00:00.000Z`).toISOString()
@@ -551,15 +539,8 @@ export default function CreateProgramPage() {
     setIsSubmitting(true);
 
     try {
-      const { payload, hasLocalImage } = buildCreatePayload(mode);
+      const { payload } = buildCreatePayload(mode);
       await createAdminTrainingProgram(payload);
-
-      if (hasLocalImage) {
-        toast.warning("Program saved without uploaded image", {
-          description:
-            "The current image is local-only. Use the URL tab for an image that can be persisted.",
-        });
-      }
 
       toast.success(mode === "publish" ? "Program Created" : "Draft Saved", {
         description: `"${formTitle.en.trim()}" has been ${
