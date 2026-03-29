@@ -34,12 +34,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -49,8 +43,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
 import {
@@ -63,7 +55,17 @@ import {
   AdminAccommodation,
   toAbsoluteAccommodationImage,
 } from "@/lib/api/accommodations";
-import { createBooking, type BookingType } from "@/lib/api/bookings";
+import {
+  createBooking,
+  fetchMyBookings,
+  type Booking,
+  type BookingType,
+} from "@/lib/api/bookings";
+import {
+  createExperienceReview,
+  fetchExperienceReviews,
+  type Review,
+} from "@/lib/api/reviews";
 import { useAuth } from "@/context/AuthContext";
 
 const DEFAULT_SLOTS = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
@@ -93,8 +95,7 @@ export default function TourDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [selectedSlotKey, setSelectedSlotKey] = useState("");
   const [participants, setParticipants] = useState(1);
   const [isGroup, setIsGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -110,6 +111,13 @@ export default function TourDetailPage({
   const [submitting, setSubmitting] = useState(false);
   const [viewAccomDetail, setViewAccomDetail] = useState<AdminAccommodation | null>(null);
   const [accomGalleryIdx, setAccomGalleryIdx] = useState(0);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [completedTourBookings, setCompletedTourBookings] = useState<Booking[]>(
+    [],
+  );
+  const [tourRateStars, setTourRateStars] = useState(5);
+  const [tourRateComment, setTourRateComment] = useState("");
+  const [submittingTourReview, setSubmittingTourReview] = useState(false);
 
   // Pre-fill user data
   useEffect(() => {
@@ -143,15 +151,64 @@ export default function TourDetailPage({
     loadData();
   }, [slug]);
 
-  // Calculation for prices
-  const slotsToUse = (experience?.slots && experience.slots.length > 0) 
-    ? [...new Set(experience.slots.map((s: any) => s.timeSlot))] 
-    : DEFAULT_SLOTS;
+  useEffect(() => {
+    async function loadReviews() {
+      if (!experience?.id) return;
+      try {
+        const result = await fetchExperienceReviews(experience.id, {
+          limit: 50,
+          page: 1,
+        });
+        setReviews(result.data ?? []);
+      } catch {
+        setReviews([]);
+      }
+    }
+    void loadReviews();
+  }, [experience?.id]);
 
-  const selectedSlot = experience?.slots?.find((ts: any) => ts.timeSlot === selectedTimeSlot);
-  const slotFull = selectedSlot
-    ? selectedSlot.bookedParticipants >= selectedSlot.capacity
-    : false;
+  useEffect(() => {
+    async function loadCompletedBookings() {
+      if (!isAuthenticated || !experience?.id) {
+        setCompletedTourBookings([]);
+        return;
+      }
+      try {
+        const res = await fetchMyBookings({ status: "completed", limit: 100 });
+        setCompletedTourBookings(
+          res.data.filter((b) => b.experienceId === experience.id),
+        );
+      } catch {
+        setCompletedTourBookings([]);
+      }
+    }
+    void loadCompletedBookings();
+  }, [isAuthenticated, experience?.id]);
+
+  const normalizedSlots = (experience?.slots ?? []).map((slot: any) => {
+    const slotDate = slot?.date ? new Date(slot.date) : null;
+    return {
+      key: `${slot.id ?? slot.timeSlot}-${slot.date ?? "na"}`,
+      id: slot.id,
+      date: slotDate,
+      dateLabel: slotDate ? slotDate.toLocaleDateString() : "Scheduled date",
+      dateValue: slotDate
+        ? `${slotDate.getFullYear()}-${String(slotDate.getMonth() + 1).padStart(2, "0")}-${String(slotDate.getDate()).padStart(2, "0")}`
+        : "",
+      timeSlot: slot.timeSlot,
+      capacity: Number(slot.capacity) || 0,
+      bookedParticipants:
+        typeof slot.bookedParticipants === "number" ? slot.bookedParticipants : null,
+    };
+  });
+
+  const selectedSlot = normalizedSlots.find((slot) => slot.key === selectedSlotKey) ?? null;
+  const slotFull =
+    selectedSlot &&
+    selectedSlot.bookedParticipants !== null &&
+    selectedSlot.capacity > 0
+      ? selectedSlot.bookedParticipants >= selectedSlot.capacity
+      : false;
   const accomOption = accommodations.find((a) => a.id === selectedAccom);
 
   const pricePerPerson =
@@ -167,8 +224,8 @@ export default function TourDetailPage({
       toast.error("Missing information. Please fill in all contact details.");
       return;
     }
-    if (!selectedDate || !selectedTimeSlot) {
-      toast.error("Select date & time. Please choose a date and time slot.");
+    if (!selectedSlot && normalizedSlots.length > 0) {
+      toast.error("Select a slot. Please choose one available schedule.");
       return;
     }
     if (!paymentMethod) {
@@ -187,10 +244,14 @@ export default function TourDetailPage({
         phone: contactPhone,
         participants,
         bookingType: (isGroup ? "group" : "individual") as BookingType,
-        date: format(selectedDate, "yyyy-MM-dd"),
-        timeSlot: selectedTimeSlot,
+        date:
+          selectedSlot?.dateValue ||
+          new Date().toISOString().slice(0, 10),
+        timeSlot: selectedSlot?.timeSlot || DEFAULT_SLOTS[0],
         specialRequirements: specialReqs,
         paymentMethod,
+        accommodationId: accomOption?.id,
+        accommodationNights: accomOption ? accomNights : undefined,
         amountRwf: grandTotal,
       });
 
@@ -248,6 +309,43 @@ export default function TourDetailPage({
   }
 
   const gallery = experience.gallery.length > 0 ? experience.gallery : [experience.heroImage].filter(Boolean) as string[];
+
+  const myTourReview =
+    user?.id != null
+      ? reviews.find((r) => r.userId === user.id)
+      : undefined;
+
+  const handleSubmitTourReview = async () => {
+    if (!experience) return;
+    if (tourRateComment.trim().length < 10) {
+      toast.error("Review too short", {
+        description: "Please write at least 10 characters about your visit.",
+      });
+      return;
+    }
+    try {
+      setSubmittingTourReview(true);
+      await createExperienceReview(experience.id, {
+        rating: tourRateStars,
+        comment: tourRateComment.trim(),
+      });
+      toast.success("Thanks for your review!");
+      setTourRateComment("");
+      setTourRateStars(5);
+      const result = await fetchExperienceReviews(experience.id, {
+        limit: 50,
+        page: 1,
+      });
+      setReviews(result.data ?? []);
+    } catch (err: any) {
+      toast.error("Could not submit review", {
+        description:
+          err.response?.data?.message || err.message || "Please try again.",
+      });
+    } finally {
+      setSubmittingTourReview(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-xs">
@@ -337,11 +435,135 @@ export default function TourDetailPage({
                 </span>
                 <span className="flex items-center gap-1">
                   <Star className="h-3.5 w-3.5 fill-secondary text-secondary" />
-                  4.8 (Freshness Guaranteed)
+                  {(Number(experience.averageRating || 0)).toFixed(1)} ({experience.reviewCount ?? 0} reviews)
                 </span>
               </div>
             </div>
 
+            <div className="rounded-xl border-2 border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+                  <Star className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <h3 className="font-heading font-semibold text-foreground text-sm">
+                      Rate this tour
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                      Joined one of our departures? Tell future guests how it went.
+                      A completed booking for this experience is required.
+                    </p>
+                  </div>
+                  {!isAuthenticated ? (
+                    <Button asChild size="sm" className="text-xs h-9 w-full sm:w-auto">
+                      <Link href={`/login?redirect=${encodeURIComponent(`/tours/${slug}`)}`}>
+                        Sign in to rate
+                      </Link>
+                    </Button>
+                  ) : myTourReview ? (
+                    <div className="rounded-lg border border-border bg-background/90 p-3">
+                      <p className="text-xs font-semibold text-foreground">
+                        Your rating: {myTourReview.rating}/5
+                      </p>
+                      {[myTourReview.title, myTourReview.comment]
+                        .filter(Boolean)
+                        .length > 0 ? (
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                          {[myTourReview.title, myTourReview.comment]
+                            .filter(Boolean)
+                            .join(" — ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : completedTourBookings.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      After you complete a booking for this tour, you can submit a
+                      review here or from{" "}
+                      <Link
+                        href="/account/bookings"
+                        className="font-medium text-primary underline underline-offset-2"
+                      >
+                        My bookings
+                      </Link>
+                      .
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setTourRateStars(star)}
+                            className="rounded-md p-1 transition-colors hover:bg-accent"
+                          >
+                            <Star
+                              className={`h-5 w-5 ${star <= tourRateStars ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      <Textarea
+                        value={tourRateComment}
+                        onChange={(e) => setTourRateComment(e.target.value)}
+                        placeholder="What stood out? Tips for other travelers? (min. 10 characters)"
+                        className="text-xs min-h-[80px] resize-y"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="text-xs"
+                        disabled={
+                          submittingTourReview || tourRateComment.trim().length < 10
+                        }
+                        onClick={() => void handleSubmitTourReview()}
+                      >
+                        {submittingTourReview ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Submitting…
+                          </span>
+                        ) : (
+                          "Submit review"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-4">
+              <h3 className="font-semibold text-foreground text-sm mb-2">Guest Reviews</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                {experience.reviewCount ?? 0} total reviews, average {(Number(experience.averageRating || 0)).toFixed(1)}/5
+              </p>
+              {reviews.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No public reviews yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {reviews.slice(0, 4).map((review) => (
+                    <div key={review.id} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-foreground">
+                          {review.user?.username || "Guest"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">{review.rating}/5</p>
+                      </div>
+                      {[review.title, review.comment].filter(Boolean).length >
+                      0 ? (
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                          {[review.title, review.comment]
+                            .filter(Boolean)
+                            .join(" — ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             {/* Tabs */}
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="w-full justify-start bg-card border border-border overflow-x-auto">
@@ -369,13 +591,13 @@ export default function TourDetailPage({
                       Requirements
                     </h3>
                     <ul className="space-y-1">
-                      {experience.requirements.map((r: string, idx: number) => (
+                      {experience.requirements.map((r: any, idx: number) => (
                         <li
                           key={idx}
                           className="flex items-start gap-2 text-xs text-muted-foreground"
                         >
                           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          {r}
+                          {typeof r === "string" ? r : t(r)}
                         </li>
                       ))}
                     </ul>
@@ -397,13 +619,13 @@ export default function TourDetailPage({
               </TabsContent>
               <TabsContent value="highlights" className="mt-4">
                 <div className="space-y-2">
-                  {experience.highlights.map((h: string, i: number) => (
+                  {experience.highlights.map((h: any, i: number) => (
                     <div key={i} className="flex items-start gap-3 text-xs">
                       <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
                         {i + 1}
                       </span>
                       <span className="text-foreground leading-relaxed">
-                        {h}
+                        {typeof h === "string" ? h : t(h)}
                       </span>
                     </div>
                   ))}
@@ -463,82 +685,48 @@ export default function TourDetailPage({
               {bookingStep === 1 && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-foreground text-sm">
-                    1. Select Date & Time
+                    1. Select Tour Slot
                   </h3>
 
                   <div>
                     <Label className="text-[11px] text-muted-foreground mb-1.5 block">
-                      Date
-                    </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-medium h-12 px-4 border-2 hover:border-primary/50 hover:bg-primary/5 transition-all rounded-xl shadow-sm",
-                            !selectedDate && "text-muted-foreground",
-                          )}
-                        >
-                          <Calendar className="mr-3 h-5 w-5 text-primary" />
-                          <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-muted-foreground/70 leading-none mb-0.5">
-                              Check-in Date
-                            </span>
-                            <span className="text-sm">
-                              {selectedDate
-                                ? format(selectedDate, "PPP")
-                                : "Select your visit date"}
-                            </span>
-                          </div>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-auto p-0 rounded-xl border-2 shadow-2xl"
-                        align="start"
-                      >
-                        <CalendarComponent
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          disabled={(date) => date < new Date()}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground mb-1.5 block">
-                      Time Slot
+                      Available Slots
                     </Label>
                     <div className="space-y-2">
-                      {slotsToUse.map((time: string) => {
-                        const ts = experience.slots?.find((s: any) => s.timeSlot === time);
-                        const full = ts ? ts.bookedParticipants >= ts.capacity : false;
-                        const almostFull = ts ? 
-                          ts.capacity - ts.bookedParticipants <= 3 && !full : false;
-                        
+                      {(normalizedSlots.length > 0 ? normalizedSlots : DEFAULT_SLOTS.map((time) => ({
+                        key: time,
+                        dateLabel: "Any upcoming date",
+                        timeSlot: time,
+                        capacity: 0,
+                        bookedParticipants: null as number | null,
+                      })) as any[]).map((slot: any) => {
+                        const full =
+                          slot.bookedParticipants !== null && slot.capacity > 0
+                            ? slot.bookedParticipants >= slot.capacity
+                            : false;
                         return (
                           <button
-                            key={time}
-                            onClick={() => setSelectedTimeSlot(time)}
+                            key={slot.key}
+                            onClick={() => !full && setSelectedSlotKey(slot.key)}
+                            disabled={full}
                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-xs transition-colors ${
-                              selectedTimeSlot === time
+                              selectedSlotKey === slot.key
                                 ? "border-primary bg-primary/5 text-primary"
-                                : "border-border hover:border-primary/50"
+                                : full
+                                  ? "border-border opacity-60 cursor-not-allowed"
+                                  : "border-border hover:border-primary/50"
                             }`}
                           >
-                            <span className="font-medium">{time}</span>
-                            {ts && (
-                              <span
-                                className={`text-[10px] ${full ? "text-destructive font-semibold" : almostFull ? "text-secondary-foreground font-semibold" : "text-muted-foreground"}`}
-                              >
+                            <span className="font-medium">
+                              {slot.dateLabel} - {slot.timeSlot}
+                            </span>
+                            {slot.bookedParticipants !== null && slot.capacity > 0 ? (
+                              <span className={`text-[10px] ${full ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                                 {full
                                   ? "Full — Waitlist"
-                                  : `${ts.capacity - ts.bookedParticipants}/${ts.capacity} spots`}
+                                  : `${slot.bookedParticipants}/${slot.capacity} joined`}
                               </span>
-                            )}
+                            ) : null}
                           </button>
                         );
                       })}
@@ -597,7 +785,7 @@ export default function TourDetailPage({
                   <Button
                     className="w-full text-xs h-9"
                     onClick={() => setBookingStep(2)}
-                    disabled={!selectedDate || !selectedTimeSlot}
+                    disabled={normalizedSlots.length > 0 && !selectedSlotKey}
                   >
                     Continue
                   </Button>
@@ -780,15 +968,11 @@ export default function TourDetailPage({
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date</span>
+                      <span className="text-muted-foreground">Slot</span>
                       <span className="text-foreground">
-                        {selectedDate ? format(selectedDate, "PPP") : ""}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Time</span>
-                      <span className="text-foreground">
-                        {selectedSlot?.timeSlot}
+                        {selectedSlot
+                          ? `${selectedSlot.dateLabel} - ${selectedSlot.timeSlot}`
+                          : "Default slot"}
                       </span>
                     </div>
                     <div className="flex justify-between">

@@ -433,6 +433,15 @@ export default function AdminEducationPage() {
                             <DropdownMenuItem
                               className="gap-2 text-xs py-2 cursor-pointer"
                               onClick={() =>
+                                router.push(`/admin/education/${p.id}/enrollments`)
+                              }
+                            >
+                              <Users className="h-3.5 w-3.5" />
+                              View Enrollments
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="gap-2 text-xs py-2 cursor-pointer"
+                              onClick={() =>
                                 router.push(`/admin/education/edit/${p.id}`)
                               }
                             >

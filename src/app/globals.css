@@ -89,6 +89,7 @@
 }
 
 :root {
+  --font-geist-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
   --radius: 0.75rem;
   --background: hsl(60 20% 98%);
   --foreground: hsl(150 10% 15%);

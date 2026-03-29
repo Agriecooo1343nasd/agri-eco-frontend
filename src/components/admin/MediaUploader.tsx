@@ -6,6 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Image as ImageIcon, Link as LinkIcon, Upload } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
+import { uploadSingleImage } from "@/lib/api/uploads";
+import { toast } from "sonner";
 
 interface MediaUploaderProps {
   label: string;
@@ -15,6 +19,8 @@ interface MediaUploaderProps {
   description?: string;
 }
 
+import { getMediaUrl } from "@/lib/config/api";
+
 export function MediaUploader({
   label,
   value,
@@ -23,20 +29,32 @@ export function MediaUploader({
   description,
 }: MediaUploaderProps) {
   const [activeTab, setActiveTab] = useState<"url" | "upload">("upload");
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const displayUrl = getMediaUrl(value);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onChange(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const result = await uploadSingleImage(file);
+      onChange(result.path);
+      toast.success("Image uploaded successfully");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload image", {
+        description: error instanceof Error ? error.message : "Backend error",
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const handleUploadClick = () => {
+    if (isUploading) return;
     fileInputRef.current?.click();
   };
 
@@ -74,12 +92,15 @@ export function MediaUploader({
         <Tabs value={activeTab} className="w-full">
           <TabsContent value="upload" className="m-0 border-none outline-none">
             <div className="p-4 flex flex-col items-center justify-center gap-3">
-              {value && value.startsWith("data:image") ? (
+              {value ? (
                 <div className="relative w-full aspect-[21/9] rounded-md overflow-hidden bg-muted border border-border group">
                   <img
-                    src={value}
+                    src={displayUrl}
                     alt="Preview"
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    className={cn(
+                      "w-full h-full object-cover transition-transform group-hover:scale-105",
+                      isUploading && "opacity-50 blur-sm"
+                    )}
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Button
@@ -87,22 +108,38 @@ export function MediaUploader({
                       variant="secondary"
                       size="sm"
                       onClick={handleUploadClick}
+                      disabled={isUploading}
                       className="gap-2"
                     >
                       <ImageIcon className="h-4 w-4" /> Change Image
                     </Button>
                   </div>
+                  {isUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="bg-background/80 px-3 py-1.5 rounded-full flex items-center gap-2 shadow-sm border border-border">
+                        <div className="h-3 w-3 border-2 border-primary border-t-transparent animate-spin rounded-full" />
+                        <span className="text-[10px] font-bold uppercase text-foreground">Uploading...</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div
-                  className="w-full py-8 border-2 border-dashed border-border/60 rounded-lg flex flex-col items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
+                  className={cn(
+                    "w-full py-8 border-2 border-dashed border-border/60 rounded-lg flex flex-col items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer",
+                    isUploading && "opacity-50 cursor-wait"
+                  )}
                   onClick={handleUploadClick}
                 >
                   <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3">
-                    <Upload className="h-5 w-5" />
+                    {isUploading ? (
+                      <div className="h-5 w-5 border-2 border-primary border-t-transparent animate-spin rounded-full" />
+                    ) : (
+                      <Upload className="h-5 w-5" />
+                    )}
                   </div>
                   <p className="text-sm font-medium text-foreground">
-                    Click to browse files
+                    {isUploading ? "Uploading file..." : "Click to browse files"}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1 text-center max-w-[200px]">
                     PNG, JPG, WEBP up to 5MB

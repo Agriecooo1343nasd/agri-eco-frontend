@@ -81,7 +81,8 @@ import {
 } from "@/lib/api/products";
 import {
   fetchAdminDiscounts,
-  updateDiscount,
+  assignProductsToDiscount,
+  unassignProductsFromDiscount,
   type AdminDiscount,
 } from "@/lib/api/discounts";
 
@@ -178,7 +179,7 @@ export default function AdminProductsPage() {
         sort: "createdAt",
         order: "desc",
       }),
-    enabled: dealDialogOpen,
+    enabled: true,
   });
 
   const allDiscounts = linkableDiscountsQuery.data?.data ?? [];
@@ -191,10 +192,25 @@ export default function AdminProductsPage() {
         (discount.applicableProducts ?? []).includes(productForDealLink.id),
       )
       .map((discount) => discount.id);
+    const initialLinked = linked.slice(0, 1);
 
-    setInitialDealIds(linked);
-    setSelectedDealIds(linked);
-  }, [dealDialogOpen, productForDealLink]);
+    setInitialDealIds(initialLinked);
+    setSelectedDealIds(initialLinked);
+  }, [allDiscounts, dealDialogOpen, productForDealLink]);
+
+  const productOffersMap = useMemo(() => {
+    const byProduct = new Map<string, AdminDiscount[]>();
+
+    for (const discount of allDiscounts) {
+      for (const productId of discount.applicableProducts ?? []) {
+        const existing = byProduct.get(productId) ?? [];
+        existing.push(discount);
+        byProduct.set(productId, existing);
+      }
+    }
+
+    return byProduct;
+  }, [allDiscounts]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -240,30 +256,22 @@ export default function AdminProductsPage() {
   const linkDealsMutation = useMutation({
     mutationFn: async () => {
       if (!productForDealLink) return;
+      const initialDiscountId = initialDealIds[0];
+      const selectedDiscountId = selectedDealIds[0];
 
-      const selected = new Set(selectedDealIds);
-      const initial = new Set(initialDealIds);
-      const changedDiscounts = allDiscounts.filter(
-        (discount) => selected.has(discount.id) !== initial.has(discount.id),
-      );
+      if (initialDiscountId && initialDiscountId !== selectedDiscountId) {
+        await unassignProductsFromDiscount(initialDiscountId, [
+          productForDealLink.id,
+        ]);
+      }
 
-      await Promise.all(
-        changedDiscounts.map((discount) => {
-          const currentProducts = Array.from(
-            new Set(discount.applicableProducts ?? []),
-          );
+      if (selectedDiscountId && selectedDiscountId !== initialDiscountId) {
+        await assignProductsToDiscount(selectedDiscountId, [
+          productForDealLink.id,
+        ]);
+      }
 
-          const nextProducts = selected.has(discount.id)
-            ? Array.from(new Set([...currentProducts, productForDealLink.id]))
-            : currentProducts.filter((id) => id !== productForDealLink.id);
-
-          return updateDiscount(discount.id, {
-            applicableProducts: nextProducts,
-          });
-        }),
-      );
-
-      return changedDiscounts.length;
+      return initialDiscountId === selectedDiscountId ? 0 : 1;
     },
     onSuccess: (changedCount = 0) => {
       toast.success("Deals linked", {
@@ -276,13 +284,16 @@ export default function AdminProductsPage() {
         queryKey: ["admin-discounts-link-options"],
       });
       queryClient.invalidateQueries({ queryKey: ["admin-discounts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       setDealDialogOpen(false);
       setProductForDealLink(null);
       setDealSearch("");
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast.error("Failed to link deals", {
-        description: "Please retry.",
+        description:
+          error.message ||
+          "Please retry. The product may already be linked to another discount.",
       });
     },
   });
@@ -301,9 +312,7 @@ export default function AdminProductsPage() {
 
   function toggleDealSelection(discountId: string) {
     setSelectedDealIds((current) =>
-      current.includes(discountId)
-        ? current.filter((id) => id !== discountId)
-        : [...current, discountId],
+      current[0] === discountId ? [] : [discountId],
     );
   }
 
@@ -566,13 +575,7 @@ export default function AdminProductsPage() {
                 </TableRow>
               ) : (
                 mapUiRows.map((product) => {
-                  const discount = product.uiOldPrice
-                    ? Math.round(
-                        ((product.uiOldPrice - product.uiPrice) /
-                          product.uiOldPrice) *
-                          100,
-                      )
-                    : null;
+                  const linkedOffers = productOffersMap.get(product.id) ?? [];
 
                   return (
                     <TableRow
@@ -619,10 +622,16 @@ export default function AdminProductsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {discount ? (
-                          <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-[9px] font-bold py-0 px-2 shadow-none">
-                            -{discount}%
-                          </Badge>
+                        {linkedOffers.length > 0 ? (
+                          <div className="flex flex-col gap-1">
+                            <Badge className="bg-primary/10 text-primary border-primary/20 text-[9px] font-bold py-0 px-2 shadow-none w-fit">
+                              {linkedOffers.length} offer
+                              {linkedOffers.length > 1 ? "s" : ""}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-semibold truncate max-w-32">
+                              {linkedOffers.map((offer) => offer.code).join(", ")}
+                            </span>
+                          </div>
                         ) : (
                           <span className="text-[10px] text-muted-foreground font-bold opacity-30">
                             —
@@ -774,12 +783,13 @@ export default function AdminProductsPage() {
           <DialogHeader>
             <DialogTitle>Link Product To Deal</DialogTitle>
             <DialogDescription>
-              Choose one or more deals for
+              Choose one deal for
               <span className="font-semibold text-foreground">
                 {" "}
                 {productForDealLink?.name}
               </span>
-              . Backend supports multiple linked deals per product.
+              . If this product is already linked, selecting another deal will
+              switch it.
             </DialogDescription>
           </DialogHeader>
 

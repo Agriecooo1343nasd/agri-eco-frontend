@@ -33,16 +33,15 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { usePricing } from "@/context/PricingContext";
-import type { Partner, PartnerApplication } from "@/data/community";
-import {
-  appendPartnerApplication,
-  getPartnerApplications,
-  getPartners,
-} from "@/lib/partner-store";
 import { toast } from "sonner";
 
-import { useQuery } from "@tanstack/react-query";
-import { fetchPartnerMe, fetchPartnerAgreements } from "@/lib/api/partners";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  fetchPartnerAgreements,
+  fetchPartnerMe,
+  fetchPartnerMyApplication,
+  submitPartnerApplication,
+} from "@/lib/api/partners";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const statusBadge: Record<string, string> = {
@@ -61,6 +60,7 @@ const applicationBadge: Record<string, string> = {
 export default function AccountPartnerPage() {
   const { user } = useAuth();
   const { formatPrice } = usePricing();
+  const queryClient = useQueryClient();
 
   const { data: partnerData, isLoading: isLoadingPartner, isError: isErrorPartner, error: partnerError } = useQuery({
     queryKey: ["partner-me"],
@@ -74,10 +74,12 @@ export default function AccountPartnerPage() {
     enabled: !!partnerData,
     retry: false
   });
+  const { data: myApplication, isLoading: isLoadingApplication } = useQuery({
+    queryKey: ["partner-me-application"],
+    queryFn: fetchPartnerMyApplication,
+    retry: false,
+  });
 
-  const [applications, setApplications] = useState<PartnerApplication[]>(() =>
-    getPartnerApplications(),
-  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
     businessName: "",
@@ -88,10 +90,7 @@ export default function AccountPartnerPage() {
     aboutBusiness: "",
   });
 
-  const userEmail = user?.email?.toLowerCase();
-  const userApplication = userEmail
-    ? applications.find((entry) => entry.email.toLowerCase() === userEmail) || null
-    : null;
+  const userApplication = myApplication;
 
   const activeAgreements = partnerAgreements.filter((a: any) => a.status === "active");
   const endedAgreements = partnerAgreements.filter((a: any) => a.status !== "active");
@@ -101,6 +100,22 @@ export default function AccountPartnerPage() {
   const displayPartner = partnerData; // Using the real partner from the backend API
   const revenueSummary = displayPartner?.revenueSummary || { gross: 0, earnings: totalEarnings, pending: 0, bookings: 0 };
 
+
+  const submitApplicationMutation = useMutation({
+    mutationFn: submitPartnerApplication,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partner-me-application"] });
+      setDialogOpen(false);
+      toast.success("Application Submitted", {
+        description: "Your partner application is now pending admin review.",
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to submit application", {
+        description: error.message || "Please try again.",
+      });
+    },
+  });
 
   const submitApplication = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -118,19 +133,13 @@ export default function AccountPartnerPage() {
       return;
     }
 
-    const created = appendPartnerApplication({
-      businessName: form.businessName,
-      contactPerson: form.contactPerson,
-      email: form.email,
-      phone: form.phone,
-      type: form.type as PartnerApplication["type"],
-      aboutBusiness: form.aboutBusiness || "No business summary provided.",
-    });
-
-    setApplications((prev) => [created, ...prev]);
-    setDialogOpen(false);
-    toast.success("Application Submitted", {
-      description: "Your partner application is now pending admin review.",
+    submitApplicationMutation.mutate({
+      businessName: form.businessName.trim(),
+      businessType: form.type.replace("-", "_"),
+      contactName: form.contactPerson.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      description: form.aboutBusiness.trim() || undefined,
     });
   };
 
@@ -424,6 +433,8 @@ export default function AccountPartnerPage() {
             </CardContent>
           </Card>
         </>
+      ) : isLoadingApplication ? (
+        <Skeleton className="h-[160px] w-full rounded-2xl" />
       ) : userApplication?.status === "pending" ? (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-5 space-y-3">
@@ -442,7 +453,7 @@ export default function AccountPartnerPage() {
               We will notify you after admin verification.
             </p>
             <p className="text-xs text-muted-foreground">
-              Applied on {userApplication.appliedDate}
+              Applied on {userApplication.createdAt ? new Date(userApplication.createdAt).toLocaleDateString() : "recently"}
             </p>
           </CardContent>
         </Card>
@@ -459,7 +470,7 @@ export default function AccountPartnerPage() {
                   Previous application was rejected.
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {userApplication.reviewNotes ||
+                  {userApplication.reviewNote ||
                     "You can update your details and apply again."}
                 </p>
               </div>

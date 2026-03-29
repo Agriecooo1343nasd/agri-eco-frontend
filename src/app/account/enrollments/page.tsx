@@ -44,6 +44,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import Link from "next/link";
 
+
 const statusConfig: Record<
   string,
   { label: { en: string; rw: string }; className: string; textColor: string }
@@ -271,7 +272,7 @@ export default function Enrollments() {
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
                               <span className="flex items-center gap-1.5 border-r border-border pr-4 last:border-0 last:pr-0">
                                 <UserIcon className="h-3 w-3" />
-                                {t(program.instructor)}
+                                {program.instructorName || "Agri-Eco Specialist"}
                               </span>
                               <span className="flex items-center gap-1.5">
                                 <Calendar className="h-3 w-3" />
@@ -300,15 +301,17 @@ export default function Enrollments() {
                                     {t({ en: "Review Course", rw: "Gusubiramo" })}
                                   </Link>
                                 </Button>
-                                <Button 
-                                  variant="secondary" 
-                                  size="sm" 
-                                  className="h-8 text-[11px] gap-1.5 px-4"
-                                  onClick={() => handleDownloadCertificate(item.id)}
-                                >
-                                  <Download className="h-3.5 w-3.5" />
-                                  {t({ en: "Certificate", rw: "Impamyabumenyi" })}
-                                </Button>
+                                {item.completionPercentage >= 100 && (
+                                  <Button 
+                                    variant="secondary" 
+                                    size="sm" 
+                                    className="h-8 text-[11px] gap-1.5 px-4"
+                                    onClick={() => handleDownloadCertificate(item.id)}
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                    {t({ en: "Certificate", rw: "Impamyabumenyi" })}
+                                  </Button>
+                                )}
                               </div>
                             )}
                             {item.status === "pending" && (
@@ -319,17 +322,24 @@ export default function Enrollments() {
                           </div>
                         </div>
 
-                        {/* Progress Bar (Legacy UI maintenance) */}
+                        {/* Progress Bar */}
                         <div className="mt-5 pt-4 border-t border-border/50">
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5 font-medium">
                             <span className="flex items-center gap-1.5">
                               <BookOpen className="h-3 w-3 text-primary/70" />
                               {item.status === "completed" 
                                 ? t({ en: "Course Completed", rw: "Gahunda Yarangiye" })
-                                : t({ en: "Access granted upon approval", rw: "Uzemererwa nibimara kwemezwa" })}
+                                : item.status === "approved"
+                                  ? t({ en: "In Progress", rw: "Urakwiga" })
+                                  : t({ en: "Access granted upon approval", rw: "Uzemererwa nibimara kwemezwa" })}
                             </span>
+                            {["approved", "completed"].includes(item.status) && (
+                              <span className="text-primary font-bold">
+                                {item.completionPercentage || 0}%
+                              </span>
+                            )}
                           </div>
-                          <Progress value={item.status === "completed" ? 100 : 0} className="h-1.5" />
+                          <Progress value={item.completionPercentage || 0} className="h-1.5" />
                         </div>
                       </div>
                     </div>

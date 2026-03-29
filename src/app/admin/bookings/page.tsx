@@ -99,6 +99,13 @@ function getLocalText(v: any): string {
   return String(v);
 }
 
+function getAccommodationName(booking: AdminBooking): string {
+  const value = booking.accommodation?.name;
+  if (!value) return "Accommodation";
+  if (typeof value === "string") return value;
+  return value.en || value.rw || value.fr || value.sw || "Accommodation";
+}
+
 export default function AdminBookingsPage() {
   const { formatPrice } = usePricing();
   const queryClient = useQueryClient();
@@ -529,6 +536,40 @@ export default function AdminBookingsPage() {
                   </div>
                 ))}
               </div>
+
+              {(viewBooking.accommodationId || viewBooking.accommodationAmountRwf) && (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+                  <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-2">
+                    Accommodation
+                  </p>
+                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[11px]">
+                    <div>
+                      <p className="text-muted-foreground">Stay Option</p>
+                      <p className="font-semibold text-foreground">
+                        {getAccommodationName(viewBooking)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Nights</p>
+                      <p className="font-semibold text-foreground">
+                        {viewBooking.accommodationNights ?? 0}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Accommodation Amount</p>
+                      <p className="font-semibold text-foreground">
+                        {formatPrice(Number(viewBooking.accommodationAmountRwf ?? 0))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Total Charged</p>
+                      <p className="font-semibold text-foreground">
+                        {formatPrice(viewBooking.amountRwf)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Special requirements */}
               {viewBooking.specialRequirements && (

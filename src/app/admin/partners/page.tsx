@@ -293,6 +293,12 @@ export default function AdminPartnersPage() {
       inactive: 0,
       totalRevenue: 0,
       pendingPayouts: 0,
+      totalBookings: 0,
+      agreements: {
+        active: 0,
+        expired: 0,
+        terminated: 0,
+      },
     } as const);
 
   const partners = partnersQuery.data?.data ?? [];
@@ -405,9 +411,8 @@ export default function AdminPartnersPage() {
 
   const partnersApiCaveats = useMemo(
     () => [
-      "KPI: Total Bookings (not returned by /partners/stats)",
-      "KPI: Partner Packages (not returned by /partners or /partners/stats)",
       "Partner profile financial breakdown and agreements are not part of /partners list payload",
+      "Packages KPI is approximated from agreement counts returned by /partners/stats.",
     ],
     [],
   );
@@ -454,15 +459,17 @@ export default function AdminPartnersPage() {
           },
           {
             label: "Total Bookings",
-            value: "N/A",
+            value: String(stats.totalBookings ?? 0),
             icon: Eye,
-            unsupported: true,
           },
           {
             label: "Partner Packages",
-            value: "N/A",
+            value: String(
+              (stats.agreements?.active ?? 0) +
+                (stats.agreements?.expired ?? 0) +
+                (stats.agreements?.terminated ?? 0),
+            ),
             icon: AlertTriangle,
-            unsupported: true,
           },
         ].map((s) => (
           <div
@@ -473,14 +480,7 @@ export default function AdminPartnersPage() {
               <div className="w-9 h-9 bg-muted/30 rounded-lg flex items-center justify-center border border-border group-hover:bg-primary group-hover:text-white transition-all">
                 <s.icon className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
               </div>
-              {s.unsupported ? (
-                <Badge
-                  variant="outline"
-                  className="text-[9px] uppercase tracking-wide"
-                >
-                  API Gap
-                </Badge>
-              ) : null}
+              <span />
             </div>
             <p className="text-2xl font-bold font-heading text-foreground mb-0.5">
               {s.value}
@@ -492,17 +492,7 @@ export default function AdminPartnersPage() {
         ))}
       </div>
 
-      <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 text-[11px] space-y-2">
-        <div className="flex items-center gap-2 font-bold text-amber-800">
-          <AlertTriangle className="h-4 w-4" />
-          Not Fully Backed By Current Partner APIs
-        </div>
-        <ul className="list-disc pl-5 text-amber-900 space-y-1">
-          {partnersApiCaveats.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </div>
+
 
       <div className="flex flex-wrap gap-3 bg-card border border-border p-3 rounded-xl shadow-sm">
         <div className="flex items-center border border-border rounded-lg bg-background flex-1 max-w-xs focus-within:ring-2 focus-within:ring-primary/20">

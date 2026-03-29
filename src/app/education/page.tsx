@@ -10,7 +10,7 @@ import {
   quizzes,
   schoolVisitConfig,
 } from "@/data/education";
-import { fetchTrainingPrograms } from "@/lib/api/education";
+import { fetchPublicSchoolVisitSettings, fetchTrainingPrograms } from "@/lib/api/education";
 import {
   GraduationCap,
   BookOpen,
@@ -87,6 +87,14 @@ export default function EducationPage() {
   const [currentPage, setCurrentPage] = useState(pageParam);
 
   const [trainingStatus, setTrainingStatus] = useState(statusParam);
+  const [schoolVisitView, setSchoolVisitView] = useState(schoolVisitConfig);
+
+  const toMl = (value: string) => ({
+    en: value,
+    rw: value,
+    fr: value,
+    sw: value,
+  });
 
   useEffect(() => {
     let ignore = false;
@@ -130,6 +138,8 @@ export default function EducationPage() {
               priceRwf: p.priceRwf,
               slug: p.slug,
               certificate: p.type === "certification",
+              averageRating: p.averageRating ?? 0,
+              reviewCount: p.reviewCount ?? 0,
             };
           });
           setTrainingPrograms(mapped);
@@ -146,6 +156,91 @@ export default function EducationPage() {
       ignore = true;
     };
   }, [trainingSearch, currentPage]);
+
+  useEffect(() => {
+    let ignore = false;
+    async function loadSchoolVisitSettings() {
+      try {
+        const settings = await fetchPublicSchoolVisitSettings();
+        if (!settings || ignore) return;
+
+        setSchoolVisitView({
+          heading: settings.sectionHeading
+            ? {
+                en: settings.sectionHeading.en ?? "",
+                rw: settings.sectionHeading.rw ?? settings.sectionHeading.en ?? "",
+                fr: settings.sectionHeading.fr ?? settings.sectionHeading.en ?? "",
+                sw: settings.sectionHeading.sw ?? settings.sectionHeading.en ?? "",
+              }
+            : schoolVisitConfig.heading,
+          subheading: settings.sectionSubheading
+            ? {
+                en: settings.sectionSubheading.en ?? "",
+                rw: settings.sectionSubheading.rw ?? settings.sectionSubheading.en ?? "",
+                fr: settings.sectionSubheading.fr ?? settings.sectionSubheading.en ?? "",
+                sw: settings.sectionSubheading.sw ?? settings.sectionSubheading.en ?? "",
+              }
+            : schoolVisitConfig.subheading,
+          whatsIncluded:
+            settings.inclusions?.map((inclusion) => ({
+              en: inclusion.text.en ?? "",
+              rw: inclusion.text.rw ?? inclusion.text.en ?? "",
+              fr: inclusion.text.fr ?? inclusion.text.en ?? "",
+              sw: inclusion.text.sw ?? inclusion.text.en ?? "",
+            })) ??
+            schoolVisitConfig.whatsIncluded,
+          details: [
+            {
+              label: toMl("Duration"),
+              value: toMl(settings.duration || "-"),
+            },
+            {
+              label: toMl("Price per student"),
+              value: toMl(`${settings.pricePerStudent ?? 0} RWF`),
+            },
+            {
+              label: toMl("Student range"),
+              value: toMl(`${settings.minStudents ?? 0}-${settings.maxStudents ?? 0}`),
+            },
+          ],
+          curriculumSubjects:
+            settings.subjects?.map((subject, index) => ({
+              id: `subject-${index + 1}`,
+              name: {
+                en: subject.name.en ?? "",
+                rw: subject.name.rw ?? subject.name.en ?? "",
+                fr: subject.name.fr ?? subject.name.en ?? "",
+                sw: subject.name.sw ?? subject.name.en ?? "",
+              },
+              description: subject.description
+                ? {
+                    en: subject.description.en ?? "",
+                    rw: subject.description.rw ?? subject.description.en ?? "",
+                    fr: subject.description.fr ?? subject.description.en ?? "",
+                    sw: subject.description.sw ?? subject.description.en ?? "",
+                  }
+                : undefined,
+            })) ?? schoolVisitConfig.curriculumSubjects,
+          gradeLevels:
+            settings.gradeLevels?.map((grade, index) => ({
+              value: `grade-${index + 1}`,
+              label: {
+                en: grade.label.en ?? "",
+                rw: grade.label.rw ?? grade.label.en ?? "",
+                fr: grade.label.fr ?? grade.label.en ?? "",
+                sw: grade.label.sw ?? grade.label.en ?? "",
+              },
+            })) ?? schoolVisitConfig.gradeLevels,
+        });
+      } catch {
+        // Keep static fallback configuration.
+      }
+    }
+    void loadSchoolVisitSettings();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Sync state with URL params
   useEffect(() => {
@@ -384,7 +479,7 @@ export default function EducationPage() {
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                               />
                             </Link>
-                            <div className="p-6 flex flex-col flex-1">
+                            <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-6">
                               <div className="flex items-center gap-2 mb-3">
                                 <Badge
                                   variant="outline"
@@ -405,25 +500,33 @@ export default function EducationPage() {
                                 </Badge>
                               </div>
                               <Link href={`/education/program/${p.slug}`} className="hover:text-primary transition-colors">
-                                <h3 className="font-bold font-heading text-foreground text-lg mb-2 line-clamp-1">
+                                <h3 className="font-bold text-foreground text-base font-sans sm:text-lg mb-2 line-clamp-2 leading-snug">
                                   {t(p.title)}
                                 </h3>
                               </Link>
                               <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">
                                 {t(p.description)}
                               </p>
-                              <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  {t(p.duration)}
+                              <div className="mb-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] text-muted-foreground sm:flex sm:flex-wrap sm:items-center">
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">{t(p.duration)}</span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3.5 w-3.5" />
-                                  {t(p.startDate)}
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">{t(p.startDate)}</span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Users className="h-3.5 w-3.5" />
-                                  {p.enrolled}/{p.maxParticipants}
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <Users className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {p.enrolled}/{Math.max(p.maxParticipants, 1)}
+                                  </span>
+                                </span>
+                                <span className="flex min-w-0 items-center gap-1 col-span-2 sm:col-span-1">
+                                  <Award className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">
+                                    {(Number(p.averageRating || 0)).toFixed(1)} ({p.reviewCount})
+                                  </span>
                                 </span>
                               </div>
                               
@@ -431,14 +534,20 @@ export default function EducationPage() {
                                 <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                                   <span>Enrollment</span>
                                   <span>
-                                    {Math.round(
-                                      (p.enrolled / p.maxParticipants) * 100,
-                                    ) || 0}
+                                    {p.maxParticipants > 0
+                                      ? Math.round(
+                                          (p.enrolled / p.maxParticipants) * 100,
+                                        )
+                                      : 0}
                                     %
                                   </span>
                                 </div>
                                 <Progress
-                                  value={(p.enrolled / p.maxParticipants) * 100}
+                                  value={
+                                    p.maxParticipants > 0
+                                      ? (p.enrolled / p.maxParticipants) * 100
+                                      : 0
+                                  }
                                   className="h-1.5"
                                 />
                               </div>
@@ -454,11 +563,15 @@ export default function EducationPage() {
                                 ))}
                               </div>
 
-                              <div className="mt-auto flex items-center justify-between border-t p-6 bg-accent/10">
-                                <span className="font-bold text-primary text-lg">
+                              <div className="mt-auto flex w-full min-w-0 flex-col gap-3 border-t border-border bg-accent/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                                <span className="font-bold text-primary text-base sm:text-lg shrink-0">
                                   {formatPrice(p.priceRwf || 0)}
                                 </span>
-                                <Button size="sm" asChild className="gap-2 text-xs">
+                                <Button
+                                  size="sm"
+                                  asChild
+                                  className="w-full gap-2 text-xs sm:w-auto shrink-0"
+                                >
                                   <Link href={`/education/program/${p.slug}`}>
                                     View Details
                                     <ChevronRight className="h-4 w-4" />
@@ -525,10 +638,10 @@ export default function EducationPage() {
               <TabsContent value="schools" className="space-y-6">
                 <div className="text-center mb-8">
                   <h2 className="section-heading text-xl">
-                    {t(schoolVisitConfig.heading)}
+                    {t(schoolVisitView.heading)}
                   </h2>
                   <p className="section-subheading text-muted-foreground text-sm">
-                    {t(schoolVisitConfig.subheading)}
+                    {t(schoolVisitView.subheading)}
                   </p>
                 </div>
                 <div className="max-w-3xl mx-auto">
@@ -539,7 +652,7 @@ export default function EducationPage() {
                           What's Included
                         </h3>
                         <ul className="space-y-3">
-                          {schoolVisitConfig.whatsIncluded.map((item) => (
+                          {schoolVisitView.whatsIncluded.map((item) => (
                             <li
                               key={t(item)}
                               className="flex items-start gap-2 text-sm text-foreground"
@@ -555,7 +668,7 @@ export default function EducationPage() {
                           Program Details
                         </h3>
                         <div className="space-y-2 text-xs">
-                          {schoolVisitConfig.details.map((d) => (
+                          {schoolVisitView.details.map((d) => (
                             <div
                               key={t(d.label)}
                               className="flex justify-between py-2 border-b border-border last:border-0"

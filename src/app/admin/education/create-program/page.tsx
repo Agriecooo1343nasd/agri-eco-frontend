@@ -144,18 +144,18 @@ export default function CreateProgramPage() {
   const [formDuration, setFormDuration] = useState("");
   const [formStartDate, setFormStartDate] = useState("");
   const [formTopics, setFormTopics] = useState("");
-  const [formInstructor, setFormInstructor] = useState("");
+  const [formInstructorName, setFormInstructorName] = useState("");
   const [formInstructorBio, setFormInstructorBio] =
     useState<MultiLangValue>(emptyLangValue());
   const [formRequirements, setFormRequirements] =
     useState<MultiLangValue>(emptyLangValue());
-  const [formWhatYouGet, setFormWhatYouGet] =
+  const [formWhatStudentsGet, setFormWhatStudentsGet] =
     useState<MultiLangValue>(emptyLangValue());
   const [formLanguage, setFormLanguage] = useState("");
   const [formLocation, setFormLocation] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
   const [formStatus, setFormStatus] = useState<
-    "open" | "upcoming" | "hidden" | "disabled"
+    "in_progress" | "upcoming" | "draft" | "cancelled"
   >("upcoming");
 
   // Modules
@@ -494,14 +494,31 @@ export default function CreateProgramPage() {
         coverImage: persistedImage,
         type: formType,
         level: formLevel,
+        status: formStatus,
         priceRwf: Number.parseFloat(formPrice || "0") || 0,
         durationWeeks: parseDurationWeeks(formDuration),
         capacity: Number.parseInt(formMaxParticipants || "30", 10) || 30,
         language: formLanguage.trim() || "en",
-        isPublished,
+        isPublished: isPublished || formStatus === "in_progress",
         isFeatured: false,
         curriculum,
         topics,
+        instructorName: formInstructorName.trim() || undefined,
+        instructorBio: formInstructorBio.en.trim() || undefined,
+        requirements: toOptionalMultiLang(formRequirements),
+        whatStudentsGet: toOptionalMultiLang(formWhatStudentsGet),
+        location: formLocation.trim() || undefined,
+        certificateTemplate: certTemplate.enabled
+          ? JSON.stringify({
+              title: toOptionalMultiLang(certTemplate.title),
+              programName: toOptionalMultiLang(certTemplate.subtitle),
+              description: toOptionalMultiLang(certTemplate.description),
+              signatoryName: certTemplate.signatoryName || undefined,
+              signatoryTitle: certTemplate.signatoryTitle || undefined,
+              badgeColor: certTemplate.badgeColor,
+              logoUrl: certTemplate.logoUrl || undefined,
+            }).slice(0, 500)
+          : undefined,
         startDate: formStartDate
           ? new Date(`${formStartDate}T00:00:00.000Z`).toISOString()
           : undefined,
@@ -522,15 +539,8 @@ export default function CreateProgramPage() {
     setIsSubmitting(true);
 
     try {
-      const { payload, hasLocalImage } = buildCreatePayload(mode);
+      const { payload } = buildCreatePayload(mode);
       await createAdminTrainingProgram(payload);
-
-      if (hasLocalImage) {
-        toast.warning("Program saved without uploaded image", {
-          description:
-            "The current image is local-only. Use the URL tab for an image that can be persisted.",
-        });
-      }
 
       toast.success(mode === "publish" ? "Program Created" : "Draft Saved", {
         description: `"${formTitle.en.trim()}" has been ${
@@ -775,14 +785,14 @@ export default function CreateProgramPage() {
                     <SelectItem value="upcoming" className="text-xs">
                       Upcoming
                     </SelectItem>
-                    <SelectItem value="open" className="text-xs">
-                      Open for Enrollment
+                    <SelectItem value="in_progress" className="text-xs">
+                      Open (In Progress)
                     </SelectItem>
-                    <SelectItem value="hidden" className="text-xs">
-                      Hidden
+                    <SelectItem value="draft" className="text-xs">
+                      Draft (Hidden)
                     </SelectItem>
-                    <SelectItem value="disabled" className="text-xs">
-                      Disabled
+                    <SelectItem value="cancelled" className="text-xs">
+                      Cancelled (Disabled)
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -819,8 +829,8 @@ export default function CreateProgramPage() {
                 Instructor Name
               </Label>
               <Input
-                value={formInstructor}
-                onChange={(e) => setFormInstructor(e.target.value)}
+                value={formInstructorName}
+                onChange={(e) => setFormInstructorName(e.target.value)}
                 placeholder="Jean-Pierre Habimana"
                 className="h-10 text-xs shadow-sm"
               />
@@ -879,8 +889,8 @@ export default function CreateProgramPage() {
             />
             <MultiLangInput
               label="What Students Get (one per line)"
-              value={formWhatYouGet}
-              onChange={setFormWhatYouGet}
+              value={formWhatStudentsGet}
+              onChange={setFormWhatStudentsGet}
               placeholder="Certificate of Completion"
               type="textarea"
               rows={3}
@@ -1647,10 +1657,12 @@ export default function CreateProgramPage() {
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
-                        Participants
+                        Outcomes
                       </span>{" "}
                       <span className="font-bold text-foreground text-[13px]">
-                        {formMaxParticipants || "No Cap"}
+                        {formWhatStudentsGet.en
+                          ? `${formWhatStudentsGet.en.split("\n").length} items`
+                          : "None"}
                       </span>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -1658,7 +1670,15 @@ export default function CreateProgramPage() {
                         Instructor
                       </span>{" "}
                       <span className="font-bold text-foreground text-[13px]">
-                        {formInstructor || "Anonymous"}
+                        {formInstructorName || "Not Set"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-muted-foreground font-bold uppercase text-[9px] tracking-wider">
+                        Participants
+                      </span>{" "}
+                      <span className="font-bold text-foreground text-[13px]">
+                        {formMaxParticipants || "No Cap"}
                       </span>
                     </div>
                     <div className="flex flex-col gap-1">

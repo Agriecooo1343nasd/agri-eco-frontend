@@ -21,3 +21,11 @@ export const apiConfig = {
   proxiedBaseUrl: PROXIED_API_BASE_URL,
   useCookieAuth: process.env.NEXT_PUBLIC_API_USE_COOKIES === "true",
 } as const;
+
+export function getMediaUrl(path?: string): string {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  if (path.startsWith("data:")) return path;
+  const base = apiBaseUrl.replace("/api/v1", "");
+  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+}

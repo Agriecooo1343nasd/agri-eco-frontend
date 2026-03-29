@@ -25,7 +25,10 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAdminTrainingProgramById, fetchAdminTrainingEnrollments } from "@/lib/api/education";
+import {
+  fetchAdminTrainingProgramById,
+  fetchAdminTrainingEnrollments,
+} from "@/lib/api/education";
 import { useLanguage } from "@/context/LanguageContext";
 
 export default function Page() {
@@ -40,13 +43,23 @@ export default function Page() {
     enabled: !!id,
   });
 
-  const { data: enrollmentsData, isLoading: isLoadingEnrollments } = useQuery({
-    queryKey: ["admin", "training-enrollments", id],
-    queryFn: () => fetchAdminTrainingEnrollments({ trainingProgramId: id, limit: 100 }),
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["admin", "training-stats", id],
+    queryFn: () => {
+      const { fetchAdminProgramStats } = require("@/lib/api/education");
+      return fetchAdminProgramStats(id);
+    },
     enabled: !!id,
   });
 
-  if (isLoadingProgram || isLoadingEnrollments) {
+  const { data: enrollmentsData, isLoading: isLoadingEnrollments } = useQuery({
+    queryKey: ["admin", "training-enrollments", id],
+    queryFn: () =>
+      fetchAdminTrainingEnrollments({ trainingProgramId: id, limit: 100 }),
+    enabled: !!id,
+  });
+
+  if (isLoadingProgram || isLoadingEnrollments || isLoadingStats) {
     return (
       <div className="flex flex-col items-center justify-center py-40 text-muted-foreground">
         <Loader2 className="h-10 w-10 animate-spin mb-4" />
@@ -71,30 +84,32 @@ export default function Page() {
   }
 
   const enrollments = enrollmentsData?.data || [];
-  
-  const completionRate = enrollments.length > 0 
-    ? Math.round((enrollments.filter((e: any) => e.status === "completed").length / enrollments.length) * 100)
-    : 0;
+
+  const completionRate =
+    enrollments.length > 0
+      ? Math.round(
+          (enrollments.filter((e: any) => e.status === "completed").length /
+            enrollments.length) *
+            100,
+        )
+      : 0;
 
   const activeStudents = enrollments.filter(
-    (e: any) => e.status === "approved"
+    (e: any) => e.status === "approved",
   ).length;
 
-  const pendingStudents = enrollments.filter(
-    (e: any) => e.status === "pending"
-  ).length;
-
-  // Since backend doesn't track granular progress yet, 
+  // Since backend doesn't track granular progress yet,
   // we use status as a proxy: Completed = 100%, Approved = 50%, Pending/Rejected = 0%
-  const avgProgress = enrollments.length > 0
-    ? Math.round(
-        enrollments.reduce((s: number, e: any) => {
-          if (e.status === "completed") return s + 100;
-          if (e.status === "approved") return s + 50;
-          return s;
-        }, 0) / enrollments.length
-      )
-    : 0;
+  const avgProgress =
+    enrollments.length > 0
+      ? Math.round(
+          enrollments.reduce((s: number, e: any) => {
+            if (e.status === "completed") return s + 100;
+            if (e.status === "approved") return s + 50;
+            return s;
+          }, 0) / enrollments.length,
+        )
+      : 0;
 
   const statusColor: Record<string, string> = {
     pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
@@ -118,24 +133,30 @@ export default function Page() {
           <h1 className="text-2xl font-bold font-heading text-foreground">
             {program.title.en}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground font-medium">
             Program Statistics & Enrollment Analytics
           </p>
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2 h-9 text-xs">
           <Download className="h-4 w-4" /> Export Report
         </Button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           {
             label: "Total Enrolled",
-            value: enrollments.length,
+            value: stats?.enrollments?.total || enrollments.length,
             max: program.capacity,
             icon: Users,
             color: "text-primary",
+          },
+          {
+            label: "Revenue (RWF)",
+            value: (stats?.revenue || 0).toLocaleString(),
+            icon: TrendingUp,
+            color: "text-emerald-600",
           },
           {
             label: "Active Students",
@@ -158,16 +179,22 @@ export default function Page() {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-card border border-border rounded-xl p-5"
+            className="bg-card border border-border rounded-xl p-5 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 border-b border-border/50 pb-2">
               <s.icon className={`h-5 w-5 ${s.color}`} />
               {s.max && (
-                <span className="text-xs text-muted-foreground">/ {s.max}</span>
+                <span className="text-[10px] font-bold text-muted-foreground">
+                  LIMIT: {s.max}
+                </span>
               )}
             </div>
-            <p className="text-3xl font-bold text-foreground">{s.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+            <p className="text-2xl font-bold text-foreground font-heading">
+              {s.value}
+            </p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground mt-1 tracking-wider">
+              {s.label}
+            </p>
           </div>
         ))}
       </div>
@@ -179,7 +206,9 @@ export default function Page() {
           <div>
             <p className="text-xs text-muted-foreground">Duration</p>
             <p className="text-sm font-medium text-foreground">
-              {program.durationWeeks ? `${program.durationWeeks} Weeks` : "Self-paced"}
+              {program.durationWeeks
+                ? `${program.durationWeeks} Weeks`
+                : "Self-paced"}
             </p>
           </div>
         </div>
@@ -188,7 +217,9 @@ export default function Page() {
           <div>
             <p className="text-xs text-muted-foreground">Start Date</p>
             <p className="text-sm font-medium text-foreground">
-              {program.startDate ? new Date(program.startDate).toLocaleDateString() : "TBD"}
+              {program.startDate
+                ? new Date(program.startDate).toLocaleDateString()
+                : "TBD"}
             </p>
           </div>
         </div>
@@ -198,7 +229,10 @@ export default function Page() {
             <p className="text-xs text-muted-foreground">Curriculum</p>
             <p className="text-sm font-medium text-foreground">
               {program.curriculum?.length || 0} Modules ·{" "}
-              {program.curriculum?.reduce((s: number, m: any) => s + (m.contentBlocks?.length || 0), 0) || 0}{" "}
+              {program.curriculum?.reduce(
+                (s: number, m: any) => s + (m.contentBlocks?.length || 0),
+                0,
+              ) || 0}{" "}
               Content Blocks
             </p>
           </div>
@@ -226,16 +260,30 @@ export default function Page() {
               </TableHeader>
               <TableBody>
                 {enrollments.map((e: any) => {
-                  const progress = e.status === "completed" ? 100 : e.status === "approved" ? 50 : 0;
-                  const completedModules = e.status === "completed" ? (program.curriculum?.length || 0) : 0;
-                  
+                  // Use real progress if available, fallback to status proxy
+                  const progress =
+                    typeof e.completionPercentage === "number"
+                      ? e.completionPercentage
+                      : e.status === "completed"
+                        ? 100
+                        : e.status === "approved"
+                          ? 50
+                          : 0;
+                  const completedModules = Array.isArray(e.moduleProgress)
+                    ? e.moduleProgress.filter((m: any) => m.completed).length
+                    : e.status === "completed"
+                      ? program.curriculum?.length || 0
+                      : 0;
+
                   return (
                     <TableRow key={e.id}>
                       <TableCell>
                         <p className="font-medium text-foreground text-sm">
                           {e.fullName}
                         </p>
-                        <p className="text-xs text-muted-foreground">{e.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {e.email}
+                        </p>
                       </TableCell>
                       <TableCell className="text-sm">
                         {new Date(e.createdAt).toLocaleDateString()}
@@ -275,11 +323,12 @@ export default function Page() {
           <div className="space-y-3">
             {(program.curriculum || []).map((mod: any, i: number) => {
               const completedCount = enrollments.filter(
-                (e: any) => e.status === "completed"
+                (e: any) => e.status === "completed",
               ).length;
-              const percentage = enrollments.length > 0 
-                ? Math.round((completedCount / enrollments.length) * 100)
-                : 0;
+              const percentage =
+                enrollments.length > 0
+                  ? Math.round((completedCount / enrollments.length) * 100)
+                  : 0;
               return (
                 <div
                   key={mod.id || i}
@@ -293,7 +342,10 @@ export default function Page() {
                       {t(mod.title)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {mod.durationWeeks ? `${mod.durationWeeks} Weeks` : "Self-paced"} · {mod.contentBlocks?.length || 0} blocks
+                      {mod.durationWeeks
+                        ? `${mod.durationWeeks} Weeks`
+                        : "Self-paced"}{" "}
+                      · {mod.contentBlocks?.length || 0} blocks
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">

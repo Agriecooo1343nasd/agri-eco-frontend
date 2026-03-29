@@ -47,6 +47,12 @@ export interface AdminPartnerStats {
   inactive: number;
   totalRevenue: number;
   pendingPayouts: number;
+  totalBookings: number;
+  agreements?: {
+    active: number;
+    expired: number;
+    terminated: number;
+  };
 }
 
 export interface UpsertAdminPartnerPayload {
@@ -370,6 +376,12 @@ export async function fetchAdminPartnerStats(): Promise<AdminPartnerStats> {
       inactive: 0,
       totalRevenue: 0,
       pendingPayouts: 0,
+      totalBookings: 0,
+      agreements: {
+        active: 0,
+        expired: 0,
+        terminated: 0,
+      },
     }
   );
 }
@@ -661,7 +673,31 @@ export async function terminateAdminPartner(
 export async function fetchPartnerMe(): Promise<any> {
   const response = await apiClient.get<ApiSuccessResponse<any>>("/partners/me");
   if (!response.data.data) throw new Error("Partner profile not found");
-  return response.data.data;
+  const payload = response.data.data;
+  if (payload.partner && payload.summary) {
+    return {
+      ...payload.partner,
+      revenueSummary: {
+        gross: payload.summary.grossRevenue ?? 0,
+        earnings: payload.summary.totalEarnings ?? 0,
+        pending: payload.summary.pendingEarnings ?? 0,
+        bookings: payload.summary.bookings ?? 0,
+      },
+      payoutCycle: payload.summary.payoutCycle,
+    };
+  }
+  return payload;
+}
+
+export async function fetchPartnerMyApplication(): Promise<any | null> {
+  try {
+    const response = await apiClient.get<ApiSuccessResponse<any>>(
+      "/partners/me/application",
+    );
+    return response.data.data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchPartnerAgreements(): Promise<any[]> {

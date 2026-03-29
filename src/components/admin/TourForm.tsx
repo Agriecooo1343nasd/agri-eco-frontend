@@ -54,6 +54,7 @@ import {
   type ExperienceType,
 } from "@/lib/api/experiences";
 import { uploadMultipleImages, uploadSingleImage } from "@/lib/api/uploads";
+import { Badge } from "@/components/ui/badge";
 import {
   fetchAdminAccommodations,
   type AdminAccommodation,
@@ -102,21 +103,29 @@ function toFormLangValue(
 }
 
 function toFormList(
-  items: string[] | undefined,
+  items:
+    | Array<string | { en: string; rw?: string; fr?: string; sw?: string }>
+    | undefined,
 ): { id: string; text: MultiLangValue }[] {
   if (!items?.length) return [];
   return items.map((item) => ({
     id: Math.random().toString(36).substr(2, 9),
-    text: { en: item, rw: "", fr: "", sw: "" },
+    text:
+      typeof item === "string"
+        ? { en: item, rw: "", fr: "", sw: "" }
+        : {
+            en: item.en ?? "",
+            rw: item.rw ?? "",
+            fr: item.fr ?? "",
+            sw: item.sw ?? "",
+          },
   }));
 }
 
 function deriveFormStatus(
   data: AdminExperience,
 ): "available" | "limited" | "sold-out" | "upcoming" {
-  if (!data.isActive) return "upcoming";
-  if (data.isFeatured) return "limited";
-  return "available";
+  return (data.availabilityStatus as any) || "available";
 }
 
 const UUID_RE =
@@ -129,8 +138,10 @@ const normalizeLang = (value: MultiLangValue): MultiLangValue => ({
   sw: value.sw.trim(),
 });
 
-const toEnglishList = (items: { id: string; text: MultiLangValue }[]) =>
-  items.map((item) => item.text.en.trim()).filter(Boolean);
+const toMultiLangList = (items: { id: string; text: MultiLangValue }[]) =>
+  items
+    .map((item) => normalizeLang(item.text))
+    .filter((value) => Boolean(value.en));
 
 const parseDurationMinutes = (value: string): number => {
   const trimmed = value.trim().toLowerCase();
@@ -234,16 +245,19 @@ export function TourForm({ initialData, mode }: TourFormProps) {
   );
   // ExperienceSlot (booking slots) ≠ form time-slot templates; not prefilled from backend
   const [timeSlots, setTimeSlots] = useState<
-    { id: string; time: string; capacity: string }[]
+    { id: string; date: string; time: string; capacity: string; isBackend?: boolean }[]
   >(
     isAdminExperience(initialData)
-      ? []
-      : (initialData as Tour | undefined)?.timeSlots?.map((ts) => ({
-          id: ts.id,
-          time: ts.time,
-          capacity: ts.capacity.toString(),
-        })) || [],
+      ? (initialData.slots?.map((s) => ({
+          id: s.id,
+          date: s.date.split("T")[0],
+          time: s.timeSlot,
+          capacity: s.capacity.toString(),
+          isBackend: true,
+        })) || [])
+      : [],
   );
+  const [deletedSlotIds, setDeletedSlotIds] = useState<string[]>([]);
 
   const [policy, setPolicy] = useState<MultiLangValue>(
     isAdminExperience(initialData)
@@ -384,20 +398,27 @@ export function TourForm({ initialData, mode }: TourFormProps) {
     setTimeSlots((prev) => [
       ...prev,
       {
-        id: Math.random().toString(36).substr(2, 9),
-        time: "",
+        id: `new-${Math.random().toString(36).substr(2, 9)}`,
+        date: new Date().toISOString().split("T")[0],
+        time: "09:00",
         capacity: maxParticipants || "20",
       },
     ]);
   };
 
   const removeTimeSlot = (id: string) => {
+    const slotToRemove = timeSlots.find((s) => s.id === id);
+    if (slotToRemove?.isBackend) {
+      setDeletedSlotIds((prev) => [...prev, id]);
+    }
     setTimeSlots((prev) => prev.filter((item) => item.id !== id));
   };
 
   const updateTimeSlot = (id: string, field: string, value: string) => {
     setTimeSlots((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
+      prev.map((item) =>
+        item.id === id ? { ...item, [field]: value, isDirty: true } : item,
+      ),
     );
   };
 
@@ -476,7 +497,7 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           ),
         );
 
-        await createAdminExperience({
+        const experience = await createAdminExperience({
           title: normalizedName,
           type: backendType,
           shortDescription: normalizedDescription,
@@ -486,9 +507,9 @@ export function TourForm({ initialData, mode }: TourFormProps) {
             : undefined,
           heroImage: heroImageUrl.trim() || undefined,
           gallery: galleryUrls,
-          highlights: toEnglishList(highlights),
-          requirements: toEnglishList(requirements),
-          inclusions: toEnglishList(included),
+          highlights: toMultiLangList(highlights),
+          requirements: toMultiLangList(requirements),
+          inclusions: toMultiLangList(included),
           priceRwf: Number.parseFloat(price || "0") || 0,
           pricePerGroupRwf: Number.parseFloat(groupPrice || "0") || 0,
           capacity: Number.parseInt(maxParticipants || "20", 10) || 20,
@@ -498,10 +519,23 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           marketSector: marketSector.trim() || undefined,
           destination: location.trim() || undefined,
           linkedAccommodationIds: validAccommodationIds,
+          availabilityStatus: status as any,
           isActive: status !== "upcoming",
           isFeatured: status === "limited",
           languageSupport: languages.length > 0 ? languages : ["en"],
         });
+
+        // Sync slots if any
+        if (timeSlots.length > 0) {
+          const { createExperienceSlot } = await import("@/lib/api/experiences");
+          for (const slot of timeSlots) {
+            await createExperienceSlot(experience.id, {
+              date: slot.date,
+              timeSlot: slot.time,
+              capacity: Number.parseInt(slot.capacity, 10),
+            });
+          }
+        }
 
         if (selectedAccommodations.length !== validAccommodationIds.length) {
           toast.warning("Some linked accommodations were skipped", {
@@ -555,9 +589,9 @@ export function TourForm({ initialData, mode }: TourFormProps) {
             : undefined,
           heroImage: heroImageUrl.trim() || undefined,
           gallery: galleryUrls,
-          highlights: toEnglishList(highlights),
-          requirements: toEnglishList(requirements),
-          inclusions: toEnglishList(included),
+          highlights: toMultiLangList(highlights),
+          requirements: toMultiLangList(requirements),
+          inclusions: toMultiLangList(included),
           priceRwf: Number.parseFloat(price || "0") || 0,
           pricePerGroupRwf: Number.parseFloat(groupPrice || "0") || 0,
           capacity: Number.parseInt(maxParticipants || "20", 10) || 20,
@@ -567,15 +601,40 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           marketSector: marketSector.trim() || undefined,
           destination: location.trim() || undefined,
           linkedAccommodationIds: validAccommodationIds,
+          availabilityStatus: status as any,
           isActive: status !== "upcoming",
           isFeatured: status === "limited",
           languageSupport: languages.length > 0 ? languages : ["en"],
         });
 
-        if (timeSlots.length > 0) {
-          toast.warning("Time slots not persisted", {
-            description:
-              "Backend update DTO does not accept time slots.",
+        const {
+          createExperienceSlot,
+          updateExperienceSlot,
+          deleteExperienceSlot,
+        } = await import("@/lib/api/experiences");
+
+        // Sync deleted slots
+        for (const id of deletedSlotIds) {
+          await deleteExperienceSlot(adminData.id, id);
+        }
+
+        // Sync new slots
+        const newSlots = timeSlots.filter((s) => s.id.startsWith("new-"));
+        for (const slot of newSlots) {
+          await createExperienceSlot(adminData.id, {
+            date: slot.date,
+            timeSlot: slot.time,
+            capacity: Number.parseInt(slot.capacity, 10),
+          });
+        }
+
+        // Sync modified existing slots
+        const dirtySlots = timeSlots.filter((s) => s.isBackend && (s as any).isDirty);
+        for (const slot of dirtySlots) {
+          await updateExperienceSlot(adminData.id, slot.id, {
+            date: slot.date,
+            timeSlot: slot.time,
+            capacity: Number.parseInt(slot.capacity, 10),
           });
         }
       }
@@ -987,22 +1046,35 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                     key={slot.id}
                     className="flex flex-col sm:flex-row gap-3 p-3 rounded-lg border border-border bg-muted/20"
                   >
+                    <div className="w-full sm:w-40 space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">
+                        Date
+                      </Label>
+                      <Input
+                        type="date"
+                        value={slot.date}
+                        onChange={(e) =>
+                          updateTimeSlot(slot.id, "date", e.target.value)
+                        }
+                        className="h-9 text-xs"
+                      />
+                    </div>
                     <div className="flex-1 space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">
-                        Time (e.g., 09:00 AM)
+                        Time (e.g., 09:00)
                       </Label>
                       <Input
                         value={slot.time}
                         onChange={(e) =>
                           updateTimeSlot(slot.id, "time", e.target.value)
                         }
-                        placeholder="09:00 AM"
+                        placeholder="09:00"
                         className="h-9 text-xs"
                       />
                     </div>
-                    <div className="w-full sm:w-32 space-y-2">
+                    <div className="w-full sm:w-28 space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">
-                        Slot Capacity
+                        Capacity
                       </Label>
                       <Input
                         type="number"
@@ -1014,7 +1086,18 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                         className="h-9 text-xs"
                       />
                     </div>
-                    <div className="flex items-end pb-0.5">
+                    <div className="flex items-end gap-2 pb-0.5">
+                      {slot.isBackend && (
+                        <Badge
+                          variant="secondary"
+                          className="h-9 px-2 gap-1.5 bg-primary/10 text-primary border-primary/20"
+                        >
+                          <Check className="h-3 w-3" />
+                          <span className="text-[9px] font-bold uppercase">
+                            Live
+                          </span>
+                        </Badge>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"

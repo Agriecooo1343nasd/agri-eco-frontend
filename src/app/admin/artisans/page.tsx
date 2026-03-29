@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   deleteAdminArtisanProduct,
+  updateAdminArtisan,
   fetchAdminArtisanApplications,
   fetchAdminArtisanProducts,
   fetchAdminArtisans,
@@ -111,6 +112,36 @@ function getProvidedTranslations(value?: {
 }
 
 export default function AdminArtisansPage() {
+  // Deactivate/Activate artisan confirmation
+  const [toggleActiveTarget, setToggleActiveTarget] = useState<{
+    id: string;
+    name: string;
+    isActive: boolean;
+  } | null>(null);
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return updateAdminArtisan(id, { isActive: !isActive });
+    },
+    onSuccess: (data, variables) => {
+      toast.success(
+        variables.isActive ? "Artisan deactivated" : "Artisan activated",
+        {
+          description: `Artisan "${toggleActiveTarget?.name ?? ""}" is now ${variables.isActive ? "inactive" : "active"}.`,
+        },
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-artisan-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-artisans"] });
+      setToggleActiveTarget(null);
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to update artisan status", {
+        description:
+          error.message || "Please retry or verify your admin authorization.",
+      });
+      setToggleActiveTarget(null);
+    },
+  });
   const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -222,9 +253,13 @@ export default function AdminArtisansPage() {
       setReviewNotes("");
     },
     onError: (error: Error) => {
+      const raw = error.message || "";
+      const backendRouteMismatch =
+        raw.includes("params.id") || raw.toLowerCase().includes("validation failed");
       toast.error("Unable to review application", {
-        description:
-          error.message || "Please retry or verify your admin authorization.",
+        description: backendRouteMismatch
+          ? "Backend validation mismatch detected (expects params.id). Ask backend to align review route params, then retry."
+          : error.message || "Please retry or verify your admin authorization.",
       });
     },
   });
@@ -546,9 +581,84 @@ export default function AdminArtisansPage() {
                               >
                                 <Edit className="h-4 w-4" /> Edit Artisan
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="gap-2 text-destructive">
-                                <Trash2 className="h-4 w-4" /> Deactivate
+                              <DropdownMenuItem
+                                className={
+                                  a.isActive
+                                    ? "gap-2 text-destructive"
+                                    : "gap-2 text-green-700"
+                                }
+                                onClick={() =>
+                                  setToggleActiveTarget({
+                                    id: a.id,
+                                    name: a.name,
+                                    isActive: a.isActive,
+                                  })
+                                }
+                              >
+                                {a.isActive ? (
+                                  <Trash2 className="h-4 w-4" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4" />
+                                )}
+                                {a.isActive ? "Deactivate" : "Activate"}
                               </DropdownMenuItem>
+                              {/* Toggle Active Confirmation Dialog */}
+                              <AlertDialog
+                                open={toggleActiveTarget !== null}
+                                onOpenChange={(open) => {
+                                  if (
+                                    !open &&
+                                    !toggleActiveMutation.isPending
+                                  ) {
+                                    setToggleActiveTarget(null);
+                                  }
+                                }}
+                              >
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      {toggleActiveTarget?.isActive
+                                        ? "Deactivate artisan?"
+                                        : "Activate artisan?"}
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {toggleActiveTarget?.isActive
+                                        ? `This will deactivate artisan "${toggleActiveTarget?.name}". They will no longer be visible in the shop or listings.`
+                                        : `This will activate artisan "${toggleActiveTarget?.name}" and make them visible in the shop and listings.`}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel
+                                      disabled={toggleActiveMutation.isPending}
+                                    >
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className={
+                                        toggleActiveTarget?.isActive
+                                          ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          : "bg-green-600 text-white hover:bg-green-700"
+                                      }
+                                      disabled={toggleActiveMutation.isPending}
+                                      onClick={() => {
+                                        if (!toggleActiveTarget) return;
+                                        toggleActiveMutation.mutate({
+                                          id: toggleActiveTarget.id,
+                                          isActive: toggleActiveTarget.isActive,
+                                        });
+                                      }}
+                                    >
+                                      {toggleActiveMutation.isPending
+                                        ? toggleActiveTarget?.isActive
+                                          ? "Deactivating..."
+                                          : "Activating..."
+                                        : toggleActiveTarget?.isActive
+                                          ? "Yes, deactivate"
+                                          : "Yes, activate"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -1178,6 +1288,16 @@ export default function AdminArtisansPage() {
               .
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-1">
+            <Label htmlFor="application-review-note">Decision note (optional)</Label>
+            <Textarea
+              id="application-review-note"
+              value={reviewNotes}
+              onChange={(event) => setReviewNotes(event.target.value)}
+              placeholder="Add a reason or decision message..."
+              rows={3}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={reviewMutation.isPending}>
               Cancel

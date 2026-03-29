@@ -124,21 +124,7 @@ function getSlotsSummary(experience: AdminExperience) {
 }
 
 function getExperienceStatus(experience: AdminExperience): UiStatus {
-  if (!experience.isActive) {
-    return "upcoming";
-  }
-
-  const { total, booked, occupancy } = getSlotsSummary(experience);
-
-  if (total > 0 && booked >= total) {
-    return "sold-out";
-  }
-
-  if (occupancy >= 75) {
-    return "limited";
-  }
-
-  return "available";
+  return (experience.availabilityStatus as UiStatus) || "available";
 }
 
 export default function AdminToursPage() {
@@ -247,10 +233,8 @@ export default function AdminToursPage() {
       const { total, booked, occupancy } = getSlotsSummary(experience);
       const status = getExperienceStatus(experience);
 
-      // Backend does not currently expose rating/review count for experiences.
-      // Keep deterministic placeholders until reviews are wired to experiences.
-      const rating = experience.isFeatured ? 4.8 : 4.5;
-      const reviewCount = Math.max(0, Math.round(booked * 0.35));
+      const rating = experience.averageRating || 0;
+      const reviewCount = experience.reviewCount || 0;
 
       return {
         raw: experience,

@@ -3,11 +3,13 @@ import type { ApiSuccessResponse, ApiPagination } from "./types";
 
 export interface Review {
   id: string;
-  productId: string;
+  productId?: string;
+  experienceId?: string;
+  trainingProgramId?: string;
   userId: string;
   rating: number;
   title?: string;
-  comment: string;
+  comment?: string;
   isApproved: boolean;
   isVerifiedPurchase: boolean;
   helpfulCount: number;
@@ -26,10 +28,12 @@ export interface Review {
 }
 
 export interface CreateReviewPayload {
-  productId: string;
+  productId?: string;
+  experienceId?: string;
+  trainingProgramId?: string;
   rating: number;
   title?: string;
-  comment: string;
+  comment?: string;
 }
 
 export interface ReviewList {
@@ -40,10 +44,6 @@ export interface ReviewList {
   };
 }
 
-/**
- * Create a new review (Customer)
- * Note: Backend currently only supports shop products for reviews.
- */
 export async function createReview(payload: CreateReviewPayload): Promise<Review> {
   const response = await apiClient.post<ApiSuccessResponse<Review>>(
     "/reviews",
@@ -53,6 +53,20 @@ export async function createReview(payload: CreateReviewPayload): Promise<Review
     throw new Error("Missing created review response data");
   }
   return response.data.data;
+}
+
+export async function createExperienceReview(
+  experienceId: string,
+  payload: Omit<CreateReviewPayload, "productId" | "experienceId" | "trainingProgramId">,
+): Promise<Review> {
+  return createReview({ ...payload, experienceId });
+}
+
+export async function createProgramReview(
+  trainingProgramId: string,
+  payload: Omit<CreateReviewPayload, "productId" | "experienceId" | "trainingProgramId">,
+): Promise<Review> {
+  return createReview({ ...payload, trainingProgramId });
 }
 
 /**
@@ -75,5 +89,43 @@ export async function fetchProductReviews(
     data: response.data.data ?? [],
     pagination: response.data.pagination!,
     meta: response.data.meta as any,
+  };
+}
+
+export async function fetchExperienceReviews(
+  experienceId: string,
+  params: Record<string, any> = {},
+): Promise<ReviewList> {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) searchParams.append(key, String(value));
+  });
+
+  const response = await apiClient.get<ApiSuccessResponse<Review[]>>(
+    `/reviews/experience/${experienceId}?${searchParams.toString()}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
+  };
+}
+
+export async function fetchProgramReviews(
+  programId: string,
+  params: Record<string, any> = {},
+): Promise<ReviewList> {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) searchParams.append(key, String(value));
+  });
+
+  const response = await apiClient.get<ApiSuccessResponse<Review[]>>(
+    `/reviews/program/${programId}?${searchParams.toString()}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
   };
 }

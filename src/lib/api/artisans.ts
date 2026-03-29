@@ -182,9 +182,8 @@ export async function fetchArtisans(
 }
 
 export async function fetchArtisanById(id: string): Promise<AdminArtisan> {
-  // NOTE: Currently using admin endpoint as there's no public detail endpoint in swagger
   const response = await apiClient.get<ApiSuccessResponse<AdminArtisan>>(
-    `/artisans/admin/${id}`,
+    `/artisans/${id}/detail`,
   );
 
   if (!response.data.data) {
@@ -192,6 +191,36 @@ export async function fetchArtisanById(id: string): Promise<AdminArtisan> {
   }
 
   return response.data.data;
+}
+
+export async function fetchPublicArtisanProducts(
+  id: string,
+  params: Omit<FetchAdminArtisanProductsParams, "artisanId"> = {},
+): Promise<FetchAdminArtisanProductsResult> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", String(params.page));
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.search?.trim()) query.set("search", params.search.trim());
+  if (params.sort) query.set("sort", params.sort);
+  if (params.order) query.set("order", params.order);
+  const qs = query.toString();
+
+  const response = await apiClient.get<ApiSuccessResponse<AdminArtisanProduct[]>>(
+    `/artisans/${id}/products${qs ? `?${qs}` : ""}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination:
+      response.data.pagination ?? {
+        total: 0,
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        pages: 1,
+        hasNext: false,
+        hasPrev: false,
+      },
+  };
 }
 
 export async function submitArtisanApplication(payload: any): Promise<any> {

@@ -30,6 +30,7 @@ export interface TrainingProgram {
   coverImage?: string;
   type: "course" | "certification" | "workshop";
   level: "beginner" | "intermediate" | "advanced";
+  status: "draft" | "upcoming" | "in_progress" | "completed" | "cancelled";
   priceRwf: number;
   durationWeeks: number;
   capacity: number;
@@ -38,21 +39,24 @@ export interface TrainingProgram {
   isFeatured: boolean;
   curriculum: any[];
   topics: TrainingTopic[];
+  instructorName?: string;
+  instructorBio?: string;
+  requirements?: MultiLangText;
+  whatStudentsGet?: MultiLangText;
+  certificateTemplate?: string;
+  location?: string;
+  averageRating: number;
+  reviewCount: number;
+  enrolledCount?: number;
   startDate?: string;
   endDate?: string;
   createdAt: string;
   updatedAt: string;
-  instructor?: MultiLangText;
-  instructorBio?: MultiLangText;
-  requirements?: MultiLangText[];
-  whatYouGet?: MultiLangText[];
-  certificateTemplate?: any;
-  location?: MultiLangText;
 }
 
 export interface AdminTrainingProgram extends TrainingProgram {}
 
-export interface AdminSchoolVisit {
+export interface AdminSchoolVisit { 
   id: string;
   institutionName: string;
   contactName: string;
@@ -100,6 +104,7 @@ export interface CreateAdminTrainingProgramPayload {
   coverImage?: string;
   type: "course" | "certification" | "workshop";
   level: "beginner" | "intermediate" | "advanced";
+  status?: "draft" | "upcoming" | "in_progress" | "completed" | "cancelled";
   priceRwf: number;
   durationWeeks: number;
   capacity: number;
@@ -108,6 +113,12 @@ export interface CreateAdminTrainingProgramPayload {
   isFeatured: boolean;
   curriculum: any[];
   topics: { name: MultiLangText; sortOrder: number }[];
+  instructorName?: string;
+  instructorBio?: string;
+  requirements?: MultiLangText;
+  whatStudentsGet?: MultiLangText;
+  certificateTemplate?: string;
+  location?: string;
   startDate?: string;
 }
 
@@ -204,6 +215,21 @@ export async function enrollInProgram(
   return response.data.data;
 }
 
+export interface ModuleProgressItem {
+  moduleId: string;
+  title: string;
+  completed: boolean;
+  completedAt?: string;
+}
+
+export interface QuizScoreItem {
+  quizId: string;
+  title: string;
+  score: number;
+  maxScore: number;
+  attemptedAt: string;
+}
+
 export interface TrainingEnrollment {
   id: string;
   userId: string;
@@ -213,6 +239,12 @@ export interface TrainingEnrollment {
   email: string;
   phone: string;
   notes?: string;
+  completionPercentage: number;
+  moduleProgress: ModuleProgressItem[];
+  quizScores: QuizScoreItem[];
+  certificateUrl?: string;
+  certificateNumber?: string;
+  certificateIssuedAt?: string;
   createdAt: string;
   updatedAt: string;
   trainingProgram: TrainingProgram;
@@ -272,6 +304,39 @@ export async function fetchCertificate(enrollmentId: string): Promise<any> {
     `/training-programs/me/enrollments/${enrollmentId}/certificate`,
   );
   if (!response.data.data) throw new Error("Certificate not found");
+  return response.data.data;
+}
+
+export interface ProgressResult {
+  enrollmentId: string;
+  status: string;
+  completionPercentage: number;
+  moduleProgress: ModuleProgressItem[];
+  quizScores: QuizScoreItem[];
+  program: string;
+}
+
+export async function fetchProgress(enrollmentId: string): Promise<ProgressResult> {
+  const response = await apiClient.get<ApiSuccessResponse<ProgressResult>>(
+    `/training-programs/me/enrollments/${enrollmentId}/progress`,
+  );
+  if (!response.data.data) throw new Error("Progress not found");
+  return response.data.data;
+}
+
+export async function updateProgress(
+  enrollmentId: string,
+  payload: {
+    moduleProgress?: ModuleProgressItem[];
+    quizScores?: QuizScoreItem[];
+    completionPercentage?: number;
+  },
+): Promise<TrainingEnrollment> {
+  const response = await apiClient.patch<ApiSuccessResponse<TrainingEnrollment>>(
+    `/training-programs/me/enrollments/${enrollmentId}/progress`,
+    payload,
+  );
+  if (!response.data.data) throw new Error("Failed to update progress");
   return response.data.data;
 }
 
@@ -367,6 +432,13 @@ export async function fetchAdminSchoolVisitSettings(): Promise<AdminSchoolVisitS
   return response.data.data ?? null;
 }
 
+export async function fetchPublicSchoolVisitSettings(): Promise<AdminSchoolVisitSettings | null> {
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminSchoolVisitSettings>
+  >("/school-visits/settings");
+  return response.data.data ?? null;
+}
+
 export async function updateAdminSchoolVisitSettings(
   payload: UpsertAdminSchoolVisitSettingsPayload,
 ): Promise<AdminSchoolVisitSettings> {
@@ -375,6 +447,52 @@ export async function updateAdminSchoolVisitSettings(
   >("/school-visits/admin/settings", payload);
   if (!response.data.data) throw new Error("Failed to update settings");
   return response.data.data;
+}
+
+export async function fetchAdminProgramStats(id: string): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(
+    `/training-programs/admin/programs/${id}/stats`,
+  );
+  if (!response.data.data) throw new Error("Stats not found");
+  return response.data.data;
+}
+
+export async function toggleAdminTrainingProgramArchive(
+  id: string,
+): Promise<AdminTrainingProgram> {
+  const response = await apiClient.patch<
+    ApiSuccessResponse<AdminTrainingProgram>
+  >(`/training-programs/admin/programs/${id}/archive`);
+  if (!response.data.data) throw new Error("Failed to toggle archive");
+  return response.data.data;
+}
+
+export async function updateAdminEnrollmentStatus(
+  id: string,
+  payload: { status: string; notes?: string },
+): Promise<any> {
+  const response = await apiClient.patch<ApiSuccessResponse<any>>(
+    `/training-programs/admin/enrollments/${id}/status`,
+    payload,
+  );
+  if (!response.data.data) throw new Error("Failed to update enrollment status");
+  return response.data.data;
+}
+
+export async function fetchAdminEnrollments(
+  params: Record<string, any>,
+): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(
+    `/training-programs/admin/enrollments${buildQuery(params)}`,
+  );
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination!,
+  };
+}
+
+export async function deleteAdminTrainingProgram(id: string): Promise<void> {
+  await apiClient.delete(`/training-programs/${id}`);
 }
 
 export interface CreateSchoolVisitPayload {
@@ -389,8 +507,14 @@ export interface CreateSchoolVisitPayload {
   specialRequirements?: string;
 }
 
-export async function submitSchoolVisit(payload: CreateSchoolVisitPayload): Promise<any> {
-  const response = await apiClient.post<ApiSuccessResponse<any>>("/school-visits", payload);
-  if (!response.data.data) throw new Error(response.data.message || "Failed to submit visit");
+export async function submitSchoolVisit(
+  payload: CreateSchoolVisitPayload,
+): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    "/school-visits",
+    payload,
+  );
+  if (!response.data.data)
+    throw new Error(response.data.message || "Failed to submit visit");
   return response.data;
 }

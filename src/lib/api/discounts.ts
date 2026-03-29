@@ -232,3 +232,35 @@ export async function fetchActiveDiscounts(): Promise<AdminDiscount[]> {
   );
   return response.data.data ?? [];
 }
+
+export async function assignProductsToDiscount(
+  discountId: string,
+  productIds: string[],
+): Promise<AdminDiscount> {
+  const response = await apiClient.post<ApiSuccessResponse<AdminDiscount>>(
+    `/discounts/${discountId}/products`,
+    { productIds },
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated discount response data");
+  }
+
+  return response.data.data;
+}
+
+export async function unassignProductsFromDiscount(
+  discountId: string,
+  productIds: string[],
+): Promise<AdminDiscount> {
+  const response = await apiClient.delete<ApiSuccessResponse<AdminDiscount>>(
+    `/discounts/${discountId}/products`,
+    { data: { productIds } },
+  );
+
+  if (!response.data.data) {
+    throw new Error("Missing updated discount response data");
+  }
+
+  return response.data.data;
+}
