@@ -431,6 +431,13 @@ export async function fetchAdminSchoolVisitSettings(): Promise<AdminSchoolVisitS
   return response.data.data ?? null;
 }
 
+export async function fetchPublicSchoolVisitSettings(): Promise<AdminSchoolVisitSettings | null> {
+  const response = await apiClient.get<
+    ApiSuccessResponse<AdminSchoolVisitSettings>
+  >("/school-visits/settings");
+  return response.data.data ?? null;
+}
+
 export async function updateAdminSchoolVisitSettings(
   payload: UpsertAdminSchoolVisitSettingsPayload,
 ): Promise<AdminSchoolVisitSettings> {

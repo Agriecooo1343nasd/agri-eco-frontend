@@ -102,6 +102,7 @@ import {
   ChevronRight,
   RotateCcw,
   QrCode,
+  Star,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
+import { createProgramReview, fetchProgramReviews } from "@/lib/api/reviews";
 
 const statusColors: Record<string, string> = {
   open: "bg-primary/10 text-primary border-primary/20",
@@ -288,6 +290,8 @@ export default function ProgramDetail() {
 
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   useEffect(() => {
     if (isAuthenticated && myEnrollments?.data && apiProgram) {
@@ -312,6 +316,37 @@ export default function ProgramDetail() {
     activeEnrollment,
     pendingEnrollment,
   ]);
+
+  const { data: programReviewsResult } = useQuery({
+    queryKey: ["program-reviews", apiProgram?.id],
+    queryFn: () =>
+      fetchProgramReviews(apiProgram!.id, {
+        page: 1,
+        limit: 50,
+      }),
+    enabled: !!apiProgram?.id,
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: () =>
+      createProgramReview(apiProgram!.id, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      }),
+    onSuccess: () => {
+      toast.success("Review submitted", {
+        description: "Thanks for reviewing this program.",
+      });
+      setReviewComment("");
+      setReviewRating(5);
+      queryClient.invalidateQueries({ queryKey: ["program-reviews", apiProgram?.id] });
+    },
+    onError: (err: Error) => {
+      toast.error("Failed to submit review", {
+        description: err.message || "Please try again.",
+      });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -417,6 +452,12 @@ export default function ProgramDetail() {
 
   const sortedModules = [...program.modules].sort((a, b) => a.order - b.order);
   const isFree = program.price === 0;
+  const programReviews = programReviewsResult?.data ?? [];
+  const myProgramReview = programReviews.find((review) => review.userId === authUser?.id);
+  const isCourseCompleted =
+    (typeof progressData?.completionPercentage === "number" &&
+      progressData.completionPercentage >= 100) ||
+    activeEnrollment?.status === "completed";
 
   const toggleModule = (moduleId: string) => {
     setExpandedModule(expandedModule === moduleId ? null : moduleId);
@@ -554,6 +595,12 @@ export default function ProgramDetail() {
                 {t(program.level)}
               </Badge>
               <Badge
+                variant="outline"
+                className="text-xs border-card/30 text-card"
+              >
+                {(Number((apiProgram as any).averageRating || 0)).toFixed(1)} / 5 ({(apiProgram as any).reviewCount ?? 0})
+              </Badge>
+              <Badge
                 className={`${statusColors[program.status]} border text-xs capitalize`}
               >
                 {t({
@@ -612,6 +659,8 @@ export default function ProgramDetail() {
                     </div>
                   )}
                 </div>
+
+                
 
                 {/* What You Get */}
                 {program.whatYouGet &&
@@ -994,7 +1043,83 @@ export default function ProgramDetail() {
                     </div>
                   </div>
                 )}
+                <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                  <h2 className="text-xl font-bold font-heading text-foreground">
+                    {t({ en: "Program Reviews", rw: "Ibyavuzwe kuri gahunda" })}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {(apiProgram as any).reviewCount ?? 0} total reviews, average {(Number((apiProgram as any).averageRating || 0)).toFixed(1)}/5
+                  </p>
+
+                  {isEnrolled && isCourseCompleted && !myProgramReview ? (
+                    <div className="rounded-xl border border-border p-4 space-y-3">
+                      <p className="text-sm font-medium text-foreground">
+                        Share your learning experience
+                      </p>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setReviewRating(star)}
+                            className="p-1 rounded hover:bg-accent"
+                          >
+                            <Star
+                              className={`h-4 w-4 ${star <= reviewRating ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                      <Input
+                        value={reviewComment}
+                        onChange={(event) => setReviewComment(event.target.value)}
+                        placeholder="Write your review..."
+                        className="text-xs"
+                      />
+                      <Button
+                        size="sm"
+                        className="text-xs"
+                        disabled={reviewMutation.isPending || !reviewComment.trim()}
+                        onClick={() => reviewMutation.mutate()}
+                      >
+                        {reviewMutation.isPending ? "Submitting..." : "Submit review"}
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {myProgramReview ? (
+                    <div className="rounded-lg border border-border p-3">
+                      <p className="text-sm font-semibold text-foreground">
+                        Your review ({myProgramReview.rating}/5)
+                      </p>
+                      {myProgramReview.comment ? (
+                        <p className="text-xs text-muted-foreground mt-1">{myProgramReview.comment}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-2">
+                    {programReviews.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No reviews yet.</p>
+                    ) : (
+                      programReviews.slice(0, 6).map((review) => (
+                        <div key={review.id} className="rounded-lg border border-border p-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-foreground">
+                              {review.user?.username || "Student"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{review.rating}/5</p>
+                          </div>
+                          {review.comment ? (
+                            <p className="text-xs text-muted-foreground mt-1">{review.comment}</p>
+                          ) : null}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
+
+              
 
               {/* Sidebar */}
               <div className="lg:col-span-1">

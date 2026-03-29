@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -24,6 +24,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -42,8 +43,14 @@ import {
 import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { fetchMyBookings, cancelMyBooking, type Booking } from "@/lib/api/bookings";
 import { toAbsoluteExperienceImage } from "@/lib/api/experiences";
+import {
+  createExperienceReview,
+  fetchExperienceReviews,
+  type Review,
+} from "@/lib/api/reviews";
 
 const statusConfig: Record<
   string,
@@ -86,6 +93,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 export default function MyBookingsPage() {
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
 
   // Filters & State
@@ -95,6 +103,8 @@ export default function MyBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [cancelDialog, setCancelDialog] = useState<Booking | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
 
   // Queries
   const bookingsQuery = useQuery({
@@ -127,14 +137,50 @@ export default function MyBookingsPage() {
     },
   });
 
-  const handleRatePlaceholder = () => {
-    toast.info("Rating Coming Soon", {
-      description: "Our team is working on enabling tour ratings. Check back soon!",
-    });
-  };
+  const selectedExperienceId = selectedBooking?.experience?.id;
+  const reviewsQuery = useQuery({
+    queryKey: ["experience-reviews", selectedExperienceId],
+    queryFn: () =>
+      fetchExperienceReviews(selectedExperienceId as string, {
+        page: 1,
+        limit: 50,
+      }),
+    enabled: !!selectedExperienceId,
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: () =>
+      createExperienceReview(selectedExperienceId as string, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      }),
+    onSuccess: () => {
+      toast.success("Review submitted", {
+        description: "Thank you for sharing your experience.",
+      });
+      setReviewComment("");
+      setReviewRating(5);
+      queryClient.invalidateQueries({
+        queryKey: ["experience-reviews", selectedExperienceId],
+      });
+    },
+    onError: (error: Error) => {
+      toast.error("Unable to submit review", {
+        description: error.message || "Please try again.",
+      });
+    },
+  });
+
+  const experienceReviews = reviewsQuery.data?.data ?? [];
+  const myReview = experienceReviews.find((review: Review) => review.userId === user?.id);
 
   const bookings = bookingsQuery.data?.data ?? [];
   const pagination = bookingsQuery.data?.pagination;
+
+  useEffect(() => {
+    setReviewRating(5);
+    setReviewComment("");
+  }, [selectedBooking?.id]);
 
   return (
     <div className="min-h-screen bg-background text-xs">
@@ -427,19 +473,73 @@ export default function MyBookingsPage() {
                 <p className="font-bold text-foreground text-[10px] uppercase tracking-tight">
                   Rate This Experience
                 </p>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={handleRatePlaceholder}
-                      className="p-1 rounded-md transition-colors hover:bg-accent group"
-                    >
-                      <Star className="h-4 w-4 text-muted-foreground/30 group-hover:text-amber-500" />
-                    </button>
-                  ))}
-                  <span className="ml-2 text-[10px] text-muted-foreground font-medium opacity-60">
-                    Not yet available
-                  </span>
+                {selectedBooking.status === "completed" ? (
+                  <>
+                    {myReview ? (
+                      <div className="rounded-lg border border-border p-3">
+                        <p className="text-xs font-semibold text-foreground">
+                          You already reviewed this tour ({myReview.rating}/5)
+                        </p>
+                        {myReview.comment ? (
+                          <p className="text-xs text-muted-foreground mt-1">{myReview.comment}</p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              onClick={() => setReviewRating(star)}
+                              className="p-1 rounded-md transition-colors hover:bg-accent"
+                            >
+                              <Star
+                                className={`h-4 w-4 ${star <= reviewRating ? "fill-amber-500 text-amber-500" : "text-muted-foreground/40"}`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <Textarea
+                          value={reviewComment}
+                          onChange={(event) => setReviewComment(event.target.value)}
+                          placeholder="Write your review message..."
+                          className="text-xs"
+                          rows={3}
+                        />
+                        <Button
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => reviewMutation.mutate()}
+                          disabled={reviewMutation.isPending || !reviewComment.trim()}
+                        >
+                          {reviewMutation.isPending ? "Submitting..." : "Submit Review"}
+                        </Button>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    Review becomes available after this booking is completed.
+                  </p>
+                )}
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    Recent reviews
+                  </p>
+                  {experienceReviews.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground">No reviews yet.</p>
+                  ) : (
+                    experienceReviews.slice(0, 3).map((review) => (
+                      <div key={review.id} className="rounded-lg border border-border p-2">
+                        <p className="text-[11px] font-semibold text-foreground">
+                          {review.user?.username || "Guest"} - {review.rating}/5
+                        </p>
+                        {review.comment ? (
+                          <p className="text-[11px] text-muted-foreground">{review.comment}</p>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

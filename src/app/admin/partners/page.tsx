@@ -480,7 +480,7 @@ export default function AdminPartnersPage() {
               <div className="w-9 h-9 bg-muted/30 rounded-lg flex items-center justify-center border border-border group-hover:bg-primary group-hover:text-white transition-all">
                 <s.icon className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
               </div>
-              
+              <span />
             </div>
             <p className="text-2xl font-bold font-heading text-foreground mb-0.5">
               {s.value}

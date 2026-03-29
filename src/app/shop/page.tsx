@@ -183,8 +183,11 @@ function ShopContent() {
           order,
         });
         if (!ignore) {
-          setProducts(data.data || []);
-          setProductsTotal(data.pagination?.total || (data.data || []).length);
+          const inStockProducts = (data.data || []).filter(
+            (product) => Number(product.stock ?? 0) > 0,
+          );
+          setProducts(inStockProducts);
+          setProductsTotal(inStockProducts.length);
           // Aggregate tags from products
           const tagSet = new Set<string>();
           (data.data || []).forEach((p: AdminProduct) => {

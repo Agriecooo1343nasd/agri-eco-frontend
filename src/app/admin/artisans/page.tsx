@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -253,9 +253,13 @@ export default function AdminArtisansPage() {
       setReviewNotes("");
     },
     onError: (error: Error) => {
+      const raw = error.message || "";
+      const backendRouteMismatch =
+        raw.includes("params.id") || raw.toLowerCase().includes("validation failed");
       toast.error("Unable to review application", {
-        description:
-          error.message || "Please retry or verify your admin authorization.",
+        description: backendRouteMismatch
+          ? "Backend validation mismatch detected (expects params.id). Ask backend to align review route params, then retry."
+          : error.message || "Please retry or verify your admin authorization.",
       });
     },
   });
@@ -1284,6 +1288,16 @@ export default function AdminArtisansPage() {
               .
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-1">
+            <Label htmlFor="application-review-note">Decision note (optional)</Label>
+            <Textarea
+              id="application-review-note"
+              value={reviewNotes}
+              onChange={(event) => setReviewNotes(event.target.value)}
+              placeholder="Add a reason or decision message..."
+              rows={3}
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={reviewMutation.isPending}>
               Cancel
