@@ -267,6 +267,66 @@ export interface FetchMyEnrollmentsResult {
   pagination: ApiPagination;
 }
 
+/** One row from `GET /training-programs/me/certificates` (issued, completed). */
+export interface MyCertificateProgramSummary {
+  id: string;
+  title: MultiLangText | string;
+  slug: string;
+  level: string;
+  type: string;
+  /** JSON object from API (DB JSONB); optional for template styling. */
+  certificateTemplate?: unknown;
+}
+
+export interface MyCertificate {
+  enrollmentId: string;
+  certificateNumber: string;
+  certificateUrl: string;
+  certificateIssuedAt?: string | null;
+  completionPercentage: number;
+  participantName: string;
+  program: MyCertificateProgramSummary | null;
+}
+
+export interface FetchMyCertificatesParams {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  order?: "asc" | "desc";
+}
+
+export interface FetchMyCertificatesResult {
+  data: MyCertificate[];
+  pagination: ApiPagination;
+}
+
+export async function fetchMyCertificates(
+  params?: FetchMyCertificatesParams,
+): Promise<FetchMyCertificatesResult> {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.sort) query.set("sort", params.sort);
+  if (params?.order) query.set("order", params.order);
+
+  const queryString = query.toString();
+  const response = await apiClient.get<ApiSuccessResponse<MyCertificate[]>>(
+    `/training-programs/me/certificates${queryString ? `?${queryString}` : ""}`,
+  );
+
+  return {
+    data: response.data.data ?? [],
+    pagination: response.data.pagination ?? {
+      total: 0,
+      page: params?.page ?? 1,
+      limit: params?.limit ?? 10,
+      pages: 1,
+      hasNext: false,
+      hasPrev: false,
+    },
+  };
+}
+
 export async function fetchMyEnrollments(
   params?: FetchMyEnrollmentsParams,
 ): Promise<FetchMyEnrollmentsResult> {
