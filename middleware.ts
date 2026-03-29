@@ -2,21 +2,18 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const ADMIN_ROLES = new Set(["admin", "staff", "manager", "member"]);
 
-// Public pages under /admin that do not require authentication
-const ADMIN_PUBLIC_PATHS = new Set(["/admin/accept-invite"]);
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (!pathname.startsWith("/admin")) {
-    return NextResponse.next();
+  /* Legacy invite links pointed at /admin/accept-invite — public route is /accept-invite */
+  if (pathname === "/admin/accept-invite") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/accept-invite";
+    return NextResponse.redirect(url);
   }
 
-  // Allow public admin pages through without auth checks
-  if (ADMIN_PUBLIC_PATHS.has(pathname)) {
-    const response = NextResponse.next();
-    response.headers.set("x-pathname", pathname);
-    return response;
+  if (!pathname.startsWith("/admin")) {
+    return NextResponse.next();
   }
 
   const isAuthenticated =

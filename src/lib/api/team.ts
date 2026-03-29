@@ -1,3 +1,4 @@
+import type { AxiosResponse } from "axios";
 import { apiClient } from "@/lib/api/client";
 import type { ApiPagination, ApiSuccessResponse } from "@/lib/api/types";
 
@@ -147,9 +148,15 @@ export interface AcceptTeamInviteResult {
 export async function acceptTeamInvite(
   payload: AcceptTeamInvitePayload,
 ): Promise<AcceptTeamInviteResult> {
+  type Body = ApiSuccessResponse<AcceptTeamInviteResult>;
   const response = await apiClient.post<
-    ApiSuccessResponse<AcceptTeamInviteResult>
-  >("/team/accept-invite", payload);
+    Body,
+    AxiosResponse<Body>,
+    AcceptTeamInvitePayload
+  >("/team/accept-invite", payload, {
+    skipAuth: true,
+    skipErrorToast: true,
+  });
 
   return response.data.data ?? { memberId: "" };
 }

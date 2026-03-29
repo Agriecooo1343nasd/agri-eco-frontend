@@ -12,6 +12,8 @@ import { normalizeApiError, showApiErrorToast } from "@/lib/api/error";
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
   skipErrorToast?: boolean;
+  /** Do not attach Bearer token (public endpoints e.g. team invite acceptance). */
+  skipAuth?: boolean;
 };
 
 const refreshClient = axios.create({
@@ -76,7 +78,8 @@ apiClient.interceptors.request.use((config) => {
   }
 
   const accessToken = getStoredAccessToken();
-  if (accessToken && !headers.get("Authorization")) {
+  const skipAuth = (requestConfig as RetryableRequestConfig).skipAuth;
+  if (accessToken && !headers.get("Authorization") && !skipAuth) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
