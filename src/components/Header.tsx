@@ -63,8 +63,6 @@ const searchScopes = [
 
 type SearchScope = (typeof searchScopes)[number]["key"];
 
-
-
 const navLinks = [
   { label: "Home", href: "/" },
   { label: "Shop", href: "/shop" },
@@ -96,7 +94,8 @@ const Header = () => {
 
   const { data: categoriesData, isLoading: isLoadingCats } = useQuery({
     queryKey: ["header-categories", catSearch, catPage],
-    queryFn: () => fetchCategoriesForAdmin({ search: catSearch, page: catPage, limit: 10 }),
+    queryFn: () =>
+      fetchCategoriesForAdmin({ search: catSearch, page: catPage, limit: 10 }),
     enabled: catOpen,
   });
 
@@ -116,7 +115,6 @@ const Header = () => {
     return false;
   };
 
-  // Header search handler (move outside JSX)
   const handleHeaderSearch = () => {
     const q = searchQuery.trim();
     if (!q) return;
@@ -127,11 +125,11 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50">
+    <header className="sticky top-0 z-50 w-full">
       {/* Top bar */}
-      <div className="bg-topbar text-topbar-foreground text-sm py-2">
-        <div className="container flex items-center justify-between">
-          <span className="hidden sm:inline">
+      <div className="bg-topbar text-topbar-foreground text-sm py-2 w-full">
+        <div className="w-full max-w-screen-2xl mx-auto px-4 flex items-center justify-between">
+          <span className="hidden sm:inline text-xs">
             Welcome to Agri-Eco — Fresh Organic Products
           </span>
           <span className="sm:hidden text-xs">Welcome to Agri-Eco</span>
@@ -152,9 +150,7 @@ const Header = () => {
                 {languages.map((lang) => (
                   <DropdownMenuItem
                     key={lang.code}
-                    onClick={() => {
-                      setLocale(lang.code as LanguageCode);
-                    }}
+                    onClick={() => setLocale(lang.code as LanguageCode)}
                     className={`gap-2.5 ${locale === lang.code ? "bg-primary/10 text-primary font-medium" : ""}`}
                   >
                     <span className="text-base">{lang.flag}</span>
@@ -165,14 +161,14 @@ const Header = () => {
             </DropdownMenu>
             <Link
               href="/feedback"
-              className="flex items-center gap-1 hover:underline"
+              className="flex items-center gap-1 hover:underline text-xs"
             >
               <MessageCircle className="h-3 w-3" />
               <span className="hidden sm:inline">Feedback</span>
             </Link>
             <a
               href="tel:+1234567890"
-              className="flex items-center gap-1 hover:underline"
+              className="flex items-center gap-1 hover:underline text-xs"
             >
               <Phone className="h-3 w-3" />
               <span className="hidden md:inline">0785760108</span>
@@ -182,8 +178,8 @@ const Header = () => {
       </div>
 
       {/* Main header */}
-      <div className="bg-card shadow-sm border-b border-border">
-        <div className="container flex items-center justify-between py-3 gap-4">
+      <div className="bg-card shadow-sm border-b border-border w-full">
+        <div className="w-full max-w-screen-2xl mx-auto px-4 flex items-center justify-between py-3 gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
             <Image
@@ -229,15 +225,13 @@ const Header = () => {
                 placeholder={currentScope.placeholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 px-4 py-2.5 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground"
+                className="flex-1 px-4 py-2.5 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground min-w-0"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleHeaderSearch();
-                  }
+                  if (e.key === "Enter") handleHeaderSearch();
                 }}
               />
               <button
-                className="bg-primary text-primary-foreground px-5 hover:bg-primary/90 transition-colors"
+                className="bg-primary text-primary-foreground px-5 hover:bg-primary/90 transition-colors shrink-0"
                 onClick={handleHeaderSearch}
               >
                 <Search className="h-4 w-4" />
@@ -246,7 +240,7 @@ const Header = () => {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
               href="/wishlist"
               className="relative p-2 hover:bg-accent rounded-lg transition-colors"
@@ -282,7 +276,7 @@ const Header = () => {
               </button>
 
               {isAuthenticated && userMenuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-xl z-100 overflow-hidden">
+                <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
                   <div className="p-4 border-b border-border bg-muted/20">
                     <p className="text-sm font-bold text-foreground truncate">
                       {user?.name}
@@ -298,7 +292,7 @@ const Header = () => {
                         onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
                       >
-                        <span className="text-base"></span> Go to Dashboard
+                        <span className="text-base">⚙️</span> Go to Dashboard
                       </Link>
                     )}
                     <Link
@@ -321,6 +315,8 @@ const Header = () => {
                 </div>
               )}
             </div>
+
+            {/* Mobile menu toggle */}
             <button
               className="md:hidden p-2 hover:bg-accent rounded-lg"
               onClick={() => setMenuOpen(!menuOpen)}
@@ -341,114 +337,127 @@ const Header = () => {
             <input
               type="text"
               placeholder="Search products..."
-              className="flex-1 px-3 py-2 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleHeaderSearch();
+              }}
+              className="flex-1 px-3 py-2 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground min-w-0"
             />
-            <button className="bg-primary text-primary-foreground px-4">
+            <button
+              className="bg-primary text-primary-foreground px-4 shrink-0"
+              onClick={handleHeaderSearch}
+            >
               <Search className="h-4 w-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Navigation bar — scroll on mid widths so “Hot Deals” etc. never overflow */}
-      <nav className="bg-card border-b border-border hidden md:block">
-        <div className="container min-w-0 max-w-full">
-          <div className="flex min-w-0 items-stretch overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {/* Categories dropdown */}
-          <div className="relative shrink-0 border-r border-border/70">
-            <button
-              onClick={() => setCatOpen(!catOpen)}
-              className="flex h-full items-center gap-2 bg-primary text-primary-foreground px-4 py-3 font-semibold text-xs lg:text-sm lg:px-5 hover:bg-primary/90 transition-colors whitespace-nowrap"
-            >
-              <Menu className="h-4 w-4" />
-              All Categories
-              <ChevronDown
-                className={`h-3 w-3 transition-transform ${catOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {catOpen && (
-              <div className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-lg w-64 z-50 overflow-hidden">
-                <div className="p-2 border-b border-border bg-muted/30">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search categories..."
-                      value={catSearch}
-                      onChange={(e) => {
-                        setCatSearch(e.target.value);
-                        setCatPage(1);
-                      }}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-border rounded-md outline-none focus:border-primary shadow-sm"
-                    />
-                  </div>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {isLoadingCats ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="px-4 py-2.5">
-                        <Skeleton className="h-4 w-full" />
-                      </div>
-                    ))
-                  ) : catList.length > 0 ? (
-                    catList.map((cat) => (
-                      <Link
-                        key={cat.id}
-                        href={`/shop?category=${cat.id}`}
-                        onClick={() => setCatOpen(false)}
-                        className="block px-4 py-2.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition-colors border-l-2 border-transparent hover:border-primary"
-                      >
-                         {cat.name}
-                      </Link>
-                    ))
-                  ) : (
-                    <p className="px-4 py-3 text-xs text-muted-foreground text-center">
-                      No categories found
-                    </p>
-                  )}
-                </div>
-                {categoriesData?.pagination && categoriesData.pagination.pages > 1 && (
-                  <div className="p-2 bg-muted/10 border-t border-border flex items-center justify-between gap-2">
-                    <button
-                      disabled={catPage <= 1}
-                      onClick={() => setCatPage((p) => Math.max(1, p - 1))}
-                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
-                    >
-                      Prev
-                    </button>
-                    <span className="text-[10px] text-muted-foreground">
-                      {catPage} / {categoriesData.pagination.pages}
-                    </span>
-                    <button
-                      disabled={catPage >= categoriesData.pagination.pages}
-                      onClick={() => setCatPage((p) => p + 1)}
-                      className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+      {/* Navigation bar */}
+      <nav className="bg-card border-b border-border hidden md:block w-full">
+        {/* KEY FIX: use the same max-width container as the rows above */}
+        <div className="w-full max-w-screen-2xl mx-auto px-4">
+          <div className="flex items-stretch overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-          {/* Nav links */}
-          <div className="flex min-w-0 flex-1 items-center">
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className={cn(
-                  "shrink-0 px-3 py-3 text-xs font-medium transition-colors hover:text-primary lg:px-4 lg:text-sm xl:px-5 whitespace-nowrap",
-                  isActive(link.href)
-                    ? "text-primary font-bold underline decoration-primary underline-offset-8"
-                    : "text-foreground",
-                )}
+            {/* Categories dropdown */}
+            <div className="relative shrink-0 border-r border-border/70">
+              <button
+                onClick={() => setCatOpen(!catOpen)}
+                className="flex h-full items-center gap-2 bg-primary text-primary-foreground px-4 py-3 font-semibold text-sm hover:bg-primary/90 transition-colors whitespace-nowrap"
               >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+                <Menu className="h-4 w-4" />
+                <span className="hidden lg:inline">All Categories</span>
+                <span className="lg:hidden">Categories</span>
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform duration-200 ${catOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {catOpen && (
+                <div className="absolute top-full left-0 bg-card border border-border rounded-b-lg shadow-lg w-64 z-50 overflow-hidden">
+                  <div className="p-2 border-b border-border bg-muted/30">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search categories..."
+                        value={catSearch}
+                        onChange={(e) => {
+                          setCatSearch(e.target.value);
+                          setCatPage(1);
+                        }}
+                        className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-border rounded-md outline-none focus:border-primary shadow-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {isLoadingCats ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="px-4 py-2.5">
+                          <Skeleton className="h-4 w-full" />
+                        </div>
+                      ))
+                    ) : catList.length > 0 ? (
+                      catList.map((cat) => (
+                        <Link
+                          key={cat.id}
+                          href={`/shop?category=${cat.id}`}
+                          onClick={() => setCatOpen(false)}
+                          className="block px-4 py-2.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground transition-colors border-l-2 border-transparent hover:border-primary"
+                        >
+                          {cat.name}
+                        </Link>
+                      ))
+                    ) : (
+                      <p className="px-4 py-3 text-xs text-muted-foreground text-center">
+                        No categories found
+                      </p>
+                    )}
+                  </div>
+                  {categoriesData?.pagination &&
+                    categoriesData.pagination.pages > 1 && (
+                      <div className="p-2 bg-muted/10 border-t border-border flex items-center justify-between gap-2">
+                        <button
+                          disabled={catPage <= 1}
+                          onClick={() => setCatPage((p) => Math.max(1, p - 1))}
+                          className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
+                        >
+                          Prev
+                        </button>
+                        <span className="text-[10px] text-muted-foreground">
+                          {catPage} / {categoriesData.pagination.pages}
+                        </span>
+                        <button
+                          disabled={catPage >= categoriesData.pagination.pages}
+                          onClick={() => setCatPage((p) => p + 1)}
+                          className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                </div>
+              )}
+            </div>
+
+            {/* Nav links — fill remaining space, left-aligned */}
+            <div className="flex items-center flex-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className={cn(
+                    "shrink-0 px-3 py-3 text-xs font-medium transition-colors hover:text-primary lg:px-4 lg:text-sm whitespace-nowrap",
+                    isActive(link.href)
+                      ? "text-primary font-bold underline decoration-primary underline-offset-8"
+                      : "text-foreground",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </nav>

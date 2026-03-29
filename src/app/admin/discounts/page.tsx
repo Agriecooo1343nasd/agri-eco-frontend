@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -71,6 +71,7 @@ import {
   type FetchAdminDiscountsParams,
   type UpdateDiscountPayload,
 } from "@/lib/api/discounts";
+import { toDisplayableMediaSrc } from "@/lib/media-url";
 
 type FilterStatus = "all" | DiscountStatus;
 type FilterType = "all" | DiscountType;
@@ -594,7 +595,7 @@ export default function DiscountsPage() {
                 <div className="relative h-40 bg-muted/40">
                   {discount.image ? (
                     <img
-                      src={discount.image}
+                      src={toDisplayableMediaSrc(discount.image)}
                       alt={discount.name}
                       className="h-full w-full object-cover"
                     />

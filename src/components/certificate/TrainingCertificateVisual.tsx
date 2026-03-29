@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import { Award } from "lucide-react";
 import type { CertificateTemplateData } from "@/lib/certificate-template";
 import { safeCertificateBadgeColor } from "@/lib/certificate-template";
@@ -14,8 +14,13 @@ export interface TrainingCertificateVisualProps {
   template: CertificateTemplateData;
   recipientName: string;
   issueDate: string;
-  /** Encoded in the QR code (e.g. official certificate number). */
+  /** Shown in UI / filename; official certificate number when issued. */
   certificateId: string;
+  /**
+   * If set, QR encodes this string (e.g. full `/certificates/validate?code=` URL).
+   * Otherwise built from `certificateId` and the current site origin on the client.
+   */
+  qrPayload?: string;
   t: CertificateTranslateFn;
 }
 
@@ -23,10 +28,32 @@ export const TrainingCertificateVisual = forwardRef<
   HTMLDivElement,
   TrainingCertificateVisualProps
 >(function TrainingCertificateVisual(
-  { template, recipientName, issueDate, certificateId, t },
+  { template, recipientName, issueDate, certificateId, qrPayload, t },
   ref,
 ) {
   const safeBadgeColor = safeCertificateBadgeColor(template.badgeColor);
+  const [qrValue, setQrValue] = useState(() => qrPayload?.trim() || certificateId);
+
+  useEffect(() => {
+    if (qrPayload?.trim()) {
+      setQrValue(qrPayload.trim());
+      return;
+    }
+    const id = certificateId.trim();
+    if (!id) {
+      setQrValue("");
+      return;
+    }
+    if (typeof window === "undefined") {
+      setQrValue(id);
+      return;
+    }
+    const origin =
+      process.env.NEXT_PUBLIC_APP_ORIGIN?.trim() || window.location.origin;
+    setQrValue(
+      `${origin.replace(/\/+$/, "")}/certificates/validate?code=${encodeURIComponent(id)}`,
+    );
+  }, [certificateId, qrPayload]);
 
   return (
     <div
@@ -96,7 +123,7 @@ export const TrainingCertificateVisual = forwardRef<
 
       {/* QR code — bottom, full-width divider above it */}
       <div className="pt-4 border-t border-border flex flex-col items-center gap-1">
-        <CertificateQr value={certificateId} size={72} />
+        <CertificateQr value={qrValue} size={72} />
         <span className="text-[10px] text-muted-foreground tracking-wide uppercase">
           {t({ en: "Scan to verify", rw: "Scan kugirango urebere" })}
         </span>

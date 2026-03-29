@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Expand, GalleryVerticalEnd } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,58 +24,49 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { getAboutGalleryImages } from "@/lib/about-store";
-import type { AboutGalleryImage } from "@/data/site";
+import {
+  fetchPublicGallery,
+  galleryImageDisplayUrl,
+  type GalleryImage,
+} from "@/lib/api/gallery";
 
-function parseGalleryTimestamp(id: string): number | null {
-  const match = id.match(/^gallery-(\d+)-/);
-  if (!match) return null;
-  return Number(match[1]);
-}
+const ITEMS_PER_PAGE = 12;
+
+type GalleryTile = {
+  id: string;
+  url: string;
+  caption?: string;
+};
 
 export default function GalleryPage() {
-  const rawGallery = getAboutGalleryImages();
-  const galleryImages: AboutGalleryImage[] = useMemo(
-    () =>
-      rawGallery.map((img, index) =>
-        typeof img === "string"
-          ? { id: `about-gallery-${index}`, url: img }
-          : img,
-      ),
-    [rawGallery],
-  );
-
-  const sortedGallery = useMemo(() => {
-    return [...galleryImages]
-      .map((img, index) => {
-        const ts = parseGalleryTimestamp(img.id);
-        // Admin-created images contain timestamp ids; seed images fallback to index order.
-        const rank = ts ?? index;
-        return { img, rank };
-      })
-      .sort((a, b) => b.rank - a.rank)
-      .map((entry) => entry.img);
-  }, [galleryImages]);
-
-  const [selectedImage, setSelectedImage] = useState<AboutGalleryImage | null>(
-    null,
-  );
-  const [galleryOpen, setGalleryOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [visiblePageCount, setVisiblePageCount] = useState(5);
 
-  const ITEMS_PER_PAGE = 12;
+  const galleryQuery = useQuery({
+    queryKey: ["public-gallery", "page", currentPage],
+    queryFn: () =>
+      fetchPublicGallery({ page: currentPage, limit: ITEMS_PER_PAGE }),
+  });
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(sortedGallery.length / ITEMS_PER_PAGE),
-  );
+  const pagination = galleryQuery.data?.pagination;
+  const totalPages = Math.max(1, pagination?.pages ?? 1);
   const activePage = Math.min(currentPage, totalPages);
 
-  const paginatedGallery = useMemo(() => {
-    const start = (activePage - 1) * ITEMS_PER_PAGE;
-    return sortedGallery.slice(start, start + ITEMS_PER_PAGE);
-  }, [activePage, sortedGallery]);
+  const galleryTiles: GalleryTile[] = useMemo(() => {
+    const imgs = galleryQuery.data?.images ?? [];
+    return [...imgs]
+      .filter((g) => g.isActive !== false)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map((g: GalleryImage) => ({
+        id: g.id,
+        url: galleryImageDisplayUrl(g),
+        caption:
+          g.caption?.en || g.caption?.rw || g.caption?.fr || undefined,
+      }));
+  }, [galleryQuery.data?.images]);
+
+  const [selectedImage, setSelectedImage] = useState<GalleryTile | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   useEffect(() => {
     const updateVisiblePageCount = () => {
@@ -128,7 +120,13 @@ export default function GalleryPage() {
     return items;
   }, [activePage, totalPages, visiblePageCount]);
 
-  const handleOpenImage = (image: AboutGalleryImage) => {
+  useEffect(() => {
+    if (pagination && currentPage > (pagination.pages ?? 1)) {
+      setCurrentPage(Math.max(1, pagination.pages ?? 1));
+    }
+  }, [pagination, currentPage]);
+
+  const handleOpenImage = (image: GalleryTile) => {
     setSelectedImage(image);
     setGalleryOpen(true);
   };
@@ -172,14 +170,22 @@ export default function GalleryPage() {
 
       <main className="flex-1 py-10 md:py-14 bg-muted/20">
         <div className="container px-4 mx-auto">
-          {sortedGallery.length === 0 ? (
+          {galleryQuery.isLoading ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
+              Loading gallery…
+            </div>
+          ) : galleryQuery.isError ? (
+            <div className="rounded-2xl border border-destructive/30 bg-card p-10 text-center text-sm text-destructive">
+              Could not load gallery. Please try again later.
+            </div>
+          ) : galleryTiles.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
               <h2 className="text-xl font-black text-foreground font-heading">
                 No Gallery Images Yet
               </h2>
               <p className="text-muted-foreground mt-2 max-w-lg mx-auto">
-                Gallery items will appear here after they are added from the
-                admin About section.
+                Images appear here when they are published via the admin
+                gallery.
               </p>
               <Button asChild className="mt-6 font-bold">
                 <Link href="/about">Back to About</Link>
@@ -188,7 +194,7 @@ export default function GalleryPage() {
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                {paginatedGallery.map((img) => (
+                {galleryTiles.map((img) => (
                   <button
                     key={img.id}
                     type="button"
@@ -216,63 +222,68 @@ export default function GalleryPage() {
                 ))}
               </div>
 
-              <div className="mt-8 md:mt-10">
-                <Pagination>
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (activePage > 1) setCurrentPage(activePage - 1);
-                        }}
-                        aria-disabled={activePage === 1}
-                        className={
-                          activePage === 1
-                            ? "pointer-events-none opacity-50"
-                            : ""
-                        }
-                      />
-                    </PaginationItem>
-
-                    {pageItems.map((item, index) => (
-                      <PaginationItem key={`${item}-${index}`}>
-                        {typeof item === "number" ? (
-                          <PaginationLink
-                            href="#"
-                            isActive={item === activePage}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setCurrentPage(item);
-                            }}
-                          >
-                            {item}
-                          </PaginationLink>
-                        ) : (
-                          <PaginationEllipsis />
-                        )}
+              {totalPages > 1 ? (
+                <div className="mt-8 md:mt-10">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (activePage > 1)
+                              setCurrentPage((p) => Math.max(1, p - 1));
+                          }}
+                          aria-disabled={activePage === 1}
+                          className={
+                            activePage === 1
+                              ? "pointer-events-none opacity-50"
+                              : ""
+                          }
+                        />
                       </PaginationItem>
-                    ))}
 
-                    <PaginationItem>
-                      <PaginationNext
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (activePage < totalPages)
-                            setCurrentPage(activePage + 1);
-                        }}
-                        aria-disabled={activePage === totalPages}
-                        className={
-                          activePage === totalPages
-                            ? "pointer-events-none opacity-50"
-                            : ""
-                        }
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
+                      {pageItems.map((item, index) => (
+                        <PaginationItem key={`${item}-${index}`}>
+                          {typeof item === "number" ? (
+                            <PaginationLink
+                              href="#"
+                              isActive={item === activePage}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage(item);
+                              }}
+                            >
+                              {item}
+                            </PaginationLink>
+                          ) : (
+                            <PaginationEllipsis />
+                          )}
+                        </PaginationItem>
+                      ))}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (activePage < totalPages)
+                              setCurrentPage((p) =>
+                                Math.min(totalPages, p + 1),
+                              );
+                          }}
+                          aria-disabled={activePage === totalPages}
+                          className={
+                            activePage === totalPages
+                              ? "pointer-events-none opacity-50"
+                              : ""
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              ) : null}
             </>
           )}
         </div>
@@ -301,11 +312,11 @@ export default function GalleryPage() {
                     className="w-full h-full max-h-[70vh] object-contain bg-black/5"
                   />
                 </div>
-                {selectedImage.caption && (
+                {selectedImage.caption ? (
                   <p className="text-sm text-muted-foreground">
                     {selectedImage.caption}
                   </p>
-                )}
+                ) : null}
               </div>
             </>
           )}

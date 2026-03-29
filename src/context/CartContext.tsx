@@ -17,14 +17,14 @@ import {
   updateCartItemApi,
   removeCartItemApi,
   clearCartApi,
-  mapBackendToFrontendProduct,
+  mapBackendCartItemToProduct,
 } from "@/lib/api/cart";
 import {
   fetchWishlist,
   toggleWishlistApi,
   removeWishlistItemApi,
   clearWishlistApi,
-  mapWishlistBackendToFrontendProduct,
+  mapWishlistItemToProduct,
 } from "@/lib/api/wishlist";
 
 export interface CartItem {
@@ -79,15 +79,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           setCartItems(
             cartData.items.map((item) => ({
               itemId: item.id,
-              product: item.product ? mapBackendToFrontendProduct(item.product) : {} as Product,
+              product: mapBackendCartItemToProduct(item),
               quantity: item.quantity,
             })),
           );
 
           setWishlistItems(
-            wishlistData.items.map((item) =>
-              item.product ? mapWishlistBackendToFrontendProduct(item.product) : {} as Product,
-            ),
+            wishlistData.items.map((item) => mapWishlistItemToProduct(item)),
           );
         } catch (error) {
           console.error("Failed to sync cart/wishlist with backend:", error);
@@ -109,11 +107,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     async (product: Product, qty = 1) => {
       if (isAuthenticated) {
         try {
-          const updatedCart = await addToCartApi(product.id, qty);
+          const updatedCart = await addToCartApi(
+            product.artisanProductId
+              ? { artisanProductId: product.artisanProductId, quantity: qty }
+              : { productId: product.id, quantity: qty },
+          );
           setCartItems(
             updatedCart.items.map((item) => ({
               itemId: item.id,
-              product: item.product ? mapBackendToFrontendProduct(item.product) : {} as Product,
+              product: mapBackendCartItemToProduct(item),
               quantity: item.quantity,
             })),
           );
@@ -153,7 +155,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
             setCartItems(
               updatedCart.items.map((i) => ({
                 itemId: i.id,
-                product: i.product ? mapBackendToFrontendProduct(i.product) : {} as Product,
+                product: mapBackendCartItemToProduct(i),
                 quantity: i.quantity,
               })),
             );
@@ -179,7 +181,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
             setCartItems(
               updatedCart.items.map((i) => ({
                 itemId: i.id,
-                product: i.product ? mapBackendToFrontendProduct(i.product) : {} as Product,
+                product: mapBackendCartItemToProduct(i),
                 quantity: i.quantity,
               })),
             );
@@ -219,13 +221,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     async (product: Product) => {
       if (isAuthenticated) {
         try {
-          const { added, wishlist } = await toggleWishlistApi(product.id);
+          const result = await toggleWishlistApi(
+            product.artisanProductId
+              ? { artisanProductId: product.artisanProductId }
+              : { productId: product.id },
+          );
           setWishlistItems(
-            wishlist.items.map((item) =>
-              item.product ? mapWishlistBackendToFrontendProduct(item.product) : {} as Product,
+            (result.items ?? []).map((item) =>
+              mapWishlistItemToProduct(item as any),
             ),
           );
-          if (added) {
+          if (result.added) {
             toast.success("Added to wishlist");
           } else {
             toast.info("Removed from wishlist");
@@ -256,11 +262,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     async (productId: string) => {
       if (isAuthenticated) {
         try {
-          const updatedWishlist = await removeWishlistItemApi(productId);
+          const productMeta = wishlistItems.find((p) => p.id === productId);
+          const updatedWishlist = await removeWishlistItemApi(
+            productId,
+            productMeta?.artisanProductId
+              ? { artisanProductId: productMeta.artisanProductId }
+              : undefined,
+          );
           setWishlistItems(
-            updatedWishlist.items.map((item) =>
-              item.product ? mapWishlistBackendToFrontendProduct(item.product) : {} as Product,
-            ),
+            updatedWishlist.items.map((item) => mapWishlistItemToProduct(item as any)),
           );
         } catch (error) {
           toast.error("Failed to remove from wishlist");

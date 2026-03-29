@@ -307,6 +307,35 @@ export async function fetchCertificate(enrollmentId: string): Promise<any> {
   return response.data.data;
 }
 
+/** Matches backend `validateCertificate` payload (see training service). */
+export interface CertificateValidationResult {
+  valid: boolean;
+  message?: string;
+  certificateNumber?: string;
+  participantName?: string;
+  programTitle?: string | Record<string, string>;
+  issuedAt?: string;
+  completionPercentage?: number;
+  status?: string;
+}
+
+/** Public — no auth required. */
+export async function validateCertificateNumber(
+  certificateNumber: string,
+): Promise<CertificateValidationResult> {
+  const trimmed = certificateNumber.trim();
+  if (!trimmed) {
+    return { valid: false, message: "Missing certificate number" };
+  }
+  const response = await apiClient.get<
+    ApiSuccessResponse<CertificateValidationResult>
+  >(`/training-programs/certificates/validate/${encodeURIComponent(trimmed)}`);
+  return (response.data.data as CertificateValidationResult) ?? {
+    valid: false,
+    message: "No response",
+  };
+}
+
 export interface ProgressResult {
   enrollmentId: string;
   status: string;

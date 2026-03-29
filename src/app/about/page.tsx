@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Users,
   Leaf,
@@ -19,7 +20,7 @@ import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { getAboutGalleryImages, getAboutTeamMembers } from "@/lib/about-store";
+import { getAboutTeamMembers } from "@/lib/about-store";
 import {
   Dialog,
   DialogContent,
@@ -27,21 +28,38 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import type { AboutGalleryImage } from "@/data/site";
+import {
+  fetchPublicGallery,
+  galleryImageDisplayUrl,
+} from "@/lib/api/gallery";
+import { toSiteRelativeMediaSrc } from "@/lib/media-url";
+
+type GalleryTile = { id: string; url: string; caption?: string };
 
 const AboutPage = () => {
   const teamMembers = getAboutTeamMembers();
-  const rawGallery = getAboutGalleryImages();
-  const galleryImages: AboutGalleryImage[] = rawGallery.map((img, index) =>
-    typeof img === "string" ? { id: `about-gallery-${index}`, url: img } : img,
-  );
+  const galleryQuery = useQuery({
+    queryKey: ["public-gallery", "about"],
+    queryFn: () => fetchPublicGallery({ limit: 48 }),
+  });
 
-  const [selectedImage, setSelectedImage] = useState<AboutGalleryImage | null>(
-    null,
-  );
+  const galleryImages: GalleryTile[] = useMemo(() => {
+    const imgs = galleryQuery.data?.images ?? [];
+    return [...imgs]
+      .filter((g) => g.isActive !== false)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map((g) => ({
+        id: g.id,
+        url: galleryImageDisplayUrl(g),
+        caption:
+          g.caption?.en || g.caption?.rw || g.caption?.fr || undefined,
+      }));
+  }, [galleryQuery.data?.images]);
+
+  const [selectedImage, setSelectedImage] = useState<GalleryTile | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
 
-  const handleOpenImage = (image: AboutGalleryImage) => {
+  const handleOpenImage = (image: GalleryTile) => {
     setSelectedImage(image);
     setGalleryOpen(true);
   };
@@ -224,7 +242,7 @@ const AboutPage = () => {
               >
                 <div className="relative w-full aspect-square mb-6 rounded-3xl overflow-hidden shadow-lg">
                   <Image
-                    src={member.image}
+                    src={toSiteRelativeMediaSrc(member.image)}
                     alt={member.name}
                     fill
                     unoptimized
@@ -317,24 +335,34 @@ const AboutPage = () => {
             </p>
           </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto px-2 pb-2 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-2 md:overflow-visible">
-          {galleryImages.map((img) => (
-            <button
-              key={img.id}
-              type="button"
-              className="relative aspect-square group overflow-hidden cursor-zoom-in min-w-[45%] md:min-w-0 snap-start focus:outline-none"
-              onClick={() => handleOpenImage(img)}
-            >
-              <Image
-                src={img.url}
-                alt={img.caption || "Gallery image"}
-                fill
-                unoptimized
-                sizes="(min-width: 1024px) 16vw, 45vw"
-                className="w-full h-full object-cover group-hover:scale-125 transition-transform duration-1000 brightness-90 group-hover:brightness-110"
-              />
-            </button>
-          ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3 px-1">
+          {galleryQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground py-8 px-4 col-span-full text-center">
+              Loading gallery…
+            </p>
+          ) : galleryImages.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 px-4 col-span-full text-center">
+              Gallery photos will appear here when added in admin.
+            </p>
+          ) : (
+            galleryImages.map((img) => (
+              <button
+                key={img.id}
+                type="button"
+                className="relative aspect-square group overflow-hidden cursor-zoom-in rounded-xl border border-border/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                onClick={() => handleOpenImage(img)}
+              >
+                <Image
+                  src={img.url}
+                  alt={img.caption || "Gallery image"}
+                  fill
+                  unoptimized
+                  sizes="(min-width: 1024px) 12vw, 30vw"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              </button>
+            ))
+          )}
         </div>
         <div className="container px-4 mx-auto mt-10 flex justify-center">
           <Button asChild size="lg" className="font-bold">

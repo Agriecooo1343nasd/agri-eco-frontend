@@ -23,6 +23,7 @@ type Module = {
     id: string;
     title?: MultiLangText;
     description?: MultiLangText;
+    questions?: unknown[];
   };
 };
 
@@ -60,6 +61,13 @@ type ModuleProgress = {
 type ProgressData = {
   completionPercentage: number;
   moduleProgress: ModuleProgress[];
+  quizScores?: Array<{
+    quizId: string;
+    title: string;
+    score: number;
+    maxScore: number;
+    attemptedAt: string;
+  }>;
 };
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -72,6 +80,7 @@ import {
   fetchMyEnrollments,
   fetchProgress,
   updateProgress,
+  type QuizScoreItem,
 } from "@/lib/api/education";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
@@ -177,15 +186,45 @@ export default function ProgramDetail() {
       queryClient.invalidateQueries({
         queryKey: ["programProgress", activeEnrollment?.id],
       });
+      queryClient.invalidateQueries({ queryKey: ["myEnrollments"] });
     },
   });
 
   const handleModuleComplete = (
-    moduleId: string,
-    title: string,
+    module: Module,
     currentlyCompleted: boolean,
   ) => {
+    const moduleId = module.id;
+    const title = t(module.title);
     if (!activeEnrollment?.id || !progressData) return;
+
+    if (currentlyCompleted) {
+      toast.info(
+        t({
+          en: "This module is already marked complete. Progress cannot be undone here.",
+          rw: "Iri somo ryamaze kwemezwa. Ntushobora kurihinduranya.",
+        }),
+      );
+      return;
+    }
+
+    const quizQuestions = module.quiz?.questions;
+    const nq = Array.isArray(quizQuestions) ? quizQuestions.length : 0;
+    if (!currentlyCompleted && nq > 0) {
+      const passNeed = Math.max(1, Math.ceil(nq * 0.6));
+      const scoreEntry = progressData.quizScores?.find(
+        (q) => q.quizId === moduleId,
+      );
+      if (!scoreEntry || scoreEntry.score < passNeed) {
+        toast.error(
+          t({
+            en: "Pass the module quiz before marking this module complete.",
+            rw: "Banza usuzuze isuzumabumenyi mbere yo kwemeza isomo.",
+          }),
+        );
+        return;
+      }
+    }
 
     const currentProgress = progressData.moduleProgress || [];
     let updatedProgress = [...currentProgress];
@@ -214,6 +253,9 @@ export default function ProgramDetail() {
   const [certDialogOpen, setCertDialogOpen] = useState(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
+  const [activeQuizModuleId, setActiveQuizModuleId] = useState<string | null>(
+    null,
+  );
   const [paymentMethod, setPaymentMethod] = useState<"momo" | "card">("momo");
   const [enrolling, setEnrolling] = useState(false);
   const certRef = useRef<HTMLDivElement>(null);
@@ -232,11 +274,12 @@ export default function ProgramDetail() {
         ? q.correctOption
         : undefined;
 
-  const startQuiz = (quiz: any) => {
+  const startQuiz = (quiz: any, moduleId: string) => {
     if (!quiz) {
       console.warn("No quiz data found for this module.", quiz);
       return;
     }
+    setActiveQuizModuleId(moduleId);
     setActiveQuiz(quiz);
     setQuizDialogOpen(true);
     setQuizStep(0);
@@ -270,10 +313,10 @@ export default function ProgramDetail() {
     // Persist quiz score to backend progress if enrolled
     if (activeEnrollment?.id && progressData) {
       const prevQuizScores = progressData.quizScores || [];
-      // Only one quiz per module, so use quiz.id as unique
       const maxScore = activeQuiz.questions.length;
-      const quizScoreItem = {
-        quizId: activeQuiz.id,
+      const quizKey = activeQuizModuleId || activeQuiz.id;
+      const quizScoreItem: QuizScoreItem = {
+        quizId: quizKey,
         title:
           typeof activeQuiz.title === "string"
             ? activeQuiz.title
@@ -282,9 +325,8 @@ export default function ProgramDetail() {
         maxScore,
         attemptedAt: new Date().toISOString(),
       };
-      // Replace or add
       const updatedQuizScores = [
-        ...prevQuizScores.filter((q: any) => q.quizId !== activeQuiz.id),
+        ...prevQuizScores.filter((q: any) => q.quizId !== quizKey),
         quizScoreItem,
       ];
       updateProgressMutation.mutate({ quizScores: updatedQuizScores });
@@ -465,6 +507,10 @@ export default function ProgramDetail() {
       progressData.completionPercentage >= 100) ||
     activeEnrollment?.status === "completed";
 
+  const canAccessCertificateUi =
+    activeEnrollment?.status === "completed" ||
+    Boolean(activeEnrollment?.certificateNumber?.trim());
+
   const toggleModule = (moduleId: string) => {
     setExpandedModule(expandedModule === moduleId ? null : moduleId);
   };
@@ -615,6 +661,24 @@ export default function ProgramDetail() {
                   rw: program.status === "open" ? "Bifunguye" : program.status,
                 })}
               </Badge>
+              {isEnrolled &&
+                progressData &&
+                typeof progressData.completionPercentage === "number" && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs border-card/40 text-card gap-1.5"
+                  >
+                    <span className="text-card/80">
+                      {t({ en: "Your progress", rw: "Intambwe yawe" })}
+                    </span>
+                    <span className="font-bold text-primary-foreground tabular-nums">
+                      {Math.round(
+                        Math.min(100, Math.max(0, progressData.completionPercentage)),
+                      )}
+                      %
+                    </span>
+                  </Badge>
+                )}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold font-heading text-card mb-2">
               {t(program.title)}
@@ -763,33 +827,17 @@ export default function ProgramDetail() {
                               <div>
                                 <h4 className="font-semibold text-foreground text-sm flex items-center gap-2">
                                   {t(mod.title)}
-                                  {isEnrolled && activeEnrollment && (
-                                    <div
-                                      className="ml-2 cursor-pointer z-10"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const isCompleted =
-                                          progressData?.moduleProgress?.find(
-                                            (p: ModuleProgress) =>
-                                              p.moduleId === mod.id,
-                                          )?.completed;
-                                        handleModuleComplete(
-                                          mod.id,
-                                          t(mod.title),
-                                          isCompleted || false,
-                                        );
-                                      }}
-                                    >
-                                      {progressData?.moduleProgress?.find(
-                                        (p: ModuleProgress) =>
-                                          p.moduleId === mod.id,
-                                      )?.completed ? (
-                                        <CheckCircle className="h-4 w-4 text-green-500" />
-                                      ) : (
-                                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 hover:border-primary transition-colors" />
-                                      )}
-                                    </div>
-                                  )}
+                                  {isEnrolled &&
+                                    activeEnrollment &&
+                                    progressData?.moduleProgress?.find(
+                                      (p: ModuleProgress) =>
+                                        p.moduleId === mod.id,
+                                    )?.completed && (
+                                      <CheckCircle
+                                        className="h-4 w-4 text-green-500 shrink-0"
+                                        aria-hidden
+                                      />
+                                    )}
                                 </h4>
                                 <p className="text-xs text-muted-foreground">
                                   {t(mod.duration)} • {mod.contentBlocks.length}{" "}
@@ -965,7 +1013,9 @@ export default function ProgramDetail() {
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => startQuiz(mod.quiz)}
+                                      onClick={() =>
+                                        startQuiz(mod.quiz, mod.id)
+                                      }
                                       className="mt-3 gap-1.5 text-xs h-8 text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-900/50 dark:hover:bg-green-900/20"
                                     >
                                       <Brain className="h-3.5 w-3.5" />
@@ -978,6 +1028,84 @@ export default function ProgramDetail() {
                                 </div>
                               </div>
                             )}
+
+                          {isEnrolled && expandedModule === mod.id && (
+                            <div className="border-t border-border p-4 bg-card/50">
+                              {progressData?.moduleProgress?.find(
+                                (p: ModuleProgress) => p.moduleId === mod.id,
+                              )?.completed ? (
+                                <div className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
+                                  <CheckCircle className="h-4 w-4 shrink-0" />
+                                  {t({
+                                    en: "Module completed",
+                                    rw: "Isomo ryarangiye",
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {(() => {
+                                    const nq = Array.isArray(mod.quiz?.questions)
+                                      ? mod.quiz!.questions!.length
+                                      : 0;
+                                    const passNeed = Math.max(
+                                      1,
+                                      Math.ceil(nq * 0.6),
+                                    );
+                                    const scoreEntry =
+                                      progressData?.quizScores?.find(
+                                        (q) => q.quizId === mod.id,
+                                      );
+                                    const quizPassed =
+                                      nq === 0 ||
+                                      (scoreEntry &&
+                                        scoreEntry.score >= passNeed);
+                                    return nq > 0 && !quizPassed ? (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        {t({
+                                          en: `Pass the module quiz (at least ${passNeed}/${nq} correct) to unlock completion.`,
+                                          rw: "Suzuma neza mbere yo kwemeza isomo.",
+                                        })}
+                                      </p>
+                                    ) : null;
+                                  })()}
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="w-full sm:w-auto gap-2 text-xs h-9"
+                                    disabled={(() => {
+                                      const nq = Array.isArray(
+                                        mod.quiz?.questions,
+                                      )
+                                        ? mod.quiz!.questions!.length
+                                        : 0;
+                                      if (nq === 0) return false;
+                                      const passNeed = Math.max(
+                                        1,
+                                        Math.ceil(nq * 0.6),
+                                      );
+                                      const scoreEntry =
+                                        progressData?.quizScores?.find(
+                                          (q) => q.quizId === mod.id,
+                                        );
+                                      return (
+                                        !scoreEntry ||
+                                        scoreEntry.score < passNeed
+                                      );
+                                    })()}
+                                    onClick={() =>
+                                      handleModuleComplete(mod, false)
+                                    }
+                                  >
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                    {t({
+                                      en: "Mark module as complete",
+                                      rw: "Emeza ko wasoje isomo",
+                                    })}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -985,9 +1113,7 @@ export default function ProgramDetail() {
                 </div>
 
                 {/* Certificate Section */}
-                {program.certificate &&
-                  typeof progressData?.completionPercentage === "number" &&
-                  progressData.completionPercentage >= 100 && (
+                {program.certificate && canAccessCertificateUi && (
                     <div className="bg-card border border-border rounded-2xl p-6">
                       <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold font-heading text-foreground">
@@ -1167,6 +1293,42 @@ export default function ProgramDetail() {
                           <CheckCircle className="h-4 w-4" />{" "}
                           {t({ en: "You're Enrolled", rw: "Wiyandikishije" })}
                         </div>
+                        {progressData &&
+                          typeof progressData.completionPercentage ===
+                            "number" && (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-[11px] text-muted-foreground">
+                                <span>
+                                  {t({
+                                    en: "Course progress",
+                                    rw: "Inyigisho",
+                                  })}
+                                </span>
+                                <span className="font-semibold text-primary tabular-nums">
+                                  {Math.round(
+                                    Math.min(
+                                      100,
+                                      Math.max(
+                                        0,
+                                        progressData.completionPercentage,
+                                      ),
+                                    ),
+                                  )}
+                                  %
+                                </span>
+                              </div>
+                              <Progress
+                                value={Math.min(
+                                  100,
+                                  Math.max(
+                                    0,
+                                    progressData.completionPercentage,
+                                  ),
+                                )}
+                                className="h-2"
+                              />
+                            </div>
+                          )}
                         <Button
                           className="w-full gap-2 text-xs h-10"
                           size="sm"
@@ -1603,6 +1765,14 @@ export default function ProgramDetail() {
                 })}
               </DialogDescription>
             </DialogHeader>
+            {!activeEnrollment?.certificateNumber?.trim() ? (
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+                {t({
+                  en: "Your official certificate ID will appear here once the program is marked complete and issued by the platform.",
+                  rw: "Indangamuntu y'impamyabumenyi izagaragara iyi namara gahunda koherewe kandi yatangwa.",
+                })}
+              </p>
+            ) : null}
             <TrainingCertificateVisual
               ref={certRef}
               template={mergeTemplateWithDefaults(program.certificateTemplate)}
@@ -1639,7 +1809,13 @@ export default function ProgramDetail() {
         </Dialog>
       )}
 
-      <Dialog open={quizDialogOpen} onOpenChange={setQuizDialogOpen}>
+      <Dialog
+        open={quizDialogOpen}
+        onOpenChange={(open) => {
+          setQuizDialogOpen(open);
+          if (!open) setActiveQuizModuleId(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-border bg-card">
           <div className="p-6 bg-green-50/50 dark:bg-green-950/20 border-b border-border">
             <h2 className="text-lg font-bold font-heading flex items-center gap-2">

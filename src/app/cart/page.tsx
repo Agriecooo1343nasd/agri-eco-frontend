@@ -111,6 +111,7 @@ const CartPage = () => {
                             src={product.image}
                             alt={product.name}
                             fill
+                            unoptimized
                             className="object-cover"
                           />
                         </div>
