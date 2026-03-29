@@ -2,21 +2,24 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import {
   Award,
   Download,
   ExternalLink,
   Calendar,
   Loader2,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  fetchMyEnrollments,
-  type TrainingEnrollment,
+  fetchMyCertificates,
+  toAbsoluteEducationImage,
+  type MultiLangText,
+  type MyCertificate,
 } from "@/lib/api/education";
 import {
-  templateFromProgramField,
+  certificateTemplateFromApi,
   exportCertificateToPng,
 } from "@/lib/certificate-template";
 import { TrainingCertificateVisual } from "@/components/certificate/TrainingCertificateVisual";
@@ -32,19 +35,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-function hasIssuedCertificate(e: TrainingEnrollment): boolean {
-  return Boolean(e.certificateNumber?.trim() || e.certificateUrl);
-}
+const PAGE_SIZE = 20;
 
-function formatIssueDate(e: TrainingEnrollment): string {
-  if (e.certificateIssuedAt) {
-    return new Date(e.certificateIssuedAt).toLocaleDateString();
+function formatIssueDate(cert: MyCertificate): string {
+  if (cert.certificateIssuedAt) {
+    return new Date(cert.certificateIssuedAt).toLocaleDateString();
   }
-  return new Date(e.updatedAt).toLocaleDateString();
+  return "—";
 }
 
-function certificateIdFor(e: TrainingEnrollment): string {
-  return (e.certificateNumber?.trim() || e.id).trim();
+function certificateIdFor(cert: MyCertificate): string {
+  return (cert.certificateNumber?.trim() || cert.enrollmentId).trim();
+}
+
+function programTitle(cert: MyCertificate, t: (v: MultiLangText) => string): string {
+  const program = cert.program;
+  if (!program?.title) return program?.slug ?? "Program";
+  if (typeof program.title === "object" && program.title) {
+    return t(program.title as MultiLangText);
+  }
+  if (typeof program.title === "string") return program.title;
+  return program.slug ?? "Program";
 }
 
 export default function CertificatesPage() {
@@ -52,32 +63,25 @@ export default function CertificatesPage() {
   const { user } = useAuth();
   const exportDialogRef = useRef<HTMLDivElement>(null);
   const exportCaptureRef = useRef<HTMLDivElement>(null);
-  const [viewing, setViewing] = useState<TrainingEnrollment | null>(null);
-  const [capturing, setCapturing] = useState<TrainingEnrollment | null>(null);
+  const [viewing, setViewing] = useState<MyCertificate | null>(null);
+  const [capturing, setCapturing] = useState<MyCertificate | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const enrollmentsQuery = useQuery({
-    queryKey: ["myEnrollments", "certificates"],
-    queryFn: () =>
-      fetchMyEnrollments({
-        limit: 100,
-        page: 1,
-        sort: "createdAt",
-        order: "desc",
-      }),
+  const certificatesQuery = useInfiniteQuery({
+    queryKey: ["myCertificates"],
+    queryFn: ({ pageParam }) =>
+      fetchMyCertificates({ page: pageParam, limit: PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.pagination.hasNext ? last.pagination.page + 1 : undefined,
   });
 
-  const issuedList = useMemo(() => {
-    const rows = enrollmentsQuery.data?.data ?? [];
-    return rows.filter(
-      (e) => e.status === "completed" && hasIssuedCertificate(e),
-    );
-  }, [enrollmentsQuery.data?.data]);
+  const issuedList = useMemo(
+    () => certificatesQuery.data?.pages.flatMap((p) => p.data) ?? [],
+    [certificatesQuery.data?.pages],
+  );
 
-  async function runPngExport(
-    enrollment: TrainingEnrollment,
-    mode: "dialog" | "capture",
-  ) {
+  async function runPngExport(cert: MyCertificate, mode: "dialog" | "capture") {
     const node =
       mode === "dialog" ? exportDialogRef.current : exportCaptureRef.current;
     if (!node) {
@@ -90,8 +94,8 @@ export default function CertificatesPage() {
       const dataUrl = await exportCertificateToPng(node);
       const a = document.createElement("a");
       a.href = dataUrl;
-      const id = certificateIdFor(enrollment);
-      const slug = enrollment.trainingProgram?.slug ?? "program";
+      const id = certificateIdFor(cert);
+      const slug = cert.program?.slug ?? "program";
       a.download = `certificate-${id}-${slug}.png`;
       a.click();
       toast.success(
@@ -104,38 +108,39 @@ export default function CertificatesPage() {
     }
   }
 
-  async function handleDownloadFromList(enrollment: TrainingEnrollment) {
+  async function handleDownloadFromList(cert: MyCertificate) {
     setViewing(null);
-    setCapturing(enrollment);
-    setDownloadingId(enrollment.id);
+    setCapturing(cert);
+    setDownloadingId(cert.enrollmentId);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    await runPngExport(enrollment, "capture");
+    await runPngExport(cert, "capture");
     setCapturing(null);
     setDownloadingId(null);
   }
 
   async function handleDownloadFromDialog() {
     if (!viewing) return;
-    setDownloadingId(viewing.id);
+    setDownloadingId(viewing.enrollmentId);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     await runPngExport(viewing, "dialog");
     setDownloadingId(null);
   }
 
-  function visualProps(enrollment: TrainingEnrollment) {
+  function visualProps(cert: MyCertificate) {
     return {
-      template: templateFromProgramField(
-        enrollment.trainingProgram?.certificateTemplate,
-      ),
-      recipientName: enrollment.fullName || user?.name || "Participant",
-      issueDate: formatIssueDate(enrollment),
-      certificateId: certificateIdFor(enrollment),
+      template: certificateTemplateFromApi(cert.program?.certificateTemplate),
+      recipientName: cert.participantName || user?.name || "Participant",
+      issueDate: formatIssueDate(cert),
+      certificateId: certificateIdFor(cert),
       t,
     };
   }
 
-  if (enrollmentsQuery.isLoading) {
+  const recordUrl = (cert: MyCertificate) =>
+    toAbsoluteEducationImage(cert.certificateUrl);
+
+  if (certificatesQuery.isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -146,14 +151,24 @@ export default function CertificatesPage() {
     );
   }
 
-  if (enrollmentsQuery.isError) {
+  if (certificatesQuery.isError) {
     return (
       <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          {t({
-            en: "Could not load certificates. Please try again.",
-            rw: "Ntibyakunze. Ongera ugerageze.",
-          })}
+        <CardContent className="py-12 text-center text-sm text-muted-foreground space-y-4">
+          <p>
+            {t({
+              en: "Could not load certificates. Please try again.",
+              rw: "Ntibyakunze. Ongera ugerageze.",
+            })}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void certificatesQuery.refetch()}
+          >
+            {t({ en: "Retry", rw: "Ongera" })}
+          </Button>
         </CardContent>
       </Card>
     );
@@ -184,86 +199,123 @@ export default function CertificatesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {issuedList.map((enrollment) => {
-            const program = enrollment.trainingProgram;
-            const title =
-              typeof program?.title === "object" && program?.title
-                ? t(program.title)
-                : program?.slug ?? "Program";
-            const slug = program?.slug;
+        <>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {issuedList.map((cert) => {
+              const slug = cert.program?.slug;
+              const title = programTitle(cert, t);
 
-            return (
-              <Card
-                key={enrollment.id}
-                className="overflow-hidden hover:shadow-md transition-shadow"
-              >
-                <CardContent className="p-0">
-                  <div className="bg-gradient-to-br from-primary/10 via-secondary/5 to-primary/5 p-5 text-center border-b border-border relative">
-                    <Award className="h-10 w-10 text-primary mx-auto mb-2" />
-                    <h3 className="font-bold font-heading text-foreground text-sm line-clamp-2">
-                      {title}
-                    </h3>
-                    <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate px-2">
-                      {enrollment.certificateNumber ?? enrollment.id}
-                    </p>
-                  </div>
-                  <div className="p-4 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span className="min-w-0 truncate">
-                        {t({ en: "Recipient", rw: "Uwatanze" })}:{" "}
-                        <span className="text-foreground font-medium">
-                          {enrollment.fullName || user?.name || "—"}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-1 shrink-0">
-                        <Calendar className="h-3 w-3" />
-                        {formatIssueDate(enrollment)}
-                      </span>
+              return (
+                <Card
+                  key={cert.enrollmentId}
+                  className="overflow-hidden hover:shadow-md transition-shadow"
+                >
+                  <CardContent className="p-0">
+                    <div className="bg-gradient-to-br from-primary/10 via-secondary/5 to-primary/5 p-5 text-center border-b border-border relative">
+                      <Award className="h-10 w-10 text-primary mx-auto mb-2" />
+                      <h3 className="font-bold font-heading text-foreground text-sm line-clamp-2">
+                        {title}
+                      </h3>
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate px-2">
+                        {cert.certificateNumber ?? cert.enrollmentId}
+                      </p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 h-9 text-xs gap-1"
-                        onClick={() => setViewing(enrollment)}
-                      >
-                        <Award className="h-3 w-3" />
-                        {t({ en: "View", rw: "Reba" })}
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex-1 h-9 text-xs gap-1"
-                        disabled={downloadingId === enrollment.id}
-                        onClick={() => void handleDownloadFromList(enrollment)}
-                      >
-                        {downloadingId === enrollment.id ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Download className="h-3 w-3" />
-                        )}
-                        {t({ en: "Download PNG", rw: "Kuraho PNG" })}
-                      </Button>
-                      {slug ? (
+                    <div className="p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="min-w-0 truncate">
+                          {t({ en: "Recipient", rw: "Uwatanze" })}:{" "}
+                          <span className="text-foreground font-medium">
+                            {cert.participantName || user?.name || "—"}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Calendar className="h-3 w-3" />
+                          {formatIssueDate(cert)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 h-9 text-xs gap-1"
+                            onClick={() => setViewing(cert)}
+                          >
+                            <Award className="h-3 w-3" />
+                            {t({ en: "View", rw: "Reba" })}
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="flex-1 h-9 text-xs gap-1"
+                            disabled={downloadingId === cert.enrollmentId}
+                            onClick={() => void handleDownloadFromList(cert)}
+                          >
+                            {downloadingId === cert.enrollmentId ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Download className="h-3 w-3" />
+                            )}
+                            {t({ en: "Download PNG", rw: "Kuraho PNG" })}
+                          </Button>
+                          {slug ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9 text-xs gap-1 px-2 shrink-0"
+                              asChild
+                            >
+                              <Link href={`/education/program/${slug}`}>
+                                <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            </Button>
+                          ) : null}
+                        </div>
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           size="sm"
-                          className="h-9 text-xs gap-1 px-2 shrink-0"
+                          className="h-9 text-xs gap-1 w-full sm:w-auto"
                           asChild
                         >
-                          <Link href={`/education/program/${slug}`}>
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
+                          <a
+                            href={recordUrl(cert)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                          >
+                            <FileText className="h-3 w-3" />
+                            {t({
+                              en: "Open official record",
+                              rw: "Fungura inyandiko",
+                            })}
+                          </a>
                         </Button>
-                      ) : null}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {certificatesQuery.hasNextPage ? (
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={certificatesQuery.isFetchingNextPage}
+                onClick={() => void certificatesQuery.fetchNextPage()}
+                className="gap-2"
+              >
+                {certificatesQuery.isFetchingNextPage ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {t({ en: "Load more", rw: "Komeza" })}
+              </Button>
+            </div>
+          ) : null}
+        </>
       )}
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
@@ -285,19 +337,33 @@ export default function CertificatesPage() {
                 ref={exportDialogRef}
                 {...visualProps(viewing)}
               />
-              <div className="flex justify-center pt-4">
+              <div className="flex flex-col sm:flex-row justify-center gap-2 pt-4 flex-wrap">
                 <Button
                   variant="outline"
                   className="gap-2 text-xs h-10"
                   disabled={downloadingId !== null}
                   onClick={() => void handleDownloadFromDialog()}
                 >
-                  {downloadingId === viewing.id ? (
+                  {downloadingId === viewing.enrollmentId ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
                   {t({ en: "Download PNG", rw: "Kuraho PNG" })}
+                </Button>
+                <Button variant="secondary" className="gap-2 text-xs h-10" asChild>
+                  <a
+                    href={recordUrl(viewing)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                  >
+                    <FileText className="h-4 w-4" />
+                    {t({
+                      en: "Open official record",
+                      rw: "Fungura inyandiko",
+                    })}
+                  </a>
                 </Button>
               </div>
             </>

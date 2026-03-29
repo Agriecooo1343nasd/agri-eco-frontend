@@ -60,6 +60,24 @@ export function templateFromProgramField(
   };
 }
 
+/**
+ * Backend may send `certificateTemplate` as JSON string or JSONB object.
+ */
+export function certificateTemplateFromApi(
+  raw: unknown,
+): CertificateTemplateData {
+  if (raw == null || raw === "") {
+    return templateFromProgramField(null);
+  }
+  if (typeof raw === "string") {
+    return templateFromProgramField(raw);
+  }
+  if (typeof raw === "object" && raw !== null) {
+    return mergeTemplateWithDefaults(raw as Partial<CertificateTemplateData>);
+  }
+  return templateFromProgramField(null);
+}
+
 export function safeCertificateBadgeColor(color?: string): string {
   const fallback = DEFAULT_CERTIFICATE_TEMPLATE.badgeColor ?? "#15803d";
   if (!color || typeof color !== "string") return fallback;
