@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 
 function hasIssuedCertificate(e: TrainingEnrollment): boolean {
-  return Boolean(e.certificateNumber || e.certificateUrl);
+  return Boolean(e.certificateNumber?.trim() || e.certificateUrl);
 }
 
 function formatIssueDate(e: TrainingEnrollment): string {
@@ -69,7 +69,9 @@ export default function CertificatesPage() {
 
   const issuedList = useMemo(() => {
     const rows = enrollmentsQuery.data?.data ?? [];
-    return rows.filter(hasIssuedCertificate);
+    return rows.filter(
+      (e) => e.status === "completed" && hasIssuedCertificate(e),
+    );
   }, [enrollmentsQuery.data?.data]);
 
   async function runPngExport(

@@ -301,7 +301,8 @@ export default function Enrollments() {
                                     {t({ en: "Review Course", rw: "Gusubiramo" })}
                                   </Link>
                                 </Button>
-                                {item.completionPercentage >= 100 && (
+                                {(item.certificateNumber?.trim() ||
+                                  item.certificateUrl) && (
                                   <Button 
                                     variant="secondary" 
                                     size="sm" 

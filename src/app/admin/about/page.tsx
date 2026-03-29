@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, ChangeEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
   Image as ImageIcon,
@@ -32,21 +33,36 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  createGalleryImage,
   createTeamMember,
-  getAboutGalleryImages,
   getAboutTeamMembers,
-  saveAboutGalleryImages,
   saveAboutTeamMembers,
 } from "@/lib/about-store";
-import type { AboutGalleryImage, AboutTeamMember } from "@/data/site";
+import type { AboutTeamMember } from "@/data/site";
+import {
+  fetchAdminGalleryAll,
+  createGalleryImage,
+  updateGalleryImage,
+  deleteGalleryImage,
+  galleryImageDisplayUrl,
+  type GalleryImage,
+} from "@/lib/api/gallery";
+import { uploadSingleImage } from "@/lib/api/uploads";
+import { toSiteRelativeMediaSrc } from "@/lib/media-url";
 
 export default function AdminAboutPage() {
+  const queryClient = useQueryClient();
+  const galleryQuery = useQuery({
+    queryKey: ["admin-gallery"],
+    queryFn: () => fetchAdminGalleryAll({ limit: 200 }),
+  });
+
+  const galleryRows = useMemo(() => {
+    const imgs = galleryQuery.data?.images ?? [];
+    return [...imgs].sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [galleryQuery.data?.images]);
+
   const [team, setTeam] = useState<AboutTeamMember[]>(() =>
     getAboutTeamMembers(),
-  );
-  const [gallery, setGallery] = useState<AboutGalleryImage[]>(() =>
-    getAboutGalleryImages(),
   );
 
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
@@ -63,9 +79,7 @@ export default function AdminAboutPage() {
   });
 
   const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
-  const [editingImage, setEditingImage] = useState<AboutGalleryImage | null>(
-    null,
-  );
+  const [editingImage, setEditingImage] = useState<GalleryImage | null>(null);
   const [galleryForm, setGalleryForm] = useState({
     url: "",
     caption: "",
@@ -75,7 +89,7 @@ export default function AdminAboutPage() {
   const [galleryPage, setGalleryPage] = useState(1);
 
   const TEAM_PAGE_SIZE = 6;
-  const GALLERY_PAGE_SIZE = 8;
+  const GALLERY_PAGE_SIZE = 12;
 
   const totalContacts = useMemo(
     () => team.filter((m) => m.email || m.phone).length,
@@ -85,7 +99,7 @@ export default function AdminAboutPage() {
   const totalTeamPages = Math.max(1, Math.ceil(team.length / TEAM_PAGE_SIZE));
   const totalGalleryPages = Math.max(
     1,
-    Math.ceil(gallery.length / GALLERY_PAGE_SIZE),
+    Math.ceil(galleryRows.length / GALLERY_PAGE_SIZE),
   );
 
   const paginatedTeam = useMemo(() => {
@@ -95,8 +109,8 @@ export default function AdminAboutPage() {
 
   const paginatedGallery = useMemo(() => {
     const start = (galleryPage - 1) * GALLERY_PAGE_SIZE;
-    return gallery.slice(start, start + GALLERY_PAGE_SIZE);
-  }, [gallery, galleryPage]);
+    return galleryRows.slice(start, start + GALLERY_PAGE_SIZE);
+  }, [galleryRows, galleryPage]);
 
   const openNewMember = () => {
     setEditingMember(null);
@@ -193,53 +207,64 @@ export default function AdminAboutPage() {
     setGalleryPage(1);
   };
 
-  const openEditImage = (image: AboutGalleryImage) => {
+  const openEditImage = (image: GalleryImage) => {
     setEditingImage(image);
     setGalleryForm({
-      url: image.url,
-      caption: image.caption ?? "",
+      url: image.imageUrl,
+      caption: image.caption?.en ?? "",
     });
     setGalleryDialogOpen(true);
   };
 
-  const handleSaveImage = () => {
+  const handleSaveImage = async () => {
     if (!galleryForm.url.trim()) {
       toast.error("Image URL is required for gallery items.");
       return;
     }
 
-    let nextGallery: AboutGalleryImage[];
-    if (editingImage) {
-      nextGallery = gallery.map((image) =>
-        image.id === editingImage.id
-          ? {
-              ...image,
-              url: galleryForm.url.trim(),
-              caption: galleryForm.caption.trim() || undefined,
-            }
-          : image,
-      );
-      toast.success("Gallery image updated.");
-    } else {
-      const created = createGalleryImage({
-        url: galleryForm.url.trim(),
-        caption: galleryForm.caption.trim() || undefined,
-      });
-      nextGallery = [created, ...gallery];
-      toast.success("Image added to About gallery.");
-    }
+    const captionEn = galleryForm.caption.trim();
+    const caption = captionEn ? { en: captionEn } : undefined;
 
-    setGallery(nextGallery);
-    saveAboutGalleryImages(nextGallery);
-    setGalleryDialogOpen(false);
-    setEditingImage(null);
+    try {
+      if (editingImage) {
+        await updateGalleryImage(editingImage.id, {
+          imageUrl: galleryForm.url.trim(),
+          caption,
+        });
+        toast.success("Gallery image updated.");
+      } else {
+        const maxOrder = galleryRows.reduce(
+          (m, g) => Math.max(m, g.sortOrder ?? 0),
+          -1,
+        );
+        await createGalleryImage({
+          imageUrl: galleryForm.url.trim(),
+          caption,
+          sortOrder: maxOrder + 1,
+          isActive: true,
+        });
+        toast.success("Image added to gallery.");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-gallery"] });
+      setGalleryDialogOpen(false);
+      setEditingImage(null);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not save gallery image.",
+      );
+    }
   };
 
-  const handleDeleteImage = (id: string) => {
-    const remaining = gallery.filter((image) => image.id !== id);
-    setGallery(remaining);
-    saveAboutGalleryImages(remaining);
-    toast.success("Gallery image removed.");
+  const handleDeleteImage = async (id: string) => {
+    try {
+      await deleteGalleryImage(id);
+      await queryClient.invalidateQueries({ queryKey: ["admin-gallery"] });
+      toast.success("Gallery image removed.");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not delete gallery image.",
+      );
+    }
   };
 
   const handleMemberImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -255,17 +280,28 @@ export default function AdminAboutPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleGalleryImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryImageUpload = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        setGalleryForm((prev) => ({ ...prev, url: result }));
+    try {
+      const uploaded = await uploadSingleImage(file);
+      const path = uploaded.path?.trim();
+      if (!path) {
+        toast.error("Upload did not return a file path.");
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      setGalleryForm((prev) => ({
+        ...prev,
+        url: path,
+      }));
+      toast.success("Image uploaded — path saved.");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Upload failed. Try a URL instead.",
+      );
+    }
   };
 
   return (
@@ -438,7 +474,7 @@ export default function AdminAboutPage() {
                   <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
                     Gallery Images
                   </p>
-                  <p className="text-lg font-black">{gallery.length}</p>
+                  <p className="text-lg font-black">{galleryRows.length}</p>
                 </div>
               </div>
             </div>
@@ -470,7 +506,15 @@ export default function AdminAboutPage() {
           </Button>
         </CardHeader>
         <CardContent className="p-6 pt-4 space-y-4">
-          {gallery.length === 0 ? (
+          {galleryQuery.isLoading ? (
+            <div className="flex justify-center py-12 text-sm text-muted-foreground">
+              Loading gallery…
+            </div>
+          ) : galleryQuery.isError ? (
+            <div className="text-center py-10 text-sm text-destructive">
+              Could not load gallery from the server.
+            </div>
+          ) : galleryRows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-border rounded-xl">
               <ImageIcon className="h-10 w-10 text-muted-foreground mb-3" />
               <p className="font-bold text-sm">
@@ -482,31 +526,34 @@ export default function AdminAboutPage() {
               </p>
             </div>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {paginatedGallery.map((image) => (
                 <div
                   key={image.id}
-                  className="min-w-45 max-w-55 rounded-xl border border-border overflow-hidden bg-card flex flex-col"
+                  className="rounded-xl border border-border overflow-hidden bg-card flex flex-col shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <div className="h-28 w-full overflow-hidden">
+                  <div className="relative aspect-square w-full overflow-hidden bg-muted">
                     <img
-                      src={image.url}
-                      alt={image.caption ?? "Gallery image"}
-                      className="w-full h-full object-cover"
+                      src={galleryImageDisplayUrl(image)}
+                      alt={image.caption?.en ?? "Gallery image"}
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
                   </div>
-                  <div className="p-3 space-y-2 flex-1 flex flex-col">
-                    <p className="text-[11px] text-muted-foreground line-clamp-3">
-                      {image.caption || "No caption provided."}
+                  <div className="p-2.5 sm:p-3 space-y-2 flex-1 flex flex-col min-w-0">
+                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">
+                      {image.caption?.en ||
+                        image.caption?.rw ||
+                        image.caption?.fr ||
+                        "No caption"}
                     </p>
-                    <p className="text-[10px] text-muted-foreground/60 break-all">
-                      {image.url}
+                    <p className="text-[10px] text-muted-foreground/70 truncate font-mono">
+                      {image.imageUrl}
                     </p>
-                    <div className="flex items-center justify-end gap-2 pt-2 mt-auto">
+                    <div className="flex items-center justify-end gap-1.5 pt-1 mt-auto">
                       <Button
                         size="icon"
                         variant="outline"
-                        className="h-8 w-8 rounded-lg"
+                        className="h-8 w-8 rounded-lg shrink-0"
                         onClick={() => openEditImage(image)}
                       >
                         <Edit className="h-3.5 w-3.5" />
@@ -514,7 +561,7 @@ export default function AdminAboutPage() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"
+                        className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 shrink-0"
                         onClick={() => handleDeleteImage(image.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -703,7 +750,7 @@ export default function AdminAboutPage() {
                 <div className="mt-3 flex items-center gap-3">
                   <div className="w-20 h-20 rounded-lg overflow-hidden border border-border">
                     <img
-                      src={galleryForm.url}
+                      src={toSiteRelativeMediaSrc(galleryForm.url)}
                       alt="Preview"
                       className="w-full h-full object-cover"
                     />

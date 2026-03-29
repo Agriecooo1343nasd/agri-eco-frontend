@@ -32,6 +32,8 @@ export interface Product {
     date: string;
     comment: string;
   }>;
+  /** When set, cart/wishlist APIs use `artisanProductId` instead of shop `productId`. */
+  artisanProductId?: string;
 }
 
 interface ProductCardProps {

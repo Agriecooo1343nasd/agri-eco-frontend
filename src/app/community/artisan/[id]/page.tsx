@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
+import type { Product } from "@/components/ProductCard";
 import {
   ArrowLeft,
   MapPin,
@@ -55,7 +56,8 @@ export default function ArtisanProfilePage({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   
-  const { addToCart } = useCart();
+  const { addToCart, addToWishlist, removeFromWishlist, isInWishlist } =
+    useCart();
   const { formatPrice } = usePricing();
   const [contactOpen, setContactOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -134,20 +136,34 @@ export default function ArtisanProfilePage({
     return text && typeof text === "object" && text[lang as any];
   };
 
+  const toCartProduct = (product: AdminArtisanProduct): Product => ({
+    id: product.id,
+    artisanProductId: product.id,
+    slug: `artisan-product-${product.id}`,
+    name: getLangText(product.name),
+    price: product.price || 0,
+    image: toAbsoluteArtisanImage(product.image),
+    rating: 5,
+    category: artisan.specialty,
+    unit: "piece",
+    stock: product.stock,
+  });
+
   const handleAddToCart = (product: AdminArtisanProduct) => {
-    addToCart({
-      id: product.id,
-      slug: product.id,
-      name: getLangText(product.name),
-      price: product.price || 0,
-      image: toAbsoluteArtisanImage(product.image),
-      rating: 5,
-      category: artisan.specialty,
-      unit: "piece",
-    });
+    addToCart(toCartProduct(product));
     toast.success("Added to Cart", {
       description: `${getLangText(product.name)} has been added to your cart.`,
     });
+  };
+
+  const handleToggleWishlist = (product: AdminArtisanProduct) => {
+    const p = toCartProduct(product);
+    if (isInWishlist(p.id)) {
+      void removeFromWishlist(p.id);
+      toast.info("Removed from wishlist");
+    } else {
+      void addToWishlist(p);
+    }
   };
 
   const handleShare = () => {
@@ -325,8 +341,20 @@ export default function ArtisanProfilePage({
                             >
                               <ShoppingBag className="h-3.5 w-3.5" /> Add to Cart
                             </Button>
-                            <Button variant="outline" size="sm" className="px-3">
-                              <Heart className="h-3.5 w-3.5" />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="px-3"
+                              onClick={() => handleToggleWishlist(product)}
+                              aria-label={
+                                isInWishlist(product.id)
+                                  ? "Remove from wishlist"
+                                  : "Add to wishlist"
+                              }
+                            >
+                              <Heart
+                                className={`h-3.5 w-3.5 ${isInWishlist(product.id) ? "fill-primary text-primary" : ""}`}
+                              />
                             </Button>
                           </div>
                         </div>

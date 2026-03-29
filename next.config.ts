@@ -43,6 +43,22 @@ const mediaOrigin = toApiOrigin(apiBaseUrl);
 const proxyOrigin = resolveProxyOrigin();
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "5000",
+        pathname: "/uploads/**",
+      },
+      {
+        protocol: "http",
+        hostname: "194.163.182.85",
+        port: "5000",
+        pathname: "/uploads/**",
+      },
+    ],
+  },
   async rewrites() {
     return [
       {
