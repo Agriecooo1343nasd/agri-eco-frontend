@@ -112,9 +112,8 @@ import {
   Smartphone,
   Lock,
   Brain,
-  ChevronRight,
-  RotateCcw,
   Star,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -362,7 +361,11 @@ export default function ProgramDetail() {
     pendingEnrollment,
   ]);
 
-  const { data: programReviewsResult } = useQuery({
+  const {
+    data: programReviewsResult,
+    isLoading: isLoadingReviews,
+    isError: isErrorReviews,
+  } = useQuery({
     queryKey: ["program-reviews", apiProgram?.id],
     queryFn: () =>
       fetchProgramReviews(apiProgram!.id, {
@@ -1224,6 +1227,18 @@ export default function ProgramDetail() {
                       <p className="text-sm font-semibold text-foreground">
                         Your review ({myProgramReview.rating}/5)
                       </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-3.5 w-3.5 ${
+                              star <= myProgramReview.rating
+                                ? "fill-amber-500 text-amber-500"
+                                : "text-muted-foreground/40"
+                            }`}
+                          />
+                        ))}
+                      </div>
                       {[myProgramReview.title, myProgramReview.comment].filter(Boolean)
                         .length > 0 ? (
                         <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -1236,16 +1251,36 @@ export default function ProgramDetail() {
                   ) : null}
 
                   <div className="space-y-2">
-                    {publicProgramReviews.length === 0 ? (
+                    {isLoadingReviews ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading reviews…
+                      </div>
+                    ) : isErrorReviews ? (
+                      <p className="text-xs text-muted-foreground">
+                        Could not load reviews right now.
+                      </p>
+                    ) : publicProgramReviews.length === 0 ? (
                       <p className="text-xs text-muted-foreground">No public reviews yet.</p>
                     ) : (
                       publicProgramReviews.slice(0, 6).map((review) => (
                         <div key={review.id} className="rounded-lg border border-border p-3">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-foreground">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-foreground truncate">
                               {review.user?.username || "Student"}
                             </p>
-                            <p className="text-xs text-muted-foreground">{review.rating}/5</p>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-3.5 w-3.5 ${
+                                    star <= review.rating
+                                      ? "fill-amber-500 text-amber-500"
+                                      : "text-muted-foreground/40"
+                                  }`}
+                                />
+                              ))}
+                            </div>
                           </div>
                           {[review.title, review.comment].filter(Boolean).length > 0 ? (
                             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
