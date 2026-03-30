@@ -119,7 +119,7 @@ export default function BlogPost() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      {/* Hero image area */}
+      {/* Hero image — pure thumbnail, no text overlay */}
       <div className="relative h-64 md:h-96 overflow-hidden bg-muted flex items-center justify-center">
         {post.coverImage ? (
           <img
@@ -130,27 +130,24 @@ export default function BlogPost() {
         ) : (
           <BookOpen className="h-24 w-24 text-muted-foreground/10" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
-          <div className="container">
-            <div className="max-w-3xl mx-auto">
-              <Link
-                href="/blog"
-                className="inline-flex items-center gap-1 text-primary hover:underline text-sm mb-4 font-medium"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to Blog list
-              </Link>
-              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold font-heading text-foreground drop-shadow-sm">
-                {title}
-              </h1>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="container py-8">
         <div className="max-w-3xl mx-auto">
+          {/* Back link */}
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-1 text-primary hover:underline text-sm mb-4 font-medium"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Blog list
+          </Link>
+
+          {/* Title */}
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold font-heading text-foreground mb-6">
+            {title}
+          </h1>
+
           {/* Controls & Meta */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-border">
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
