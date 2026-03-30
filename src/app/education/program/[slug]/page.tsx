@@ -1146,8 +1146,8 @@ export default function ProgramDetail() {
                             >
                               <Award className="h-4 w-4" />{" "}
                               {t({
-                                en: "View Certificate Template",
-                                rw: "Reba uko impamyabumenyi isa",
+                                en: "View Certificate",
+                                rw: "Reba Impamyabumenyi",
                               })}
                             </Button>
                           </div>
