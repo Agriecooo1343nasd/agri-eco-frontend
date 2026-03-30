@@ -11,6 +11,7 @@ import {
   schoolVisitConfig,
 } from "@/data/education";
 import { fetchPublicSchoolVisitSettings, fetchTrainingPrograms } from "@/lib/api/education";
+import { mergeSchoolVisitSettings } from "@/lib/school-visit-settings";
 import {
   GraduationCap,
   BookOpen,
@@ -89,13 +90,6 @@ export default function EducationPage() {
   const [trainingStatus, setTrainingStatus] = useState(statusParam);
   const [schoolVisitView, setSchoolVisitView] = useState(schoolVisitConfig);
 
-  const toMl = (value: string) => ({
-    en: value,
-    rw: value,
-    fr: value,
-    sw: value,
-  });
-
   useEffect(() => {
     let ignore = false;
     const fetchPrograms = async () => {
@@ -162,76 +156,8 @@ export default function EducationPage() {
     async function loadSchoolVisitSettings() {
       try {
         const settings = await fetchPublicSchoolVisitSettings();
-        if (!settings || ignore) return;
-
-        setSchoolVisitView({
-          heading: settings.sectionHeading
-            ? {
-                en: settings.sectionHeading.en ?? "",
-                rw: settings.sectionHeading.rw ?? settings.sectionHeading.en ?? "",
-                fr: settings.sectionHeading.fr ?? settings.sectionHeading.en ?? "",
-                sw: settings.sectionHeading.sw ?? settings.sectionHeading.en ?? "",
-              }
-            : schoolVisitConfig.heading,
-          subheading: settings.sectionSubheading
-            ? {
-                en: settings.sectionSubheading.en ?? "",
-                rw: settings.sectionSubheading.rw ?? settings.sectionSubheading.en ?? "",
-                fr: settings.sectionSubheading.fr ?? settings.sectionSubheading.en ?? "",
-                sw: settings.sectionSubheading.sw ?? settings.sectionSubheading.en ?? "",
-              }
-            : schoolVisitConfig.subheading,
-          whatsIncluded:
-            settings.inclusions?.map((inclusion) => ({
-              en: inclusion.text.en ?? "",
-              rw: inclusion.text.rw ?? inclusion.text.en ?? "",
-              fr: inclusion.text.fr ?? inclusion.text.en ?? "",
-              sw: inclusion.text.sw ?? inclusion.text.en ?? "",
-            })) ??
-            schoolVisitConfig.whatsIncluded,
-          details: [
-            {
-              label: toMl("Duration"),
-              value: toMl(settings.duration || "-"),
-            },
-            {
-              label: toMl("Price per student"),
-              value: toMl(`${settings.pricePerStudent ?? 0} RWF`),
-            },
-            {
-              label: toMl("Student range"),
-              value: toMl(`${settings.minStudents ?? 0}-${settings.maxStudents ?? 0}`),
-            },
-          ],
-          curriculumSubjects:
-            settings.subjects?.map((subject, index) => ({
-              id: `subject-${index + 1}`,
-              name: {
-                en: subject.name.en ?? "",
-                rw: subject.name.rw ?? subject.name.en ?? "",
-                fr: subject.name.fr ?? subject.name.en ?? "",
-                sw: subject.name.sw ?? subject.name.en ?? "",
-              },
-              description: subject.description
-                ? {
-                    en: subject.description.en ?? "",
-                    rw: subject.description.rw ?? subject.description.en ?? "",
-                    fr: subject.description.fr ?? subject.description.en ?? "",
-                    sw: subject.description.sw ?? subject.description.en ?? "",
-                  }
-                : undefined,
-            })) ?? schoolVisitConfig.curriculumSubjects,
-          gradeLevels:
-            settings.gradeLevels?.map((grade, index) => ({
-              value: `grade-${index + 1}`,
-              label: {
-                en: grade.label.en ?? "",
-                rw: grade.label.rw ?? grade.label.en ?? "",
-                fr: grade.label.fr ?? grade.label.en ?? "",
-                sw: grade.label.sw ?? grade.label.en ?? "",
-              },
-            })) ?? schoolVisitConfig.gradeLevels,
-        });
+        if (ignore) return;
+        setSchoolVisitView(mergeSchoolVisitSettings(settings));
       } catch {
         // Keep static fallback configuration.
       }

@@ -1,11 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { schoolVisitConfig } from "@/data/education";
-import { submitSchoolVisit } from "@/lib/api/education";
+import {
+  fetchPublicSchoolVisitSettings,
+  submitSchoolVisit,
+  type AdminSchoolVisitSettings,
+} from "@/lib/api/education";
+import {
+  mergeSchoolVisitSettings,
+  schoolVisitDetailLabels,
+  schoolVisitMetaCopy,
+  schoolVisitSectionTitles,
+} from "@/lib/school-visit-settings";
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
@@ -13,6 +22,9 @@ import {
   Clock,
   School,
   Users,
+  Timer,
+  Banknote,
+  UsersRound,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +42,9 @@ import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
+import { useLanguage } from "@/context/LanguageContext";
+import { usePricing } from "@/context/PricingContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SchoolVisitForm = {
   schoolName: string;
@@ -56,8 +71,70 @@ const initialForm: SchoolVisitForm = {
 };
 
 export default function SchoolVisitPage() {
+  const { t } = useLanguage();
+  const { formatPrice } = usePricing();
   const [form, setForm] = useState<SchoolVisitForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  const [settings, setSettings] = useState<AdminSchoolVisitSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsError, setSettingsError] = useState(false);
+
+  const view = useMemo(
+    () => mergeSchoolVisitSettings(settings),
+    [settings],
+  );
+
+  const minStudents = settings?.minStudents ?? 10;
+  const maxStudents = settings?.maxStudents ?? 50;
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      setSettingsLoading(true);
+      setSettingsError(false);
+      try {
+        const data = await fetchPublicSchoolVisitSettings();
+        if (!ignore) setSettings(data);
+      } catch {
+        if (!ignore) {
+          setSettingsError(true);
+          setSettings(null);
+        }
+      } finally {
+        if (!ignore) setSettingsLoading(false);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const detailRows = useMemo(() => {
+    if (!settings) {
+      return view.details.map((d) => ({
+        label: t(d.label),
+        value: t(d.value),
+        icon: "clock" as const,
+      }));
+    }
+    return [
+      {
+        label: t(schoolVisitDetailLabels.duration),
+        value: settings.duration,
+        icon: "clock" as const,
+      },
+      {
+        label: t(schoolVisitDetailLabels.pricePerStudent),
+        value: formatPrice(Number(settings.pricePerStudent ?? 0)),
+        icon: "price" as const,
+      },
+      {
+        label: t(schoolVisitDetailLabels.groupSize),
+        value: `${settings.minStudents}–${settings.maxStudents}`,
+        icon: "users" as const,
+      },
+    ];
+  }, [settings, view.details, t, formatPrice]);
 
   const updateField = <K extends keyof SchoolVisitForm>(
     field: K,
@@ -69,13 +146,16 @@ export default function SchoolVisitPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const min = settings?.minStudents ?? 10;
+    const max = settings?.maxStudents ?? 50;
+
     if (
       !form.schoolName ||
       !form.contactPerson ||
       !form.email ||
       !form.phone ||
       !form.studentCount ||
-      !form.gradeLevel || // optional in backend but required in frontend UI
+      !form.gradeLevel ||
       !form.preferredDate
     ) {
       toast.error("Please complete all required fields.");
@@ -83,8 +163,10 @@ export default function SchoolVisitPage() {
     }
 
     const studentCount = Number(form.studentCount);
-    if (Number.isNaN(studentCount) || studentCount < 10 || studentCount > 50) {
-      toast.error("Number of Students must be between 10 and 50.");
+    if (Number.isNaN(studentCount) || studentCount < min || studentCount > max) {
+      toast.error(
+        `Number of students must be between ${min} and ${max}.`,
+      );
       return;
     }
 
@@ -97,23 +179,31 @@ export default function SchoolVisitPage() {
         email: form.email,
         phone: form.phone,
         studentCount,
-        teacherCount: 1, // backend default/optional
+        teacherCount: 1,
         preferredDate: form.preferredDate,
         curriculumGoals: form.curriculumAlignment || "",
         specialRequirements: form.specialRequirements || "",
       });
 
       setForm(initialForm);
-      toast.success("Visit Request Submitted!", {
+      toast.success("Visit request submitted!", {
         description: "We'll confirm your booking within 48 hours.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "An unexpected error occurred.";
       toast.error("Failed to submit request", {
-        description: error.message || "An unexpected error occurred.",
+        description: message,
       });
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const DetailIcon = ({ kind }: { kind: "clock" | "price" | "users" }) => {
+    const className = "h-4 w-4 text-primary shrink-0 mt-0.5";
+    if (kind === "price") return <Banknote className={className} />;
+    if (kind === "users") return <UsersRound className={className} />;
+    return <Timer className={className} />;
   };
 
   return (
@@ -124,20 +214,20 @@ export default function SchoolVisitPage() {
           <div className="container py-10 md:py-14">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="max-w-2xl">
-                <Badge className="mb-4 gap-1.5 bg-secondary text-secondary-foreground text-[10px] py-0 px-2">
-                  <School className="h-3.5 w-3.5" /> School Visit Programs
+                <Badge className="mb-4 gap-1.5 bg-secondary text-secondary-foreground text-[10px] py-0 px-2 max-w-full">
+                  <School className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{t(view.heading)}</span>
                 </Badge>
                 <h1 className="text-3xl md:text-4xl font-bold font-heading text-foreground mb-3">
-                  Book a School Visit
+                  {t({ en: "Book a school visit", rw: "Andika urugendo rw'ishuri", fr: "Réserver une visite scolaire", sw: "Weka ziara ya shule" })}
                 </h1>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Fill in your school details and submit a new visit request.
-                  We&apos;ll confirm your booking within 48 hours.
+                  {t(view.subheading)}
                 </p>
               </div>
               <Link href="/education">
                 <Button variant="outline" className="gap-2 w-full md:w-auto">
-                  <ArrowLeft className="h-4 w-4" /> Back to Education
+                  <ArrowLeft className="h-4 w-4" /> {t({ en: "Back to Education", rw: "Subira ku masomo", fr: "Retour à Éducation", sw: "Rudi kwenye Elimu" })}
                 </Button>
               </Link>
             </div>
@@ -151,18 +241,22 @@ export default function SchoolVisitPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <h2 className="font-bold font-heading text-foreground text-lg mb-1">
-                      Visit Request Form
+                      {t({ en: "Visit request form", rw: "Ifishi y'icyifuzo", fr: "Formulaire de demande", sw: "Fomu ya ombi" })}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Please provide the information below exactly as you want
-                      it recorded for your booking.
+                      {t({
+                        en: "Provide the details below as they should appear on your booking.",
+                        rw: "Tanga amakuru nk'uko ukeneye ko aboneka ku cyandiko cyawe.",
+                        fr: "Indiquez les informations telles qu'elles doivent figurer sur la réservation.",
+                        sw: "Toa maelezo kama yanavyoonekana kwenye uhifadhi wako.",
+                      })}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
                       <Label className="text-[11px] mb-1 block">
-                        School Name *
+                        {t({ en: "School name", rw: "Izina ry'ishuri", fr: "Nom de l'école", sw: "Jina la shule" })} *
                       </Label>
                       <Input
                         required
@@ -176,7 +270,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        Contact Person *
+                        {t({ en: "Contact person", rw: "Umuntu w'itumanaho", fr: "Personne de contact", sw: "Mhusika wa mawasiliano" })} *
                       </Label>
                       <Input
                         required
@@ -184,7 +278,7 @@ export default function SchoolVisitPage() {
                         onChange={(e) =>
                           updateField("contactPerson", e.target.value)
                         }
-                        placeholder="Teacher name"
+                        placeholder={t({ en: "Teacher name", rw: "Izina ry'umwarimu", fr: "Nom de l'enseignant", sw: "Jina la mwalimu" })}
                         className="h-9 text-xs"
                       />
                     </div>
@@ -200,7 +294,9 @@ export default function SchoolVisitPage() {
                       />
                     </div>
                     <div>
-                      <Label className="text-[11px] mb-1 block">Phone *</Label>
+                      <Label className="text-[11px] mb-1 block">
+                        {t({ en: "Phone", rw: "Telefoni", fr: "Téléphone", sw: "Simu" })} *
+                      </Label>
                       <Input
                         required
                         value={form.phone}
@@ -211,24 +307,28 @@ export default function SchoolVisitPage() {
                     </div>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        Number of Students *
+                        {t({ en: "Number of students", rw: "Umubare w'abanyeshuri", fr: "Nombre d'élèves", sw: "Idadi ya wanafunzi" })} *
                       </Label>
                       <Input
                         type="number"
                         required
-                        min={10}
-                        max={50}
+                        min={minStudents}
+                        max={maxStudents}
                         value={form.studentCount}
                         onChange={(e) =>
                           updateField("studentCount", e.target.value)
                         }
-                        placeholder="e.g. 35"
+                        placeholder={String(minStudents)}
                         className="h-9 text-xs"
                       />
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {t({ en: "Allowed range:", rw: "Intera yemewe:", fr: "Fourchette autorisée :", sw: "Masafa yanayoruhusiwa:" })}{" "}
+                        {minStudents}–{maxStudents}
+                      </p>
                     </div>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        Grade Level *
+                        {t({ en: "Grade level", rw: "Icyiciro", fr: "Niveau", sw: "Kiwango" })} *
                       </Label>
                       <Select
                         value={form.gradeLevel}
@@ -237,16 +337,16 @@ export default function SchoolVisitPage() {
                         }
                       >
                         <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Select grade" />
+                          <SelectValue placeholder={t({ en: "Select grade", rw: "Hitamo icyiciro", fr: "Choisir le niveau", sw: "Chagua kiwango" })} />
                         </SelectTrigger>
                         <SelectContent>
-                          {schoolVisitConfig.gradeLevels.map((level) => (
+                          {view.gradeLevels.map((level) => (
                             <SelectItem
                               key={level.value}
                               value={level.value}
                               className="text-xs"
                             >
-                              {level.label.en}
+                              {t(level.label)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -254,7 +354,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div className="flex flex-col">
                       <Label className="text-[11px] mb-1 block">
-                        Preferred Date *
+                        {t({ en: "Preferred date", rw: "Itariki wifuza", fr: "Date souhaitée", sw: "Tarehe unayopenda" })} *
                       </Label>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -263,7 +363,7 @@ export default function SchoolVisitPage() {
                             className={`w-full justify-start text-left font-normal h-9 text-xs border-input px-3 ${!form.preferredDate ? "text-muted-foreground" : "text-foreground"}`}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {form.preferredDate ? format(new Date(form.preferredDate), "PPP") : <span>Pick a date</span>}
+                            {form.preferredDate ? format(new Date(form.preferredDate), "PPP") : <span>{t({ en: "Pick a date", rw: "Hitamo itariki", fr: "Choisir une date", sw: "Chagua tarehe" })}</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0 z-[9999]" align="start">
@@ -290,7 +390,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div className="sm:col-span-2">
                       <Label className="text-[11px] mb-1 block">
-                        Curriculum Alignment
+                        {t({ en: "Curriculum alignment", rw: "Guhuza n'amashuri", fr: "Alignement pédagogique", sw: "Muundo wa mtaala" })}
                       </Label>
                       <Select
                         value={form.curriculumAlignment}
@@ -299,33 +399,31 @@ export default function SchoolVisitPage() {
                         }
                       >
                         <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder="Select subject" />
+                          <SelectValue placeholder={t({ en: "Select subject", rw: "Hitamo isomo", fr: "Choisir une matière", sw: "Chagua somo" })} />
                         </SelectTrigger>
                         <SelectContent>
-                          {schoolVisitConfig.curriculumSubjects.map(
-                            (subject) => (
-                              <SelectItem
-                                key={subject.id}
-                                value={subject.id}
-                                className="text-xs"
-                              >
-                                {subject.name.en}
-                              </SelectItem>
-                            ),
-                          )}
+                          {view.curriculumSubjects.map((subject) => (
+                            <SelectItem
+                              key={subject.id}
+                              value={subject.id}
+                              className="text-xs"
+                            >
+                              {t(subject.name)}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="sm:col-span-2">
                       <Label className="text-[11px] mb-1 block">
-                        Special Requirements
+                        {t({ en: "Special requirements", rw: "Ibindi bisabwa", fr: "Besoins particuliers", sw: "Mahitaji maalum" })}
                       </Label>
                       <Textarea
                         value={form.specialRequirements}
                         onChange={(e) =>
                           updateField("specialRequirements", e.target.value)
                         }
-                        placeholder="Dietary needs, etc."
+                        placeholder={t({ en: "Dietary needs, accessibility, etc.", rw: "Ibiribwa, uko ubashyira, n'ibindi.", fr: "Régime alimentaire, accessibilité, etc.", sw: "Lishe, upatikanaji, n.k." })}
                         className="text-xs"
                         rows={3}
                       />
@@ -338,84 +436,134 @@ export default function SchoolVisitPage() {
                     disabled={submitting}
                   >
                     {submitting
-                      ? "Submitting Booking Request..."
-                      : "Submit Booking Request"}
+                      ? t({ en: "Submitting…", rw: "Kohereza…", fr: "Envoi…", sw: "Inatumwa…" })
+                      : t({ en: "Submit booking request", rw: "Ohereza icyifuzo", fr: "Envoyer la demande", sw: "Wasilisha ombi" })}
                   </Button>
                 </form>
               </div>
 
               <div className="space-y-6">
-                <div className="bg-card border border-border rounded-2xl p-6">
-                  <h2 className="font-bold font-heading text-foreground text-lg mb-4">
-                    What&apos;s Included
+                {settingsError && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                    {t({
+                      en: "Could not load live program settings; showing defaults.",
+                      rw: "Ntibyashobotse kubona amagenamiterere; turimo kwerekana ibisanzwe.",
+                      fr: "Impossible de charger les paramètres; affichage par défaut.",
+                      sw: "Imepaki haijapakiwa; tunaonyesha chaguo-msingi.",
+                    })}
+                  </p>
+                )}
+
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+                  <h2 className="font-bold font-heading text-foreground text-lg mb-1">
+                    {t(schoolVisitSectionTitles.whatsIncluded)}
                   </h2>
-                  <ul className="space-y-3">
-                    {schoolVisitConfig.whatsIncluded.map((item) => (
-                      <li
-                        key={item.en}
-                        className="flex items-start gap-2 text-sm text-foreground"
-                      >
-                        <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        {item.en}
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="text-[11px] text-muted-foreground mb-4">
+                    {t({
+                      en: "Included in every visit (from your latest configuration).",
+                      rw: "Birimo mu rugendo rwose (kuva ku mitegurire yawe).",
+                      fr: "Inclus dans chaque visite (selon la configuration).",
+                      sw: "Kinajumuishwa katika kila ziara (kulingana na mipangilio).",
+                    })}
+                  </p>
+                  {settingsLoading ? (
+                    <ul className="space-y-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <li key={i} className="flex gap-2">
+                          <Skeleton className="h-4 w-4 rounded-full shrink-0 mt-0.5" />
+                          <Skeleton className="h-4 flex-1" />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <ul className="space-y-3">
+                      {view.whatsIncluded.map((item) => (
+                        <li
+                          key={t(item)}
+                          className="flex items-start gap-3 text-sm text-foreground leading-snug"
+                        >
+                          <CheckCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                          {t(item)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
-                <div className="bg-card border border-border rounded-2xl p-6">
-                  <h2 className="font-bold font-heading text-foreground text-lg mb-4">
-                    Program Details
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+                  <h2 className="font-bold font-heading text-foreground text-lg mb-1">
+                    {t(schoolVisitSectionTitles.programDetails)}
                   </h2>
-                  <div className="space-y-2 text-xs">
-                    {schoolVisitConfig.details.map((detail) => (
-                      <div
-                        key={detail.label.en}
-                        className="flex items-center justify-between gap-4 py-2 border-b border-border last:border-0"
-                      >
-                        <span className="text-muted-foreground">
-                          {detail.label.en}
-                        </span>
-                        <span className="font-bold text-foreground text-right">
-                          {detail.value.en}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-4">
+                    {t({
+                      en: "Key facts for planning your trip.",
+                      rw: "Amakuru ngombwa yo gutegura urugendo rwawe.",
+                      fr: "Faits clés pour organiser votre visite.",
+                      sw: "Ukweli muhimu wa kupanga ziara yako.",
+                    })}
+                  </p>
+                  {settingsLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                      ))}
+                    </div>
+                  ) : (
+                    <dl className="space-y-0 rounded-xl border border-border/80 bg-muted/20 divide-y divide-border/80 overflow-hidden">
+                      {detailRows.map((row, idx) => (
+                        <div
+                          key={`${row.label}-${idx}`}
+                          className="flex gap-3 px-4 py-3.5 items-start"
+                        >
+                          <DetailIcon kind={row.icon} />
+                          <div className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
+                            <dt className="text-muted-foreground text-[11px] sm:text-xs font-medium">
+                              {row.label}
+                            </dt>
+                            <dd className="text-sm font-semibold text-foreground text-left sm:text-right tabular-nums">
+                              {row.value}
+                            </dd>
+                          </div>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
                 </div>
 
-                <div className="bg-primary/5 border border-primary/15 rounded-2xl p-6 space-y-3">
+                <div className="bg-primary/5 border border-primary/15 rounded-2xl p-6 space-y-4">
                   <div className="flex items-start gap-3">
-                    <CalendarIcon className="h-4 w-4 text-primary mt-0.5" />
+                    <CalendarIcon className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-semibold text-foreground">
-                        Advance Booking
+                        {t(schoolVisitMetaCopy.advanceBookingTitle)}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Requests should be submitted at least 2 weeks before
-                        your preferred visit date.
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        {t(schoolVisitMetaCopy.advanceBookingBody)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Users className="h-4 w-4 text-primary mt-0.5" />
+                    <Users className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-semibold text-foreground">
-                        Group Size
+                        {t(schoolVisitMetaCopy.groupSizeTitle)}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Visits currently support groups of 10 to 50 students.
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        {t(schoolVisitMetaCopy.groupSizeBetween)}{" "}
+                        {settings?.minStudents ?? minStudents}–
+                        {settings?.maxStudents ?? maxStudents}{" "}
+                        {t(schoolVisitMetaCopy.studentsWord)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Clock className="h-4 w-4 text-primary mt-0.5" />
+                    <Clock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                     <div>
                       <p className="text-sm font-semibold text-foreground">
-                        Confirmation Window
+                        {t(schoolVisitMetaCopy.confirmationTitle)}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        We review requests and confirm schedules within 48
-                        hours.
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        {t(schoolVisitMetaCopy.confirmationBody)}
                       </p>
                     </div>
                   </div>
