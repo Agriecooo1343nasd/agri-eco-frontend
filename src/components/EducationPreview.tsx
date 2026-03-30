@@ -3,7 +3,7 @@
 import { ArrowRight, Users, Clock, Calendar, Award } from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { fetchTrainingPrograms, toAbsoluteEducationImage } from "@/lib/api/education";
+import { fetchTrainingPrograms } from "@/lib/api/education";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/LanguageContext";
 import { usePricing } from "@/context/PricingContext";
@@ -32,11 +32,16 @@ const EducationPreview = () => {
 
   useEffect(() => {
     if (data?.data) {
+      const mapped = data.data.map((p: any) => ({
+        ...p,
+        image: p.coverImage || p.heroImage || "/assets/tours/educational.jpg",
+      }));
+
       if (page === 1) {
-        setAllPrograms(data.data);
+        setAllPrograms(mapped);
       } else {
         setAllPrograms((prev) => {
-          const newItems = data.data.filter(item => !prev.find(p => p.id === item.id));
+          const newItems = mapped.filter(item => !prev.find(p => p.id === item.id));
           return [...prev, ...newItems];
         });
       }
@@ -96,7 +101,7 @@ const EducationPreview = () => {
                   >
                     <div className="relative aspect-video overflow-hidden">
                       <img
-                        src={program.coverImage || program.heroImage ? toAbsoluteEducationImage((program.coverImage || program.heroImage) as string) : "/assets/tours/educational.jpg"}
+                        src={program.image}
                         alt={t(program.title)}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"
