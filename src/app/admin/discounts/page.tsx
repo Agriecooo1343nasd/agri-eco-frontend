@@ -292,7 +292,7 @@ export default function DiscountsPage() {
       setDeleteTarget(null);
     },
     onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to delete discount"));
+      console.error(getErrorMessage(error, "Failed to delete discount"));
       setDeleteTarget(null);
     },
   });

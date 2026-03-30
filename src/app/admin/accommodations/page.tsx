@@ -140,9 +140,6 @@ export default function AdminAccommodationsPage() {
       setDeletingAccommodation(null);
     },
     onError: (error: Error) => {
-      toast.error("Failed to delete accommodation", {
-        description: error.message || "Please try again.",
-      });
       setDeletingAccommodation(null);
     },
   });

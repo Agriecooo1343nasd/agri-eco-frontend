@@ -350,7 +350,7 @@ export default function AdminLogsPage() {
       setDeleteTarget(null);
     },
     onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to delete audit log"));
+      console.error(getErrorMessage(error, "Failed to delete audit log"));
     },
   });
 

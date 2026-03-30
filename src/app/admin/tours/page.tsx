@@ -182,7 +182,7 @@ export default function AdminToursPage() {
       setDeletingTour(null);
     },
     onError: (error: Error) => {
-      toast.error("Failed to delete experience", {
+      console.error("Failed to delete experience", {
         description: error.message || "Please try again.",
       });
       setDeletingTour(null);

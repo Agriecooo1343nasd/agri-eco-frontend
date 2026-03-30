@@ -228,7 +228,7 @@ export default function ContactsManagementPage() {
     },
     onError: (error) => {
       setDeleteTarget(null);
-      toast.error(getErrorMessage(error, "Failed to delete message"));
+      console.error(getErrorMessage(error, "Failed to delete message"));
     },
   });
 

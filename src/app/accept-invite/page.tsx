@@ -119,7 +119,6 @@ function AcceptInviteForm() {
           ?.message ||
         "This invitation is invalid or has expired. Ask your administrator for a new link.";
       setFormError(message);
-      toast.error("Could not accept invitation", { description: message });
     },
   });
 

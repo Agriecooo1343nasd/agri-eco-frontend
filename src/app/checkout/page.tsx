@@ -41,6 +41,10 @@ const CheckoutPage = () => {
   const [discountCode, setDiscountCode] = useState("");
   const [isValidatingDiscount, setIsValidatingDiscount] = useState(false);
   const [appliedDiscount, setAppliedDiscount] = useState<{ amount: number; code: string } | null>(null);
+  const [discountFeedback, setDiscountFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
   const [momoNumber, setMomoNumber] = useState("");
@@ -142,18 +146,39 @@ const CheckoutPage = () => {
   };
 
   const handleValidateDiscount = async () => {
-    if (!discountCode.trim()) return;
+    const normalizedCode = discountCode.trim().toUpperCase();
+    if (!normalizedCode) return;
     setIsValidatingDiscount(true);
+    setDiscountFeedback(null);
     try {
-      const res = await validateDiscountCode(discountCode);
-      if (res.valid && res.amount) {
-        setAppliedDiscount({ amount: res.amount, code: discountCode });
-        toast.success("Discount code applied!");
+      const res = await validateDiscountCode(normalizedCode, totalAfterItemDiscounts);
+      if (res.valid && res.discountAmount > 0) {
+        setAppliedDiscount({ amount: res.discountAmount, code: res.code });
+        setDiscountCode(res.code);
+        const message = `Code ${res.code} applied. You saved ${formatPrice(res.discountAmount)}.`;
+        setDiscountFeedback({ type: "success", message });
+        toast.success(message);
+      } else if (res.valid && res.discountAmount === 0) {
+        setAppliedDiscount({ amount: 0, code: res.code });
+        const message =
+          "Code is valid, but it gives 0 discount on your current cart.";
+        setDiscountFeedback({ type: "error", message });
+        toast.error(message);
       } else {
-        toast.error("Invalid or expired discount code");
+        setAppliedDiscount(null);
+        const message = "Invalid or expired discount code.";
+        setDiscountFeedback({ type: "error", message });
+        toast.error(message);
       }
-    } catch (err) {
-      toast.error("Failed to validate discount code");
+    } catch (err: any) {
+      setAppliedDiscount(null);
+      const backendMessage =
+        err?.response?.data?.errors?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to validate discount code.";
+      setDiscountFeedback({ type: "error", message: backendMessage });
+      toast.error(backendMessage);
     } finally {
       setIsValidatingDiscount(false);
     }
@@ -755,7 +780,10 @@ const CheckoutPage = () => {
                 <div className="flex gap-2">
                   <input
                     value={discountCode}
-                    onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      setDiscountCode(e.target.value.toUpperCase());
+                      if (discountFeedback) setDiscountFeedback(null);
+                    }}
                     placeholder="Enter Code"
                     className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
                   />
@@ -768,6 +796,17 @@ const CheckoutPage = () => {
                     {isValidatingDiscount ? <Loader2 className="h-3 w-3 animate-spin"/> : "Apply"}
                   </Button>
                 </div>
+                {discountFeedback ? (
+                  <div
+                    className={`mt-2 rounded-md border px-3 py-2 text-xs ${
+                      discountFeedback.type === "success"
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "border-destructive/30 bg-destructive/10 text-destructive"
+                    }`}
+                  >
+                    {discountFeedback.message}
+                  </div>
+                ) : null}
               </div>
 
               <div className="border-t border-border mt-4 pt-4 space-y-2">
@@ -797,7 +836,7 @@ const CheckoutPage = () => {
                   <span className="text-muted-foreground">Shipping</span>
                   <span className="font-semibold text-foreground font-heading">
                     {shipping === 0 ? (
-                      <span className="text-primary font-bold">Free</span>
+                      <span className="text-primary font-bold">Depends on the delivery zone</span>
                     ) : (
                       formatPrice(shipping)
                     )}

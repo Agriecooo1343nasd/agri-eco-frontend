@@ -219,11 +219,31 @@ export async function fetchDiscountStats(): Promise<DiscountStats> {
 }
 export async function validateDiscountCode(
   code: string,
-): Promise<{ valid: boolean; discount?: AdminDiscount; amount?: number }> {
+  cartTotal: number,
+): Promise<{
+  valid: boolean;
+  code: string;
+  type: DiscountType;
+  value: number;
+  discountAmount: number;
+  finalAmount: number;
+}> {
   const response = await apiClient.post<
-    ApiSuccessResponse<{ valid: boolean; discount?: AdminDiscount; amount?: number }>
-  >("/discounts/validate", { code });
-  return response.data.data!;
+    ApiSuccessResponse<{
+      valid: boolean;
+      code: string;
+      type: DiscountType;
+      value: number;
+      discountAmount: number;
+      finalAmount: number;
+    }>
+  >("/discounts/validate", { code, cartTotal });
+
+  if (!response.data.data) {
+    throw new Error("Invalid discount validation response");
+  }
+
+  return response.data.data;
 }
 
 export async function fetchActiveDiscounts(): Promise<AdminDiscount[]> {

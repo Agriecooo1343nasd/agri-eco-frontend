@@ -318,7 +318,7 @@ export default function FeedbackManagementPage() {
       toast.success("Feedback deleted successfully");
     },
     onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to delete feedback"));
+      console.error(getErrorMessage(error, "Failed to delete feedback"));
       setDeleteTarget(null);
     },
   });
