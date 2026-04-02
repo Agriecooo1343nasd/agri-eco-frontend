@@ -96,6 +96,13 @@ export interface AdminProduct {
   soldCount: number;
   createdAt: string;
   category?: ProductCategory;
+  applicableDiscounts?: Array<{
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    value: number;
+  }>;
 }
 
 export type AdminProductSort =

@@ -8,7 +8,7 @@ import { Image as ImageIcon, Link as LinkIcon, Upload } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-import { uploadSingleImage } from "@/lib/api/uploads";
+import { uploadMedia } from "@/lib/api/uploads";
 import { toast } from "sonner";
 
 interface MediaUploaderProps {
@@ -32,6 +32,8 @@ export function MediaUploader({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isVideo = value && /\.(mp4|webm|mov|mkv|avi)$/i.test(value);
+
   const displayUrl = getMediaUrl(value);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,12 +42,12 @@ export function MediaUploader({
 
     setIsUploading(true);
     try {
-      const result = await uploadSingleImage(file);
+      const result = await uploadMedia(file);
       onChange(result.path);
-      toast.success("Image uploaded successfully");
+      toast.success("File uploaded successfully");
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error("Failed to upload image", {
+      toast.error("Failed to upload file", {
         description: error instanceof Error ? error.message : "Backend error",
       });
     } finally {
@@ -94,14 +96,25 @@ export function MediaUploader({
             <div className="p-4 flex flex-col items-center justify-center gap-3">
               {value ? (
                 <div className="relative w-full aspect-[21/9] rounded-md overflow-hidden bg-muted border border-border group">
-                  <img
-                    src={displayUrl}
-                    alt="Preview"
-                    className={cn(
-                      "w-full h-full object-cover transition-transform group-hover:scale-105",
-                      isUploading && "opacity-50 blur-sm"
-                    )}
-                  />
+                  {isVideo ? (
+                    <video
+                      src={displayUrl}
+                      controls
+                      className={cn(
+                        "w-full h-full object-cover transition-transform group-hover:scale-105",
+                        isUploading && "opacity-50 blur-sm"
+                      )}
+                    />
+                  ) : (
+                    <img
+                      src={displayUrl}
+                      alt="Preview"
+                      className={cn(
+                        "w-full h-full object-cover transition-transform group-hover:scale-105",
+                        isUploading && "opacity-50 blur-sm"
+                      )}
+                    />
+                  )}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Button
                       type="button"
@@ -111,7 +124,7 @@ export function MediaUploader({
                       disabled={isUploading}
                       className="gap-2"
                     >
-                      <ImageIcon className="h-4 w-4" /> Change Image
+                      <ImageIcon className="h-4 w-4" /> Change File
                     </Button>
                   </div>
                   {isUploading && (
@@ -142,7 +155,7 @@ export function MediaUploader({
                     {isUploading ? "Uploading file..." : "Click to browse files"}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1 text-center max-w-[200px]">
-                    PNG, JPG, WEBP up to 5MB
+                    Images up to 5MB, Videos up to 50MB
                   </p>
                 </div>
               )}
@@ -150,7 +163,7 @@ export function MediaUploader({
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept="image/*,video/*"
+                accept="image/*,video/mp4,video/webm,video/quicktime,video/x-matroska"
                 className="hidden"
               />
             </div>

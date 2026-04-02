@@ -227,6 +227,8 @@ export async function validateDiscountCode(
   value: number;
   discountAmount: number;
   finalAmount: number;
+  applicableProducts: string[];
+  applicableCategories: string[];
 }> {
   const response = await apiClient.post<
     ApiSuccessResponse<{
@@ -236,6 +238,8 @@ export async function validateDiscountCode(
       value: number;
       discountAmount: number;
       finalAmount: number;
+      applicableProducts: string[];
+      applicableCategories: string[];
     }>
   >("/discounts/validate", { code, cartTotal });
 

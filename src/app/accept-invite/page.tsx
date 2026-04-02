@@ -183,8 +183,9 @@ function AcceptInviteForm() {
                 Team invitation
               </h1>
               <p className="text-primary-foreground/85 text-sm mt-2 leading-relaxed">
-                Set a password to activate your account. Your name and role
-                were saved when you were invited—no extra signup steps.
+                Set a password to activate your account. If you already have an
+                existing account, your old password will remain unchanged—simply
+                login securely afterwards.
               </p>
             </div>
 

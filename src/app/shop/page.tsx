@@ -84,14 +84,28 @@ function ShopContent() {
     () =>
       products.map((p) => {
         let badge: "sale" | "new" | "organic" | undefined = undefined;
-        if (p.isOnSale) badge = "sale";
-        else if (p.isFeatured) badge = "new";
+        let backendDiscountLabel: string | undefined = undefined;
+
+        if (p.applicableDiscounts && p.applicableDiscounts.length > 0) {
+          badge = "sale";
+          const firstDiscount = p.applicableDiscounts[0];
+          backendDiscountLabel =
+            firstDiscount.type === "percentage"
+              ? `-${firstDiscount.value}% OFF`
+              : `Sale!`;
+        } else if (p.isOnSale) {
+          badge = "sale";
+        } else if (p.isFeatured) {
+          badge = "new";
+        }
+
         return {
           id: p.id,
           slug: p.slug,
           name: p.name,
           price: p.sellingPrice,
           oldPrice: p.originalPrice,
+          backendDiscountLabel,
           image:
             p.images && p.images.length > 0
               ? p.images[0].url

@@ -37,3 +37,19 @@ export async function uploadMultipleImages(
 
   return response.data.data ?? [];
 }
+
+export async function uploadMedia(file: File): Promise<UploadedFileInfo> {
+  const formData = new FormData();
+  formData.append("file", file); // The backend uses single 'file' key for /media
+
+  const response = await apiClient.post<ApiSuccessResponse<UploadedFileInfo>>(
+    "/upload/media",
+    formData,
+  );
+
+  if (!response.data.data) {
+    throw new Error("Upload failed: missing file response data");
+  }
+
+  return response.data.data;
+}

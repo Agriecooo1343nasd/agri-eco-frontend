@@ -152,18 +152,40 @@ const CheckoutPage = () => {
     setDiscountFeedback(null);
     try {
       const res = await validateDiscountCode(normalizedCode, totalAfterItemDiscounts);
-      if (res.valid && res.discountAmount > 0) {
-        setAppliedDiscount({ amount: res.discountAmount, code: res.code });
-        setDiscountCode(res.code);
-        const message = `Code ${res.code} applied. You saved ${formatPrice(res.discountAmount)}.`;
-        setDiscountFeedback({ type: "success", message });
-        toast.success(message);
-      } else if (res.valid && res.discountAmount === 0) {
-        setAppliedDiscount({ amount: 0, code: res.code });
-        const message =
-          "Code is valid, but it gives 0 discount on your current cart.";
-        setDiscountFeedback({ type: "error", message });
-        toast.error(message);
+      
+      if (res.valid) {
+        let eligibleSubtotal = totalAfterItemDiscounts;
+        const hasProductRestrictions = res.applicableProducts?.length > 0;
+        
+        if (hasProductRestrictions) {
+          eligibleSubtotal = cartItems.reduce((sum, item) => {
+            if (res.applicableProducts.includes(item.product.id)) {
+              return sum + (item.product.price * item.quantity);
+            }
+            // If we had categoryUUIDs we would check res.applicableCategories here too
+            return sum;
+          }, 0);
+        }
+
+        let calculatedDiscount = 0;
+        if (res.type === "percentage" || res.type === "flash_sale") {
+          calculatedDiscount = (eligibleSubtotal * res.value) / 100;
+        } else if (res.type === "fixed") {
+          calculatedDiscount = Math.min(res.value, eligibleSubtotal);
+        }
+
+        if (calculatedDiscount > 0) {
+          setAppliedDiscount({ amount: calculatedDiscount, code: res.code });
+          setDiscountCode(res.code);
+          const message = `Code ${res.code} applied. You saved ${formatPrice(calculatedDiscount)}.`;
+          setDiscountFeedback({ type: "success", message });
+          toast.success(message);
+        } else {
+          setAppliedDiscount({ amount: 0, code: res.code });
+          const message = "Code is valid, but none of your items are eligible.";
+          setDiscountFeedback({ type: "error", message });
+          toast.error(message);
+        }
       } else {
         setAppliedDiscount(null);
         const message = "Invalid or expired discount code.";
