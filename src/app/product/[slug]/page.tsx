@@ -210,6 +210,17 @@ export default function ProductDetailsPage() {
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
     : 0;
 
+  // DIAGNOSTIC LOGGING: Tracking the source of those -29% discounts
+  useEffect(() => {
+    if (product) {
+      console.log(`[DISCOUNT_DEBUG] Product: ${product.name}`);
+      console.log(`[DISCOUNT_DEBUG] Price: ${product.price}`);
+      console.log(`[DISCOUNT_DEBUG] Old Price: ${product.oldPrice}`);
+      console.log(`[DISCOUNT_DEBUG] Badge: ${product.badge}`);
+      console.log(`[DISCOUNT_DEBUG] Computed Discount: ${discount}%`);
+    }
+  }, [product, discount]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <Header />

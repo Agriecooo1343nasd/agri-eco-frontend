@@ -3,7 +3,7 @@
 import { useState, use, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Clock,
   Users,
@@ -82,6 +82,7 @@ export default function TourDetailPage({
 }) {
   const { slug } = use(params);
   const router = useRouter();
+  const pathname = usePathname();
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
@@ -781,7 +782,16 @@ export default function TourDetailPage({
 
                   <Button
                     className="w-full text-xs h-9"
-                    onClick={() => setBookingStep(2)}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        toast.error("Authentication required", {
+                          description: "Please sign in to complete your booking.",
+                        });
+                        setTimeout(() => router.push(`/login?redirect=${pathname}`), 1500);
+                        return;
+                      }
+                      setBookingStep(2);
+                    }}
                     disabled={!selectedSlotKey}
                   >
                     Continue

@@ -63,6 +63,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 
 const statusColors: Record<string, string> = {
   open: "bg-primary/10 text-primary border-primary/20",
@@ -74,6 +75,7 @@ const statusColors: Record<string, string> = {
 export default function EducationPage() {
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -219,6 +221,11 @@ export default function EducationPage() {
   };
 
   const handleEnrollClick = (program: any) => {
+    if (!isAuthenticated) {
+      toast.error("Authentication required");
+      router.push(`/login?redirect=${pathname}`);
+      return;
+    }
     setSelectedProgram(program);
     setEnrollDialogOpen(true);
   };

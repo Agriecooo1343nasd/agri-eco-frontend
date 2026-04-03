@@ -45,6 +45,8 @@ import { format } from "date-fns";
 import { useLanguage } from "@/context/LanguageContext";
 import { usePricing } from "@/context/PricingContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter, usePathname } from "next/navigation";
 
 type SchoolVisitForm = {
   schoolName: string;
@@ -73,6 +75,9 @@ const initialForm: SchoolVisitForm = {
 export default function SchoolVisitPage() {
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const [form, setForm] = useState<SchoolVisitForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [settings, setSettings] = useState<AdminSchoolVisitSettings | null>(null);
@@ -145,6 +150,11 @@ export default function SchoolVisitPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isAuthenticated) {
+      toast.error("Authentication required");
+      router.push(`/login?redirect=${pathname}`);
+      return;
+    }
 
     const min = settings?.minStudents ?? 10;
     const max = settings?.maxStudents ?? 50;

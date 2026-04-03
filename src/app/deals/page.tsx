@@ -85,7 +85,7 @@ const DealsPage = () => {
               return (
                 <div
                   key={deal.id}
-                  className={`group bg-card border border-border/50 rounded-3xl overflow-hidden hover:shadow-2xl hover:border-primary/20 transition-all duration-500 flex flex-col ${isEven ? "md:flex-row" : "md:flex-row-reverse"}`}
+                  className={`group bg-card border border-border/50 rounded-3xl overflow-hidden hover:shadow-sm hover:border-primary/20 transition-all duration-500 flex flex-col ${isEven ? "md:flex-row" : "md:flex-row-reverse"}`}
                 >
                   {/* Image/Visual */}
                   <div className="relative md:w-5/12 aspect-[16/10] md:aspect-auto overflow-hidden bg-muted flex items-center justify-center">
@@ -103,12 +103,12 @@ const DealsPage = () => {
                       </div>
                     )}
                     <div className="absolute top-6 left-6">
-                      <Badge className="bg-primary text-primary-foreground font-black px-4 py-2 rounded-lg shadow-lg">
+                      <Badge className="bg-primary text-primary-foreground font-black px-4 py-2 rounded-lg shadow-sm">
                         {deal.code}
                       </Badge>
                     </div>
                     <div className="absolute bottom-6 left-6">
-                      <div className="bg-background/95 backdrop-blur-md text-foreground text-2xl font-black px-6 py-3 rounded-2xl shadow-xl font-heading border border-border/50">
+                      <div className="bg-background/95 backdrop-blur-md text-foreground text-2xl font-black px-6 py-3 rounded-2xl shadow-sm font-heading border border-border/50">
                         {getDiscountDisplay(deal)}
                       </div>
                     </div>
@@ -116,51 +116,77 @@ const DealsPage = () => {
 
                   {/* Content */}
                   <div className="flex-1 p-8 md:p-12 flex flex-col justify-center bg-gradient-to-br from-card to-muted/30">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 rounded-full bg-primary/10">
-                        <Tag className="h-5 w-5 text-primary" />
+                    {(deal.applicableProducts?.length || 0) > 0 && (
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 rounded-full bg-primary/10">
+                          <Tag className="h-5 w-5 text-primary" />
+                        </div>
+                        <span className="text-xs font-black text-primary uppercase tracking-[0.2em]">
+                          {deal.applicableProducts?.length} product
+                          {deal.applicableProducts?.length !== 1 ? "s" : ""}{" "}
+                          included
+                        </span>
                       </div>
-                      <span className="text-xs font-black text-primary uppercase tracking-[0.2em]">
-                        {deal.applicableProducts?.length || 0} product{(deal.applicableProducts?.length || 0) !== 1 ? "s" : ""} included
-                      </span>
-                    </div>
+                    )}
 
                     <h3 className="text-2xl md:text-4xl font-black font-heading text-foreground mb-4 leading-tight">
                       {deal.name}
                     </h3>
                     <p className="text-muted-foreground text-lg mb-8 leading-relaxed line-clamp-3">
-                      {deal.description || "Enjoy exclusive savings on selected organic products from our local artisans and farmers."}
+                      {deal.description ||
+                        "Enjoy exclusive savings on selected organic products from our local artisans and farmers."}
                     </p>
 
                     <div className="flex flex-wrap items-center gap-6 mb-10">
                       <div className="flex items-center gap-3 text-sm font-bold">
-                        <div className={cn("p-2 rounded-lg", daysLeft > 0 ? "bg-secondary/10" : "bg-destructive/10")}>
-                           <Clock className={cn("h-5 w-5", daysLeft > 0 ? "text-secondary" : "text-destructive")} />
+                        <div
+                          className={cn(
+                            "p-2 rounded-lg",
+                            daysLeft > 0 ? "bg-secondary/10" : "bg-destructive/10",
+                          )}
+                        >
+                          <Clock
+                            className={cn(
+                              "h-5 w-5",
+                              daysLeft > 0 ? "text-secondary" : "text-destructive",
+                            )}
+                          />
                         </div>
                         <span className="flex flex-col">
-                           <span className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none mb-1">Status</span>
-                           {daysLeft > 0 ? (
-                             <span className="text-foreground">{daysLeft} Days Remaining</span>
-                           ) : (
-                             <span className="text-destructive">Offer Expired</span>
-                           )}
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none mb-1">
+                            Status
+                          </span>
+                          {daysLeft > 0 ? (
+                            <span className="text-foreground">
+                              {daysLeft} Days Remaining
+                            </span>
+                          ) : (
+                            <span className="text-destructive">Offer Expired</span>
+                          )}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 text-sm font-bold">
                         <div className="p-2 rounded-lg bg-primary/10">
-                           <Calendar className="h-5 w-5 text-primary" />
+                          <Calendar className="h-5 w-5 text-primary" />
                         </div>
                         <span className="flex flex-col">
-                           <span className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none mb-1">Validity</span>
-                           <span className="text-foreground">{new Date(deal.startDate).toLocaleDateString()} - {new Date(deal.endDate).toLocaleDateString()}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none mb-1">
+                            Validity
+                          </span>
+                          <span className="text-foreground">
+                            {deal.startDate
+                              ? new Date(deal.startDate).toLocaleDateString()
+                              : "N/A"}{" "}
+                            - {new Date(deal.endDate).toLocaleDateString()}
+                          </span>
                         </span>
                       </div>
                     </div>
 
                     <Link
                       href={`/shop?discount=${deal.code}`}
-                      className="w-full sm:w-fit inline-flex items-center justify-center gap-3 bg-primary text-primary-foreground py-4 px-8 rounded-2xl text-base font-black hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 group/btn"
+                      className="w-full sm:w-fit inline-flex items-center justify-center gap-3 bg-primary text-primary-foreground py-4 px-8 rounded-2xl text-base font-black hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all shadow-sm shadow-primary/20 group/btn"
                     >
                       Shop This Deal
                       <ArrowRight className="h-5 w-5 group-hover/btn:translate-x-2 transition-transform" />

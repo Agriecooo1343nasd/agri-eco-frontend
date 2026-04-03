@@ -39,8 +39,13 @@ import { fetchArtisans, submitArtisanApplication, type AdminArtisan, toAbsoluteA
 import { submitPartnerApplication } from "@/lib/api/partners";
 import { fetchCommunityStats } from "@/lib/api/community";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter, usePathname } from "next/navigation";
 
 export default function CommunityPage() {
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const [partnerDialogOpen, setPartnerDialogOpen] = useState(false);
   const [artisanDialogOpen, setArtisanDialogOpen] = useState(false);
   
@@ -104,32 +109,13 @@ export default function CommunityPage() {
 
   const culturalImg = "/assets/tours/cultural.jpg";
 
-  const handlePartnerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await submitPartnerApplication(partnerForm);
-      toast.success("Application Submitted", {
-        description: "Your partner application is now pending review.",
-      });
-      setPartnerDialogOpen(false);
-      setPartnerForm({
-        businessName: "",
-        contactName: "",
-        email: "",
-        phone: "",
-        businessType: "tourism_operator",
-        description: "",
-      });
-    } catch (error) {
-      toast.error("Failed to submit application");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleArtisanSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      toast.error("Authentication required");
+      router.push(`/login?redirect=${pathname}`);
+      return;
+    }
     setIsSubmitting(true);
     try {
       await submitArtisanApplication(artisanForm);
@@ -145,6 +131,35 @@ export default function CommunityPage() {
         specialty: "",
         shortDescription: "",
         fullStory: "",
+      });
+    } catch (error) {
+      toast.error("Failed to submit application");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePartnerSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      toast.error("Authentication required");
+      router.push(`/login?redirect=${pathname}`);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await submitPartnerApplication(partnerForm);
+      toast.success("Application Submitted", {
+        description: "Your partner application is now pending review.",
+      });
+      setPartnerDialogOpen(false);
+      setPartnerForm({
+        businessName: "",
+        contactName: "",
+        email: "",
+        phone: "",
+        businessType: "tourism_operator",
+        description: "",
       });
     } catch (error) {
       toast.error("Failed to submit application");
@@ -187,7 +202,14 @@ export default function CommunityPage() {
                 <Button
                   size="lg"
                   className="gap-2 text-sm"
-                  onClick={() => setArtisanDialogOpen(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      toast.error("Authentication required", { description: "Please sign in to apply." });
+                      router.push(`/login?redirect=${pathname}`);
+                      return;
+                    }
+                    setArtisanDialogOpen(true);
+                  }}
                 >
                   <Palette className="h-4 w-4" /> Become an Artisan
                 </Button>
@@ -195,7 +217,14 @@ export default function CommunityPage() {
                   size="lg"
                   variant="outline"
                   className="border-card/30 text-white bg-card/10 hover:bg-card/40 gap-2 text-sm"
-                  onClick={() => setPartnerDialogOpen(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      toast.error("Authentication required", { description: "Please sign in to apply." });
+                      router.push(`/login?redirect=${pathname}`);
+                      return;
+                    }
+                    setPartnerDialogOpen(true);
+                  }}
                 >
                   <Handshake className="h-4 w-4" /> Become a Partner
                 </Button>
@@ -393,7 +422,14 @@ export default function CommunityPage() {
               <Button
                 size="lg"
                 className="gap-2 text-sm"
-                onClick={() => setPartnerDialogOpen(true)}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    toast.error("Authentication required", { description: "Please sign in to apply." });
+                    router.push(`/login?redirect=${pathname}`);
+                    return;
+                  }
+                  setPartnerDialogOpen(true);
+                }}
               >
                 <Handshake className="h-4 w-4" /> Apply to Join
               </Button>

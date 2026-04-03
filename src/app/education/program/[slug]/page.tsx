@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 // Type definitions for program modules and content blocks
 type MultiLangText = { en: string; rw?: string } | string;
 
@@ -144,6 +145,7 @@ export default function ProgramDetail() {
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
   const { isAuthenticated, user: authUser } = useAuth();
+  const pathname = usePathname()
 
   const {
     data: apiProgram,
@@ -341,16 +343,9 @@ export default function ProgramDetail() {
     if (isAuthenticated && myEnrollments?.data && apiProgram) {
       setIsEnrolled(!!activeEnrollment);
       setIsPending(!!pendingEnrollment);
-    } else if (!isAuthenticated && typeof window !== "undefined") {
-      const enrolled = JSON.parse(
-        localStorage.getItem("enrolledPrograms") || "[]",
-      );
-      setIsEnrolled(enrolled.includes(slug));
-
-      const pendingLocal = JSON.parse(
-        localStorage.getItem("pendingPrograms") || "[]",
-      );
-      setIsPending(pendingLocal.includes(slug));
+    } else if (!isAuthenticated) {
+      setIsEnrolled(false);
+      setIsPending(false);
     }
   }, [
     isAuthenticated,
@@ -518,6 +513,19 @@ export default function ProgramDetail() {
     setExpandedModule(expandedModule === moduleId ? null : moduleId);
   };
 
+  const handleEnrollClick = () => {
+    if (!isAuthenticated) {
+      toast.error("Authentication Required", {
+        description: "Please log in to enroll in programs.",
+      });
+      setTimeout(() => {
+        router.push("/login?redirect=" + pathname);
+      }, 1500);
+      return;
+    }
+    setEnrollDialogOpen(true);
+  };
+
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiProgram) return;
@@ -534,19 +542,8 @@ export default function ProgramDetail() {
 
       await enrollInProgram(apiProgram.id, payload);
 
-      // Locally track pending enrollment
-      if (!isAuthenticated) {
-        const key = isFree ? "enrolledPrograms" : "pendingPrograms";
-        const stored = JSON.parse(localStorage.getItem(key) || "[]");
-        if (!stored.includes(slug)) stored.push(slug);
-        localStorage.setItem(key, JSON.stringify(stored));
-
-        if (isFree) setIsEnrolled(true);
-        else setIsPending(true);
-      } else {
-        setIsPending(!isFree);
-        setIsEnrolled(isFree);
-      }
+      setIsPending(!isFree);
+      setIsEnrolled(isFree);
 
       setEnrollDialogOpen(false);
       toast.success(isFree ? "Enrollment Successful!" : "Enrollment Pending", {
@@ -1404,7 +1401,7 @@ export default function ProgramDetail() {
                           <Button
                             className="w-full gap-2 text-xs h-10"
                             size="sm"
-                            onClick={() => setEnrollDialogOpen(true)}
+                            onClick={handleEnrollClick}
                           >
                             <BookOpen className="h-4 w-4" />{" "}
                             {t({ en: "Enroll Now", rw: "Iyandikishe ubu" })}
