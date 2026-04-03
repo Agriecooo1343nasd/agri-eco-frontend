@@ -45,7 +45,9 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             <span
               className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
             >
-              {product.badge === "sale" ? `-${discount}%` : product.badge}
+              {product.badge === "sale" 
+                ? product.backendDiscountLabel || `-${discount}%` 
+                : product.badge}
             </span>
           )}
           <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
@@ -147,7 +149,9 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
           <span
             className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
           >
-            {product.badge === "sale" ? `-${discount}%` : product.badge}
+            {product.badge === "sale" 
+              ? product.backendDiscountLabel || `-${discount}%` 
+              : product.badge}
           </span>
         )}
         <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
