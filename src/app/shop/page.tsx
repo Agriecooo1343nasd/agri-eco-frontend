@@ -195,6 +195,7 @@ function ShopContent() {
               : undefined,
           sort,
           order,
+          discountId: dealId || undefined,
         });
         if (!ignore) {
           const inStockProducts = (data.data || []).filter(

@@ -34,6 +34,17 @@ const DealsPage = () => {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   };
 
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "N/A";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString(undefined, {
+      month: "numeric",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   const getDiscountDisplay = (deal: AdminDiscount) => {
     if (deal.type === "percentage") return `${deal.value}% OFF`;
     if (deal.type === "fixed") return `${deal.value.toLocaleString()} RWF OFF`;
@@ -81,6 +92,9 @@ const DealsPage = () => {
             {deals.map((deal, idx) => {
               const daysLeft = getDaysLeft(deal.endDate);
               const isEven = idx % 2 === 0;
+              const productCount = Array.isArray(deal.applicableProducts) 
+                ? deal.applicableProducts.filter(Boolean).length 
+                : 0;
 
               return (
                 <div
@@ -116,14 +130,14 @@ const DealsPage = () => {
 
                   {/* Content */}
                   <div className="flex-1 p-8 md:p-12 flex flex-col justify-center bg-gradient-to-br from-card to-muted/30">
-                    {(deal.applicableProducts?.length || 0) > 0 && (
+                    {productCount > 0 && (
                       <div className="flex items-center gap-3 mb-4">
                         <div className="p-2 rounded-full bg-primary/10">
                           <Tag className="h-5 w-5 text-primary" />
                         </div>
                         <span className="text-xs font-black text-primary uppercase tracking-[0.2em]">
-                          {deal.applicableProducts?.length} product
-                          {deal.applicableProducts?.length !== 1 ? "s" : ""}{" "}
+                          {productCount} product
+                          {productCount !== 1 ? "s" : ""}{" "}
                           included
                         </span>
                       </div>
@@ -175,10 +189,9 @@ const DealsPage = () => {
                             Validity
                           </span>
                           <span className="text-foreground">
-                            {deal.startDate
-                              ? new Date(deal.startDate).toLocaleDateString()
-                              : "N/A"}{" "}
-                            - {new Date(deal.endDate).toLocaleDateString()}
+                            {formatDate(deal.startDate)}
+                            {" - "}
+                            {formatDate(deal.endDate)}
                           </span>
                         </span>
                       </div>

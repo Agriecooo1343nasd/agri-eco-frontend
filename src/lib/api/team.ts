@@ -137,8 +137,8 @@ export async function fetchTeamStats(): Promise<TeamStats> {
 
 export interface AcceptTeamInvitePayload {
   token: string;
-  password: string;
-  confirmPassword: string;
+  password?: string;
+  confirmPassword?: string;
 }
 
 export interface AcceptTeamInviteResult {
@@ -148,15 +148,43 @@ export interface AcceptTeamInviteResult {
 export async function acceptTeamInvite(
   payload: AcceptTeamInvitePayload,
 ): Promise<AcceptTeamInviteResult> {
-  type Body = ApiSuccessResponse<AcceptTeamInviteResult>;
-  const response = await apiClient.post<
-    Body,
-    AxiosResponse<Body>,
-    AcceptTeamInvitePayload
-  >("/team/accept-invite", payload, {
-    skipAuth: true,
-    skipErrorToast: true,
-  });
+  const response = await apiClient.post<ApiSuccessResponse<AcceptTeamInviteResult>>(
+    "/team/accept-invite",
+    payload,
+    {
+      skipAuth: true,
+      skipErrorToast: true,
+    },
+  );
 
   return response.data.data ?? { memberId: "" };
 }
+
+export interface ValidateInviteResult {
+  valid: boolean;
+  email: string;
+  userExists: boolean;
+  member: TeamMember;
+}
+
+export async function validateInviteToken(
+  token: string,
+): Promise<ValidateInviteResult> {
+  const response = await apiClient.get<ApiSuccessResponse<ValidateInviteResult>>(
+    `/team/validate-invite/${token}`,
+    {
+      skipAuth: true,
+      skipErrorToast: true,
+    },
+  );
+
+  return (
+    response.data.data ?? {
+      valid: false,
+      email: "",
+      userExists: false,
+      member: {} as TeamMember,
+    }
+  );
+}
+
