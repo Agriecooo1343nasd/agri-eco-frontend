@@ -55,7 +55,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, isInitialized: authInitialized } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [wishlistItems, setWishlistItems] = useState<Product[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Sync with backend when authenticated
   useEffect(() => {
@@ -271,11 +270,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         moveToCart,
       }}
     >
-      {isInitialized ? (
-        children
-      ) : (
-        <div className="min-h-screen bg-background" />
-      )}
+      {children}
     </CartContext.Provider>
   );
 };

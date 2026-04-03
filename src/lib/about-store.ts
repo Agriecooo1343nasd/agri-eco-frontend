@@ -29,11 +29,12 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-// In-memory clones to replace localStorage
-let memoryTeam: AboutTeamMember[] = clone(seedTeamMembers);
-let memoryGallery: AboutGalleryImage[] = clone(seedGalleryImages);
+// In-memory clones to replace localStorage (Lazy initialization)
+let memoryTeam: AboutTeamMember[] | null = null;
+let memoryGallery: AboutGalleryImage[] | null = null;
 
 export function getAboutTeamMembers(): AboutTeamMember[] {
+  if (!memoryTeam) memoryTeam = clone(seedTeamMembers);
   return clone(memoryTeam);
 }
 
@@ -42,6 +43,7 @@ export function saveAboutTeamMembers(next: AboutTeamMember[]): void {
 }
 
 export function getAboutGalleryImages(): AboutGalleryImage[] {
+  if (!memoryGallery) memoryGallery = clone(seedGalleryImages);
   return clone(memoryGallery);
 }
 

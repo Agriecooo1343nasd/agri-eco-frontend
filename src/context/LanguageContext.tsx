@@ -32,15 +32,25 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   // Load locale from localStorage on mount
   useEffect(() => {
-    const savedLocale = localStorage.getItem("agri-eco-locale") as LanguageCode;
-    if (savedLocale && ["en", "rw", "fr", "sw"].includes(savedLocale)) {
-      setLocaleState(savedLocale);
+    try {
+      const savedLocale = localStorage.getItem(
+        "agri-eco-locale",
+      ) as LanguageCode;
+      if (savedLocale && ["en", "rw", "fr", "sw"].includes(savedLocale)) {
+        setLocaleState(savedLocale);
+      }
+    } catch (err) {
+      console.warn("Language storage access failed:", err);
     }
   }, []);
 
   const setLocale = (newLocale: LanguageCode) => {
     setLocaleState(newLocale);
-    localStorage.setItem("agri-eco-locale", newLocale);
+    try {
+      localStorage.setItem("agri-eco-locale", newLocale);
+    } catch (err) {
+      console.warn("Could not save language to localStorage:", err);
+    }
   };
 
   /**

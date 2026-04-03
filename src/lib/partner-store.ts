@@ -51,11 +51,12 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-// In-memory clones to replace localStorage
-let memoryPartners: Partner[] = clone(seedPartners);
-let memoryApplications: PartnerApplication[] = clone(seedPartnerApplications);
+// In-memory clones to replace localStorage (Lazy initialization)
+let memoryPartners: Partner[] | null = null;
+let memoryApplications: PartnerApplication[] | null = null;
 
 export function getPartners(): Partner[] {
+  if (!memoryPartners) memoryPartners = clone(seedPartners);
   return clone(memoryPartners);
 }
 
@@ -64,6 +65,8 @@ export function savePartners(next: Partner[]): void {
 }
 
 export function getPartnerApplications(): PartnerApplication[] {
+  if (!memoryApplications)
+    memoryApplications = clone(seedPartnerApplications);
   return clone(memoryApplications);
 }
 
