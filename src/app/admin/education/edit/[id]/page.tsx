@@ -56,7 +56,7 @@ import {
   type MultiLangText,
 } from "@/lib/api/education";
 import { getMediaUrl } from "@/lib/config/api";
-import { uploadSingleImage } from "@/lib/api/uploads";
+import { uploadSingleImage, uploadMedia } from "@/lib/api/uploads";
 
 const emptyModule = (): ProgramModule => ({
   id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,

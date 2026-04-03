@@ -83,6 +83,7 @@ import {
   updateProgress,
   type QuizScoreItem,
 } from "@/lib/api/education";
+import { getMediaUrl } from "@/lib/config/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { TrainingCertificateVisual } from "@/components/certificate/TrainingCertificateVisual";
@@ -434,6 +435,7 @@ export default function ProgramDetail() {
       apiProgram.heroImage ||
       apiProgram.coverImage ||
       "/assets/tours/educational.jpg",
+    heroVideo: apiProgram.heroVideo || apiProgram.videoUrl,
     modules: (apiProgram.curriculum || []).map((m: any, idx: number) => ({
       ...m,
       order: m.order || idx + 1,
@@ -614,11 +616,23 @@ export default function ProgramDetail() {
       <main>
         {/* Hero */}
         <section className="relative h-[40vh] min-h-[320px] overflow-hidden">
-          <img
-            src={program.image}
-            alt={t(program.title)}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          {program.heroVideo ? (
+            <video
+              src={getMediaUrl(program.heroVideo)}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+              poster={program.image}
+            />
+          ) : (
+            <img
+              src={program.image}
+              alt={t(program.title)}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/50 to-foreground/20" />
           <div className="relative container h-full flex flex-col justify-end pb-8">
             <Link
@@ -905,17 +919,17 @@ export default function ProgramDetail() {
                                       />
                                     )}
                                     {block.type === "video" && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="mt-2 gap-1.5 text-xs h-8"
-                                      >
-                                        <Play className="h-3.5 w-3.5" />{" "}
-                                        {t({
-                                          en: "Watch Video",
-                                          rw: "Reba Video",
-                                        })}
-                                      </Button>
+                                      <div className="mt-3 rounded-xl overflow-hidden bg-black/5 border border-border shadow-inner">
+                                        <video
+                                          src={getMediaUrl(typeof block.content === "string" ? block.content : block.content.en)}
+                                          controls
+                                          playsInline
+                                          className="w-full aspect-video object-contain bg-black"
+                                          poster={program.image}
+                                        >
+                                          Your browser does not support the video tag.
+                                        </video>
+                                      </div>
                                     )}
                                     {block.type === "download" && (
                                       <Button
