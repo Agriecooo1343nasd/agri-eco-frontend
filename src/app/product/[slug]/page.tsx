@@ -72,6 +72,8 @@ export default function ProductDetailsPage() {
       console.log(`[DISCOUNT_DEBUG] Price: ${product.price}`);
       console.log(`[DISCOUNT_DEBUG] Old Price: ${product.oldPrice}`);
       console.log(`[DISCOUNT_DEBUG] Badge: ${product.badge}`);
+      console.log(`[DISCOUNT_DEBUG] Backend Label: ${product.backendDiscountLabel}`);
+      console.log(`[DISCOUNT_DEBUG] Raw Discounts:`, product.applicableDiscounts);
       console.log(`[DISCOUNT_DEBUG] Computed Discount: ${computedDiscount}%`);
     }
   }, [product]);
@@ -90,16 +92,26 @@ export default function ProductDetailsPage() {
           oldPrice: data.originalPrice,
           image: data.images?.[0]?.url || "/assets/products/placeholder.jpg",
           images: data.images?.map((img) => img.url) || [],
-          rating: typeof data.averageRating === "number" ? data.averageRating : 0,
+          rating:
+            typeof data.averageRating === "number" ? data.averageRating : 0,
           badge: data.isOnSale ? "sale" : data.isFeatured ? "new" : undefined,
+          backendDiscountLabel:
+            data.applicableDiscounts && data.applicableDiscounts.length > 0
+              ? `-${data.applicableDiscounts[0].value}% Off`
+              : undefined,
           category: t(data.category?.name as any) || "",
           unit: data.unit || "piece",
           shortDescription: t(data.shortDescription as any),
           longDescription: t(data.description as any),
-          features: Array.isArray(data.features) ? data.features.map(f => t(f as any)) : [],
-          benefits: Array.isArray(data.benefits) ? data.benefits.map(b => t(b as any)) : [],
+          features: Array.isArray(data.features)
+            ? data.features.map((f) => t(f as any))
+            : [],
+          benefits: Array.isArray(data.benefits)
+            ? data.benefits.map((b) => t(b as any))
+            : [],
           stock: data.stock,
           reviews: [],
+          applicableDiscounts: data.applicableDiscounts,
         };
         setProduct(mappedProduct);
         setSelectedImage(mappedProduct.image);
@@ -271,7 +283,7 @@ export default function ProductDetailsPage() {
                   }`}
                 >
                   {product.badge === "sale"
-                    ? `-${discount}% Off`
+                    ? product.backendDiscountLabel || `-${discount}% Off`
                     : product.badge}
                 </span>
               )}

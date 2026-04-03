@@ -35,6 +35,13 @@ export interface Product {
   }>;
   /** When set, cart/wishlist APIs use `artisanProductId` instead of shop `productId`. */
   artisanProductId?: string;
+  applicableDiscounts?: Array<{
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    value: number;
+  }>;
 }
 
 interface ProductCardProps {
