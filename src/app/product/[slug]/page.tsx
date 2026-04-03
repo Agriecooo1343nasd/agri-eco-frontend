@@ -59,6 +59,23 @@ export default function ProductDetailsPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // DIAGNOSTIC LOGGING: Tracking the source of those -29% discounts
+  // Respecting Rules of Hooks by keeping this at the top level
+  useEffect(() => {
+    if (product) {
+      const computedDiscount = product.oldPrice
+        ? Math.round(
+            ((product.oldPrice - product.price) / product.oldPrice) * 100,
+          )
+        : 0;
+      console.log(`[DISCOUNT_DEBUG] Product: ${product.name}`);
+      console.log(`[DISCOUNT_DEBUG] Price: ${product.price}`);
+      console.log(`[DISCOUNT_DEBUG] Old Price: ${product.oldPrice}`);
+      console.log(`[DISCOUNT_DEBUG] Badge: ${product.badge}`);
+      console.log(`[DISCOUNT_DEBUG] Computed Discount: ${computedDiscount}%`);
+    }
+  }, [product]);
+
   useEffect(() => {
     const loadProduct = async () => {
       if (!slug) return;
@@ -209,17 +226,6 @@ export default function ProductDetailsPage() {
   const discount = product.oldPrice
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
     : 0;
-
-  // DIAGNOSTIC LOGGING: Tracking the source of those -29% discounts
-  useEffect(() => {
-    if (product) {
-      console.log(`[DISCOUNT_DEBUG] Product: ${product.name}`);
-      console.log(`[DISCOUNT_DEBUG] Price: ${product.price}`);
-      console.log(`[DISCOUNT_DEBUG] Old Price: ${product.oldPrice}`);
-      console.log(`[DISCOUNT_DEBUG] Badge: ${product.badge}`);
-      console.log(`[DISCOUNT_DEBUG] Computed Discount: ${discount}%`);
-    }
-  }, [product, discount]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
