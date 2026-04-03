@@ -198,7 +198,7 @@ const DealsPage = () => {
                     </div>
 
                     <Link
-                      href={`/shop?discount=${deal.code}`}
+                      href={`/shop?deal=${deal.id}`}
                       className="w-full sm:w-fit inline-flex items-center justify-center gap-3 bg-primary text-primary-foreground py-4 px-8 rounded-2xl text-base font-black hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all shadow-sm shadow-primary/20 group/btn"
                     >
                       Shop This Deal

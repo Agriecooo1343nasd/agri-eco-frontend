@@ -301,6 +301,7 @@ export default function Page() {
 
   const [heroImageUrl, setHeroImageUrl] = useState<string | undefined>();
   const [coverImageUrl, setCoverImageUrl] = useState<string | undefined>();
+  const [heroVideoUrl, setHeroVideoUrl] = useState<string | undefined>();
   const [isFeatured, setIsFeatured] = useState(false);
 
   const [modules, setModules] = useState<ProgramModule[]>([]);
@@ -407,6 +408,7 @@ export default function Page() {
         const coverImage = normalizeImageValue(program.coverImage) ?? heroImage;
         setHeroImageUrl(heroImage ?? coverImage);
         setCoverImageUrl(coverImage);
+        setHeroVideoUrl(program.heroVideo || program.videoUrl);
         setIsFeatured(Boolean(program.isFeatured));
       } catch (error) {
         if (!mounted) return;
@@ -531,10 +533,16 @@ export default function Page() {
   ) => {
     const toastId = toast.loading("Uploading file...");
     try {
-      const result = await uploadSingleImage(file);
-      const current = modules
+      const block = modules
         .find((m) => m.id === moduleId)
-        ?.contentBlocks.find((cb) => cb.id === blockId)?.content;
+        ?.contentBlocks.find((cb) => cb.id === blockId);
+
+      const result =
+        block?.type === "video" || block?.type === "download"
+          ? await uploadMedia(file)
+          : await uploadSingleImage(file);
+
+      const current = block?.content;
 
       updateContentBlockML(moduleId, blockId, "content", {
         ...toML(current),
@@ -778,6 +786,8 @@ export default function Page() {
       coverImage: isLocalImageData(normalizedCoverImage)
         ? undefined
         : normalizedCoverImage,
+      heroVideo: heroVideoUrl?.trim() || undefined,
+      videoUrl: heroVideoUrl?.trim() || undefined,
       topics,
       curriculum,
       status: formStatus,
@@ -1017,15 +1027,23 @@ export default function Page() {
               </div>
             </div>
 
-            <MediaUploader
-              label="Cover Image"
-              value={coverImageUrl || heroImageUrl || ""}
-              onChange={(value) => {
-                setCoverImageUrl(value);
-                setHeroImageUrl(value);
-              }}
-              description="Images are uploaded and persisted to the backend server automatically."
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <MediaUploader
+                label="Cover Image"
+                value={coverImageUrl || heroImageUrl || ""}
+                onChange={(value) => {
+                  setCoverImageUrl(value);
+                  setHeroImageUrl(value);
+                }}
+                description="Thumbnail image for the program"
+              />
+              <MediaUploader
+                label="Intro Video"
+                value={heroVideoUrl || ""}
+                onChange={setHeroVideoUrl}
+                description="Introductory video (mp4, webm)"
+              />
+            </div>
 
             <div>
               <Label>Topics (comma-separated)</Label>
@@ -1352,8 +1370,8 @@ export default function Page() {
                                             block.type === "image"
                                               ? "image/*"
                                               : block.type === "video"
-                                                ? "video/*"
-                                                : "*/*"
+                                                ? "video/mp4,video/webm,video/quicktime,video/x-matroska"
+                                                : "*"
                                           }
                                           onChange={(e) => {
                                             const file = e.target.files?.[0];

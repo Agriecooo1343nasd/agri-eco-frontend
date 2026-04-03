@@ -95,10 +95,11 @@ export default function ProductDetailsPage() {
           rating:
             typeof data.averageRating === "number" ? data.averageRating : 0,
           badge: data.isOnSale ? "sale" : data.isFeatured ? "new" : undefined,
-          backendDiscountLabel:
-            data.applicableDiscounts && data.applicableDiscounts.length > 0
+          backendDiscountLabel: data.discount
+            ? (data.discount.type === "percentage" ? `-${data.discount.value}% Off` : data.discount.name)
+            : (data.applicableDiscounts && data.applicableDiscounts.length > 0
               ? `-${data.applicableDiscounts[0].value}% Off`
-              : undefined,
+              : undefined),
           category: t(data.category?.name as any) || "",
           unit: data.unit || "piece",
           shortDescription: t(data.shortDescription as any),

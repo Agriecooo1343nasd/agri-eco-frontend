@@ -86,7 +86,13 @@ function ShopContent() {
         let badge: "sale" | "new" | "organic" | undefined = undefined;
         let backendDiscountLabel: string | undefined = undefined;
 
-        if (p.applicableDiscounts && p.applicableDiscounts.length > 0) {
+        if (p.discount) {
+          badge = "sale";
+          backendDiscountLabel =
+            p.discount.type === "percentage"
+              ? `-${p.discount.value}% OFF`
+              : `${p.discount.name}`;
+        } else if (p.applicableDiscounts && p.applicableDiscounts.length > 0) {
           badge = "sale";
           const firstDiscount = p.applicableDiscounts[0];
           backendDiscountLabel =
