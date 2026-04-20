@@ -105,7 +105,7 @@ const RegisterPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <div className="container py-12 md:py-20 max-w-md mx-auto">
+      <div className="container py-12 md:py-20 max-w-lg mx-auto">
         <div className="bg-card border border-border rounded-2xl p-8">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-primary/10">

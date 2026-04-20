@@ -15,6 +15,8 @@ import {
   fetchPartnerAgreementById,
   fetchPartnerAgreementPayments
 } from "@/lib/api/partners";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const PAGE_SIZE = 5;
 
@@ -26,6 +28,7 @@ const payoutBadge: Record<string, string> = {
 
 export default function AgreementPaymentsPage() {
   const params = useParams<{ agreementId: string }>();
+  const { t } = useLanguage();
   const { formatPrice } = usePricing();
   const [page, setPage] = useState(1);
 
@@ -71,7 +74,7 @@ export default function AgreementPaymentsPage() {
       <div className="space-y-4">
         <Button variant="outline" asChild>
           <Link href="/account/partner">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner Page
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t(translations.common.back)}
           </Link>
         </Button>
         <Card>
@@ -88,7 +91,7 @@ export default function AgreementPaymentsPage() {
       <div className="space-y-4">
         <Button variant="outline" asChild>
           <Link href="/account/partner">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner Page
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t(translations.common.back)}
           </Link>
         </Button>
         <Card>
@@ -106,24 +109,24 @@ export default function AgreementPaymentsPage() {
         <div>
           <Button variant="outline" size="sm" asChild>
             <Link href="/account/partner">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Agreements
+              <ArrowLeft className="h-4 w-4 mr-1" /> {t(translations.partnerPage.agreements)}
             </Link>
           </Button>
           <h1 className="text-2xl font-bold font-heading mt-3">
-            Payment History
+            {t(translations.partnerPage.paymentHistory)}
           </h1>
           <p className="text-xs text-muted-foreground">
             {agreement.title} · {displayPartner.name}
           </p>
         </div>
-        <Badge className="text-[10px] capitalize">{agreement.status}</Badge>
+        <Badge className="text-[10px] capitalize">{t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}</Badge>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Total Paid
+              {t({ en: "Total Paid", rw: "Amafaranga yishyuwe yose", fr: "Total payé", sw: "Jumla iliyolipwa" })}
             </p>
             <p className="text-lg font-bold">{formatPrice(summary.totalPaid)}</p>
           </CardContent>
@@ -131,7 +134,7 @@ export default function AgreementPaymentsPage() {
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Records
+              {t({ en: "Records", rw: "Inyandiko", fr: "Dossiers", sw: "Rekodi" })}
             </p>
             <p className="text-lg font-bold">{summary.records}</p>
           </CardContent>
@@ -139,7 +142,7 @@ export default function AgreementPaymentsPage() {
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Payout Cycle
+              {t(translations.partnerPage.payoutCycle)}
             </p>
             <p className="text-sm font-bold capitalize flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" /> {summary.payoutCycle || displayPartner.payoutCycle || "monthly"}
@@ -151,7 +154,7 @@ export default function AgreementPaymentsPage() {
       <Card>
         <CardContent className="p-5 space-y-4">
           <h2 className="text-sm font-semibold flex items-center gap-2">
-            <Banknote className="h-4 w-4" /> Agreement Payments
+            <Banknote className="h-4 w-4" /> {t({ en: "Agreement Payments", rw: "Inyishyu z'amasezerano", fr: "Paiements de l'accord", sw: "Malipo ya Mkataba" })}
           </h2>
 
           {paginatedPayouts.length === 0 ? (
@@ -183,7 +186,7 @@ export default function AgreementPaymentsPage() {
                     <Badge
                       className={`text-[10px] capitalize border ${payoutBadge[payout.status]}`}
                     >
-                      {payout.status}
+                      {t((translations.statuses as any)[payout.status.toLowerCase()] || payout.status)}
                     </Badge>
                   </div>
                 </div>
@@ -193,7 +196,7 @@ export default function AgreementPaymentsPage() {
 
           <div className="flex items-center justify-between border-t border-border pt-3">
             <p className="text-xs text-muted-foreground">
-              Page {page} of {totalPages}
+              {t(translations.common.page)} {page} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -203,7 +206,7 @@ export default function AgreementPaymentsPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               >
-                Previous
+                {t(translations.common.previous)}
               </Button>
               <Button
                 size="sm"
@@ -214,7 +217,7 @@ export default function AgreementPaymentsPage() {
                   setPage((prev) => Math.min(totalPages, prev + 1))
                 }
               >
-                Next
+                {t(translations.common.next)}
               </Button>
             </div>
           </div>

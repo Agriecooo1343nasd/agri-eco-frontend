@@ -43,6 +43,8 @@ import {
   submitPartnerApplication,
 } from "@/lib/api/partners";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const statusBadge: Record<string, string> = {
   active: "bg-primary/10 text-primary border-primary/20",
@@ -59,6 +61,7 @@ const applicationBadge: Record<string, string> = {
 
 export default function AccountPartnerPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { formatPrice } = usePricing();
   const queryClient = useQueryClient();
 
@@ -106,8 +109,8 @@ export default function AccountPartnerPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["partner-me-application"] });
       setDialogOpen(false);
-      toast.success("Application Submitted", {
-        description: "Your partner application is now pending admin review.",
+      toast.success(t(translations.common.success), {
+        description: t(translations.partnerPage.underReview),
       });
     },
     onError: (error: Error) => {
@@ -126,9 +129,9 @@ export default function AccountPartnerPage() {
       !form.email ||
       !form.phone
     ) {
-      toast.error("Missing Required Fields", {
+      toast.error(t(translations.common.errorLoading), {
         description:
-          "Please provide business name, contact person, email and phone.",
+          t(translations.auth.required),
       });
       return;
     }
@@ -146,10 +149,9 @@ export default function AccountPartnerPage() {
   return (
     <div className="space-y-6">
       <div className="bg-primary rounded-3xl text-primary-foreground p-6 md:p-8 relative overflow-hidden">
-        <h1 className="text-2xl font-bold font-heading">Partner Network</h1>
+        <h1 className="text-2xl font-bold font-heading">{t(translations.partnerPage.partnerNetwork)}</h1>
         <p className="text-primary-foreground/80 text-sm mt-2 max-w-2xl">
-          Track your partnership status, agreements, revenue share and payouts
-          in one place.
+          {t(translations.partnerPage.trackSub)}
         </p>
         <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
       </div>
@@ -160,12 +162,12 @@ export default function AccountPartnerPage() {
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Partnership Status
+                  {t(translations.partnerPage.status)}
                 </p>
                 <Badge
                   className={`${statusBadge[displayPartner.status || fallbackStatus] || "bg-muted text-muted-foreground"} text-[10px] capitalize`}
                 >
-                  {displayPartner.status || fallbackStatus}
+                  {t((translations.statuses as any)[(displayPartner.status || fallbackStatus).toLowerCase()] || (displayPartner.status || fallbackStatus))}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
                   Type: <span className="capitalize">{displayPartner.type?.replace("_", " ")}</span>
@@ -176,13 +178,13 @@ export default function AccountPartnerPage() {
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Gross Revenue
+                  {t(translations.partnerPage.grossRevenue)}
                 </p>
                 <p className="text-lg font-bold">
                   {formatPrice(revenueSummary.gross)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Bookings: {revenueSummary.bookings || 0}
+                  {t(translations.bookingsPage.participants)}: {revenueSummary.bookings || 0}
                 </p>
               </CardContent>
             </Card>
@@ -190,13 +192,13 @@ export default function AccountPartnerPage() {
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Your Earnings
+                  {t(translations.partnerPage.yourEarnings)}
                 </p>
                 <p className="text-lg font-bold">
                   {formatPrice(revenueSummary.earnings)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Pending: {formatPrice(revenueSummary.pending || 0)}
+                  {t((translations.statuses as any).pending)}: {formatPrice(revenueSummary.pending || 0)}
                 </p>
               </CardContent>
             </Card>
@@ -204,13 +206,13 @@ export default function AccountPartnerPage() {
             <Card>
               <CardContent className="p-4 space-y-1">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Payout Cycle
+                  {t(translations.partnerPage.payoutCycle)}
                 </p>
                 <p className="text-sm font-bold capitalize">
                   {displayPartner.payoutCycle || "Not configured"}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  Since {displayPartner.createdAt ? new Date(displayPartner.createdAt).toLocaleDateString() : ""}
+                  {t(translations.partnerPage.since)} {displayPartner.createdAt ? new Date(displayPartner.createdAt).toLocaleDateString() : ""}
                 </p>
               </CardContent>
             </Card>
@@ -219,16 +221,16 @@ export default function AccountPartnerPage() {
           <Card>
             <CardContent className="p-5 space-y-3">
               <h2 className="text-sm font-semibold flex items-center gap-2">
-                <Handshake className="h-4 w-4" /> Partner Overview
+                <Handshake className="h-4 w-4" /> {t(translations.partnerPage.overview)}
               </h2>
               <div className="grid md:grid-cols-2 gap-4 text-xs">
                 <div className="space-y-1">
                   <p>
-                    <span className="text-muted-foreground">Business:</span>{" "}
+                    <span className="text-muted-foreground">{t(translations.partnerPage.business)}:</span>{" "}
                     {displayPartner.name || "N/A"}
                   </p>
                   <p>
-                    <span className="text-muted-foreground">Contact:</span>{" "}
+                    <span className="text-muted-foreground">{t(translations.partnerPage.contact)}:</span>{" "}
                     {displayPartner.contactName || "N/A"}
                   </p>
                   <p>
@@ -238,11 +240,11 @@ export default function AccountPartnerPage() {
                 </div>
                 <div className="space-y-1">
                   <p>
-                    <span className="text-muted-foreground">Default Commission Rate:</span>{" "}
+                    <span className="text-muted-foreground">{t(translations.partnerPage.commissionRate)}:</span>{" "}
                     {displayPartner.revenueShareRate || displayPartner.commissionRate || activeAgreements[0]?.commissionRate || 0}%
                   </p>
                   <p>
-                    <span className="text-muted-foreground">Phone:</span>{" "}
+                    <span className="text-muted-foreground">{t(translations.checkoutPage.phone)}:</span>{" "}
                     {displayPartner.phone || "N/A"}
                   </p>
                 </div>
@@ -256,7 +258,7 @@ export default function AccountPartnerPage() {
           <Card>
             <CardContent className="p-5 space-y-3">
               <h2 className="text-sm font-semibold flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Agreements
+                <FileText className="h-4 w-4" /> {t(translations.partnerPage.agreements)}
               </h2>
 
               {isLoadingAgreements ? (
@@ -266,14 +268,14 @@ export default function AccountPartnerPage() {
                 </div>
               ) : partnerAgreements.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  No agreements found.
+                  {t(translations.partnerPage.noAgreements)}
                 </p>
               ) : (
                 <div className="space-y-4">
                   <div className="grid sm:grid-cols-3 gap-3">
                     <div className="border border-border rounded-lg p-3 bg-muted/20">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                        Active Contracts
+                        {t(translations.partnerPage.activeContracts)}
                       </p>
                       <p className="text-xl font-bold mt-1">
                         {activeAgreements.length}
@@ -281,7 +283,7 @@ export default function AccountPartnerPage() {
                     </div>
                     <div className="border border-border rounded-lg p-3 bg-muted/20">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                        Ended / Terminated
+                        {t(translations.partnerPage.endedTerminated)}
                       </p>
                       <p className="text-xl font-bold mt-1">
                         {endedAgreements.length}
@@ -289,7 +291,7 @@ export default function AccountPartnerPage() {
                     </div>
                     <div className="border border-border rounded-lg p-3 bg-muted/20">
                       <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                        Total Contract Earnings
+                        {t(translations.partnerPage.totalEarnings)}
                       </p>
                       <p className="text-sm font-bold mt-2">
                         {formatPrice(revenueSummary.earnings)}
@@ -299,11 +301,11 @@ export default function AccountPartnerPage() {
 
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                      Active Agreements
+                      {t(translations.partnerPage.activeContracts)}
                     </p>
                     {activeAgreements.length === 0 ? (
                       <p className="text-xs text-muted-foreground">
-                        No active agreements at the moment.
+                        {t(translations.partnerPage.noAgreements)}
                       </p>
                     ) : (
                       activeAgreements.map((agreement) => (
@@ -316,7 +318,7 @@ export default function AccountPartnerPage() {
                               {agreement.title}
                             </p>
                             <Badge className="text-[10px] capitalize">
-                              {agreement.status}
+                              {t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
@@ -328,7 +330,7 @@ export default function AccountPartnerPage() {
                           </p>
                           <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                             <p className="text-xs font-medium text-primary">
-                              Earnings made:{" "}
+                              {t(translations.partnerPage.earningsMade)}:{" "}
                               {formatPrice(agreement.paidToDate || 0)}
                             </p>
                             <div className="flex items-center gap-2">
@@ -341,7 +343,7 @@ export default function AccountPartnerPage() {
                                 <Link
                                   href={`/account/partner/agreement/${agreement.id}`}
                                 >
-                                  View Agreement
+                                  {t(translations.partnerPage.viewAgreement)}
                                 </Link>
                               </Button>
                               <Button
@@ -353,7 +355,7 @@ export default function AccountPartnerPage() {
                                 <Link
                                   href={`/account/partner/agreements/${agreement.id}/payments`}
                                 >
-                                  Payment History
+                                  {t(translations.partnerPage.paymentHistory)}
                                 </Link>
                               </Button>
                             </div>
@@ -365,7 +367,7 @@ export default function AccountPartnerPage() {
 
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                      Contract History
+                      {t(translations.partnerPage.contractHistory)}
                     </p>
                     {endedAgreements.length === 0 ? (
                       <p className="text-xs text-muted-foreground">
@@ -382,7 +384,7 @@ export default function AccountPartnerPage() {
                               {agreement.title}
                             </p>
                             <Badge className="text-[10px] capitalize">
-                              {agreement.status}
+                              {t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
@@ -394,7 +396,7 @@ export default function AccountPartnerPage() {
                           </p>
                           <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                             <p className="text-xs font-medium text-foreground">
-                              Earnings made:{" "}
+                              {t(translations.partnerPage.earningsMade)}:{" "}
                               {formatPrice(agreement.paidToDate || 0)}
                             </p>
                             <div className="flex items-center gap-2">
@@ -407,7 +409,7 @@ export default function AccountPartnerPage() {
                                 <Link
                                   href={`/account/partner/agreement/${agreement.id}`}
                                 >
-                                  View Agreement
+                                  {t(translations.partnerPage.viewAgreement)}
                                 </Link>
                               </Button>
                               <Button
@@ -419,7 +421,7 @@ export default function AccountPartnerPage() {
                                 <Link
                                   href={`/account/partner/agreements/${agreement.id}/payments`}
                                 >
-                                  Payment History
+                                  {t(translations.partnerPage.paymentHistory)}
                                 </Link>
                               </Button>
                             </div>
@@ -439,21 +441,18 @@ export default function AccountPartnerPage() {
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-5 space-y-3">
             <p className="text-sm font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" /> Partner Application
-              Pending
+              <Clock className="h-4 w-4 text-amber-600" /> {t(translations.partnerPage.pendingApplication)}
             </p>
             <Badge
               className={`${applicationBadge[userApplication.status]} text-[10px] capitalize`}
             >
-              {userApplication.status}
+              {t((translations.statuses as any)[userApplication.status.toLowerCase()] || userApplication.status)}
             </Badge>
             <p className="text-xs text-muted-foreground">
-              Your application for{" "}
-              <strong>{userApplication.businessName}</strong> is under review.
-              We will notify you after admin verification.
+              {t(translations.partnerPage.underReview)}
             </p>
             <p className="text-xs text-muted-foreground">
-              Applied on {userApplication.createdAt ? new Date(userApplication.createdAt).toLocaleDateString() : "recently"}
+              {t(translations.partnerPage.appliedOn)} {userApplication.createdAt ? new Date(userApplication.createdAt).toLocaleDateString() : "recently"}
             </p>
           </CardContent>
         </Card>
@@ -461,8 +460,7 @@ export default function AccountPartnerPage() {
         <Card>
           <CardContent className="p-6 space-y-4">
             <p className="text-sm font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" /> Not a
-              Partner Yet
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" /> {t(translations.partnerPage.notPartner)}
             </p>
             {userApplication?.status === "rejected" && (
               <div className="border border-destructive/20 rounded-lg p-3 bg-destructive/5">
@@ -485,8 +483,7 @@ export default function AccountPartnerPage() {
               className="text-xs"
               onClick={() => setDialogOpen(true)}
             >
-              <Wallet className="h-3.5 w-3.5 mr-1" /> Apply to Join Partner
-              Network
+              <Wallet className="h-3.5 w-3.5 mr-1" /> {t(translations.partnerPage.applyToJoin)}
             </Button>
           </CardContent>
         </Card>
@@ -496,17 +493,17 @@ export default function AccountPartnerPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading">
-              Apply to Partner with Agri-Eco
+              {t(translations.partnerPage.applyTitle)}
             </DialogTitle>
             <DialogDescription>
-              Share your business details and we will review your application.
+              {t(translations.partnerPage.applyDescription)}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={submitApplication} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label className="text-[11px]">Business Name *</Label>
+                <Label className="text-[11px]">{t(translations.partnerPage.businessName)} *</Label>
                 <Input
                   placeholder="Example: Green Valley Tours Ltd"
                   className="h-9 text-xs"
@@ -521,7 +518,7 @@ export default function AccountPartnerPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[11px]">Contact Person *</Label>
+                <Label className="text-[11px]">{t(translations.partnerPage.contactPerson)} *</Label>
                 <Input
                   placeholder="Example: Jane Uwimana"
                   className="h-9 text-xs"
@@ -536,7 +533,7 @@ export default function AccountPartnerPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[11px]">Business Email *</Label>
+                <Label className="text-[11px]">{t(translations.common.email)} *</Label>
                 <Input
                   type="email"
                   placeholder="Example: partner@business.rw"
@@ -549,7 +546,7 @@ export default function AccountPartnerPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[11px]">Phone Number *</Label>
+                <Label className="text-[11px]">{t(translations.checkoutPage.phone)} *</Label>
                 <Input
                   placeholder="Example: +250 7XX XXX XXX"
                   className="h-9 text-xs"
@@ -561,7 +558,7 @@ export default function AccountPartnerPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[11px]">Business Type *</Label>
+                <Label className="text-[11px]">{t(translations.partnerPage.businessType)} *</Label>
                 <Select
                   value={form.type}
                   onValueChange={(value) =>
@@ -584,7 +581,7 @@ export default function AccountPartnerPage() {
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <Label className="text-[11px]">About Your Business</Label>
+                <Label className="text-[11px]">{t(translations.partnerPage.aboutBusiness)}</Label>
                 <Textarea
                   rows={4}
                   placeholder="Tell us your services, current audience and how you want to partner with Agri-Eco."
@@ -606,10 +603,10 @@ export default function AccountPartnerPage() {
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
               >
-                Cancel
+                {t(translations.common.cancel)}
               </Button>
               <Button type="submit">
-                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Submit Application
+                <CheckCircle className="h-3.5 w-3.5 mr-1" /> {t(translations.partnerPage.submitApplication)}
               </Button>
             </DialogFooter>
           </form>

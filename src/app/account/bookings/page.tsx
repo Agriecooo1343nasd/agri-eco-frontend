@@ -51,6 +51,7 @@ import {
   fetchExperienceReviews,
   type Review,
 } from "@/lib/api/reviews";
+import { translations } from "@/i18n/translations";
 
 const statusConfig: Record<
   string,
@@ -189,17 +190,17 @@ export default function MyBookingsPage() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold font-heading text-foreground">
-              My Bookings
+              {t(translations.bookingsPage.title)}
             </h1>
             <p className="text-sm text-muted-foreground font-medium">
-              {pagination?.total ?? 0} booking(s) found
+              {pagination?.total ?? 0} {t(translations.bookingsPage.found)}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <div className="relative flex-1 md:w-64">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search tours..."
+                placeholder={t(translations.bookingsPage.searchTours)}
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -216,10 +217,10 @@ export default function MyBookingsPage() {
               }}
             >
               <SelectTrigger className="w-full md:w-36 h-9 text-xs bg-card">
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t(translations.bookingsPage.status)} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" className="text-xs">All Status</SelectItem>
+                <SelectItem value="all" className="text-xs">{t(translations.ordersPage.allStatuses)}</SelectItem>
                 <SelectItem value="pending" className="text-xs">Pending</SelectItem>
                 <SelectItem value="confirmed" className="text-xs">Confirmed</SelectItem>
                 <SelectItem value="completed" className="text-xs">Completed</SelectItem>
@@ -229,7 +230,7 @@ export default function MyBookingsPage() {
             </Select>
             <Link href="/tours" className="shrink-0">
               <Button size="sm" className="gap-1.5 h-9 text-xs px-4">
-                <Calendar className="h-3.5 w-3.5" /> Book New
+                <Calendar className="h-3.5 w-3.5" /> {t(translations.bookingsPage.bookNew)}
               </Button>
             </Link>
           </div>
@@ -239,23 +240,23 @@ export default function MyBookingsPage() {
         {bookingsQuery.isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 text-primary animate-spin" />
-            <p className="font-medium text-muted-foreground animate-pulse">Loading your experiences...</p>
+            <p className="font-medium text-muted-foreground animate-pulse">{t(translations.bookingsPage.loadingExperiences)}</p>
           </div>
         ) : bookings.length === 0 ? (
           <div className="text-center py-20 bg-card rounded-2xl border border-dashed border-border">
             <Leaf className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground">
-              No bookings found
+              {t(translations.bookingsPage.noBookings)}
             </h3>
             <p className="text-xs text-muted-foreground mb-6">
               {search || statusFilter !== "all" 
-                ? "Try adjusting your filters or search query." 
-                : "You haven't made any bookings yet."}
+                ? t(translations.ordersPage.adjustFilters) 
+                : t(translations.bookingsPage.notMadeBookings)}
             </p>
             {!search && statusFilter === "all" && (
               <Link href="/tours">
                 <Button size="lg" className="text-xs h-10 px-6">
-                  Browse Experiences
+                  {t(translations.bookingsPage.browseExperiences)}
                 </Button>
               </Link>
             )}
@@ -287,14 +288,14 @@ export default function MyBookingsPage() {
                           className={`${sc.color} border text-[10px] md:text-[11px] gap-1.5 font-bold py-0.5 px-2.5`}
                         >
                           <StatusIcon className={`h-3 w-3 ${booking.status === "pending" ? "animate-spin" : ""}`} />
-                          {sc.label}
+                          {t((translations.statuses as any)[booking.status.toLowerCase()] || booking.status)}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                          Ref: {booking.referenceNumber}
+                          {t(translations.bookingsPage.bookingRef)} {booking.referenceNumber}
                         </span>
                         {booking.paymentStatus && (
                             <span className={`text-[9px] font-bold uppercase py-0.5 px-2 rounded-full border ${PAYMENT_STATUS_COLORS[booking.paymentStatus]}`}>
-                                {booking.paymentStatus}
+                                {t((translations.statuses as any)[booking.paymentStatus.toLowerCase()] || booking.paymentStatus)}
                             </span>
                         )}
                       </div>
@@ -312,7 +313,7 @@ export default function MyBookingsPage() {
                         </span>
                         <span className="flex items-center gap-1.5">
                           <Users className="h-3.5 w-3.5" />
-                          {booking.participants} guest(s)
+                          {booking.participants} {t(translations.bookingsPage.guests)}
                         </span>
                       </div>
                     </div>
@@ -333,7 +334,7 @@ export default function MyBookingsPage() {
                           onClick={() => setSelectedBooking(booking)}
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          Details
+                          {t(translations.bookingsPage.details)}
                         </Button>
                         {["pending", "confirmed", "waitlisted"].includes(booking.status) && (
                           <Button
@@ -343,7 +344,7 @@ export default function MyBookingsPage() {
                             onClick={() => setCancelDialog(booking)}
                           >
                             <X className="h-3.5 w-3.5" />
-                            Cancel
+                            {t(translations.bookingsPage.cancel)}
                           </Button>
                         )}
                       </div>
@@ -369,7 +370,7 @@ export default function MyBookingsPage() {
             </Button>
             <div className="flex items-center gap-1 px-4">
               <span className="font-bold text-foreground">{pagination.page}</span>
-              <span className="text-muted-foreground">of</span>
+              <span className="text-muted-foreground">{t(translations.ordersPage.of)}</span>
               <span className="font-bold text-foreground">{pagination.pages}</span>
             </div>
             <Button
@@ -395,10 +396,10 @@ export default function MyBookingsPage() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-3 text-left">
             <DialogTitle className="font-heading text-lg">
-              Booking Overview
+              {t(translations.bookingsPage.bookingOverview)}
             </DialogTitle>
             <DialogDescription className="text-[10px] font-bold tracking-widest uppercase opacity-70">
-              Reference: {selectedBooking?.referenceNumber}
+              {t(translations.bookingsPage.bookingRef)} {selectedBooking?.referenceNumber}
             </DialogDescription>
           </DialogHeader>
           
@@ -422,45 +423,45 @@ export default function MyBookingsPage() {
                   </p>
                 </div>
                 <Badge className={`${statusConfig[selectedBooking.status]?.color} border py-0.5`}>
-                  {selectedBooking.status}
+                  {t((translations.statuses as any)[selectedBooking.status.toLowerCase()] || selectedBooking.status)}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-2 gap-y-4 gap-x-6 bg-accent/20 rounded-xl p-4 border border-border/30">
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Date</p>{" "}
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">{t(translations.bookingsPage.date)}</p>{" "}
                   <p className="text-foreground font-bold">{new Date(selectedBooking.date).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Time Slot</p>{" "}
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">{t(translations.bookingsPage.timeSlot)}</p>{" "}
                   <p className="text-foreground font-bold">{selectedBooking.timeSlot}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Participants</p>{" "}
-                  <p className="text-foreground font-bold">{selectedBooking.participants} Guest(s)</p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">{t(translations.bookingsPage.participants)}</p>{" "}
+                  <p className="text-foreground font-bold">{selectedBooking.participants} {t(translations.bookingsPage.guests)}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Booking Type</p>{" "}
-                  <p className="text-foreground font-bold capitalize">{selectedBooking.bookingType}</p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">{t(translations.bookingsPage.bookingType)}</p>{" "}
+                  <p className="text-foreground font-bold capitalize">{selectedBooking.bookingType.replace("_", " ")}</p>
                 </div>
                 <div className="col-span-2 border-t border-border/20 pt-3 mt-1">
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Guest Name</p>{" "}
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">{t(translations.bookingsPage.guestName)}</p>{" "}
                   <p className="text-foreground font-bold">{selectedBooking.fullName}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Contact Phone</p>{" "}
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">{t(translations.bookingsPage.contactPhone)}</p>{" "}
                   <p className="text-foreground font-bold">{selectedBooking.phone}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">Payment Status</p>{" "}
-                  <p className="text-foreground font-bold capitalize">{selectedBooking.paymentStatus}</p>
+                  <p className="text-muted-foreground font-semibold mb-0.5 uppercase tracking-tighter">{t(translations.bookingsPage.paymentStatus)}</p>{" "}
+                  <p className="text-foreground font-bold capitalize">{t((translations.statuses as any)[selectedBooking.paymentStatus.toLowerCase()] || selectedBooking.paymentStatus)}</p>
                 </div>
               </div>
 
               {selectedBooking.specialRequirements && (
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
                   <p className="font-bold text-foreground text-[10px] mb-1 leading-none uppercase tracking-tight flex items-center gap-1.5">
-                    <AlertCircle className="h-3 w-3" /> Special Requirements
+                    <AlertCircle className="h-3 w-3" /> {t(translations.bookingsPage.specialRequirements)}
                   </p>
                   <p className="text-muted-foreground leading-relaxed italic">
                     {selectedBooking.specialRequirements}
@@ -471,14 +472,14 @@ export default function MyBookingsPage() {
               {/* Rating Section */}
               <div className="bg-card border border-border rounded-xl p-4 space-y-2">
                 <p className="font-bold text-foreground text-[10px] uppercase tracking-tight">
-                  Rate This Experience
+                  {t(translations.bookingsPage.rateExperience)}
                 </p>
                 {selectedBooking.status === "completed" ? (
                   <>
                     {myReview ? (
                       <div className="rounded-lg border border-border p-3">
                         <p className="text-xs font-semibold text-foreground">
-                          You already reviewed this tour ({myReview.rating}/5)
+                          {t(translations.bookingsPage.alreadyReviewed)} ({myReview.rating}/5)
                         </p>
                         {myReview.comment ? (
                           <p className="text-xs text-muted-foreground mt-1">{myReview.comment}</p>
@@ -502,7 +503,7 @@ export default function MyBookingsPage() {
                         <Textarea
                           value={reviewComment}
                           onChange={(event) => setReviewComment(event.target.value)}
-                          placeholder="Write your review message..."
+                          placeholder={t(translations.bookingsPage.writeReview)}
                           className="text-xs"
                           rows={3}
                         />
@@ -512,19 +513,19 @@ export default function MyBookingsPage() {
                           onClick={() => reviewMutation.mutate()}
                           disabled={reviewMutation.isPending || !reviewComment.trim()}
                         >
-                          {reviewMutation.isPending ? "Submitting..." : "Submit Review"}
+                          {reviewMutation.isPending ? t(translations.bookingsPage.processing) : t(translations.bookingsPage.submitReview)}
                         </Button>
                       </>
                     )}
                   </>
                 ) : (
                   <p className="text-[11px] text-muted-foreground">
-                    Review becomes available after this booking is completed.
+                    {t(translations.bookingsPage.reviewAvailableAfter)}
                   </p>
                 )}
                 <div className="space-y-1">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                    Recent reviews
+                    {t(translations.bookingsPage.recentReviews)}
                   </p>
                   {experienceReviews.length === 0 ? (
                     <p className="text-[11px] text-muted-foreground">No reviews yet.</p>
@@ -544,7 +545,7 @@ export default function MyBookingsPage() {
               </div>
 
               <div className="flex justify-between items-center font-bold text-lg border-t border-border pt-4 px-1">
-                <span className="text-foreground">Total Amount</span>
+                <span className="text-foreground">{t(translations.bookingsPage.totalAmount)}</span>
                 <span className="text-primary font-heading">
                   {formatPrice(selectedBooking.amountRwf)}
                 </span>
@@ -552,7 +553,7 @@ export default function MyBookingsPage() {
             </div>
           )}
           <DialogFooter className="mt-2">
-              <Button variant="outline" className="w-full text-xs" onClick={() => setSelectedBooking(null)}>Close</Button>
+              <Button variant="outline" className="w-full text-xs" onClick={() => setSelectedBooking(null)}>{t(translations.common.close)}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -567,27 +568,26 @@ export default function MyBookingsPage() {
         <DialogContent>
           <DialogHeader className="border-b pb-3 text-left">
             <DialogTitle className="font-heading text-destructive flex items-center gap-2 text-lg">
-              <XCircle className="h-5 w-5" /> Cancel Booking
+              <XCircle className="h-5 w-5" /> {t(translations.bookingsPage.cancelBooking)}
             </DialogTitle>
             <DialogDescription className="text-xs font-semibold">
-              Reference: {cancelDialog?.referenceNumber}
+              {t(translations.bookingsPage.bookingRef)} {cancelDialog?.referenceNumber}
             </DialogDescription>
           </DialogHeader>
           <div className="py-2 space-y-4">
             <div className="bg-destructive/5 rounded-lg p-3 border border-destructive/10">
                 <p className="text-[11px] text-foreground font-medium">
-                  Are you sure you want to cancel this booking?
+                  {t(translations.bookingsPage.sureCancel)}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
-                  This action will initiate the cancellation process. Refunds are
-                  subject to the tour&apos;s cancellation policy.
+                  {t(translations.bookingsPage.cancelInstruction)}
                 </p>
             </div>
             
             <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-tight ml-1">Reason for cancellation (Optional)</label>
+                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-tight ml-1">{t(translations.bookingsPage.cancelReasonPlaceholder)}</label>
                 <Input 
-                    placeholder="e.g. Schedule change, personal reasons..." 
+                    placeholder={t(translations.bookingsPage.cancelReasonPlaceholder)} 
                     value={cancelReason}
                     onChange={(e) => setCancelReason(e.target.value)}
                     className="text-xs h-9"
@@ -609,7 +609,7 @@ export default function MyBookingsPage() {
               onClick={() => cancelDialog && cancelMutation.mutate({ id: cancelDialog.id, reason: cancelReason })}
               disabled={cancelMutation.isPending}
             >
-              {cancelMutation.isPending ? "Processing..." : "Confirm Cancellation"}
+              {cancelMutation.isPending ? t(translations.bookingsPage.processing) : t(translations.bookingsPage.confirmCancellation)}
             </Button>
           </DialogFooter>
         </DialogContent>

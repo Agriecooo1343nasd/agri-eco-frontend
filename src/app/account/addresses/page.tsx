@@ -18,8 +18,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const AddressesPage = () => {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<UserAddress | null>(null);
@@ -43,7 +46,7 @@ const AddressesPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
       queryClient.invalidateQueries({ queryKey: ["customer-dashboard"] });
-      toast.success("Address added successfully");
+      toast.success(t(translations.common.success));
       setIsDialogOpen(false);
     },
     onError: (error: any) => {
@@ -55,7 +58,7 @@ const AddressesPage = () => {
     mutationFn: ({ id, data }: { id: string; data: Partial<UserAddress> }) => updateAddress(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
-      toast.success("Address updated successfully");
+      toast.success(t(translations.common.success));
       setIsDialogOpen(false);
     },
     onError: (error: any) => {
@@ -68,7 +71,7 @@ const AddressesPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
       queryClient.invalidateQueries({ queryKey: ["customer-dashboard"] });
-      toast.success("Address removed");
+      toast.success(t(translations.common.success));
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to remove address");
@@ -79,7 +82,7 @@ const AddressesPage = () => {
     mutationFn: setDefaultAddress,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
-      toast.success("Default address updated");
+      toast.success(t(translations.common.success));
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to set default");
@@ -136,7 +139,7 @@ const AddressesPage = () => {
     return (
       <div className="py-20 flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-10 w-10 text-primary animate-spin" />
-        <p className="text-sm font-medium text-muted-foreground">Loading your addresses...</p>
+        <p className="text-sm font-medium text-muted-foreground">{t(translations.common.loading)}</p>
       </div>
     );
   }
@@ -146,15 +149,15 @@ const AddressesPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-foreground font-heading mb-2">
-            My Addresses
+            {t(translations.addressesPage.myAddresses)}
           </h1>
           <p className="text-muted-foreground font-medium text-sm">
-            Manage your delivery locations for faster checkout and tour bookings.
+            {t(translations.addressesPage.manageAddresses)}
           </p>
         </div>
         <Button onClick={handleOpenAdd} >
           <Plus className="h-4 w-4" />
-          Add New Address
+          {t(translations.addressesPage.addNewAddress)}
         </Button>
       </div>
 
@@ -164,11 +167,11 @@ const AddressesPage = () => {
                 <MapPin className="h-8 w-8 text-muted-foreground/30" />
             </div>
             <div className="space-y-1">
-                <h3 className="text-lg font-bold">No addresses found</h3>
-                <p className="text-sm text-muted-foreground max-w-xs">You haven&apos;t added any addresses yet. Add one to speed up your checkout process.</p>
+                <h3 className="text-lg font-bold">{t(translations.addressesPage.noAddressesFound)}</h3>
+                <p className="text-sm text-muted-foreground max-w-xs">{t(translations.addressesPage.noAddressesDescription)}</p>
             </div>
             <Button onClick={handleOpenAdd} variant="outline" size="sm" className="mt-2 font-bold uppercase tracking-widest text-[10px]">
-                Create First Address
+                {t(translations.addressesPage.createFirstAddress)}
             </Button>
         </div>
       ) : (
@@ -185,7 +188,7 @@ const AddressesPage = () => {
                 <div className="absolute top-0 right-0">
                     <div className="bg-primary text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl flex items-center gap-1.5">
                         <CheckCircle2 className="h-3 w-3" />
-                        Default
+                        {t(translations.addressesPage.default)}
                     </div>
                 </div>
                 )}
@@ -207,7 +210,7 @@ const AddressesPage = () => {
                             onClick={() => setAsDefaultMutation.mutate(address.id)}
                             className="text-[9px] font-black text-muted-foreground hover:text-primary uppercase tracking-widest transition-colors"
                         >
-                            Set Default
+                            {t(translations.addressesPage.setAsDefault)}
                         </button>
                     )}
                     </div>
@@ -226,13 +229,13 @@ const AddressesPage = () => {
                     onClick={() => handleOpenEdit(address)}
                 >
                     <Pencil className="h-3.5 w-3.5 mr-2" />
-                    Edit
+                    {t(translations.addressesPage.edit)}
                 </Button>
                 <Button
                     variant="outline"
                     className="rounded-md h-11 px-4 border-border/60 hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-colors"
                     onClick={() => {
-                        if (confirm("Are you sure you want to delete this address?")) {
+                        if (confirm(t(translations.addressesPage.sureDelete))) {
                             deleteMutation.mutate(address.id);
                         }
                     }}
@@ -273,17 +276,17 @@ const AddressesPage = () => {
           <div className="p-8 pb-0">
             <DialogHeader className="mb-8">
                 <DialogTitle className="text-2xl font-black font-heading tracking-tight">
-                    {editingAddress ? "Update Location" : "New Address"}
+                    {editingAddress ? t(translations.addressesPage.updateLocation) : t(translations.addressesPage.newAddress)}
                 </DialogTitle>
                 <DialogDescription className="font-medium text-muted-foreground italic">
-                    {editingAddress ? "Modify your existing address details below." : "Enter the details for your new delivery or pickup location."}
+                    {editingAddress ? t({ en: "Modify your existing address details below.", rw: "Hindura amakuru ya aderesi yawe hano.", fr: "Modifiez vos adresses existantes ci-dessous.", sw: "Badilisha maelezo yako ya anwani yaliyopo hapo chini." }) : t({ en: "Enter the details for your new delivery or pickup location.", rw: "Uzuza ibya aderesi nshya.", fr: "Saisissez les détails de votre nouveau lieu de livraison ou d'enlèvement.", sw: "Ingiza maelezo ya eneo lako jipya la utoaji ama kuchukua." })}
                 </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2 col-span-2">
-                        <Label htmlFor="label" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Label (e.g. Home, Office)</Label>
+                        <Label htmlFor="label" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.addressesPage.label)}</Label>
                         <Input
                             id="label"
                             value={formData.label}
@@ -295,7 +298,7 @@ const AddressesPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="street" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Street Address</Label>
+                    <Label htmlFor="street" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.addressesPage.streetAddress)}</Label>
                     <Input
                         id="street"
                         value={formData.street}
@@ -308,7 +311,7 @@ const AddressesPage = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="city" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">City</Label>
+                        <Label htmlFor="city" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.addressesPage.city)}</Label>
                         <Input
                             id="city"
                             value={formData.city}
@@ -318,7 +321,7 @@ const AddressesPage = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="state" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">State / Province</Label>
+                        <Label htmlFor="state" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.addressesPage.state)}</Label>
                         <Input
                             id="state"
                             value={formData.state}
@@ -331,7 +334,7 @@ const AddressesPage = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="zipCode" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Zip / Postal Code</Label>
+                        <Label htmlFor="zipCode" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.addressesPage.zipCode)}</Label>
                         <Input
                             id="zipCode"
                             value={formData.zipCode}
@@ -340,7 +343,7 @@ const AddressesPage = () => {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="country" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Country</Label>
+                        <Label htmlFor="country" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.addressesPage.country)}</Label>
                         <Input
                             id="country"
                             value={formData.country}
@@ -361,7 +364,7 @@ const AddressesPage = () => {
                         className="w-4 h-4 rounded text-primary border-border active:ring-primary h-4 w-4"
                     />
                     <label htmlFor="isDefault" className="text-xs font-bold text-foreground cursor-pointer select-none uppercase tracking-tighter">
-                        Set as default address
+                        {t(translations.addressesPage.setAsDefault)}
                     </label>
                 </div>
 
@@ -371,14 +374,14 @@ const AddressesPage = () => {
                         variant="ghost" 
                         onClick={() => setIsDialogOpen(false)}
                     >
-                        Cancel
+                        {t(translations.common.cancel)}
                     </Button>
                     <Button 
                         type="submit" 
                         disabled={isPending}
                     >
                         {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        {editingAddress ? "Save Changes" : "Create Address"}
+                        {editingAddress ? t(translations.addressesPage.saveChanges) : t(translations.addressesPage.createAddress)}
                     </Button>
                 </DialogFooter>
             </form>
