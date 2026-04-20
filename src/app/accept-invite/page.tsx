@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -103,6 +103,32 @@ function AcceptInviteForm() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
+  const [inviteData, setInviteData] = useState<any>(null);
+
+  // Validate token on mount
+  useEffect(() => {
+    if (!token) {
+      setIsValidating(false);
+      return;
+    }
+
+    const validate = async () => {
+      try {
+        const data = await import("@/lib/api/team").then((m) =>
+          m.validateInviteToken(token),
+        );
+        setInviteData(data);
+      } catch (err: any) {
+        setFormError(
+          err.response?.data?.message || "This invitation link is invalid or has expired."
+        );
+      } finally {
+        setIsValidating(false);
+      }
+    };
+    validate();
+  }, [token]);
 
   const acceptMutation = useMutation({
     mutationFn: acceptTeamInvite,
@@ -119,33 +145,39 @@ function AcceptInviteForm() {
           ?.message ||
         "This invitation is invalid or has expired. Ask your administrator for a new link.";
       setFormError(message);
-      toast.error("Could not accept invitation", { description: message });
     },
   });
 
   if (!token) return <NoTokenState />;
+  if (isValidating) return <AcceptInviteFallback />;
   if (success) return <SuccessState />;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    if (!password || !confirmPassword) {
-      setFormError("Please fill in both password fields.");
-      return;
-    }
-    if (!isPasswordValid(password)) {
-      setFormError(
-        "Your password doesn't meet the requirements listed below.",
-      );
-      return;
-    }
-    if (password !== confirmPassword) {
-      setFormError("Passwords do not match.");
-      return;
+    // Only validate password if user doesn't exist
+    if (!inviteData?.userExists) {
+      if (!password || !confirmPassword) {
+        setFormError("Please fill in both password fields.");
+        return;
+      }
+      if (!isPasswordValid(password)) {
+        setFormError(
+          "Your password doesn't meet the requirements listed below.",
+        );
+        return;
+      }
+      if (password !== confirmPassword) {
+        setFormError("Passwords do not match.");
+        return;
+      }
     }
 
-    acceptMutation.mutate({ token, password, confirmPassword });
+    acceptMutation.mutate({
+      token,
+      ...(inviteData?.userExists ? {} : { password, confirmPassword }),
+    });
   };
 
   const loading = acceptMutation.isPending;
@@ -184,132 +216,157 @@ function AcceptInviteForm() {
                 Team invitation
               </h1>
               <p className="text-primary-foreground/85 text-sm mt-2 leading-relaxed">
-                Set a password to activate your account. Your name and role
-                were saved when you were invited—no extra signup steps.
+                Set a password to activate your account. If you already have an
+                existing account, your old password will remain unchanged—simply
+                login securely afterwards.
               </p>
             </div>
 
             <div className="px-6 sm:px-8 py-8 space-y-5">
               <div className="flex items-start gap-3 bg-muted/50 border border-border rounded-xl p-4">
                 <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  This page is public—you don&apos;t need to be signed in. Uses
-                  the secure token from your email only.
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-foreground">
+                    {inviteData?.userExists
+                      ? "Account already exists"
+                      : "New team account"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {inviteData?.userExists
+                      ? "We found your existing account. Just click activate to accept this new team role."
+                      : "Create a password to activate your new team workspace."}
+                  </p>
+                </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground pl-0.5">
-                    New password
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Create a strong password"
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        setFormError(null);
-                      }}
-                      disabled={loading}
-                      className="rounded-xl h-12 pr-11"
-                      autoComplete="new-password"
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
+                {!inviteData?.userExists ? (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground pl-0.5">
+                        New password
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Create a strong password"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            setFormError(null);
+                          }}
+                          disabled={loading}
+                          className="rounded-xl h-12 pr-11"
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowPassword((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label={
+                            showPassword ? "Hide password" : "Show password"
+                          }
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
 
-                {password.length > 0 && (
-                  <ul className="space-y-1.5 pl-0.5">
-                    {PASSWORD_RULES.map((rule) => {
-                      const passed = rule.test(password);
-                      return (
-                        <li
-                          key={rule.label}
-                          className={`flex items-center gap-2 text-xs font-medium ${
-                            passed ? "text-primary" : "text-muted-foreground"
+                    {password.length > 0 && (
+                      <ul className="space-y-1.5 pl-0.5">
+                        {PASSWORD_RULES.map((rule) => {
+                          const passed = rule.test(password);
+                          return (
+                            <li
+                              key={rule.label}
+                              className={`flex items-center gap-2 text-xs font-medium ${
+                                passed ? "text-primary" : "text-muted-foreground"
+                              }`}
+                            >
+                              {passed ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                              ) : (
+                                <XCircle className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                              )}
+                              {rule.label}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground pl-0.5">
+                        Confirm password
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showConfirm ? "text" : "password"}
+                          placeholder="Repeat password"
+                          value={confirmPassword}
+                          onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            setFormError(null);
+                          }}
+                          disabled={loading}
+                          className="rounded-xl h-12 pr-11"
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowConfirm((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          aria-label={
+                            showConfirm ? "Hide confirm password" : "Show confirm"
+                          }
+                        >
+                          {showConfirm ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      {confirmPassword.length > 0 && (
+                        <p
+                          className={`text-xs font-medium flex items-center gap-1.5 ${
+                            password === confirmPassword
+                              ? "text-primary"
+                              : "text-destructive"
                           }`}
                         >
-                          {passed ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                          {password === confirmPassword ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Passwords
+                              match
+                            </>
                           ) : (
-                            <XCircle className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                            <>
+                              <XCircle className="h-3.5 w-3.5" /> Passwords do
+                              not match
+                            </>
                           )}
-                          {rule.label}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground pl-0.5">
-                    Confirm password
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type={showConfirm ? "text" : "password"}
-                      placeholder="Repeat password"
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value);
-                        setFormError(null);
-                      }}
-                      disabled={loading}
-                      className="rounded-xl h-12 pr-11"
-                      autoComplete="new-password"
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowConfirm((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={
-                        showConfirm ? "Hide confirm password" : "Show confirm"
-                      }
-                    >
-                      {showConfirm ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
+                        </p>
                       )}
-                    </button>
-                  </div>
-                  {confirmPassword.length > 0 && (
-                    <p
-                      className={`text-xs font-medium flex items-center gap-1.5 ${
-                        password === confirmPassword
-                          ? "text-primary"
-                          : "text-destructive"
-                      }`}
-                    >
-                      {password === confirmPassword ? (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Passwords
-                          match
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="h-3.5 w-3.5" /> Passwords do not
-                          match
-                        </>
-                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-2">
+                    <p className="text-sm text-center text-muted-foreground">
+                      Welcome back,{" "}
+                      <span className="font-bold text-foreground">
+                        {inviteData.email}
+                      </span>
+                      !
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {formError && (
                   <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-xl px-4 py-3">

@@ -517,7 +517,10 @@ export default function AdminOrderDetails({
                 </div>
                 <div>
                   <h3 className="text-xl font-black leading-tight text-foreground">
-                    {order.user?.username || `${order.user?.firstName} ${order.user?.lastName}` || "Guest"}
+                    {order.user?.username || 
+                     (order.user?.firstName || order.user?.lastName ? `${order.user.firstName || ""} ${order.user.lastName || ""}`.trim() : null) ||
+                     order.shippingAddress?.fullName || 
+                     "Guest"}
                   </h3>
                   <p className="text-muted-foreground text-sm font-medium">
                     Email: {order.user?.email || 'N/A'}

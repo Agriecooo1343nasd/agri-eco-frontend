@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function BeekeepingPage() {
   const { formatPrice } = usePricing();
@@ -64,41 +65,38 @@ export default function BeekeepingPage() {
   const features = [
     {
       icon: Bug,
-      title: "Live Hive Inspections",
-      description:
-        "Get up close with active colonies under expert supervision with full protective gear.",
+      title: t(translations.beekeepingPage.feat1Title),
+      description: t(translations.beekeepingPage.feat1Desc),
     },
     {
       icon: Droplets,
-      title: "Honey Harvesting",
-      description:
-        "Experience the sweet reward of extracting raw organic honey straight from the comb.",
+      title: t(translations.beekeepingPage.feat2Title),
+      description: t(translations.beekeepingPage.feat2Desc),
     },
     {
       icon: FlaskConical,
-      title: "Wax Workshops",
-      description:
-        "Create candles, balms, and soaps from pure beeswax in our artisan studio.",
+      title: t(translations.beekeepingPage.feat3Title),
+      description: t(translations.beekeepingPage.feat3Desc),
     },
   ];
 
   const honeyVarieties = [
     {
-      name: "Eucalyptus Honey",
+      name: t(translations.beekeepingPage.honey1),
       season: "June - August",
-      flavor: "Bold, slightly medicinal",
+      flavor: t(translations.beekeepingPage.honey1Flav),
       color: "bg-amber-600",
     },
     {
-      name: "Wildflower Honey",
+      name: t(translations.beekeepingPage.honey2),
       season: "Year-round",
-      flavor: "Floral, delicate sweetness",
+      flavor: t(translations.beekeepingPage.honey2Flav),
       color: "bg-amber-400",
     },
     {
-      name: "Coffee Blossom Honey",
+      name: t(translations.beekeepingPage.honey3),
       season: "March - May",
-      flavor: "Rich, caramel notes",
+      flavor: t(translations.beekeepingPage.honey3Flav),
       color: "bg-amber-800",
     },
   ];
@@ -118,19 +116,18 @@ export default function BeekeepingPage() {
           <div className="relative container h-full flex items-center">
             <div className="max-w-xl text-card">
               <Badge className="bg-secondary text-secondary-foreground mb-4 gap-1.5 text-xs">
-                <Flower2 className="h-3.5 w-3.5" /> Beekeeping Showcase
+                <Flower2 className="h-3.5 w-3.5" /> {t(translations.beekeepingPage.showcase)}
               </Badge>
               <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 leading-tight text-white">
-                Discover the World of Bees
+                {t(translations.beekeepingPage.title)}
               </h1>
               <p className="text-white/90 text-lg mb-6">
-                From live hive inspections to honey harvesting and beeswax
-                crafting — immerse yourself in the magic of our apiary.
+                {t(translations.beekeepingPage.desc)}
               </p>
               <div className="flex gap-3 flex-wrap">
                 <Link href="/tours/beekeeping-discovery">
                   <Button size="lg" className="gap-2 text-sm">
-                    Book Beekeeping Tour <ArrowRight className="h-4 w-4" />
+                    {t(translations.beekeepingPage.bookTour)} <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
                 <Link href="/tours/beeswax-workshop">
@@ -139,7 +136,7 @@ export default function BeekeepingPage() {
                     variant="outline"
                     className="border-card/30 text-white bg-card/10 hover:bg-card/40 text-sm"
                   >
-                    Wax Workshop
+                    {t(translations.beekeepingPage.waxWorkshop)}
                   </Button>
                 </Link>
               </div>
@@ -150,9 +147,9 @@ export default function BeekeepingPage() {
         {/* Features */}
         <section className="py-16">
           <div className="container">
-            <h2 className="section-heading mb-2">Our Beekeeping Experiences</h2>
+            <h2 className="section-heading mb-2">{t(translations.beekeepingPage.ourExp)}</h2>
             <p className="section-subheading mb-12">
-              Three unique ways to explore the world of bees at Agri-Eco
+              {t(translations.beekeepingPage.ourExpSub)}
             </p>
             <div className="grid md:grid-cols-3 gap-8">
               {features.map((f) => (
@@ -178,9 +175,9 @@ export default function BeekeepingPage() {
         {/* Honey Varieties */}
         <section className="py-16 bg-accent/30">
           <div className="container">
-            <h2 className="section-heading mb-2">Our Honey Varieties</h2>
+            <h2 className="section-heading mb-2">{t(translations.beekeepingPage.ourHoney)}</h2>
             <p className="section-subheading mb-12">
-              Taste the seasons — each harvest brings unique flavors
+              {t(translations.beekeepingPage.ourHoneySub)}
             </p>
             <div className="grid md:grid-cols-3 gap-6">
               {honeyVarieties.map((h) => (
@@ -213,18 +210,18 @@ export default function BeekeepingPage() {
         <section className="py-16">
           <div className="container">
             <h2 className="section-heading mb-2 text-xl font-bold">
-              Book a Beekeeping Experience
+              {t(translations.beekeepingPage.bookExp)}
             </h2>
             <p className="section-subheading mb-12 text-sm text-muted-foreground">
-              Choose from our available beekeeping and wax workshops
+              {t(translations.beekeepingPage.bookExpSub)}
             </p>
             {loading ? (
-              <div className="text-center py-12">Loading experiences...</div>
+              <div className="text-center py-12">{t(translations.tours.loadingTours)}</div>
             ) : error ? (
               <div className="text-center py-12 text-destructive">{error}</div>
             ) : experiences.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                No beekeeping experiences available at the moment.
+                {t(translations.tours.noTours)}
               </div>
             ) : (
               <div className="grid md:grid-cols-2 gap-8">
@@ -250,7 +247,7 @@ export default function BeekeepingPage() {
                         </Badge>
                         {(exp.seasonStart || exp.seasonEnd) && (
                           <Badge className="bg-secondary/10 text-secondary border-secondary/20 text-[10px] py-0 px-2">
-                            Seasonal
+                            {t(translations.tours.seasonalBadge)}
                           </Badge>
                         )}
                       </div>
@@ -267,7 +264,7 @@ export default function BeekeepingPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
-                          Max {exp.capacity}
+                          {t(translations.tours.max)} {exp.capacity}
                         </span>
                         <span className="flex items-center gap-1">
                           <Star className="h-3.5 w-3.5 fill-secondary text-secondary" />
@@ -281,13 +278,13 @@ export default function BeekeepingPage() {
                           </span>
                           {exp.pricePerGroupRwf > 0 && (
                             <span className="text-[10px] text-muted-foreground block">
-                              {formatPrice(exp.pricePerGroupRwf)} (group)
+                              {formatPrice(exp.pricePerGroupRwf)} ({t(translations.tours.groupRate)})
                             </span>
                           )}
                         </div>
                         <Link href={`/tours/${exp.slug}`}>
                           <Button size="sm" className="gap-1 text-xs">
-                            Book Now <ArrowRight className="h-3 w-3" />
+                            {t(translations.tours.bookNow)} <ArrowRight className="h-3 w-3" />
                           </Button>
                         </Link>
                       </div>
@@ -302,11 +299,9 @@ export default function BeekeepingPage() {
         {/* CTA */}
         <section className="py-16 bg-primary/5">
           <div className="container text-center">
-            <h2 className="section-heading mb-3">Visit Our Apiary</h2>
+            <h2 className="section-heading mb-3">{t(translations.beekeepingPage.visitApiary)}</h2>
             <p className="text-muted-foreground max-w-xl mx-auto mb-6 text-sm">
-              Our apiary is home to over 50 hives producing premium organic
-              honey. Located in Musanze District, Rwanda, it's the perfect
-              destination for nature lovers and curious minds.
+              {t(translations.beekeepingPage.visitApiaryDesc)}
             </p>
             <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-6">
               <MapPin className="h-4 w-4 text-primary" />
@@ -314,7 +309,7 @@ export default function BeekeepingPage() {
             </div>
             <Link href="/tours">
               <Button size="lg" className="text-sm">
-                Explore All Experiences
+                {t(translations.beekeepingPage.exploreAll)}
               </Button>
             </Link>
           </div>

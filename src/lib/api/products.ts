@@ -96,6 +96,21 @@ export interface AdminProduct {
   soldCount: number;
   createdAt: string;
   category?: ProductCategory;
+  applicableDiscounts?: Array<{
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    value: number;
+  }>;
+  discount?: {
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    value: number;
+    endDate: string;
+  };
 }
 
 export type AdminProductSort =
@@ -115,6 +130,7 @@ export interface FetchAdminProductsParams {
   isActive?: "true" | "false";
   sort?: AdminProductSort;
   order?: "asc" | "desc";
+  discountId?: string;
 }
 
 export interface FetchAdminProductsResult {
@@ -212,6 +228,7 @@ function buildQuery(params: FetchAdminProductsParams): string {
   if (params.isActive) query.set("isActive", params.isActive);
   if (params.sort) query.set("sort", params.sort);
   if (params.order) query.set("order", params.order);
+  if (params.discountId) query.set("discountId", params.discountId);
 
   const queryString = query.toString();
   return queryString ? `?${queryString}` : "";

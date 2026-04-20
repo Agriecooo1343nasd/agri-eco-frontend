@@ -7,8 +7,11 @@ import { fetchProducts, fetchCategoriesForAdmin } from "@/lib/api/products";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const BestSellers = () => {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState("Best Deals");
 
   // Fetch Categories
@@ -18,7 +21,7 @@ const BestSellers = () => {
   });
 
   const categories = categoriesData?.data || [];
-  const tabs = ["Best Deals", ...categories.map((c) => c.name), "All Products"];
+  const tabs = ["Best Deals", ...categories.map((c) => t(c.name)), "All Products"];
 
   // Fetch Products based on active tab
   const { data: productsData, isLoading: isLoadingProducts } = useQuery({
@@ -44,9 +47,9 @@ const BestSellers = () => {
   return (
     <section id="products" className="py-12 md:py-16">
       <div className="container">
-        <h2 className="section-heading">Our Products</h2>
+        <h2 className="section-heading">{t(translations.sections.ourProducts.title)}</h2>
         <p className="section-subheading">
-          Handpicked organic products delivered fresh from local farms
+          {t(translations.sections.ourProducts.sub)}
         </p>
 
         {/* Tabs */}
@@ -66,7 +69,7 @@ const BestSellers = () => {
                     : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
               >
-                {tab}
+                {tab === "Best Deals" ? t(translations.sections.ourProducts.bestDeals) : tab === "All Products" ? t(translations.sections.ourProducts.allProducts) : tab}
               </button>
             ))
           )}
@@ -105,7 +108,7 @@ const BestSellers = () => {
 
         {!isLoadingProducts && products.length === 0 && (
           <p className="text-center text-muted-foreground py-12">
-            No products found in this category.
+            {t(translations.sections.ourProducts.noneFound)}
           </p>
         )}
 
@@ -114,7 +117,7 @@ const BestSellers = () => {
               href="/shop"
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-md font-bold text-lg hover:bg-primary/90 transition-all hover:scale-105 group"
             >
-                Explore More Products <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                {t(translations.sections.ourProducts.exploreShop)} <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
         </div>
       </div>

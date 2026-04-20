@@ -55,16 +55,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, isInitialized: authInitialized } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [wishlistItems, setWishlistItems] = useState<Product[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Load from localStorage on mount (Guest state)
-  useEffect(() => {
-    const savedCart = localStorage.getItem("agri-eco-cart");
-    const savedWishlist = localStorage.getItem("agri-eco-wishlist");
-    if (savedCart) setCartItems(JSON.parse(savedCart));
-    if (savedWishlist) setWishlistItems(JSON.parse(savedWishlist));
-    setIsInitialized(true);
-  }, []);
 
   // Sync with backend when authenticated
   useEffect(() => {
@@ -92,54 +82,42 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
       };
       sync();
+    } else if (authInitialized && !isAuthenticated) {
+      setCartItems([]);
+      setWishlistItems([]);
     }
   }, [isAuthenticated, authInitialized]);
 
-  // Persist guest state to localStorage
-  useEffect(() => {
-    if (isInitialized && !isAuthenticated) {
-      localStorage.setItem("agri-eco-cart", JSON.stringify(cartItems));
-      localStorage.setItem("agri-eco-wishlist", JSON.stringify(wishlistItems));
-    }
-  }, [cartItems, wishlistItems, isInitialized, isAuthenticated]);
+  const requireAuth = () => {
+    toast.error("Authentication required", {
+      description: "Please log in to continue.",
+    });
+    setTimeout(() => {
+      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    }, 1500);
+  };
 
   const addToCart = useCallback(
     async (product: Product, qty = 1) => {
-      if (isAuthenticated) {
-        try {
-          const updatedCart = await addToCartApi(
-            product.artisanProductId
-              ? { artisanProductId: product.artisanProductId, quantity: qty }
-              : { productId: product.id, quantity: qty },
-          );
-          setCartItems(
-            updatedCart.items.map((item) => ({
-              itemId: item.id,
-              product: mapBackendCartItemToProduct(item),
-              quantity: item.quantity,
-            })),
-          );
-          toast.success("Added to cart", {
-            description: `${product.name} synced with your account.`,
-          });
-        } catch (error) {
-          toast.error("Failed to add to cart");
-        }
-      } else {
-        setCartItems((prev) => {
-          const existing = prev.find((i) => i.product.id === product.id);
-          if (existing) {
-            return prev.map((i) =>
-              i.product.id === product.id
-                ? { ...i, quantity: i.quantity + qty }
-                : i,
-            );
-          }
-          return [...prev, { product, quantity: qty }];
-        });
+      if (!isAuthenticated) return requireAuth();
+      try {
+        const updatedCart = await addToCartApi(
+          product.artisanProductId
+            ? { artisanProductId: product.artisanProductId, quantity: qty }
+            : { productId: product.id, quantity: qty },
+        );
+        setCartItems(
+          updatedCart.items.map((item) => ({
+            itemId: item.id,
+            product: mapBackendCartItemToProduct(item),
+            quantity: item.quantity,
+          })),
+        );
         toast.success("Added to cart", {
-          description: `${product.name} added to your cart.`,
+          description: `${product.name} synced with your account.`,
         });
+      } catch (error) {
+        toast.error("Failed to add to cart");
       }
     },
     [isAuthenticated],
@@ -147,24 +125,21 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const removeFromCart = useCallback(
     async (productId: string) => {
-      if (isAuthenticated) {
-        const item = cartItems.find((i) => i.product.id === productId);
-        if (item?.itemId) {
-          try {
-            const updatedCart = await removeCartItemApi(item.itemId);
-            setCartItems(
-              updatedCart.items.map((i) => ({
-                itemId: i.id,
-                product: mapBackendCartItemToProduct(i),
-                quantity: i.quantity,
-              })),
-            );
-          } catch (error) {
-            toast.error("Failed to remove item");
-          }
+      if (!isAuthenticated) return requireAuth();
+      const item = cartItems.find((i) => i.product.id === productId);
+      if (item?.itemId) {
+        try {
+          const updatedCart = await removeCartItemApi(item.itemId);
+          setCartItems(
+            updatedCart.items.map((i) => ({
+              itemId: i.id,
+              product: mapBackendCartItemToProduct(i),
+              quantity: i.quantity,
+            })),
+          );
+        } catch (error) {
+          toast.error("Failed to remove item");
         }
-      } else {
-        setCartItems((prev) => prev.filter((i) => i.product.id !== productId));
       }
     },
     [isAuthenticated, cartItems],
@@ -172,42 +147,34 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const updateQuantity = useCallback(
     async (productId: string, quantity: number) => {
+      if (!isAuthenticated) return requireAuth();
       if (quantity < 1) return;
-      if (isAuthenticated) {
-        const item = cartItems.find((i) => i.product.id === productId);
-        if (item?.itemId) {
-          try {
-            const updatedCart = await updateCartItemApi(item.itemId, quantity);
-            setCartItems(
-              updatedCart.items.map((i) => ({
-                itemId: i.id,
-                product: mapBackendCartItemToProduct(i),
-                quantity: i.quantity,
-              })),
-            );
-          } catch (error) {
-            toast.error("Failed to update quantity");
-          }
+      const item = cartItems.find((i) => i.product.id === productId);
+      if (item?.itemId) {
+        try {
+          const updatedCart = await updateCartItemApi(item.itemId, quantity);
+          setCartItems(
+            updatedCart.items.map((i) => ({
+              itemId: i.id,
+              product: mapBackendCartItemToProduct(i),
+              quantity: i.quantity,
+            })),
+          );
+        } catch (error) {
+          toast.error("Failed to update quantity");
         }
-      } else {
-        setCartItems((prev) =>
-          prev.map((i) => (i.product.id === productId ? { ...i, quantity } : i)),
-        );
       }
     },
     [isAuthenticated, cartItems],
   );
 
   const clearCart = useCallback(async () => {
-    if (isAuthenticated) {
-      try {
-        await clearCartApi();
-        setCartItems([]);
-      } catch (error) {
-        toast.error("Failed to clear cart");
-      }
-    } else {
+    if (!isAuthenticated) return requireAuth();
+    try {
+      await clearCartApi();
       setCartItems([]);
+    } catch (error) {
+      toast.error("Failed to clear cart");
     }
   }, [isAuthenticated]);
 
@@ -219,40 +186,25 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const addToWishlist = useCallback(
     async (product: Product) => {
-      if (isAuthenticated) {
-        try {
-          const result = await toggleWishlistApi(
-            product.artisanProductId
-              ? { artisanProductId: product.artisanProductId }
-              : { productId: product.id },
-          );
-          setWishlistItems(
-            (result.items ?? []).map((item) =>
-              mapWishlistItemToProduct(item as any),
-            ),
-          );
-          if (result.added) {
-            toast.success("Added to wishlist");
-          } else {
-            toast.info("Removed from wishlist");
-          }
-        } catch (error) {
-          toast.error("Failed to update wishlist");
+      if (!isAuthenticated) return requireAuth();
+      try {
+        const result = await toggleWishlistApi(
+          product.artisanProductId
+            ? { artisanProductId: product.artisanProductId }
+            : { productId: product.id },
+        );
+        setWishlistItems(
+          (result.items ?? []).map((item) =>
+            mapWishlistItemToProduct(item as any),
+          ),
+        );
+        if (result.added) {
+          toast.success("Added to wishlist");
+        } else {
+          toast.info("Removed from wishlist");
         }
-      } else {
-        setWishlistItems((prev) => {
-          const isAlready = prev.find((p) => p.id === product.id);
-          if (isAlready) {
-            toast.info("Removed from wishlist", {
-              description: `${product.name} removed.`,
-            });
-            return prev.filter((p) => p.id !== product.id);
-          }
-          toast.success("Added to wishlist", {
-            description: `${product.name} saved.`,
-          });
-          return [...prev, product];
-        });
+      } catch (error) {
+        toast.error("Failed to update wishlist");
       }
     },
     [isAuthenticated],
@@ -260,26 +212,23 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const removeFromWishlist = useCallback(
     async (productId: string) => {
-      if (isAuthenticated) {
-        try {
-          const productMeta = wishlistItems.find((p) => p.id === productId);
-          const updatedWishlist = await removeWishlistItemApi(
-            productId,
-            productMeta?.artisanProductId
-              ? { artisanProductId: productMeta.artisanProductId }
-              : undefined,
-          );
-          setWishlistItems(
-            updatedWishlist.items.map((item) => mapWishlistItemToProduct(item as any)),
-          );
-        } catch (error) {
-          toast.error("Failed to remove from wishlist");
-        }
-      } else {
-        setWishlistItems((prev) => prev.filter((p) => p.id !== productId));
+      if (!isAuthenticated) return requireAuth();
+      try {
+        const productMeta = wishlistItems.find((p) => p.id === productId);
+        const updatedWishlist = await removeWishlistItemApi(
+          productId,
+          productMeta?.artisanProductId
+            ? { artisanProductId: productMeta.artisanProductId }
+            : undefined,
+        );
+        setWishlistItems(
+          updatedWishlist.items.map((item) => mapWishlistItemToProduct(item as any)),
+        );
+      } catch (error) {
+        toast.error("Failed to remove from wishlist");
       }
     },
-    [isAuthenticated],
+    [isAuthenticated, wishlistItems],
   );
 
   const isInWishlist = useCallback(
@@ -321,11 +270,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         moveToCart,
       }}
     >
-      {isInitialized ? (
-        children
-      ) : (
-        <div className="min-h-screen bg-background" />
-      )}
+      {children}
     </CartContext.Provider>
   );
 };

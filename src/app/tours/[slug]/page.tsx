@@ -3,7 +3,7 @@
 import { useState, use, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Clock,
   Users,
@@ -68,8 +68,6 @@ import {
 } from "@/lib/api/reviews";
 import { useAuth } from "@/context/AuthContext";
 
-const DEFAULT_SLOTS = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
-
 const statusColors: Record<string, string> = {
   available: "bg-primary/10 text-primary",
   limited: "bg-secondary/10 text-secondary-foreground",
@@ -84,6 +82,7 @@ export default function TourDetailPage({
 }) {
   const { slug } = use(params);
   const router = useRouter();
+  const pathname = usePathname();
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
@@ -224,7 +223,7 @@ export default function TourDetailPage({
       toast.error("Missing information. Please fill in all contact details.");
       return;
     }
-    if (!selectedSlot && normalizedSlots.length > 0) {
+    if (!selectedSlot) {
       toast.error("Select a slot. Please choose one available schedule.");
       return;
     }
@@ -245,9 +244,8 @@ export default function TourDetailPage({
         participants,
         bookingType: (isGroup ? "group" : "individual") as BookingType,
         date:
-          selectedSlot?.dateValue ||
-          new Date().toISOString().slice(0, 10),
-        timeSlot: selectedSlot?.timeSlot || DEFAULT_SLOTS[0],
+          selectedSlot.dateValue,
+        timeSlot: selectedSlot.timeSlot,
         specialRequirements: specialReqs,
         paymentMethod,
         accommodationId: accomOption?.id,
@@ -692,14 +690,13 @@ export default function TourDetailPage({
                     <Label className="text-[11px] text-muted-foreground mb-1.5 block">
                       Available Slots
                     </Label>
-                    <div className="space-y-2">
-                      {(normalizedSlots.length > 0 ? normalizedSlots : DEFAULT_SLOTS.map((time) => ({
-                        key: time,
-                        dateLabel: "Any upcoming date",
-                        timeSlot: time,
-                        capacity: 0,
-                        bookedParticipants: null as number | null,
-                      })) as any[]).map((slot: any) => {
+                    {normalizedSlots.length === 0 ? (
+                      <div className="rounded-lg border border-border bg-accent/30 px-3 py-2.5 text-xs text-muted-foreground">
+                        No slots are currently available for this tour. Please contact support or check back later.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {normalizedSlots.map((slot: any) => {
                         const full =
                           slot.bookedParticipants !== null && slot.capacity > 0
                             ? slot.bookedParticipants >= slot.capacity
@@ -730,7 +727,8 @@ export default function TourDetailPage({
                           </button>
                         );
                       })}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -784,8 +782,17 @@ export default function TourDetailPage({
 
                   <Button
                     className="w-full text-xs h-9"
-                    onClick={() => setBookingStep(2)}
-                    disabled={normalizedSlots.length > 0 && !selectedSlotKey}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        toast.error("Authentication required", {
+                          description: "Please sign in to complete your booking.",
+                        });
+                        setTimeout(() => router.push(`/login?redirect=${pathname}`), 1500);
+                        return;
+                      }
+                      setBookingStep(2);
+                    }}
+                    disabled={!selectedSlotKey}
                   >
                     Continue
                   </Button>

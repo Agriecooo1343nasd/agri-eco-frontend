@@ -246,7 +246,7 @@ export default function AdminProductsPage() {
       setProductToDelete(null);
     },
     onError: () => {
-      toast.error("Failed to delete", {
+      console.error("Failed to delete", {
         description: "Something went wrong. Please try again.",
       });
       setProductToDelete(null);

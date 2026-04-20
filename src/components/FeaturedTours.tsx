@@ -8,6 +8,7 @@ import { fetchExperiences, toAbsoluteExperienceImage } from "@/lib/api/experienc
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/LanguageContext";
 import { useState, useEffect } from "react";
+import { translations } from "@/i18n/translations";
 
 const FeaturedTours = () => {
   const { formatPrice } = usePricing();
@@ -40,16 +41,16 @@ const FeaturedTours = () => {
       <div className="container">
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h2 className="section-heading !text-left">Popular Experiences</h2>
+            <h2 className="section-heading !text-left">{t(translations.sections.popularExperiences.title)}</h2>
             <p className="section-subheading !text-left !mx-0 mt-2">
-              Book immersive agritourism experiences on our organic farm
+              {t(translations.sections.popularExperiences.sub)}
             </p>
           </div>
           <Link
             href="/tours"
             className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
           >
-            Explore Website <ArrowRight className="h-4 w-4" />
+            {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
@@ -86,12 +87,12 @@ const FeaturedTours = () => {
                       />
                       {tour.isActive && spotsLeft > 0 && spotsLeft < 10 && (
                         <span className="absolute top-3 left-3 bg-badge-sale text-card text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">
-                          Limited Spots
+                          {t(translations.sections.popularExperiences.limited)}
                         </span>
                       )}
                       {tour.seasonStart && (
                         <span className="absolute top-3 right-3 bg-secondary text-secondary-foreground text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">
-                          Seasonal
+                          {t(translations.sections.popularExperiences.seasonal)}
                         </span>
                       )}
                     </div>
@@ -123,15 +124,15 @@ const FeaturedTours = () => {
                       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                         <div>
                           <span className="text-lg font-bold text-foreground">
-                            {formatPrice(tour.priceRwf)}
+                           {formatPrice(tour.priceRwf)}
                           </span>
                           <span className="text-[11px] text-muted-foreground block">
-                            per person
+                            {t(translations.sections.popularExperiences.perPerson)}
                           </span>
                         </div>
                         {spotsLeft > 0 && (
                           <span className="text-[11px] font-semibold text-badge-sale">
-                            {spotsLeft} spots left
+                            {spotsLeft} {t(translations.sections.popularExperiences.spotsLeft)}
                           </span>
                         )}
                       </div>
@@ -164,7 +165,7 @@ const FeaturedTours = () => {
                     disabled={isFetching}
                     className="inline-flex items-center gap-2 bg-primary/10 text-primary px-8 py-3 rounded-full font-bold text-sm hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-50"
                 >
-                    {isFetching ? "Loading..." : "Load More Experiences"}
+                    {isFetching ? "Loading..." : t(translations.sections.popularExperiences.loadMore)}
                 </button>
             </div>
         )}

@@ -51,30 +51,27 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+// In-memory clones to replace localStorage (Lazy initialization)
+let memoryPartners: Partner[] | null = null;
+let memoryApplications: PartnerApplication[] | null = null;
+
 export function getPartners(): Partner[] {
-  if (!hasWindow()) return clone(seedPartners);
-  return parseJson<Partner[]>(
-    window.localStorage.getItem(PARTNERS_KEY),
-    clone(seedPartners),
-  );
+  if (!memoryPartners) memoryPartners = clone(seedPartners);
+  return clone(memoryPartners);
 }
 
 export function savePartners(next: Partner[]): void {
-  if (!hasWindow()) return;
-  window.localStorage.setItem(PARTNERS_KEY, JSON.stringify(next));
+  memoryPartners = clone(next);
 }
 
 export function getPartnerApplications(): PartnerApplication[] {
-  if (!hasWindow()) return clone(seedPartnerApplications);
-  return parseJson<PartnerApplication[]>(
-    window.localStorage.getItem(PARTNER_APPLICATIONS_KEY),
-    clone(seedPartnerApplications),
-  );
+  if (!memoryApplications)
+    memoryApplications = clone(seedPartnerApplications);
+  return clone(memoryApplications);
 }
 
 export function savePartnerApplications(next: PartnerApplication[]): void {
-  if (!hasWindow()) return;
-  window.localStorage.setItem(PARTNER_APPLICATIONS_KEY, JSON.stringify(next));
+  memoryApplications = clone(next);
 }
 
 export function createPayoutRecord(

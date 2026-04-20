@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -15,22 +15,20 @@ import {
   Calendar,
   Share2,
   BookOpen,
-  Globe,
-  Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function BlogPost() {
   const params = useParams();
-  const router = useRouter();
+  const { locale: lang, t } = useLanguage();
   const idOrSlug = params.id as string;
 
   const [post, setPost] = useState<CmsPage | null>(null);
   const [relatedPosts, setRelatedPosts] = useState<CmsPage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lang, setLang] = useState<"en" | "rw" | "fr" | "sw">("en");
 
   useEffect(() => {
     const loadPost = async () => {
@@ -38,36 +36,25 @@ export default function BlogPost() {
       try {
         const data = await fetchPublicCmsPageBySlug(idOrSlug);
         setPost(data);
-        
-        // Fetch related posts from same category
-        if (data.categoryId) {
-          const related = await fetchPublicCmsPages({
-            pageType: "blog",
-            categoryId: data.categoryId,
-            limit: 4
-          });
-          setRelatedPosts(related.data.filter(p => p.id !== data.id).slice(0, 3));
-        } else {
-          const related = await fetchPublicCmsPages({
-            pageType: "blog",
-            limit: 4
-          });
-          setRelatedPosts(related.data.filter(p => p.id !== data.id).slice(0, 3));
-        }
+
+        const fallback = { pageType: "blog" as const, limit: 4 };
+        const related = await fetchPublicCmsPages(
+          data.categoryId ? { ...fallback, categoryId: data.categoryId } : fallback
+        );
+        setRelatedPosts(related.data.filter((p) => p.id !== data.id).slice(0, 3));
       } catch (error) {
         console.error("Failed to fetch blog post:", error);
       } finally {
         setIsLoading(false);
       }
     };
-
     loadPost();
   }, [idOrSlug]);
 
-  // Helper to get text in current language with fallback to English
-  const getLangText = (obj: any, currentLang: string) => {
+  const getLangText = (obj: any) => {
     if (!obj) return "";
-    return obj[currentLang] || obj["en"] || Object.values(obj)[0] || "";
+    if (typeof obj === "string") return obj;
+    return obj[lang] || obj["en"] || Object.values(obj)[0] || "";
   };
 
   if (isLoading) {
@@ -75,16 +62,13 @@ export default function BlogPost() {
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
         <div className="container py-8 flex-1">
-          <div className="max-w-3xl mx-auto">
-            <Skeleton className="h-64 w-full rounded-2xl mb-8" />
-            <Skeleton className="h-10 w-3/4 mb-4" />
-            <Skeleton className="h-4 w-1/2 mb-8" />
-            <div className="space-y-4">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
-            </div>
+          <div className="max-w-3xl mx-auto space-y-4">
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-10 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
           </div>
         </div>
         <Footer />
@@ -100,10 +84,10 @@ export default function BlogPost() {
           <div className="text-center">
             <BookOpen className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
             <h2 className="text-xl font-bold font-heading text-foreground mb-2">
-              Article not found
+              {t(translations.blogPage.noArticles)}
             </h2>
             <Link href="/blog">
-              <Button variant="outline">Back to Blog</Button>
+              <Button variant="outline">{t(translations.blogPage.backToBlog)}</Button>
             </Link>
           </div>
         </div>
@@ -112,14 +96,14 @@ export default function BlogPost() {
     );
   }
 
-  const title = getLangText(post.title, lang);
-  const content = getLangText(post.content, lang);
+  const title = getLangText(post.title);
+  const content = getLangText(post.content);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      {/* Hero image area */}
+      {/* Cover image */}
       <div className="relative h-64 md:h-96 overflow-hidden bg-muted flex items-center justify-center">
         {post.coverImage ? (
           <img
@@ -130,107 +114,100 @@ export default function BlogPost() {
         ) : (
           <BookOpen className="h-24 w-24 text-muted-foreground/10" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
-          <div className="container">
-            <div className="max-w-3xl mx-auto">
-              <Link
-                href="/blog"
-                className="inline-flex items-center gap-1 text-primary hover:underline text-sm mb-4 font-medium"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to Blog list
-              </Link>
-              <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold font-heading text-foreground drop-shadow-sm">
-                {title}
-              </h1>
-            </div>
-          </div>
-        </div>
+        {/* Gradient overlay at bottom */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent" />
       </div>
 
-      <div className="container py-8">
+      <div className="container py-10">
         <div className="max-w-3xl mx-auto">
-          {/* Controls & Meta */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-border">
-            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <User className="h-4 w-4" />
-                {post.author ? `${post.author.firstName} ${post.author.lastName}` : "Agri-Eco Team"}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" />
-                {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ""}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
-                {post.readTime || 5} min read
-              </span>
-              {post.category && (
-                <Badge variant="secondary" className="font-medium">
-                  {post.category.name}
-                </Badge>
-              )}
-            </div>
+          {/* Back link */}
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-1.5 text-primary hover:underline text-sm mb-6 font-medium"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {t(translations.blogPage.backToBlog)}
+          </Link>
 
-            {/* Language Switcher */}
-            <div className="flex items-center gap-2">
-              <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-              <div className="flex gap-1 bg-muted p-1 rounded-md border border-border">
-                {(["en", "rw", "fr", "sw"] as const).map((l) => (
-                  <button
-                    key={l}
-                    onClick={() => setLang(l)}
-                    className={cn(
-                      "px-2 py-1 text-[10px] uppercase font-bold rounded transition-colors",
-                      lang === l
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "hover:bg-accent text-muted-foreground"
-                    )}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Title */}
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold font-heading text-foreground mb-6 leading-tight">
+            {title}
+          </h1>
+
+          {/* Meta */}
+          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-8 pb-6 border-b border-border">
+            <span className="flex items-center gap-1.5">
+              <User className="h-4 w-4" />
+              {post.author
+                ? `${post.author.firstName} ${post.author.lastName}`
+                : t(translations.blogPage.team)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4" />
+              {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ""}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4" />
+              {post.readTime || 5} {t(translations.blogPage.readTime)}
+            </span>
+            {post.category && (
+              <Badge variant="secondary" className="font-medium">
+                {post.category.name}
+              </Badge>
+            )}
           </div>
 
           {/* Content */}
           <article className="prose prose-lg dark:prose-invert max-w-none mb-12">
             {content.split("\n\n").map((chunk: string, i: number) => (
-               <div 
-                 key={i} 
-                 className="mb-6 text-foreground/90 leading-relaxed text-lg whitespace-pre-wrap"
-                 dangerouslySetInnerHTML={{ __html: chunk.replace(/\n/g, '<br />') }}
-               />
+              <div
+                key={i}
+                className="mb-6 text-foreground/90 leading-relaxed text-lg whitespace-pre-wrap"
+                dangerouslySetInnerHTML={{ __html: chunk.replace(/\n/g, "<br />") }}
+              />
             ))}
           </article>
 
-          {/* Tags */}
+          {/* Tags + share */}
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 py-6 border-y border-border mb-12">
               {post.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs hover:bg-accent transition-colors cursor-default capitalize">
-                  #{tag.replace(/^#/, '')}
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className="text-xs hover:bg-accent transition-colors cursor-default capitalize"
+                >
+                  #{tag.replace(/^#/, "")}
                 </Badge>
               ))}
-              <Button variant="ghost" size="sm" className="ml-auto gap-1.5 h-8 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto gap-1.5 h-8 text-xs"
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({ title, url: window.location.href });
+                  } else {
+                    navigator.clipboard.writeText(window.location.href);
+                  }
+                }}
+              >
                 <Share2 className="h-3.5 w-3.5" />
-                Share Article
+                Share
               </Button>
             </div>
           )}
         </div>
 
-        {/* Related */}
+        {/* Related posts */}
         {relatedPosts.length > 0 && (
-          <div className="mt-12">
+          <div className="mt-12 max-w-5xl mx-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold font-heading text-foreground">
-                Related Articles
+                {t(translations.blogPage.related)}
               </h2>
               <Link href="/blog" className="text-sm text-primary hover:underline font-medium">
-                View All
+                {t(translations.blogPage.backToBlog)}
               </Link>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -241,7 +218,7 @@ export default function BlogPost() {
                       {rp.coverImage ? (
                         <img
                           src={rp.coverImage}
-                          alt={getLangText(rp.title, lang)}
+                          alt={getLangText(rp.title)}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
@@ -250,11 +227,11 @@ export default function BlogPost() {
                     </div>
                     <CardContent className="p-4">
                       <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-2">
-                        {getLangText(rp.title, lang)}
+                        {getLangText(rp.title)}
                       </h3>
-                      <div className="flex items-center justify-between mt-auto">
+                      <div className="flex items-center justify-between">
                         <p className="text-[11px] text-muted-foreground">
-                          {rp.readTime || 5} min read
+                          {rp.readTime || 5} {t(translations.blogPage.readTime)}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
                           {rp.publishedAt ? new Date(rp.publishedAt).toLocaleDateString() : ""}

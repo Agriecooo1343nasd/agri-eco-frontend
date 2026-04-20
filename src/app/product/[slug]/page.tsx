@@ -29,6 +29,12 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { fetchProductBySlug } from "@/lib/api/products";
+import {
+  createReview,
+  fetchProductReviews,
+  type Review,
+} from "@/lib/api/reviews";
+import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
 
 export default function ProductDetailsPage() {
@@ -39,6 +45,7 @@ export default function ProductDetailsPage() {
     useCart();
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
+  const { isAuthenticated, user } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +53,30 @@ export default function ProductDetailsPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState("");
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  // DIAGNOSTIC LOGGING: Tracking the source of those -29% discounts
+  // Respecting Rules of Hooks by keeping this at the top level
+  useEffect(() => {
+    if (product) {
+      const computedDiscount = product.oldPrice
+        ? Math.round(
+            ((product.oldPrice - product.price) / product.oldPrice) * 100,
+          )
+        : 0;
+      console.log(`[DISCOUNT_DEBUG] Product: ${product.name}`);
+      console.log(`[DISCOUNT_DEBUG] Price: ${product.price}`);
+      console.log(`[DISCOUNT_DEBUG] Old Price: ${product.oldPrice}`);
+      console.log(`[DISCOUNT_DEBUG] Badge: ${product.badge}`);
+      console.log(`[DISCOUNT_DEBUG] Backend Label: ${product.backendDiscountLabel}`);
+      console.log(`[DISCOUNT_DEBUG] Raw Discounts:`, product.applicableDiscounts);
+      console.log(`[DISCOUNT_DEBUG] Computed Discount: ${computedDiscount}%`);
+    }
+  }, [product]);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -61,16 +92,27 @@ export default function ProductDetailsPage() {
           oldPrice: data.originalPrice,
           image: data.images?.[0]?.url || "/assets/products/placeholder.jpg",
           images: data.images?.map((img) => img.url) || [],
-          rating: typeof data.averageRating === "number" ? data.averageRating : 0,
+          rating:
+            typeof data.averageRating === "number" ? data.averageRating : 0,
           badge: data.isOnSale ? "sale" : data.isFeatured ? "new" : undefined,
+          backendDiscountLabel: data.discount
+            ? (data.discount.type === "percentage" ? `-${data.discount.value}% Off` : data.discount.name)
+            : (data.applicableDiscounts && data.applicableDiscounts.length > 0
+              ? `-${data.applicableDiscounts[0].value}% Off`
+              : undefined),
           category: t(data.category?.name as any) || "",
           unit: data.unit || "piece",
           shortDescription: t(data.shortDescription as any),
           longDescription: t(data.description as any),
-          features: Array.isArray(data.features) ? data.features.map(f => t(f as any)) : [],
-          benefits: Array.isArray(data.benefits) ? data.benefits.map(b => t(b as any)) : [],
+          features: Array.isArray(data.features)
+            ? data.features.map((f) => t(f as any))
+            : [],
+          benefits: Array.isArray(data.benefits)
+            ? data.benefits.map((b) => t(b as any))
+            : [],
           stock: data.stock,
-          reviews: [], // Backend reviews might need a separate endpoint or expansion
+          reviews: [],
+          applicableDiscounts: data.applicableDiscounts,
         };
         setProduct(mappedProduct);
         setSelectedImage(mappedProduct.image);
@@ -86,6 +128,28 @@ export default function ProductDetailsPage() {
     loadProduct();
     window.scrollTo(0, 0);
   }, [slug, t]);
+
+  useEffect(() => {
+    async function loadReviews() {
+      if (!product?.id) {
+        setReviews([]);
+        return;
+      }
+      try {
+        setLoadingReviews(true);
+        const result = await fetchProductReviews(product.id, {
+          page: 1,
+          limit: 50,
+        });
+        setReviews(result.data ?? []);
+      } catch {
+        setReviews([]);
+      } finally {
+        setLoadingReviews(false);
+      }
+    }
+    void loadReviews();
+  }, [product?.id]);
 
   const inCart = product ? isInCart(product.id) : false;
   const wishlisted = product ? isInWishlist(product.id) : false;
@@ -103,11 +167,44 @@ export default function ProductDetailsPage() {
     }
   };
 
-  const handleAddReview = (e: React.FormEvent) => {
+  const myReview = user?.id ? reviews.find((r) => r.userId === user.id) : null;
+
+  const handleAddReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Review submitted", {
-      description: "Thank you for your feedback! It will be visible after moderation.",
-    });
+    if (!product) return;
+    if (!isAuthenticated) {
+      toast.error("Please sign in to submit a review.");
+      router.push(`/login?redirect=${encodeURIComponent(`/product/${slug}`)}`);
+      return;
+    }
+    if (reviewComment.trim().length < 10) {
+      toast.error("Review too short", {
+        description: "Please write at least 10 characters.",
+      });
+      return;
+    }
+    try {
+      setSubmittingReview(true);
+      await createReview({
+        productId: product.id,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+      toast.success("Review submitted", {
+        description: "Thanks! It will be visible after moderation.",
+      });
+      setReviewComment("");
+      setReviewRating(5);
+      const result = await fetchProductReviews(product.id, { page: 1, limit: 50 });
+      setReviews(result.data ?? []);
+    } catch (err: any) {
+      toast.error("Could not submit review", {
+        description:
+          err?.response?.data?.message || err?.message || "Please try again.",
+      });
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   if (loading) {
@@ -187,7 +284,7 @@ export default function ProductDetailsPage() {
                   }`}
                 >
                   {product.badge === "sale"
-                    ? `-${discount}% Off`
+                    ? product.backendDiscountLabel || `-${discount}% Off`
                     : product.badge}
                 </span>
               )}
@@ -233,7 +330,7 @@ export default function ProductDetailsPage() {
                     />
                   ))}
                   <span className="text-sm text-muted-foreground ml-1">
-                    ({product.reviews?.length || 0} Customer Reviews)
+                    ({reviews.length} Customer Reviews)
                   </span>
                 </div>
               </div>
@@ -380,7 +477,7 @@ export default function ProductDetailsPage() {
                   value="reviews"
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold h-10 px-6 rounded-lg transition-all"
                 >
-                  Reviews ({product.reviews?.length || 0})
+                  Reviews ({reviews.length})
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -442,9 +539,14 @@ export default function ProductDetailsPage() {
                       Client Reviews
                     </h3>
 
-                    {product.reviews && product.reviews.length > 0 ? (
+                    {loadingReviews ? (
+                      <div className="bg-muted/20 p-8 rounded-2xl text-center">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
+                        <p className="text-muted-foreground">Loading reviews...</p>
+                      </div>
+                    ) : reviews.length > 0 ? (
                       <div className="space-y-8">
-                        {product.reviews.map((review) => (
+                        {reviews.map((review) => (
                           <div
                             key={review.id}
                             className="border-b border-border pb-8 last:border-0 last:pb-0"
@@ -452,14 +554,14 @@ export default function ProductDetailsPage() {
                             <div className="flex justify-between items-start mb-4">
                               <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                  {review.user.charAt(0)}
+                                  {(review.user?.username || "G").charAt(0)}
                                 </div>
                                 <div>
                                   <h4 className="font-bold text-foreground">
-                                    {review.user}
+                                    {review.user?.username || "Guest"}
                                   </h4>
                                   <p className="text-xs text-muted-foreground">
-                                    {new Date(review.date).toLocaleDateString()}
+                                    {new Date(review.createdAt).toLocaleDateString()}
                                   </p>
                                 </div>
                               </div>
@@ -491,6 +593,29 @@ export default function ProductDetailsPage() {
                     <h3 className="text-xl font-bold mb-6 text-foreground">
                       Add a Review
                     </h3>
+                    {!isAuthenticated ? (
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Sign in to submit a review for this product.
+                        </p>
+                        <Button asChild className="w-full h-11 rounded-xl font-bold">
+                          <Link href={`/login?redirect=${encodeURIComponent(`/product/${slug}`)}`}>
+                            Sign in to review
+                          </Link>
+                        </Button>
+                      </div>
+                    ) : myReview ? (
+                      <div className="rounded-lg border border-border p-4 bg-background">
+                        <p className="text-sm font-semibold text-foreground">
+                          You already reviewed this product ({myReview.rating}/5)
+                        </p>
+                        {[myReview.title, myReview.comment].filter(Boolean).length > 0 ? (
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                            {[myReview.title, myReview.comment].filter(Boolean).join(" — ")}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
                     <form onSubmit={handleAddReview} className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium mb-1.5 text-foreground">
@@ -501,39 +626,27 @@ export default function ProductDetailsPage() {
                             <button
                               key={i}
                               type="button"
+                              onClick={() => setReviewRating(i + 1)}
                               className="text-border hover:text-secondary transition-colors"
                             >
-                              <Star className="h-6 w-6" />
+                              <Star
+                                className={`h-6 w-6 ${
+                                  i < reviewRating
+                                    ? "fill-secondary text-secondary"
+                                    : "text-border"
+                                }`}
+                              />
                             </button>
                           ))}
                         </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-1.5 text-foreground">
-                          Your Name
-                        </label>
-                        <Input
-                          placeholder="Enter your name"
-                          className="bg-background"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1.5 text-foreground">
-                          Email Address
-                        </label>
-                        <Input
-                          type="email"
-                          placeholder="Enter your email"
-                          className="bg-background"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1.5 text-foreground">
                           Your Review
                         </label>
                         <textarea
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
                           className="w-full rounded-lg border border-input px-3 py-2 text-sm h-32 bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
                           placeholder="Write your experience here..."
                           required
@@ -541,11 +654,20 @@ export default function ProductDetailsPage() {
                       </div>
                       <Button
                         type="submit"
+                        disabled={submittingReview || reviewComment.trim().length < 10}
                         className="w-full font-bold h-12 rounded-xl"
                       >
-                        Submit Review
+                        {submittingReview ? (
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Submitting...
+                          </span>
+                        ) : (
+                          "Submit Review"
+                        )}
                       </Button>
                     </form>
+                    )}
                   </div>
                 </div>
               </TabsContent>

@@ -12,6 +12,7 @@ export interface Product {
   name: string;
   price: number;
   oldPrice?: number;
+  backendDiscountLabel?: string;
   image: string;
   images?: string[];
   rating: number;
@@ -34,6 +35,13 @@ export interface Product {
   }>;
   /** When set, cart/wishlist APIs use `artisanProductId` instead of shop `productId`. */
   artisanProductId?: string;
+  applicableDiscounts?: Array<{
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    value: number;
+  }>;
 }
 
 interface ProductCardProps {
@@ -51,9 +59,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
     useCart();
   const { formatPrice } = usePricing();
   const wishlisted = isInWishlist(product.id);
-  const discount = product.oldPrice
-    ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
-    : 0;
 
   return (
     <div className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
@@ -71,7 +76,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <span
             className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
           >
-            {product.badge === "sale" ? `-${discount}%` : product.badge}
+            {product.badge === "sale"
+              ? product.backendDiscountLabel || "sale"
+              : product.badge}
           </span>
         )}
         <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -115,11 +122,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <span className="font-bold text-foreground text-lg">
             {formatPrice(product.price)}
           </span>
-          {product.oldPrice && (
-            <span className="text-price-old line-through text-sm">
-              {formatPrice(product.oldPrice)}
-            </span>
-          )}
           <span className="text-[11px] text-muted-foreground">
             / {product.unit}
           </span>

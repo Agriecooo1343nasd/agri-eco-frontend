@@ -6,6 +6,8 @@ import { usePricing } from "@/context/PricingContext";
 import type { Product } from "@/components/ProductCard";
 import Link from "next/link";
 import Image from "next/image";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 interface ShopProductCardProps {
   product: Product;
@@ -19,6 +21,7 @@ const badgeStyles: Record<string, string> = {
 };
 
 const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
+  const { t } = useLanguage();
   const { addToCart, removeFromCart, addToWishlist, isInWishlist, isInCart } =
     useCart();
   const { formatPrice } = usePricing();
@@ -45,7 +48,9 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             <span
               className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
             >
-              {product.badge === "sale" ? `-${discount}%` : product.badge}
+              {product.badge === "sale" 
+                ? product.backendDiscountLabel || `-${discount}%` 
+                : product.badge}
             </span>
           )}
           <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
@@ -124,7 +129,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             }`}
           >
             <ShoppingCart className="h-4 w-4" />
-            {inCart ? "Added to Cart" : "Add to Cart"}
+            {inCart ? t(translations.shop.addedToCart) : t(translations.shop.addToCart)}
           </button>
         </div>
       </div>
@@ -147,7 +152,9 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
           <span
             className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
           >
-            {product.badge === "sale" ? `-${discount}%` : product.badge}
+            {product.badge === "sale" 
+              ? product.backendDiscountLabel || `-${discount}%` 
+              : product.badge}
           </span>
         )}
         <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors duration-300 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
@@ -221,7 +228,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
           }`}
         >
           <ShoppingCart className="h-4 w-4" />
-          {inCart ? "Added to Cart" : "Add to Cart"}
+          {inCart ? t(translations.shop.addedToCart) : t(translations.shop.addToCart)}
         </button>
       </div>
     </div>

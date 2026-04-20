@@ -409,7 +409,7 @@ export default function DeliveryZonesPage() {
       setDeleteTarget(null);
     },
     onError: (error) => {
-      toast.error(getErrorMessage(error, "Failed to delete delivery zone"));
+      console.error(getErrorMessage(error, "Failed to delete delivery zone"));
       setDeleteTarget(null);
     },
   });

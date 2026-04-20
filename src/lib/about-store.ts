@@ -29,30 +29,26 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+// In-memory clones to replace localStorage (Lazy initialization)
+let memoryTeam: AboutTeamMember[] | null = null;
+let memoryGallery: AboutGalleryImage[] | null = null;
+
 export function getAboutTeamMembers(): AboutTeamMember[] {
-  if (!hasWindow()) return clone(seedTeamMembers);
-  return parseJson<AboutTeamMember[]>(
-    window.localStorage.getItem(ABOUT_TEAM_KEY),
-    clone(seedTeamMembers),
-  );
+  if (!memoryTeam) memoryTeam = clone(seedTeamMembers);
+  return clone(memoryTeam);
 }
 
 export function saveAboutTeamMembers(next: AboutTeamMember[]): void {
-  if (!hasWindow()) return;
-  window.localStorage.setItem(ABOUT_TEAM_KEY, JSON.stringify(next));
+  memoryTeam = clone(next);
 }
 
 export function getAboutGalleryImages(): AboutGalleryImage[] {
-  if (!hasWindow()) return clone(seedGalleryImages);
-  return parseJson<AboutGalleryImage[]>(
-    window.localStorage.getItem(ABOUT_GALLERY_KEY),
-    clone(seedGalleryImages),
-  );
+  if (!memoryGallery) memoryGallery = clone(seedGalleryImages);
+  return clone(memoryGallery);
 }
 
 export function saveAboutGalleryImages(next: AboutGalleryImage[]): void {
-  if (!hasWindow()) return;
-  window.localStorage.setItem(ABOUT_GALLERY_KEY, JSON.stringify(next));
+  memoryGallery = clone(next);
 }
 
 export type NewTeamMemberInput = Omit<AboutTeamMember, "id">;

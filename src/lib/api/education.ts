@@ -28,6 +28,8 @@ export interface TrainingProgram {
   fullDescription: MultiLangText;
   heroImage?: string;
   coverImage?: string;
+  heroVideo?: string;
+  videoUrl?: string;
   type: "course" | "certification" | "workshop";
   level: "beginner" | "intermediate" | "advanced";
   status: "draft" | "upcoming" | "in_progress" | "completed" | "cancelled";
@@ -102,6 +104,8 @@ export interface CreateAdminTrainingProgramPayload {
   fullDescription: MultiLangText;
   heroImage?: string;
   coverImage?: string;
+  heroVideo?: string;
+  videoUrl?: string;
   type: "course" | "certification" | "workshop";
   level: "beginner" | "intermediate" | "advanced";
   status?: "draft" | "upcoming" | "in_progress" | "completed" | "cancelled";

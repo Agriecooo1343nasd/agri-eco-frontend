@@ -378,7 +378,10 @@ export default function AdminOrders() {
                       </TableCell>
                       <TableCell>
                         <p className="font-black text-foreground text-[11px] mb-0.5">
-                          {order.user?.username || `${order.user?.firstName} ${order.user?.lastName}` || "Guest"}
+                          {order.user?.username || 
+                           (order.user?.firstName || order.user?.lastName ? `${order.user.firstName || ""} ${order.user.lastName || ""}`.trim() : null) ||
+                           order.shippingAddress?.fullName || 
+                           "Guest"}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-bold">
                           {order.user?.email}

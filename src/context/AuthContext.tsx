@@ -64,10 +64,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const hydrateSession = () => {
-      const savedSession = readStoredAuthSession();
-      setLocalSession(savedSession);
-      dispatch(savedSession ? setSession(savedSession) : clearSession());
-      setIsInitialized(true);
+      try {
+        const savedSession = readStoredAuthSession();
+        setLocalSession(savedSession);
+        dispatch(savedSession ? setSession(savedSession) : clearSession());
+      } catch (err) {
+        console.error("Auth hydration failed:", err);
+      } finally {
+        setIsInitialized(true);
+      }
     };
 
     hydrateSession();

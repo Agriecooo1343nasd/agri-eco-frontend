@@ -157,6 +157,7 @@ export default function CreateProgramPage() {
   const [formStatus, setFormStatus] = useState<
     "in_progress" | "upcoming" | "draft" | "cancelled"
   >("upcoming");
+  const [formVideoUrl, setFormVideoUrl] = useState("");
 
   // Modules
   const [modules, setModules] = useState<ProgramModule[]>([]);
@@ -492,6 +493,8 @@ export default function CreateProgramPage() {
         fullDescription: toRequiredMultiLang(formLongDesc),
         heroImage: persistedImage,
         coverImage: persistedImage,
+        heroVideo: formVideoUrl.trim() || undefined,
+        videoUrl: formVideoUrl.trim() || undefined,
         type: formType,
         level: formLevel,
         status: formStatus,
@@ -798,12 +801,20 @@ export default function CreateProgramPage() {
                 </Select>
               </div>
             </div>
-            <MediaUploader
-              label="Cover Image"
-              value={formImageUrl}
-              onChange={setFormImageUrl}
-              description="A high-quality image representing the program"
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <MediaUploader
+                label="Cover Image"
+                value={formImageUrl}
+                onChange={setFormImageUrl}
+                description="Thumbnail image for the program"
+              />
+              <MediaUploader
+                label="Intro Video"
+                value={formVideoUrl}
+                onChange={setFormVideoUrl}
+                description="Introductory video (mp4, webm)"
+              />
+            </div>
             <div className="space-y-1">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-1">
                 Topics (comma-separated)

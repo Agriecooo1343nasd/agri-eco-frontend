@@ -5,8 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchPublicFeedback } from "@/lib/api/feedback";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const Testimonials = () => {
+  const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [allFeedback, setAllFeedback] = useState<any[]>([]);
 
@@ -35,10 +38,10 @@ const Testimonials = () => {
       <div className="container px-4 md:px-6">
         <div className="text-center mb-10">
           <h2 className="text-3xl font-bold font-heading mb-4">
-            What Our Visitors Say
+            {t(translations.sections.testimonials.title)}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Real stories from our community of farmers, students, and travelers
+            {t(translations.sections.testimonials.sub)}
           </p>
         </div>
 
@@ -111,7 +114,7 @@ const Testimonials = () => {
 
         {!isLoading && allFeedback.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Hear from our community soon!</p>
+            <p className="text-muted-foreground">{t(translations.sections.feedback.none)}</p>
           </div>
         )}
 
@@ -122,7 +125,7 @@ const Testimonials = () => {
                     disabled={isFetching}
                     className="inline-flex items-center gap-2 border-2 border-primary text-primary px-8 py-2.5 rounded-full font-bold text-sm hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-50"
                 >
-                    {isFetching ? "Loading..." : "Load More Feedbacks"}
+                    {isFetching ? "Loading..." : t(translations.sections.feedback.loadMore)}
                 </button>
             </div>
         )}

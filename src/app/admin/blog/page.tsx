@@ -157,7 +157,7 @@ export default function BlogManagementPage() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data
           ?.message ?? "Failed to delete article";
-      toast.error(msg);
+      console.error(msg);
       setDeleteTarget(null);
     },
   });

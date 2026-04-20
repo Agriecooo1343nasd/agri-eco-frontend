@@ -144,7 +144,7 @@ export default function ViewAccommodationPage() {
       router.push("/admin/accommodations");
     },
     onError: (error: Error) => {
-      toast.error("Failed to delete accommodation", {
+      console.error("Failed to delete accommodation", {
         description: error.message || "Please try again.",
       });
     },

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 // Type definitions for program modules and content blocks
 type MultiLangText = { en: string; rw?: string } | string;
 
@@ -82,6 +83,7 @@ import {
   updateProgress,
   type QuizScoreItem,
 } from "@/lib/api/education";
+import { getMediaUrl } from "@/lib/config/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { TrainingCertificateVisual } from "@/components/certificate/TrainingCertificateVisual";
@@ -112,9 +114,8 @@ import {
   Smartphone,
   Lock,
   Brain,
-  ChevronRight,
-  RotateCcw,
   Star,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,7 @@ export default function ProgramDetail() {
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
   const { isAuthenticated, user: authUser } = useAuth();
+  const pathname = usePathname()
 
   const {
     data: apiProgram,
@@ -342,16 +344,9 @@ export default function ProgramDetail() {
     if (isAuthenticated && myEnrollments?.data && apiProgram) {
       setIsEnrolled(!!activeEnrollment);
       setIsPending(!!pendingEnrollment);
-    } else if (!isAuthenticated && typeof window !== "undefined") {
-      const enrolled = JSON.parse(
-        localStorage.getItem("enrolledPrograms") || "[]",
-      );
-      setIsEnrolled(enrolled.includes(slug));
-
-      const pendingLocal = JSON.parse(
-        localStorage.getItem("pendingPrograms") || "[]",
-      );
-      setIsPending(pendingLocal.includes(slug));
+    } else if (!isAuthenticated) {
+      setIsEnrolled(false);
+      setIsPending(false);
     }
   }, [
     isAuthenticated,
@@ -362,7 +357,11 @@ export default function ProgramDetail() {
     pendingEnrollment,
   ]);
 
-  const { data: programReviewsResult } = useQuery({
+  const {
+    data: programReviewsResult,
+    isLoading: isLoadingReviews,
+    isError: isErrorReviews,
+  } = useQuery({
     queryKey: ["program-reviews", apiProgram?.id],
     queryFn: () =>
       fetchProgramReviews(apiProgram!.id, {
@@ -436,6 +435,7 @@ export default function ProgramDetail() {
       apiProgram.heroImage ||
       apiProgram.coverImage ||
       "/assets/tours/educational.jpg",
+    heroVideo: apiProgram.heroVideo || apiProgram.videoUrl,
     modules: (apiProgram.curriculum || []).map((m: any, idx: number) => ({
       ...m,
       order: m.order || idx + 1,
@@ -515,6 +515,19 @@ export default function ProgramDetail() {
     setExpandedModule(expandedModule === moduleId ? null : moduleId);
   };
 
+  const handleEnrollClick = () => {
+    if (!isAuthenticated) {
+      toast.error("Authentication Required", {
+        description: "Please log in to enroll in programs.",
+      });
+      setTimeout(() => {
+        router.push("/login?redirect=" + pathname);
+      }, 1500);
+      return;
+    }
+    setEnrollDialogOpen(true);
+  };
+
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiProgram) return;
@@ -531,19 +544,8 @@ export default function ProgramDetail() {
 
       await enrollInProgram(apiProgram.id, payload);
 
-      // Locally track pending enrollment
-      if (!isAuthenticated) {
-        const key = isFree ? "enrolledPrograms" : "pendingPrograms";
-        const stored = JSON.parse(localStorage.getItem(key) || "[]");
-        if (!stored.includes(slug)) stored.push(slug);
-        localStorage.setItem(key, JSON.stringify(stored));
-
-        if (isFree) setIsEnrolled(true);
-        else setIsPending(true);
-      } else {
-        setIsPending(!isFree);
-        setIsEnrolled(isFree);
-      }
+      setIsPending(!isFree);
+      setIsEnrolled(isFree);
 
       setEnrollDialogOpen(false);
       toast.success(isFree ? "Enrollment Successful!" : "Enrollment Pending", {
@@ -614,11 +616,23 @@ export default function ProgramDetail() {
       <main>
         {/* Hero */}
         <section className="relative h-[40vh] min-h-[320px] overflow-hidden">
-          <img
-            src={program.image}
-            alt={t(program.title)}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          {program.heroVideo ? (
+            <video
+              src={getMediaUrl(program.heroVideo)}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+              poster={program.image}
+            />
+          ) : (
+            <img
+              src={program.image}
+              alt={t(program.title)}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/50 to-foreground/20" />
           <div className="relative container h-full flex flex-col justify-end pb-8">
             <Link
@@ -905,17 +919,17 @@ export default function ProgramDetail() {
                                       />
                                     )}
                                     {block.type === "video" && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="mt-2 gap-1.5 text-xs h-8"
-                                      >
-                                        <Play className="h-3.5 w-3.5" />{" "}
-                                        {t({
-                                          en: "Watch Video",
-                                          rw: "Reba Video",
-                                        })}
-                                      </Button>
+                                      <div className="mt-3 rounded-xl overflow-hidden bg-black/5 border border-border shadow-inner">
+                                        <video
+                                          src={getMediaUrl(typeof block.content === "string" ? block.content : block.content.en)}
+                                          controls
+                                          playsInline
+                                          className="w-full aspect-video object-contain bg-black"
+                                          poster={program.image}
+                                        >
+                                          Your browser does not support the video tag.
+                                        </video>
+                                      </div>
                                     )}
                                     {block.type === "download" && (
                                       <Button
@@ -1146,8 +1160,8 @@ export default function ProgramDetail() {
                             >
                               <Award className="h-4 w-4" />{" "}
                               {t({
-                                en: "View Certificate Template",
-                                rw: "Reba uko impamyabumenyi isa",
+                                en: "View Certificate",
+                                rw: "Reba Impamyabumenyi",
                               })}
                             </Button>
                           </div>
@@ -1224,6 +1238,18 @@ export default function ProgramDetail() {
                       <p className="text-sm font-semibold text-foreground">
                         Your review ({myProgramReview.rating}/5)
                       </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-3.5 w-3.5 ${
+                              star <= myProgramReview.rating
+                                ? "fill-amber-500 text-amber-500"
+                                : "text-muted-foreground/40"
+                            }`}
+                          />
+                        ))}
+                      </div>
                       {[myProgramReview.title, myProgramReview.comment].filter(Boolean)
                         .length > 0 ? (
                         <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -1236,16 +1262,36 @@ export default function ProgramDetail() {
                   ) : null}
 
                   <div className="space-y-2">
-                    {publicProgramReviews.length === 0 ? (
+                    {isLoadingReviews ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading reviews…
+                      </div>
+                    ) : isErrorReviews ? (
+                      <p className="text-xs text-muted-foreground">
+                        Could not load reviews right now.
+                      </p>
+                    ) : publicProgramReviews.length === 0 ? (
                       <p className="text-xs text-muted-foreground">No public reviews yet.</p>
                     ) : (
                       publicProgramReviews.slice(0, 6).map((review) => (
                         <div key={review.id} className="rounded-lg border border-border p-3">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-semibold text-foreground">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-foreground truncate">
                               {review.user?.username || "Student"}
                             </p>
-                            <p className="text-xs text-muted-foreground">{review.rating}/5</p>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-3.5 w-3.5 ${
+                                    star <= review.rating
+                                      ? "fill-amber-500 text-amber-500"
+                                      : "text-muted-foreground/40"
+                                  }`}
+                                />
+                              ))}
+                            </div>
                           </div>
                           {[review.title, review.comment].filter(Boolean).length > 0 ? (
                             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -1369,7 +1415,7 @@ export default function ProgramDetail() {
                           <Button
                             className="w-full gap-2 text-xs h-10"
                             size="sm"
-                            onClick={() => setEnrollDialogOpen(true)}
+                            onClick={handleEnrollClick}
                           >
                             <BookOpen className="h-4 w-4" />{" "}
                             {t({ en: "Enroll Now", rw: "Iyandikishe ubu" })}

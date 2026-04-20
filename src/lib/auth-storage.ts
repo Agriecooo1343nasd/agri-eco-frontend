@@ -47,26 +47,34 @@ function syncAuthCookies(session: AuthSession | null) {
 export function readStoredAuthSession(): AuthSession | null {
   if (!isBrowser()) return null;
 
-  const value = window.localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!value) return null;
-
   try {
+    const value = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!value) return null;
     return JSON.parse(value) as AuthSession;
-  } catch {
+  } catch (err) {
+    console.warn("Auth storage access failed:", err);
     return null;
   }
 }
 
 export function writeStoredAuthSession(session: AuthSession): void {
   if (!isBrowser()) return;
-  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  try {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  } catch (err) {
+    console.warn("Could not write auth session to localStorage:", err);
+  }
   syncAuthCookies(session);
   notifyAuthChanged();
 }
 
 export function clearStoredAuthSession(): void {
   if (!isBrowser()) return;
-  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  try {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch (err) {
+    console.warn("Could not clear auth session from localStorage:", err);
+  }
   syncAuthCookies(null);
   notifyAuthChanged();
 }

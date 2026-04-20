@@ -2,26 +2,33 @@
 
 import { Truck, Leaf, CreditCard, Headphones } from "lucide-react";
 import { usePricing } from "@/context/PricingContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const FeaturesBar = () => {
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
 
   const features = [
     {
       icon: Truck,
-      title: "Free Shipping",
-      desc: `On orders over ${formatPrice(50)}`,
+      title: t(translations.sections.features.freeShipping.title),
+      desc: `${t(translations.sections.features.freeShipping.sub)} ${formatPrice(50)}`,
     },
-    { icon: Leaf, title: "100% Organic", desc: "Certified organic products" },
+    { 
+      icon: Leaf, 
+      title: t(translations.sections.features.organic.title), 
+      desc: t(translations.sections.features.organic.sub) 
+    },
     {
       icon: CreditCard,
-      title: "Secure Payment",
-      desc: "Safe & encrypted checkout",
+      title: t(translations.sections.features.payments.title),
+      desc: t(translations.sections.features.payments.sub),
     },
     {
       icon: Headphones,
-      title: "24/7 Support",
-      desc: "Dedicated customer care",
+      title: t(translations.sections.features.support.title),
+      desc: t(translations.sections.features.support.sub),
     },
   ];
   return (
