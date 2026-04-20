@@ -35,6 +35,7 @@ import {
   fetchProductReviews,
   type Review,
 } from "@/lib/api/reviews";
+import { resolveProductDiscountLabel } from "@/lib/discount-display";
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
 
@@ -60,31 +61,16 @@ export default function ProductDetailsPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  // DIAGNOSTIC LOGGING: Tracking the source of those -29% discounts
-  // Respecting Rules of Hooks by keeping this at the top level
-  useEffect(() => {
-    if (product) {
-      const computedDiscount = product.oldPrice
-        ? Math.round(
-            ((product.oldPrice - product.price) / product.oldPrice) * 100,
-          )
-        : 0;
-      console.log(`[DISCOUNT_DEBUG] Product: ${product.name}`);
-      console.log(`[DISCOUNT_DEBUG] Price: ${product.price}`);
-      console.log(`[DISCOUNT_DEBUG] Old Price: ${product.oldPrice}`);
-      console.log(`[DISCOUNT_DEBUG] Badge: ${product.badge}`);
-      console.log(`[DISCOUNT_DEBUG] Backend Label: ${product.backendDiscountLabel}`);
-      console.log(`[DISCOUNT_DEBUG] Raw Discounts:`, product.applicableDiscounts);
-      console.log(`[DISCOUNT_DEBUG] Computed Discount: ${computedDiscount}%`);
-    }
-  }, [product]);
-
   useEffect(() => {
     const loadProduct = async () => {
       if (!slug) return;
       setLoading(true);
       try {
         const data = await fetchProductBySlug(slug);
+        const backendDiscountLabel = resolveProductDiscountLabel({
+          discount: data.discount,
+          applicableDiscounts: data.applicableDiscounts,
+        });
         const mappedProduct: Product = {
           id: data.id,
           slug: data.slug,
@@ -95,12 +81,8 @@ export default function ProductDetailsPage() {
           images: data.images?.map((img) => img.url) || [],
           rating:
             typeof data.averageRating === "number" ? data.averageRating : 0,
-          badge: data.isOnSale ? "sale" : data.isFeatured ? "new" : undefined,
-          backendDiscountLabel: data.discount
-            ? (data.discount.type === "percentage" ? `-${data.discount.value}% Off` : data.discount.name)
-            : (data.applicableDiscounts && data.applicableDiscounts.length > 0
-              ? `-${data.applicableDiscounts[0].value}% Off`
-              : undefined),
+          badge: backendDiscountLabel ? "sale" : data.isFeatured ? "new" : undefined,
+          backendDiscountLabel,
           category: t(data.category?.name as any) || "",
           unit: data.unit || "piece",
           shortDescription: t(data.shortDescription as any),
@@ -237,10 +219,6 @@ export default function ProductDetailsPage() {
     );
   }
 
-  const discount = product.oldPrice
-    ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
-    : 0;
-
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <Header />
@@ -285,7 +263,7 @@ export default function ProductDetailsPage() {
                   }`}
                 >
                   {product.badge === "sale"
-                    ? product.backendDiscountLabel || `-${discount}% Off`
+                    ? product.backendDiscountLabel
                     : product.badge}
                 </span>
               )}
