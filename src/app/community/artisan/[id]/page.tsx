@@ -44,6 +44,8 @@ import {
   toAbsoluteArtisanImage,
 } from "@/lib/api/artisans";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function ArtisanProfilePage({
   params,
@@ -56,12 +58,11 @@ export default function ArtisanProfilePage({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   
-  const { addToCart, addToWishlist, removeFromWishlist, isInWishlist } =
-    useCart();
+  const { addToCart, addToWishlist, removeFromWishlist, isInWishlist } = useCart();
   const { formatPrice } = usePricing();
+  const { locale: activeLang, t } = useLanguage();
   const [contactOpen, setContactOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [activeLang, setActiveLang] = useState<"en" | "rw" | "fr" | "sw">("en");
 
   useEffect(() => {
     async function loadData() {
@@ -111,13 +112,13 @@ export default function ArtisanProfilePage({
         <Header />
         <main className="container py-20 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">
-            Artisan Not Found
+            {t(translations.artisanPage.artisanNotFound)}
           </h1>
           <p className="text-muted-foreground mb-6 text-sm">
-            The artisan profile you&#39;re looking for doesn&#39;t exist or could not be loaded.
+            {t(translations.artisanPage.artisanNotFoundDesc)}
           </p>
           <Button asChild>
-            <Link href="/community">Back to Community</Link>
+            <Link href="/community">{t(translations.artisanPage.backToCommunity)}</Link>
           </Button>
         </main>
         <Footer />
@@ -151,7 +152,7 @@ export default function ArtisanProfilePage({
 
   const handleAddToCart = (product: AdminArtisanProduct) => {
     addToCart(toCartProduct(product));
-    toast.success("Added to Cart", {
+    toast.success(t(translations.artisanPage.addedToCart), {
       description: `${getLangText(product.name)} has been added to your cart.`,
     });
   };
@@ -160,7 +161,7 @@ export default function ArtisanProfilePage({
     const p = toCartProduct(product);
     if (isInWishlist(p.id)) {
       void removeFromWishlist(p.id);
-      toast.info("Removed from wishlist");
+      toast.info(t(translations.artisanPage.removedWishlist));
     } else {
       void addToWishlist(p);
     }
@@ -169,16 +170,10 @@ export default function ArtisanProfilePage({
   const handleShare = () => {
     if (typeof window !== "undefined") {
       if (navigator.share) {
-        navigator.share({
-          title: artisan.name,
-          text: getLangText(artisan.shortDescription) || artisan.specialty,
-          url: window.location.href,
-        });
+        navigator.share({ title: artisan.name, text: getLangText(artisan.shortDescription) || artisan.specialty, url: window.location.href });
       } else {
         navigator.clipboard.writeText(window.location.href);
-        toast.success("Link Copied!", {
-          description: "Artisan profile link copied to clipboard.",
-        });
+        toast.success(t(translations.artisanPage.linkCopied));
       }
     }
   };
@@ -196,11 +191,8 @@ export default function ArtisanProfilePage({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/40 to-foreground/10" />
           <div className="relative container h-full flex items-end pb-8">
-            <Link
-              href="/community"
-              className="absolute top-6 left-4 md:left-0 inline-flex items-center gap-1.5 text-card/70 hover:text-card text-sm transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back to Community
+            <Link href="/community" className="absolute top-6 left-4 md:left-0 inline-flex items-center gap-1.5 text-card/70 hover:text-card text-sm transition-colors">
+              <ArrowLeft className="h-4 w-4" /> {t(translations.artisanPage.backToCommunity)}
             </Link>
           </div>
         </section>
@@ -232,20 +224,11 @@ export default function ArtisanProfilePage({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs h-8"
-                      onClick={handleShare}
-                    >
-                      <Share2 className="h-3.5 w-3.5" /> Share
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8" onClick={handleShare}>
+                      <Share2 className="h-3.5 w-3.5" /> {t(translations.artisanPage.share)}
                     </Button>
-                    <Button
-                      size="sm"
-                      className="gap-1.5 text-xs h-8"
-                      onClick={() => setContactOpen(true)}
-                    >
-                      <MessageCircle className="h-3.5 w-3.5" /> Contact
+                    <Button size="sm" className="gap-1.5 text-xs h-8" onClick={() => setContactOpen(true)}>
+                      <MessageCircle className="h-3.5 w-3.5" /> {t(translations.artisanPage.contactTitle)}
                     </Button>
                   </div>
                 </div>
@@ -255,15 +238,14 @@ export default function ArtisanProfilePage({
                     <span className="font-semibold text-foreground">
                       {products.length}
                     </span>
-                    <span className="text-muted-foreground">Products</span>
+                    <span className="text-muted-foreground">{t(translations.artisanPage.productsLabel)}</span>
                   </div>
                   {artisan.isFeatured && (
                     <Badge
                       variant="outline"
                       className="text-xs gap-1 border-amber-500/30 text-amber-600 bg-amber-50"
                     >
-                      <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Featured
-                      Artisan
+                      <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> {t(translations.artisanPage.featuredArtisan)}
                     </Badge>
                   )}
                 </div>
@@ -278,13 +260,13 @@ export default function ArtisanProfilePage({
             <Tabs defaultValue="products" className="space-y-6">
               <TabsList className="grid w-full max-w-md grid-cols-3 h-auto p-1 bg-muted/50 rounded-xl">
                 <TabsTrigger value="products" className="gap-1.5 text-sm py-2 rounded-lg">
-                  <ShoppingBag className="h-4 w-4 hidden sm:block" /> Products
+                  <ShoppingBag className="h-4 w-4 hidden sm:block" /> {t(translations.artisanPage.products)}
                 </TabsTrigger>
                 <TabsTrigger value="story" className="gap-1.5 text-sm py-2 rounded-lg">
-                  <Quote className="h-4 w-4 hidden sm:block" /> Story
+                  <Quote className="h-4 w-4 hidden sm:block" /> {t(translations.artisanPage.story)}
                 </TabsTrigger>
                 <TabsTrigger value="info" className="gap-1.5 text-sm py-2 rounded-lg">
-                  <Shield className="h-4 w-4 hidden sm:block" /> Info
+                  <Shield className="h-4 w-4 hidden sm:block" /> {t(translations.artisanPage.info)}
                 </TabsTrigger>
               </TabsList>
 
@@ -292,13 +274,13 @@ export default function ArtisanProfilePage({
               <TabsContent value="products" className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold font-heading text-foreground">
-                    Handcrafted Products ({products.length})
+                    {t(translations.artisanPage.handcraftedProducts)} ({products.length})
                   </h2>
                 </div>
                 {products.length === 0 ? (
                   <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-muted-foreground/20">
                     <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No products listed yet.</p>
+                    <p className="text-sm text-muted-foreground">{t(translations.artisanPage.noProducts)}</p>
                   </div>
                 ) : (
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -315,7 +297,7 @@ export default function ArtisanProfilePage({
                             onClick={() => setSelectedImage(toAbsoluteArtisanImage(product.image))}
                           />
                           <Badge className="absolute top-3 left-3 bg-card/90 backdrop-blur-sm text-foreground text-[10px] border-0 px-2 py-0">
-                            Handmade
+                            {t(translations.artisanPage.handmade)}
                           </Badge>
                         </div>
                         <div className="p-5">
@@ -323,14 +305,14 @@ export default function ArtisanProfilePage({
                             {getLangText(product.name)}
                           </h3>
                           <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
-                            {getLangText(product.description) || "Handcrafted with traditional Rwandan techniques."}
+                            {getLangText(product.description) || t(translations.artisanPage.defaultProductDesc)}
                           </p>
                           <div className="flex items-center justify-between mb-4">
                             <span className="text-lg font-bold text-foreground">
                               {formatPrice(product.price || 0)}
                             </span>
                             <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Truck className="h-3 w-3" /> Locally Sourced
+                              <Truck className="h-3 w-3" /> {t(translations.artisanPage.locallySourced)}
                             </div>
                           </div>
                           <div className="flex gap-2">
@@ -339,7 +321,7 @@ export default function ArtisanProfilePage({
                               size="sm"
                               onClick={() => handleAddToCart(product)}
                             >
-                              <ShoppingBag className="h-3.5 w-3.5" /> Add to Cart
+                              <ShoppingBag className="h-3.5 w-3.5" /> {t(translations.artisanPage.addToCart)}
                             </Button>
                             <Button
                               variant="outline"
@@ -376,7 +358,7 @@ export default function ArtisanProfilePage({
                         </div>
                         <div>
                           <h2 className="text-xl font-bold font-heading text-foreground">
-                            The Story of {artisan.name}
+                            {t(translations.artisanPage.storyOf)} {artisan.name}
                           </h2>
                           <p className="text-sm text-muted-foreground">
                             {artisan.specialty}
@@ -384,27 +366,11 @@ export default function ArtisanProfilePage({
                         </div>
                       </div>
                       
-                      {/* Language Switcher */}
-                      <div className="flex gap-1.5 p-1 bg-muted rounded-lg border border-border">
-                        {(["en", "rw", "fr", "sw"] as const).map((lang) => (
-                          <button
-                            key={lang}
-                            onClick={() => setActiveLang(lang)}
-                            disabled={!hasLang(artisan.fullStory, lang) && lang !== "en"}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all ${
-                              activeLang === lang
-                                ? "bg-primary text-primary-foreground shadow-sm"
-                                : "text-muted-foreground hover:bg-background/50 disabled:opacity-30 disabled:hover:bg-transparent"
-                            }`}
-                          >
-                            {lang}
-                          </button>
-                        ))}
-                      </div>
+                      {/* No language switcher — uses global header language */}
                     </div>
                     <div className="prose prose-sm max-w-none">
                       <p className="text-foreground leading-relaxed text-sm mb-6 whitespace-pre-wrap">
-                        {getLangText(artisan.fullStory, activeLang) || getLangText(artisan.shortDescription) || "No full story available yet."}
+                        {getLangText(artisan.fullStory, activeLang) || getLangText(artisan.shortDescription) || t(translations.artisanPage.noStory)}
                       </p>
                     </div>
                   </div>
@@ -412,11 +378,11 @@ export default function ArtisanProfilePage({
                   {/* Gallery */}
                   <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
                     <h3 className="font-semibold text-foreground mb-4">
-                      Portfolio Gallery
+                      {t(translations.artisanPage.portfolioGallery)}
                     </h3>
                     {products.length === 0 ? (
                       <div className="text-center py-8">
-                        <p className="text-xs text-muted-foreground italic">No gallery items available.</p>
+                        <p className="text-xs text-muted-foreground italic">{t(translations.artisanPage.noGallery)}</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -437,24 +403,24 @@ export default function ArtisanProfilePage({
                 {/* Craft Process */}
                 <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
                   <h3 className="text-lg font-bold font-heading text-foreground mb-6">
-                    Our Craftsmanship Promise
+                    {t(translations.artisanPage.craftPromise)}
                   </h3>
                   <div className="grid sm:grid-cols-3 gap-6">
                     {[
                       {
                         step: "1",
-                        title: "Sourcing",
-                        desc: "Materials are ethically sourced from local Rwandan communities.",
+                        title: t(translations.artisanPage.step1Title),
+                        desc: t(translations.artisanPage.step1Desc),
                       },
                       {
                         step: "2",
-                        title: "Crafting",
-                        desc: "Each piece is handmade using techniques passed down through generations.",
+                        title: t(translations.artisanPage.step2Title),
+                        desc: t(translations.artisanPage.step2Desc),
                       },
                       {
                         step: "3",
-                        title: "Quality",
-                        desc: "Careful quality checks ensure every product meets authentic artisan standards.",
+                        title: t(translations.artisanPage.step3Title),
+                        desc: t(translations.artisanPage.step3Desc),
                       },
                     ].map((s) => (
                       <div key={s.step} className="text-center">
@@ -478,37 +444,37 @@ export default function ArtisanProfilePage({
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="bg-card border border-border rounded-2xl p-6">
                     <h3 className="font-bold font-heading text-foreground mb-4">
-                      Artisan Details
+                      {t(translations.artisanPage.artisanDetails)}
                     </h3>
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between py-2 border-b border-border">
-                        <span className="text-muted-foreground">Specialty</span>
+                        <span className="text-muted-foreground">{t(translations.artisanPage.specLabel)}</span>
                         <span className="font-medium text-foreground">
                           {artisan.specialty}
                         </span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-border">
-                        <span className="text-muted-foreground">Location</span>
+                        <span className="text-muted-foreground">{t(translations.artisanPage.locationLabel)}</span>
                         <span className="font-medium text-foreground">
                           {artisan.location || "Rwanda"}
                         </span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-border">
-                        <span className="text-muted-foreground">Products</span>
+                        <span className="text-muted-foreground">{t(translations.artisanPage.productsLabel)}</span>
                         <span className="font-medium text-foreground">
-                          {products.length} items
+                          {products.length} {t(translations.artisanPage.items)}
                         </span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-border">
-                        <span className="text-muted-foreground">Member Since</span>
+                        <span className="text-muted-foreground">{t(translations.artisanPage.memberSince)}</span>
                         <span className="font-medium text-foreground">
                           {artisan.createdAt ? new Date(artisan.createdAt).getFullYear() : "2024"}
                         </span>
                       </div>
                       <div className="flex justify-between py-2">
-                        <span className="text-muted-foreground">Status</span>
+                        <span className="text-muted-foreground">{t(translations.artisanPage.statusLabel)}</span>
                         <Badge className="bg-primary/10 text-primary border-primary/20 border text-[10px] px-2 py-0">
-                          {artisan.isFeatured ? "Featured" : "Verified"}
+                          {artisan.isFeatured ? t(translations.artisanPage.featuredArtisan) : t(translations.artisanPage.verified)}
                         </Badge>
                       </div>
                     </div>
@@ -516,24 +482,24 @@ export default function ArtisanProfilePage({
 
                   <div className="bg-card border border-border rounded-2xl p-6">
                     <h3 className="font-bold font-heading text-foreground mb-4">
-                      Shipping &amp; Authenticity
+                      {t(translations.artisanPage.shippingAuth)}
                     </h3>
                     <div className="space-y-4">
                       {[
                         {
                           icon: Truck,
-                          title: "Delivery Support",
-                          desc: "Standard local delivery available for all items",
+                          title: t(translations.artisanPage.deliveryTitle),
+                          desc: t(translations.artisanPage.deliveryDesc),
                         },
                         {
                           icon: Shield,
-                          title: "Authentic Handmade",
-                          desc: "Certified traditional craftsmanship",
+                          title: t(translations.artisanPage.authenticTitle),
+                          desc: t(translations.artisanPage.authenticDesc),
                         },
                         {
                           icon: Package,
-                          title: "Custom Orders",
-                          desc: "Inquire via contact for personalized pieces",
+                          title: t(translations.artisanPage.customTitle),
+                          desc: t(translations.artisanPage.customDesc),
                         },
                       ].map((item) => (
                         <div
@@ -571,52 +537,37 @@ export default function ArtisanProfilePage({
               Contact {artisan.name}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Send a message about custom orders, availability, or any
-              questions.
+              {t(translations.artisanPage.contactDialogDesc)}
             </DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              toast.success("Message Sent!", {
+              toast.success(t(translations.artisanPage.messageSent), {
                 description: `Your message to ${artisan.name} has been sent. They'll respond within 24 hours.`,
               });
               setContactOpen(false);
             }}
             className="space-y-4 pt-2"
           >
-            <div>
-              <Label className="text-[11px] mb-1 block">Your Name *</Label>
+             <div>
+              <Label className="text-[11px] mb-1 block">{t(translations.artisanPage.yourName)}</Label>
               <Input required placeholder="Full name" className="h-9 text-xs" />
             </div>
             <div>
-              <Label className="text-[11px] mb-1 block">Email *</Label>
-              <Input
-                type="email"
-                required
-                placeholder="you@example.com"
-                className="h-9 text-xs"
-              />
+              <Label className="text-[11px] mb-1 block">{t(translations.artisanPage.emailLbl)}</Label>
+              <Input type="email" required placeholder="you@example.com" className="h-9 text-xs" />
             </div>
             <div>
-              <Label className="text-[11px] mb-1 block">Subject *</Label>
-              <Input
-                required
-                placeholder="e.g., Custom order inquiry"
-                className="h-9 text-xs"
-              />
+              <Label className="text-[11px] mb-1 block">{t(translations.artisanPage.subjectLbl)}</Label>
+              <Input required placeholder="e.g., Custom order inquiry" className="h-9 text-xs" />
             </div>
             <div>
-              <Label className="text-[11px] mb-1 block">Message *</Label>
-              <Textarea
-                required
-                placeholder="Tell the artisan what you're looking for..."
-                rows={4}
-                className="text-xs"
-              />
+              <Label className="text-[11px] mb-1 block">{t(translations.artisanPage.messageLbl)}</Label>
+              <Textarea required placeholder="Tell the artisan what you're looking for..." rows={4} className="text-xs" />
             </div>
             <Button type="submit" className="w-full gap-1.5 text-xs h-10">
-              <MessageCircle className="h-4 w-4" /> Send Message
+              <MessageCircle className="h-4 w-4" /> {t(translations.artisanPage.sendMessage)}
             </Button>
           </form>
         </DialogContent>

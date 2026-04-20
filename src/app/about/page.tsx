@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 import {
   Users,
   Leaf,
@@ -38,6 +40,7 @@ type GalleryTile = { id: string; url: string; caption?: string };
 
 const AboutPage = () => {
   const teamMembers = getAboutTeamMembers();
+  const { t } = useLanguage();
   const galleryQuery = useQuery({
     queryKey: ["public-gallery", "about"],
     queryFn: () => fetchPublicGallery({ limit: 48 }),
@@ -82,17 +85,17 @@ const AboutPage = () => {
         </div>
         <div className="relative z-10 w-full max-w-screen-2xl mx-auto px-4 text-center">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 md:mb-6 font-heading drop-shadow-xl leading-tight">
-            Rooted in Nature. <br />
+            {t(translations.aboutPage.heroTitle1)} <br />
             <span className="text-primary-foreground">
-              Driven by Freshness.
+              {t(translations.aboutPage.heroTitle2)}
             </span>
           </h1>
           <div className="flex items-center justify-center text-white/90 gap-2 text-sm md:text-base font-medium">
             <Link href="/" className="hover:text-white transition-colors">
-              Home
+              {t(translations.aboutPage.breadHome)}
             </Link>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-white">About Us</span>
+            <span className="text-white">{t(translations.aboutPage.breadAbout)}</span>
           </div>
         </div>
       </section>
@@ -104,17 +107,13 @@ const AboutPage = () => {
             <div className="flex-1 w-full space-y-6 md:space-y-8">
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-bold uppercase tracking-wider">
                 <Leaf className="h-4 w-4" />
-                Our Story
+                {t(translations.aboutPage.ourStory)}
               </div>
               <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-foreground leading-[1.1] font-heading">
-                Growing Since 2012 <br className="hidden sm:block" /> From a Small Family Farm.
+                {t(translations.aboutPage.storyTitle)}
               </h2>
               <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-                Agri-Eco started with a simple belief: that healthy, organic
-                food should be accessible to everyone, not just a luxury. What
-                began as a 5-acre family farm in the heart of the countryside
-                has blossomed into Rwanda&apos;s leading network of organic
-                producers.
+                {t(translations.aboutPage.storyDesc)}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
                 <div className="flex gap-4">
@@ -122,10 +121,8 @@ const AboutPage = () => {
                     <Calendar className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-black text-foreground">Established 2012</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Started with just 3 passionate farmers.
-                    </p>
+                    <h4 className="font-black text-foreground">{t(translations.aboutPage.established)}</h4>
+                    <p className="text-sm text-muted-foreground">{t(translations.aboutPage.establishedDesc)}</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
@@ -133,10 +130,8 @@ const AboutPage = () => {
                     <Target className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-black text-foreground">Our Mission</h4>
-                    <p className="text-sm text-muted-foreground">
-                      100% Organic, zero harmful pesticides.
-                    </p>
+                    <h4 className="font-black text-foreground">{t(translations.aboutPage.ourMission)}</h4>
+                    <p className="text-sm text-muted-foreground">{t(translations.aboutPage.missionDesc)}</p>
                   </div>
                 </div>
               </div>
@@ -158,7 +153,7 @@ const AboutPage = () => {
               <div className="absolute -bottom-6 left-4 sm:-bottom-10 sm:-left-10 z-20 bg-primary text-white p-5 sm:p-8 rounded-xl hidden sm:block">
                 <div className="text-3xl sm:text-4xl font-black mb-1">12+</div>
                 <div className="text-xs sm:text-sm font-bold opacity-80 uppercase tracking-widest">
-                  Years of Trust
+                  {t(translations.aboutPage.yearsOfTrust)}
                 </div>
               </div>
               <div className="absolute top-1/2 -right-12 -translate-y-1/2 w-64 h-64 bg-secondary/20 rounded-full blur-3xl -z-10 hidden lg:block" />
@@ -172,28 +167,28 @@ const AboutPage = () => {
         <div className="w-full max-w-screen-2xl mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto mb-10 md:mb-16">
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-foreground mb-4 md:mb-6 font-heading">
-              Our Core Values
+              {t(translations.aboutPage.coreValues)}
             </h2>
             <p className="text-muted-foreground text-sm md:text-base">
-              The principles that guide every seed we plant and every box we deliver.
+              {t(translations.aboutPage.coreValuesSub)}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
             {[
               {
                 icon: ShieldCheck,
-                title: "Certified Organic",
-                desc: "We follow strict organic standards, ensuring no chemical pesticides or fertilizers ever touch our soil.",
+                title: t(translations.aboutPage.val1Title),
+                desc: t(translations.aboutPage.val1Desc),
               },
               {
                 icon: Users,
-                title: "Fair For Farmers",
-                desc: "By cutting out middle-men, we ensure our farmers get paid fairly for their hard work and dedication.",
+                title: t(translations.aboutPage.val2Title),
+                desc: t(translations.aboutPage.val2Desc),
               },
               {
                 icon: Heart,
-                title: "Health First",
-                desc: "Your health is our priority. Fresh produce is harvested and delivered within 24 hours for maximum nutrients.",
+                title: t(translations.aboutPage.val3Title),
+                desc: t(translations.aboutPage.val3Desc),
               },
             ].map((value, i) => (
               <div
@@ -221,10 +216,10 @@ const AboutPage = () => {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 md:mb-16 border-b border-border pb-6 md:pb-8 gap-4">
             <div className="max-w-2xl">
               <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-foreground mb-3 md:mb-4 font-heading">
-                The People Behind The Produce
+                {t(translations.aboutPage.teamTitle)}
               </h2>
               <p className="text-sm md:text-base text-muted-foreground">
-                Expert cultivators, logistics masters, and quality enthusiasts.
+                {t(translations.aboutPage.teamSub)}
               </p>
             </div>
             <div className="flex gap-3">
@@ -272,18 +267,16 @@ const AboutPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <div className="space-y-6 md:space-y-8">
               <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-foreground font-heading">
-                Visit Our Farm
+                {t(translations.aboutPage.visitFarm)}
               </h2>
               <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-                We believe in transparency. Our main headquarters and processing
-                facility are located right at our flagship farm in Musanze. Come
-                visit us during our weekend farm tours!
+                {t(translations.aboutPage.visitDesc)}
               </p>
               <div className="space-y-5">
                 <div className="flex gap-4">
                   <MapPin className="h-6 w-6 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-black text-foreground">Main HQ & Farm</h4>
+                    <h4 className="font-black text-foreground">{t(translations.aboutPage.mainHQ)}</h4>
                     <p className="text-sm md:text-base text-muted-foreground">
                       KN 123 St, Musanze District, Northern Province, Rwanda
                     </p>
@@ -292,15 +285,15 @@ const AboutPage = () => {
                 <div className="flex gap-4">
                   <Users className="h-6 w-6 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-black text-foreground">Public Farm Tours</h4>
+                    <h4 className="font-black text-foreground">{t(translations.aboutPage.publicTours)}</h4>
                     <p className="text-sm md:text-base text-muted-foreground">
-                      Every Saturday & Sunday: 10:00 AM - 4:00 PM
+                      {t(translations.aboutPage.toursSchedule)}
                     </p>
                   </div>
                 </div>
               </div>
               <Button asChild>
-                <Link href="/contact">Get Directions</Link>
+                <Link href="/contact">{t(translations.aboutPage.getDirections)}</Link>
               </Button>
             </div>
 
@@ -326,10 +319,10 @@ const AboutPage = () => {
         <div className="w-full max-w-screen-2xl mx-auto px-4 mb-8 md:mb-12">
           <div className="text-center max-w-2xl mx-auto">
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-foreground mb-3 md:mb-4 font-heading">
-              Our Gallery
+              {t(translations.aboutPage.ourGallery)}
             </h2>
             <p className="text-sm md:text-base text-muted-foreground">
-              A glimpse into our daily life at the farm.
+              {t(translations.aboutPage.galleryDesc)}
             </p>
           </div>
         </div>
@@ -337,11 +330,11 @@ const AboutPage = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3 px-2 md:px-4 w-full max-w-screen-2xl mx-auto">
           {galleryQuery.isLoading ? (
             <p className="text-sm text-muted-foreground py-8 px-4 col-span-full text-center">
-              Loading gallery…
+              {t(translations.aboutPage.loadingGallery)}
             </p>
           ) : galleryImages.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 px-4 col-span-full text-center">
-              Gallery photos will appear here when added in admin.
+              {t(translations.aboutPage.noGallery)}
             </p>
           ) : (
             galleryImages.map((img) => (
@@ -366,7 +359,7 @@ const AboutPage = () => {
 
         <div className="w-full max-w-screen-2xl mx-auto px-4 mt-8 md:mt-10 flex justify-center">
           <Button asChild size="lg" className="font-bold">
-            <Link href="/gallery">Discover Full Gallery</Link>
+            <Link href="/gallery">{t(translations.aboutPage.discoverGallery)}</Link>
           </Button>
         </div>
       </section>
@@ -376,10 +369,9 @@ const AboutPage = () => {
           {selectedImage && (
             <>
               <DialogHeader>
-                <DialogTitle>Gallery Image</DialogTitle>
+                <DialogTitle>{t(translations.aboutPage.galleryTitle)}</DialogTitle>
                 <DialogDescription>
-                  {selectedImage.caption ||
-                    "Captured moments from our farm and community."}
+                  {selectedImage.caption || t(translations.aboutPage.galleryCaption)}
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-2 space-y-3">
