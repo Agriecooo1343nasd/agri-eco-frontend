@@ -20,6 +20,11 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
+interface AccountSidebarProps {
+  isOpen: boolean;
+  onClose?: () => void;
+}
+
 const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
   const { user, logout } = useAuth();
   const pathname = usePathname();

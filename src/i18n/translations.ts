@@ -720,6 +720,7 @@ export const translations = {
     fullName: { en: "Full Name", rw: "Amazina yombi", fr: "Nom Complet", sw: "Jina Kamili" },
     specialRequirements: { en: "Special Requirements", rw: "Ibisabwa byihariye", fr: "Exigences Spéciales", sw: "Mahitaji Maalum" },
     total: { en: "Total", rw: "Igiteranyo", fr: "Total", sw: "Jumla" },
+    fillRequired: { en: "Please fill in all required fields.", rw: "Uzuza ibyangombwa byose.", fr: "Veuillez remplir tous les champs obligatoires.", sw: "Tafadhali jaza sehemu zote zinazohitajika." },
   },
   deliveryAreasPage: {
     backToCheckout: { en: "Back to checkout", rw: "Subira ku bwishyu", fr: "Retour au paiement", sw: "Rudi kwenye malipo" },
