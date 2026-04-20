@@ -272,15 +272,13 @@ export default function CertificatesPage() {
                           className="h-9 text-xs gap-1 w-full sm:w-auto"
                           asChild
                         >
-                          <a
-                            href={recordUrl(cert)}
+                          <Link
+                            href={`/certificates/validate?code=${certificateIdFor(cert)}`}
                             target="_blank"
-                            rel="noopener noreferrer"
-                            download
                           >
                             <FileText className="h-3 w-3" />
                             {t(translations.certificatesPage.openOfficial)}
-                          </a>
+                          </Link>
                         </Button>
                       </div>
                     </div>
@@ -346,15 +344,13 @@ export default function CertificatesPage() {
                   {t(translations.certificatesPage.downloadPng)}
                 </Button>
                 <Button variant="secondary" className="gap-2 text-xs h-10" asChild>
-                  <a
-                    href={recordUrl(viewing)}
+                  <Link
+                    href={`/certificates/validate?code=${certificateIdFor(viewing)}`}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    download
                   >
                     <FileText className="h-4 w-4" />
                     {t(translations.certificatesPage.openOfficial)}
-                  </a>
+                  </Link>
                 </Button>
               </div>
             </>
