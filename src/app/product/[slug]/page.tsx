@@ -21,6 +21,7 @@ import {
 import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard, { Product } from "@/components/ProductCard";
@@ -225,9 +226,9 @@ export default function ProductDetailsPage() {
         <Header />
         <main className="flex-1 flex items-center justify-center p-10 text-center">
           <div>
-            <h2 className="text-2xl font-bold mb-4">{error || "Product Not Found"}</h2>
+            <h2 className="text-2xl font-bold mb-4">{error || t(translations.productPage.productNotFound)}</h2>
             <Link href="/shop" className="text-primary hover:underline">
-              Return to Shop
+              {t(translations.productPage.returnToShop)}
             </Link>
           </div>
         </main>
@@ -249,11 +250,11 @@ export default function ProductDetailsPage() {
         <div className="container mx-auto px-4">
           <nav className="flex items-center text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary transition-colors">
-              Home
+              {t(translations.productPage.home)}
             </Link>
             <ChevronRight className="h-4 w-4 mx-2" />
             <Link href="/shop" className="hover:text-primary transition-colors">
-              Shop
+              {t(translations.productPage.shop)}
             </Link>
             <ChevronRight className="h-4 w-4 mx-2" />
             <span className="text-foreground font-medium truncate">
@@ -330,7 +331,7 @@ export default function ProductDetailsPage() {
                     />
                   ))}
                   <span className="text-sm text-muted-foreground ml-1">
-                    ({reviews.length} Customer Reviews)
+                    ({reviews.length} {t(translations.productPage.customerReviews)})
                   </span>
                 </div>
               </div>
@@ -359,25 +360,25 @@ export default function ProductDetailsPage() {
               <div className="space-y-3 mb-8">
                 <div className="flex items-center gap-2 text-sm">
                   <Check className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">In Stock:</span>
+                  <span className="font-medium text-foreground">{t(translations.productPage.inStock)}</span>
                   <span className="text-muted-foreground">
-                    {product.stock || 0} units available
+                    {product.stock || 0} {t(translations.productPage.unitsAvailable)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">Delivery:</span>
+                  <span className="font-medium text-foreground">{t(translations.productPage.delivery)}</span>
                   <span className="text-muted-foreground">
-                    1-2 Business Days
+                    {t(translations.productPage.deliveryTime)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <ShieldCheck className="h-4 w-4 text-primary" />
                   <span className="font-medium text-foreground">
-                    Guarantee:
+                    {t(translations.productPage.guarantee)}
                   </span>
                   <span className="text-muted-foreground">
-                    100% Organic Certified
+                    {t(translations.productPage.organicCertified)}
                   </span>
                 </div>
               </div>
@@ -419,7 +420,7 @@ export default function ProductDetailsPage() {
                   }`}
                 >
                   <ShoppingCart className="h-5 w-5" />
-                  {inCart ? "Added to Cart" : "Add to Cart"}
+                  {inCart ? t(translations.productPage.addedToCart) : t(translations.productPage.addToCart)}
                 </Button>
 
                 <button
@@ -463,21 +464,21 @@ export default function ProductDetailsPage() {
                   value="description"
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold h-10 px-6 rounded-lg transition-all"
                 >
-                  Description
+                  {t(translations.productPage.description)}
                 </TabsTrigger>
                 {((product.features && product.features.length > 0) || (product.benefits && product.benefits.length > 0)) && (
                   <TabsTrigger
                     value="additional"
                     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold h-10 px-6 rounded-lg transition-all"
                   >
-                    Highlights
+                    {t(translations.productPage.highlights)}
                   </TabsTrigger>
                 )}
                 <TabsTrigger
                   value="reviews"
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold h-10 px-6 rounded-lg transition-all"
                 >
-                  Reviews ({reviews.length})
+                  {t(translations.productPage.reviews)} ({reviews.length})
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -488,7 +489,7 @@ export default function ProductDetailsPage() {
                 className="mt-0 focus-visible:ring-0"
               >
                 <div className="prose prose-green max-w-none">
-                  <h3 className="text-xl font-bold mb-4">Product Details</h3>
+                  <h3 className="text-xl font-bold mb-4">{t(translations.productPage.productDetails)}</h3>
                   <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
                     {product.longDescription ||
                       "No detailed description available for this product yet. Rest assured, all our products are hand-picked for quality and freshness."}
@@ -504,7 +505,7 @@ export default function ProductDetailsPage() {
                   {product.features && product.features.length > 0 && (
                     <div className="bg-primary/5 p-6 rounded-2xl">
                       <h4 className="font-bold mb-3 flex items-center gap-2">
-                        <Check className="h-5 w-5 text-primary" /> Features
+                        <Check className="h-5 w-5 text-primary" /> {t(translations.productPage.features)}
                       </h4>
                       <ul className="space-y-2 text-sm text-muted-foreground">
                         {product.features.map((f, i) => (
@@ -516,7 +517,7 @@ export default function ProductDetailsPage() {
                   {product.benefits && product.benefits.length > 0 && (
                     <div className="bg-primary/5 p-6 rounded-2xl">
                       <h4 className="font-bold mb-3 flex items-center gap-2">
-                        <Check className="h-5 w-5 text-primary" /> Benefits
+                        <Check className="h-5 w-5 text-primary" /> {t(translations.productPage.benefits)}
                       </h4>
                       <ul className="space-y-2 text-sm text-muted-foreground">
                         {product.benefits.map((b, i) => (
@@ -536,7 +537,7 @@ export default function ProductDetailsPage() {
                   <div className="lg:col-span-2">
                     <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-foreground">
                       <MessageSquare className="h-5 w-5 text-primary" />
-                      Client Reviews
+                      {t(translations.productPage.clientReviews)}
                     </h3>
 
                     {loadingReviews ? (
@@ -583,7 +584,7 @@ export default function ProductDetailsPage() {
                     ) : (
                       <div className="bg-muted/20 p-8 rounded-2xl text-center">
                         <p className="text-muted-foreground">
-                          No reviews yet. Be the first to share your experience!
+                          {t(translations.productPage.noReviews)}
                         </p>
                       </div>
                     )}
@@ -591,23 +592,23 @@ export default function ProductDetailsPage() {
 
                   <div className="bg-muted/20 p-8 rounded-2xl h-fit border border-border">
                     <h3 className="text-xl font-bold mb-6 text-foreground">
-                      Add a Review
+                      {t(translations.productPage.addReview)}
                     </h3>
                     {!isAuthenticated ? (
                       <div className="space-y-3">
                         <p className="text-sm text-muted-foreground">
-                          Sign in to submit a review for this product.
+                          {t(translations.productPage.signToReviewPrompt)}
                         </p>
                         <Button asChild className="w-full h-11 rounded-xl font-bold">
                           <Link href={`/login?redirect=${encodeURIComponent(`/product/${slug}`)}`}>
-                            Sign in to review
+                            {t(translations.productPage.signInToReview)}
                           </Link>
                         </Button>
                       </div>
                     ) : myReview ? (
                       <div className="rounded-lg border border-border p-4 bg-background">
                         <p className="text-sm font-semibold text-foreground">
-                          You already reviewed this product ({myReview.rating}/5)
+                          {t(translations.productPage.alreadyReviewed)} ({myReview.rating}/5)
                         </p>
                         {[myReview.title, myReview.comment].filter(Boolean).length > 0 ? (
                           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -619,7 +620,7 @@ export default function ProductDetailsPage() {
                     <form onSubmit={handleAddReview} className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium mb-1.5 text-foreground">
-                          Your Rating
+                          {t(translations.productPage.rating)}
                         </label>
                         <div className="flex gap-1">
                           {Array.from({ length: 5 }).map((_, i) => (
@@ -642,13 +643,13 @@ export default function ProductDetailsPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-1.5 text-foreground">
-                          Your Review
+                          {t(translations.productPage.reviews)}
                         </label>
                         <textarea
                           value={reviewComment}
                           onChange={(e) => setReviewComment(e.target.value)}
                           className="w-full rounded-lg border border-input px-3 py-2 text-sm h-32 bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
-                          placeholder="Write your experience here..."
+                          placeholder={t(translations.productPage.reviewPlaceholder)}
                           required
                         />
                       </div>
@@ -660,10 +661,10 @@ export default function ProductDetailsPage() {
                         {submittingReview ? (
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Submitting...
+                            {t(translations.productPage.submitting)}
                           </span>
                         ) : (
-                          "Submit Review"
+                          t(translations.productPage.submitReview)
                         )}
                       </Button>
                     </form>

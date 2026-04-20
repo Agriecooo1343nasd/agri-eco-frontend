@@ -15,9 +15,12 @@ import {
   isValidPhone,
 } from "@/lib/auth-validation";
 import { toast } from "sonner";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const RegisterPage = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -34,9 +37,8 @@ const RegisterPage = () => {
   const registerMutation = useMutation({
     mutationFn: registerRequest,
     onSuccess: () => {
-      toast.success("Account created!", {
-        description:
-          "Your account is ready. Please sign in with your email and password.",
+      toast.success(t({ en: "Account created!", rw: "Konti yafunguwe!", fr: "Compte créé !", sw: "Akaunti imefunguliwa!" }), {
+        description: t({ en: "Your account is ready. Please sign in with your email and password.", rw: "Konti yawe yiteguye. Koresha emeyiri n'ijambo ry'ibanga wunjire.", fr: "Votre compte est prêt. Veuillez vous connecter.", sw: "Akaunti yako iko tayari. Tafadhali ingia na barua pepe na nywila yako." }),
       });
       router.push("/login");
     },
@@ -57,24 +59,24 @@ const RegisterPage = () => {
       !form.password ||
       !form.confirmPassword
     ) {
-      setFormError("Please fill in all required fields.");
+      setFormError(t(translations.checkoutPage.fillRequired));
       return;
     }
 
     if (!isValidEmail(form.email)) {
-      setFormError("Please provide a valid email address.");
+      setFormError(t({ en: "Please provide a valid email address.", rw: "Andika emeyiri nyayo.", fr: "Veuillez fournir une adresse e-mail valide.", sw: "Tafadhali toa barua pepe halali." }));
       return;
     }
 
     if (!isValidPhone(form.phone)) {
       setFormError(
-        "Use a valid phone format (digits, spaces, +, -, or parentheses).",
+        t({ en: "Use a valid phone format (digits, spaces, +, -, or parentheses).", rw: "Andika numero ya telefoni nyayo.", fr: "Utilisez un format de téléphone valide.", sw: "Tumia muundo halali wa simu." }),
       );
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      setFormError("Please make sure your passwords match.");
+      setFormError(t({ en: "Please make sure your passwords match.", rw: "Andika amagambo y'ibanga asa.", fr: "Veuillez vous assurer que les mots de passe correspondent.", sw: "Tafadhali hakikisha nywila zako zinalandana." }));
       return;
     }
 
@@ -84,7 +86,7 @@ const RegisterPage = () => {
     }
 
     if (!agreed) {
-      setFormError("Please agree to the terms and conditions.");
+      setFormError(t({ en: "Please agree to the terms and conditions.", rw: "Emeranya n'amategeko n'amabwiriza.", fr: "Veuillez accepter les conditions d'utilisation.", sw: "Tafadhali kubali sheria na masharti." }));
       return;
     }
 
@@ -114,17 +116,17 @@ const RegisterPage = () => {
               />
             </div>
             <h1 className="text-2xl font-bold font-heading text-foreground">
-              Create Account
+              {t(translations.auth.createAccount)}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Join Agri-Eco for fresh organic products
+              {t(translations.auth.joinAgriEco)}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Username *
+                {t(translations.auth.username)} *
               </label>
               <input
                 name="username"
@@ -136,7 +138,7 @@ const RegisterPage = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Email Address *
+                {t(translations.checkoutPage.email)} *
               </label>
               <input
                 name="email"
@@ -149,9 +151,9 @@ const RegisterPage = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Phone Number{" "}
+                {t(translations.checkoutPage.phone)}{" "}
                 <span className="text-muted-foreground font-normal">
-                  (optional)
+                  ({t(translations.common.optional)})
                 </span>
               </label>
               <input
@@ -165,7 +167,7 @@ const RegisterPage = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Password *
+                {t(translations.auth.password)} *
               </label>
               <div className="relative">
                 <input
@@ -174,7 +176,7 @@ const RegisterPage = () => {
                   value={form.password}
                   onChange={handleInput}
                   className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground pr-12"
-                  placeholder="Min 8 characters"
+                  placeholder={t({ en: "Min 8 characters", rw: "Byibuze inyuguti 8", fr: "Min 8 caractères", sw: "Angalau vibambo 8" })}
                 />
                 <button
                   type="button"
@@ -191,7 +193,7 @@ const RegisterPage = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Confirm Password *
+                {t(translations.auth.confirmPassword)} *
               </label>
               <div className="relative">
                 <input
@@ -217,9 +219,9 @@ const RegisterPage = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Location{" "}
+                {t(translations.auth.location)}{" "}
                 <span className="text-muted-foreground font-normal">
-                  (optional)
+                  ({t(translations.common.optional)})
                 </span>
               </label>
               <input
@@ -239,10 +241,10 @@ const RegisterPage = () => {
                 className="rounded border-border text-primary focus:ring-primary/30 mt-0.5"
               />
               <span>
-                I agree to the{" "}
-                <span className="text-primary font-bold">Terms of Service</span>{" "}
-                and{" "}
-                <span className="text-primary font-bold">Privacy Policy</span>
+                {t(translations.auth.agreeTo)}{" "}
+                <span className="text-primary font-bold">{t(translations.auth.terms)}</span>{" "}
+                {t(translations.auth.and)}{" "}
+                <span className="text-primary font-bold">{t(translations.auth.privacy)}</span>
               </span>
             </label>
 
@@ -252,10 +254,10 @@ const RegisterPage = () => {
               className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
-                "Creating account..."
+                t(translations.auth.creatingAccount)
               ) : (
                 <>
-                  <UserPlus className="h-4 w-4" /> Create Account
+                  <UserPlus className="h-4 w-4" /> {t(translations.auth.createAccount)}
                 </>
               )}
             </button>
@@ -268,12 +270,12 @@ const RegisterPage = () => {
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Already have an account?{" "}
+            {t(translations.auth.alreadyHaveAccount)}{" "}
             <Link
               href="/login"
               className="text-primary font-semibold hover:underline"
             >
-              Sign In
+              {t(translations.auth.signIn)}
             </Link>
           </p>
         </div>

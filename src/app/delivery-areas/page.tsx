@@ -25,6 +25,15 @@ import {
   type DeliveryZone,
 } from "@/lib/api/delivery-zones";
 import { usePricing } from "@/context/PricingContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PAGE_SIZE = 12;
 
@@ -45,6 +54,7 @@ function coverageSummary(coverage: Record<string, unknown>): string | null {
 
 export default function DeliveryAreasPage() {
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -86,28 +96,26 @@ export default function DeliveryAreasPage() {
             className="mb-6 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Back to checkout
+            {t(translations.deliveryAreasPage.backToCheckout)}
           </Link>
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">
-                Shipping
+                {t(translations.deliveryAreasPage.shipping)}
               </p>
               <h1 className="text-2xl md:text-4xl font-bold font-heading text-foreground">
-                Where we deliver
+                {t(translations.deliveryAreasPage.title)}
               </h1>
               <p className="mt-2 max-w-2xl text-muted-foreground text-sm md:text-base">
-                Confirm that your street and city fall within one of these zones
-                before completing checkout. Fees and free-delivery thresholds apply
-                per area.
+                {t(translations.deliveryAreasPage.subtitle)}
               </p>
             </div>
             <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
               <Truck className="h-5 w-5 text-primary shrink-0" />
               <div className="text-xs">
-                <p className="font-semibold text-foreground">Active service areas</p>
+                <p className="font-semibold text-foreground">{t(translations.deliveryAreasPage.activeAreas)}</p>
                 <p className="text-muted-foreground">
-                  {pagination?.total ?? "—"} locations in Rwanda
+                  {pagination?.total ?? "—"} {t(translations.common?.locationsInRwanda || "locations in Rwanda")}
                 </p>
               </div>
             </div>
@@ -122,7 +130,7 @@ export default function DeliveryAreasPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by zone name or code..."
+              placeholder={t(translations.deliveryAreasPage.searchPlaceholder)}
               className="pl-10 h-11"
             />
             {(isFetching || isLoading) && (
@@ -133,25 +141,29 @@ export default function DeliveryAreasPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 text-muted-foreground">
               <SlidersHorizontal className="h-4 w-4" />
-              <span className="text-xs font-medium">Sort</span>
+              <span className="text-xs font-medium">{t(translations.deliveryAreasPage.sort)}</span>
             </div>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortField)}
-              className="h-11 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground cursor-pointer"
-            >
-              <option value="name">Name</option>
-              <option value="feeRwf">Delivery fee</option>
-              <option value="createdAt">Recently added</option>
-            </select>
-            <select
-              value={order}
-              onChange={(e) => setOrder(e.target.value as "asc" | "desc")}
-              className="h-11 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground cursor-pointer"
-            >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
+            
+            <Select value={sort} onValueChange={(v) => setSort(v as SortField)}>
+              <SelectTrigger className="w-[140px] h-11 rounded-lg">
+                <SelectValue placeholder={t(translations.deliveryAreasPage.sort)} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">{t(translations.deliveryAreasPage.name)}</SelectItem>
+                <SelectItem value="feeRwf">{t(translations.deliveryAreasPage.deliveryFee)}</SelectItem>
+                <SelectItem value="createdAt">{t(translations.deliveryAreasPage.recentlyAdded)}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={order} onValueChange={(v) => setOrder(v as "asc" | "desc")}>
+              <SelectTrigger className="w-[120px] h-11 rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="asc">{t(translations.deliveryAreasPage.ascending)}</SelectItem>
+                <SelectItem value="desc">{t(translations.deliveryAreasPage.descending)}</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               type="button"
               variant="outline"
@@ -159,36 +171,36 @@ export default function DeliveryAreasPage() {
               className="h-11"
               onClick={() => refetch()}
             >
-              Refresh
+              {t(translations.deliveryAreasPage.refresh)}
             </Button>
           </div>
         </div>
 
         {isError ? (
           <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-8 text-center">
-            <p className="text-foreground font-medium">Could not load delivery zones</p>
+            <p className="text-foreground font-medium">{t(translations.common?.errorLoading || "Could not load delivery zones")}</p>
             <p className="text-muted-foreground text-sm mt-2">
-              Check your connection or try again later.
+              {t(translations.common?.checkConnection || "Check your connection or try again later.")}
             </p>
             <Button className="mt-4" onClick={() => refetch()}>
-              Retry
+              {t(translations.common?.retry || "Retry")}
             </Button>
           </div>
         ) : isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="text-sm">Loading delivery areas…</p>
+            <p className="text-sm">{t(translations.common?.loading || "Loading delivery areas…")}</p>
           </div>
         ) : zones.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-muted/30 py-16 text-center">
             <MapPin className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
-            <p className="font-semibold text-foreground">No zones match your search</p>
+            <p className="font-semibold text-foreground">{t(translations.common?.noResultsFound || "No zones match your search")}</p>
             <p className="text-muted-foreground text-sm mt-1 max-w-md mx-auto">
-              Try another keyword or clear the search to see every active area.
+              {t(translations.common?.tryAnotherKeyword || "Try another keyword or clear the search to see every active area.")}
             </p>
             {debouncedSearch ? (
               <Button variant="outline" className="mt-6" onClick={() => { setSearch(""); setDebouncedSearch(""); }}>
-                Clear search
+                {t(translations.common?.clearSearch || "Clear search")}
               </Button>
             ) : null}
           </div>
@@ -220,7 +232,7 @@ export default function DeliveryAreasPage() {
                       <div className="flex gap-3 rounded-lg bg-muted/50 p-3">
                         <Banknote className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                         <div>
-                          <dt className="text-muted-foreground">Delivery fee</dt>
+                          <dt className="text-muted-foreground">{t(translations.deliveryAreasPage.deliveryFee)}</dt>
                           <dd className="font-semibold text-foreground">
                             {formatPrice(zone.feeRwf)}
                           </dd>
@@ -229,12 +241,12 @@ export default function DeliveryAreasPage() {
                       <div className="flex gap-3 rounded-lg bg-muted/50 p-3">
                         <Gift className="h-4 w-4 text-secondary shrink-0 mt-0.5" />
                         <div>
-                          <dt className="text-muted-foreground">Free delivery from</dt>
+                          <dt className="text-muted-foreground">{t(translations.cartPage.freeShippingNote || "Free delivery from")}</dt>
                           <dd className="font-semibold text-foreground">
                             {formatPrice(zone.freeFromRwf)}
                             <span className="font-normal text-muted-foreground">
                               {" "}
-                              cart value
+                              {t(translations.cartPage.cartValue || "cart value")}
                             </span>
                           </dd>
                         </div>
@@ -242,9 +254,9 @@ export default function DeliveryAreasPage() {
                       <div className="flex gap-3 rounded-lg bg-muted/50 p-3">
                         <Clock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                         <div>
-                          <dt className="text-muted-foreground">Typical delivery window</dt>
+                          <dt className="text-muted-foreground">{t(translations.common?.typicalDeliveryWindow || "Typical delivery window")}</dt>
                           <dd className="font-semibold text-foreground">
-                            {zone.minDeliveryHours}–{zone.maxDeliveryHours} hours
+                            {zone.minDeliveryHours}–{zone.maxDeliveryHours} {t(translations.common?.hours || "hours")}
                           </dd>
                         </div>
                       </div>
@@ -252,12 +264,12 @@ export default function DeliveryAreasPage() {
 
                     {cov ? (
                       <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground border-t border-border pt-3">
-                        <span className="font-medium text-foreground/80">Coverage note: </span>
+                        <span className="font-medium text-foreground/80">{t(translations.common?.coverageNote || "Coverage note:")} </span>
                         {cov}
                       </p>
                     ) : (
                       <p className="mt-4 text-[11px] text-muted-foreground border-t border-border pt-3">
-                        Use this zone name and code to confirm with support if you are unsure your address qualifies.
+                        {t(translations.deliveryAreasPage.uncertainSupport || "Use this zone name and code to confirm with support if you are unsure your address qualifies.")}
                       </p>
                     )}
                   </li>
@@ -282,7 +294,7 @@ export default function DeliveryAreasPage() {
                     className="gap-1"
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    Previous
+                    {t(translations.common?.previous || "Previous")}
                   </Button>
                   <Button
                     type="button"
@@ -292,7 +304,7 @@ export default function DeliveryAreasPage() {
                     onClick={() => setPage((p) => p + 1)}
                     className="gap-1"
                   >
-                    Next
+                    {t(translations.common?.next || "Next")}
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -303,15 +315,13 @@ export default function DeliveryAreasPage() {
 
         <div className="mt-12 rounded-2xl border border-primary/25 bg-primary/5 p-6 md:p-8">
           <h3 className="font-heading font-bold text-foreground text-lg mb-2">
-            Ready to order?
+            {t(translations.deliveryAreasPage.readyToOrder)}
           </h3>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            When your address matches a zone above, enter it on the checkout page
-            exactly as you would write it on a parcel label. If you are outside
-            these areas, contact us before ordering.
+            {t(translations.deliveryAreasPage.orderInstruction)}
           </p>
           <Button asChild className="mt-4">
-            <Link href="/checkout">Continue to checkout</Link>
+            <Link href="/checkout">{t(translations.deliveryAreasPage.continueCheckout)}</Link>
           </Button>
         </div>
       </div>

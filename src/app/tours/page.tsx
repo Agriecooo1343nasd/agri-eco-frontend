@@ -417,15 +417,6 @@ export default function ToursPage() {
                     <Calendar className="h-4 w-4" /> {t(translations.tours.browseExp)}
                   </Button>
                 </Link>
-                <Link href="/tours/guided-organic-farm-tour">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/20"
-                  >
-                    {t(translations.tours.popularTour)}
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>

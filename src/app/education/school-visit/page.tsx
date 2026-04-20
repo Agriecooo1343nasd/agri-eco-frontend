@@ -72,6 +72,8 @@ const initialForm: SchoolVisitForm = {
   specialRequirements: "",
 };
 
+import { translations } from "@/i18n/translations";
+
 export default function SchoolVisitPage() {
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
@@ -151,7 +153,7 @@ export default function SchoolVisitPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isAuthenticated) {
-      toast.error("Authentication required");
+      toast.error(t(translations.common.authRequired));
       router.push(`/login?redirect=${pathname}`);
       return;
     }
@@ -168,14 +170,14 @@ export default function SchoolVisitPage() {
       !form.gradeLevel ||
       !form.preferredDate
     ) {
-      toast.error("Please complete all required fields.");
+      toast.error(t({ en: "Please complete all required fields.", rw: "Uzuza ibyo usabwa byose.", fr: "Veuillez remplir tous les champs obligatoires.", sw: "Tafadhali kamilisha sehemu zote zinazohitajika." }));
       return;
     }
 
     const studentCount = Number(form.studentCount);
     if (Number.isNaN(studentCount) || studentCount < min || studentCount > max) {
       toast.error(
-        `Number of students must be between ${min} and ${max}.`,
+        `${t(translations.educationPage.studentCount)} ${t(translations.educationPage.allowedRange)} ${min}–${max}.`,
       );
       return;
     }
@@ -196,12 +198,12 @@ export default function SchoolVisitPage() {
       });
 
       setForm(initialForm);
-      toast.success("Visit request submitted!", {
-        description: "We'll confirm your booking within 48 hours.",
+      toast.success(t(translations.educationPage.visitSubmitted), {
+        description: t(translations.educationPage.visitSubmittedDesc),
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred.";
-      toast.error("Failed to submit request", {
+      toast.error(t({ en: "Failed to submit request", rw: "Ntibyashobotse kohereza", fr: "Échec de l'envoi", sw: "Imeshindwa kutuma ombi" }), {
         description: message,
       });
     } finally {
@@ -229,7 +231,7 @@ export default function SchoolVisitPage() {
                   <span className="truncate">{t(view.heading)}</span>
                 </Badge>
                 <h1 className="text-3xl md:text-4xl font-bold font-heading text-foreground mb-3">
-                  {t({ en: "Book a school visit", rw: "Andika urugendo rw'ishuri", fr: "Réserver une visite scolaire", sw: "Weka ziara ya shule" })}
+                  {t(translations.educationPage.bookSchoolVisit)}
                 </h1>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {t(view.subheading)}
@@ -237,7 +239,7 @@ export default function SchoolVisitPage() {
               </div>
               <Link href="/education">
                 <Button variant="outline" className="gap-2 w-full md:w-auto">
-                  <ArrowLeft className="h-4 w-4" /> {t({ en: "Back to Education", rw: "Subira ku masomo", fr: "Retour à Éducation", sw: "Rudi kwenye Elimu" })}
+                  <ArrowLeft className="h-4 w-4" /> {t({ en: "Back to Education", rw: "Subira ku Masomo", fr: "Retour à l'Éducation", sw: "Rudi kwenye Elimu" })}
                 </Button>
               </Link>
             </div>
@@ -251,15 +253,10 @@ export default function SchoolVisitPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div>
                     <h2 className="font-bold font-heading text-foreground text-lg mb-1">
-                      {t({ en: "Visit request form", rw: "Ifishi y'icyifuzo", fr: "Formulaire de demande", sw: "Fomu ya ombi" })}
+                      {t(translations.educationPage.visitRequestForm)}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {t({
-                        en: "Provide the details below as they should appear on your booking.",
-                        rw: "Tanga amakuru nk'uko ukeneye ko aboneka ku cyandiko cyawe.",
-                        fr: "Indiquez les informations telles qu'elles doivent figurer sur la réservation.",
-                        sw: "Toa maelezo kama yanavyoonekana kwenye uhifadhi wako.",
-                      })}
+                      {t(translations.educationPage.visitRequestDesc)}
                     </p>
                   </div>
 
@@ -280,7 +277,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Contact person", rw: "Umuntu w'itumanaho", fr: "Personne de contact", sw: "Mhusika wa mawasiliano" })} *
+                        {t({ en: "Contact person", rw: "Umushyikirane", fr: "Personne de contact", sw: "Mtu wa mawasiliano" })} *
                       </Label>
                       <Input
                         required
@@ -288,12 +285,12 @@ export default function SchoolVisitPage() {
                         onChange={(e) =>
                           updateField("contactPerson", e.target.value)
                         }
-                        placeholder={t({ en: "Teacher name", rw: "Izina ry'umwarimu", fr: "Nom de l'enseignant", sw: "Jina la mwalimu" })}
+                        placeholder={t(translations.educationPage.teacherNamePlaceholder)}
                         className="h-9 text-xs"
                       />
                     </div>
                     <div>
-                      <Label className="text-[11px] mb-1 block">Email *</Label>
+                      <Label className="text-[11px] mb-1 block">{t(translations.checkoutPage.email)} *</Label>
                       <Input
                         type="email"
                         required
@@ -305,7 +302,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Phone", rw: "Telefoni", fr: "Téléphone", sw: "Simu" })} *
+                        {t(translations.checkoutPage.phone)} *
                       </Label>
                       <Input
                         required
@@ -317,7 +314,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Number of students", rw: "Umubare w'abanyeshuri", fr: "Nombre d'élèves", sw: "Idadi ya wanafunzi" })} *
+                        {t(translations.educationPage.studentCount)} *
                       </Label>
                       <Input
                         type="number"
@@ -332,13 +329,13 @@ export default function SchoolVisitPage() {
                         className="h-9 text-xs"
                       />
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {t({ en: "Allowed range:", rw: "Intera yemewe:", fr: "Fourchette autorisée :", sw: "Masafa yanayoruhusiwa:" })}{" "}
+                        {t(translations.educationPage.allowedRange)}{" "}
                         {minStudents}–{maxStudents}
                       </p>
                     </div>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Grade level", rw: "Icyiciro", fr: "Niveau", sw: "Kiwango" })} *
+                        {t(translations.educationPage.gradeLevel)} *
                       </Label>
                       <Select
                         value={form.gradeLevel}
@@ -347,7 +344,7 @@ export default function SchoolVisitPage() {
                         }
                       >
                         <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder={t({ en: "Select grade", rw: "Hitamo icyiciro", fr: "Choisir le niveau", sw: "Chagua kiwango" })} />
+                          <SelectValue placeholder={t(translations.educationPage.selectGrade)} />
                         </SelectTrigger>
                         <SelectContent>
                           {view.gradeLevels.map((level) => (
@@ -364,7 +361,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div className="flex flex-col">
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Preferred date", rw: "Itariki wifuza", fr: "Date souhaitée", sw: "Tarehe unayopenda" })} *
+                        {t(translations.educationPage.preferredDate)} *
                       </Label>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -373,7 +370,7 @@ export default function SchoolVisitPage() {
                             className={`w-full justify-start text-left font-normal h-9 text-xs border-input px-3 ${!form.preferredDate ? "text-muted-foreground" : "text-foreground"}`}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {form.preferredDate ? format(new Date(form.preferredDate), "PPP") : <span>{t({ en: "Pick a date", rw: "Hitamo itariki", fr: "Choisir une date", sw: "Chagua tarehe" })}</span>}
+                            {form.preferredDate ? format(new Date(form.preferredDate), "PPP") : <span>{t(translations.educationPage.pickDate)}</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0 z-[9999]" align="start">
@@ -400,7 +397,7 @@ export default function SchoolVisitPage() {
                     </div>
                     <div className="sm:col-span-2">
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Curriculum alignment", rw: "Guhuza n'amashuri", fr: "Alignement pédagogique", sw: "Muundo wa mtaala" })}
+                        {t(translations.educationPage.curriculumAlignment)}
                       </Label>
                       <Select
                         value={form.curriculumAlignment}
@@ -409,7 +406,7 @@ export default function SchoolVisitPage() {
                         }
                       >
                         <SelectTrigger className="h-9 text-xs">
-                          <SelectValue placeholder={t({ en: "Select subject", rw: "Hitamo isomo", fr: "Choisir une matière", sw: "Chagua somo" })} />
+                          <SelectValue placeholder={t(translations.educationPage.selectSubject)} />
                         </SelectTrigger>
                         <SelectContent>
                           {view.curriculumSubjects.map((subject) => (
@@ -426,14 +423,14 @@ export default function SchoolVisitPage() {
                     </div>
                     <div className="sm:col-span-2">
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Special requirements", rw: "Ibindi bisabwa", fr: "Besoins particuliers", sw: "Mahitaji maalum" })}
+                        {t(translations.checkoutPage.specialRequirements)}
                       </Label>
                       <Textarea
                         value={form.specialRequirements}
                         onChange={(e) =>
                           updateField("specialRequirements", e.target.value)
                         }
-                        placeholder={t({ en: "Dietary needs, accessibility, etc.", rw: "Ibiribwa, uko ubashyira, n'ibindi.", fr: "Régime alimentaire, accessibilité, etc.", sw: "Lishe, upatikanaji, n.k." })}
+                        placeholder={t(translations.educationPage.dietaryPlaceholder)}
                         className="text-xs"
                         rows={3}
                       />
@@ -446,8 +443,8 @@ export default function SchoolVisitPage() {
                     disabled={submitting}
                   >
                     {submitting
-                      ? t({ en: "Submitting…", rw: "Kohereza…", fr: "Envoi…", sw: "Inatumwa…" })
-                      : t({ en: "Submit booking request", rw: "Ohereza icyifuzo", fr: "Envoyer la demande", sw: "Wasilisha ombi" })}
+                      ? t(translations.tourDetailPage.submitting)
+                      : t(translations.educationPage.submitBooking)}
                   </Button>
                 </form>
               </div>
@@ -455,12 +452,7 @@ export default function SchoolVisitPage() {
               <div className="space-y-6">
                 {settingsError && (
                   <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
-                    {t({
-                      en: "Could not load live program settings; showing defaults.",
-                      rw: "Ntibyashobotse kubona amagenamiterere; turimo kwerekana ibisanzwe.",
-                      fr: "Impossible de charger les paramètres; affichage par défaut.",
-                      sw: "Imepaki haijapakiwa; tunaonyesha chaguo-msingi.",
-                    })}
+                    {t(translations.educationPage.liveSettingsError)}
                   </p>
                 )}
 
@@ -469,12 +461,7 @@ export default function SchoolVisitPage() {
                     {t(schoolVisitSectionTitles.whatsIncluded)}
                   </h2>
                   <p className="text-[11px] text-muted-foreground mb-4">
-                    {t({
-                      en: "Included in every visit (from your latest configuration).",
-                      rw: "Birimo mu rugendo rwose (kuva ku mitegurire yawe).",
-                      fr: "Inclus dans chaque visite (selon la configuration).",
-                      sw: "Kinajumuishwa katika kila ziara (kulingana na mipangilio).",
-                    })}
+                    {t(translations.educationPage.includedInVisit)}
                   </p>
                   {settingsLoading ? (
                     <ul className="space-y-3">
@@ -505,12 +492,7 @@ export default function SchoolVisitPage() {
                     {t(schoolVisitSectionTitles.programDetails)}
                   </h2>
                   <p className="text-[11px] text-muted-foreground mb-4">
-                    {t({
-                      en: "Key facts for planning your trip.",
-                      rw: "Amakuru ngombwa yo gutegura urugendo rwawe.",
-                      fr: "Faits clés pour organiser votre visite.",
-                      sw: "Ukweli muhimu wa kupanga ziara yako.",
-                    })}
+                    {t(translations.educationPage.planningKeyFacts)}
                   </p>
                   {settingsLoading ? (
                     <div className="space-y-3">

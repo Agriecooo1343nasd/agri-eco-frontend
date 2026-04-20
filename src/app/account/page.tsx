@@ -19,10 +19,13 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchCustomerDashboard } from "@/lib/api/user";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const AccountDashboard = () => {
   const { user } = useAuth();
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
 
   const dashboardQuery = useQuery({
     queryKey: ["customer-dashboard"],
@@ -33,49 +36,49 @@ const AccountDashboard = () => {
 
   const stats = [
     {
-      label: "Total Orders",
+      label: t(translations.accountPage.totalOrders),
       value: statsData?.totalOrders.toString().padStart(2, "0") || "00",
-      sub: `+${statsData?.monthlyOrders || 0} this month`,
+      sub: `+${statsData?.monthlyOrders || 0} ${t(translations.accountPage.thisMonth)}`,
       icon: ShoppingBag,
       color: "bg-green-50 text-green-600",
       href: "/account/orders",
     },
     {
-      label: "Items in Cart",
+      label: t(translations.accountPage.itemsInCart),
       value: statsData?.cartItems.toString().padStart(2, "0") || "00",
-      sub: "Ready for checkout",
+      sub: t(translations.accountPage.readyForCheckout),
       icon: ShoppingCart,
       color: "bg-green-50 text-green-600",
       href: "/cart",
     },
     {
-      label: "Saved Addresses",
+      label: t(translations.accountPage.savedAddresses),
       value: statsData?.addressCount.toString().padStart(2, "0") || "00",
-      sub: "Direct delivery",
+      sub: t({ en: "Direct delivery", rw: "Igenewe wowe", fr: "Livraison directe", sw: "Uwasilishaji wa moja kwa moja" }),
       icon: MapPin,
       color: "bg-amber-50 text-amber-600",
       href: "/account/addresses",
     },
     {
-      label: "My Enrollments",
+      label: t(translations.accountPage.myEnrollments),
       value: statsData?.totalEnrollments.toString().padStart(2, "0") || "00",
-      sub: `${statsData?.inProgressEnrollments || 0} in progress`,
+      sub: `${statsData?.inProgressEnrollments || 0} ${t(translations.accountPage.inProgress)}`,
       icon: GraduationCap,
       color: "bg-purple-50 text-purple-600",
       href: "/account/enrollments",
     },
     {
-      label: "My Certificates",
+      label: t(translations.accountPage.myCertificates),
       value: statsData?.certificateCount.toString().padStart(2, "0") || "00",
-      sub: "View all",
+      sub: t(translations.accountPage.viewAll),
       icon: Award,
       color: "bg-indigo-50 text-indigo-600",
       href: "/account/certificates",
     },
     {
-      label: "My Tours",
+      label: t(translations.accountPage.myTours),
       value: statsData?.upcomingTours.toString().padStart(2, "0") || "00",
-      sub: "Upcoming activities",
+      sub: t(translations.accountPage.upcomingActivities),
       icon: Map,
       color: "bg-teal-50 text-teal-600",
       href: "/account/bookings",
@@ -88,7 +91,7 @@ const AccountDashboard = () => {
     return (
       <div className="py-20 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500">
         <Loader2 className="h-10 w-10 text-primary animate-spin" />
-        <p className="text-sm font-medium text-muted-foreground">Gathering your dashboard data...</p>
+        <p className="text-sm font-medium text-muted-foreground">{t({ en: "Gathering your dashboard data...", rw: "Turimo gutegura imbonerahamwe yawe...", fr: "Collecte de vos données...", sw: "Tunakusanya data zako za dashibodi..." })}</p>
       </div>
     );
   }
@@ -97,9 +100,9 @@ const AccountDashboard = () => {
     return (
       <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
         <AlertCircle className="h-12 w-12 text-destructive opacity-20" />
-        <h3 className="text-lg font-bold">Failed to load dashboard</h3>
-        <p className="text-sm text-muted-foreground max-w-xs">We couldn&apos;t retrieve your account data. Please refresh or try again later.</p>
-        <Button onClick={() => dashboardQuery.refetch()} variant="outline" size="sm">Retry Connection</Button>
+        <h3 className="text-lg font-bold">{t({ en: "Failed to load dashboard", rw: "Imbonerahamwe yanze gufunguka", fr: "Échec du chargement du tableau de bord", sw: "Imeshindwa kupakia dashibodi" })}</h3>
+        <p className="text-sm text-muted-foreground max-w-xs">{t({ en: "We couldn't retrieve your account data. Please refresh or try again later.", rw: "Ntabwo twabashije kubona amakuru yawe. Ongera ugerageze.", fr: "Nous n'avons pas pu récupérer vos données. Veuillez réessayer.", sw: "Hatukuweza kupata data ya akaunti yako. Tafadhali pakia tena au jaribu baadaye." })}</p>
+        <Button onClick={() => dashboardQuery.refetch()} variant="outline" size="sm">{t(translations.common.retry)}</Button>
       </div>
     );
   }
@@ -110,15 +113,15 @@ const AccountDashboard = () => {
       <div className="bg-primary overflow-hidden rounded-[20px] text-white p-8 md:p-12 relative shadow-2xl">
         <div className="relative z-10">
           <h2 className="text-3xl font-black mb-2 font-heading">
-            Hello, {user?.username || "Explorer"}!
+            {t(translations.accountPage.hello)}, {user?.username}!
           </h2>
           <p className="text-white/80 max-w-md text-sm leading-relaxed">
-            Welcome to your Agri-Eco account. Track your sustainable orders, manage your travel bookings, and continue your educational journey in organic farming.
+            {t(translations.accountPage.welcomeDesc)}
           </p>
           <div className="mt-6 flex gap-3">
              <Link href="/account/profile">
                 <Button variant="secondary" size="sm" className="h-9 px-6 font-bold text-xs bg-white text-primary hover:bg-white/90">
-                    Edit Profile
+                    {t(translations.accountPage.editProfile)}
                 </Button>
              </Link>
           </div>
@@ -167,20 +170,20 @@ const AccountDashboard = () => {
         <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm flex flex-col">
           <div className="p-6 border-b border-border flex items-center justify-between bg-card/10">
             <h3 className="text-sm font-black text-foreground font-heading uppercase tracking-wider">
-              Recent Orders
+              {t(translations.accountPage.recentOrders)}
             </h3>
             <Link
               href="/account/orders"
               className="text-[10px] font-black text-primary hover:underline uppercase tracking-widest"
             >
-              View Full History
+              {t(translations.accountPage.viewFullHistory)}
             </Link>
           </div>
           <div className="flex-1">
             {recentOrders.length === 0 ? (
                 <div className="h-64 flex flex-col items-center justify-center gap-3 text-muted-foreground/30">
                     <Inbox className="h-10 w-10" />
-                    <p className="text-xs font-bold uppercase tracking-widest">No orders yet</p>
+                    <p className="text-xs font-bold uppercase tracking-widest">{t(translations.accountPage.noOrdersYet)}</p>
                 </div>
             ) : (
                 <div className="overflow-x-auto">
@@ -234,15 +237,15 @@ const AccountDashboard = () => {
         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden h-fit">
           <div className="p-6 border-b border-border bg-card/10">
             <h3 className="text-sm font-black text-foreground font-heading uppercase tracking-wider">
-              Quick Resources
+              {t(translations.accountPage.quickResources)}
             </h3>
           </div>
           <div className="p-6 space-y-3">
             {[
-                { title: "Track Request Status", desc: "Check school visits or partnership status", href: "/account/requests", icon: AlertCircle },
-                { title: "Continue Learning", desc: "Pick up where you left off in your courses", href: "/account/enrollments", icon: GraduationCap },
-                { title: "Delivery Addresses", desc: "Manage your saved shipping locations", href: "/account/addresses", icon: MapPin },
-                { title: "Help & Support", desc: "Need assistance? Contact our team", href: "/contact", icon: AlertCircle },
+                { title: t({ en: "Track Request Status", rw: "Kurikirana Ibisabwa", fr: "Suivi des demandes", sw: "Fuatilia Hali ya Ombi" }), desc: t({ en: "Check school visits or partnership status", rw: "Reba uko gusura ibigo by'amashuri bihagaze", fr: "Vérifier le statut des visites scolaires", sw: "Angalia ziara za shule au hali ya ushirika" }), href: "/account/requests", icon: AlertCircle },
+                { title: t({ en: "Continue Learning", rw: "Komeza Kwiga", fr: "Continuer l'apprentissage", sw: "Endelea Kujifunza" }), desc: t({ en: "Pick up where you left off in your courses", rw: "Komeza aho wari ugeze mu masomo yawe", fr: "Reprenez là où vous vous êtes arrêté", sw: "Anzia pale ulipoishia kwenye kozi zako" }), href: "/account/enrollments", icon: GraduationCap },
+                { title: t(translations.accountPage.savedAddresses), desc: t({ en: "Manage your saved shipping locations", rw: "Genzura aho wagererwa n'ibyo waguze", fr: "Gérez vos adresses de livraison", sw: "Dhibiti maeneo yako ya usafirishaji yalihifadhiwa" }), href: "/account/addresses", icon: MapPin },
+                { title: t({ en: "Help & Support", rw: "Ubufasha", fr: "Aide et support", sw: "Msaada na Usaidizi" }), desc: t({ en: "Need assistance? Contact our team", rw: "Ukeneye ubufasha? Twandikire", fr: "Besoin d'aide ? Contactez-nous", sw: "Unahitaji msaada? Wasiliana na timu yetu" }), href: "/contact", icon: AlertCircle },
             ].map((link, i) => (
                 <Link
                 key={i}

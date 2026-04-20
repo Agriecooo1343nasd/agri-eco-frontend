@@ -22,8 +22,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { submitContact } from "@/lib/api/contacts";
+import { translations } from "@/i18n/translations";
+import { useLanguage } from "@/context/LanguageContext";
 
 const ContactPage = () => {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -54,8 +57,8 @@ const ContactPage = () => {
         message: formData.message,
       });
 
-      toast.success("Message Sent!", {
-        description: "Thank you for reaching out. We will get back to you soon.",
+      toast.success(t(translations.contactPage.messageSent), {
+        description: t(translations.contactPage.thanksReaching),
       });
       
       setFormData({
@@ -66,8 +69,8 @@ const ContactPage = () => {
       });
     } catch (error: any) {
       console.error("Contact submission failed:", error);
-      toast.error("Submission Failed", {
-        description: error.response?.data?.message || "There was an error sending your message. Please try again.",
+      toast.error(t({ en: "Submission Failed", rw: "Ntibyashobotse kohereza", fr: "Échec de l'envoi", sw: "Imeshindwa kutuma" }), {
+        description: error.response?.data?.message || t({ en: "There was an error sending your message. Please try again.", rw: "Habayeho ikibazo, ongera ugerageze.", fr: "Une erreur est survenue. Veuillez réessayer.", sw: "Hitilafu imetokea. Tafadhali jaribu tena." }),
       });
     } finally {
       setLoading(false);
@@ -82,14 +85,14 @@ const ContactPage = () => {
       <section className="bg-primary/5 py-12 md:py-20">
         <div className="container px-4 mx-auto text-center">
           <h1 className="text-4xl md:text-6xl font-black text-foreground mb-6 font-heading">
-            Get In Touch
+            {t(translations.contactPage.heroTitle)}
           </h1>
           <div className="flex items-center justify-center text-muted-foreground gap-2 font-medium">
             <Link href="/" className="hover:text-primary transition-colors">
-              Home
+              {t(translations.common.home)}
             </Link>
             <ChevronRight className="h-4 w-4" />
-            <span className="text-foreground">Contact Us</span>
+            <span className="text-foreground">{t(translations.contactPage.heroBreadcrumb)}</span>
           </div>
         </div>
       </section>
@@ -101,11 +104,10 @@ const ContactPage = () => {
             <div className="lg:w-2/5 bg-primary p-8 md:p-12 text-white flex flex-col justify-between">
               <div>
                 <h2 className="text-3xl font-bold mb-6 font-heading">
-                  Contact Information
+                  {t(translations.contactPage.infoTitle)}
                 </h2>
                 <p className="text-white/80 mb-12 text-lg">
-                  Have questions about our organic certification or need help
-                  with an order? Our team is here to help!
+                  {t(translations.contactPage.infoDesc)}
                 </p>
 
                 <div className="space-y-8">
@@ -115,7 +117,7 @@ const ContactPage = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white/60 mb-1 uppercase tracking-widest">
-                        Call Us
+                        {t(translations.contactPage.callUs)}
                       </p>
                       <p className="text-xl font-bold">+250 (788) 123-456</p>
                     </div>
@@ -127,7 +129,7 @@ const ContactPage = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white/60 mb-1 uppercase tracking-widest">
-                        Email Us
+                        {t(translations.contactPage.emailUs)}
                       </p>
                       <p className="text-xl font-bold">hello@agri-eco.rw</p>
                     </div>
@@ -139,7 +141,7 @@ const ContactPage = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white/60 mb-1 uppercase tracking-widest">
-                        Visit Us
+                        {t(translations.contactPage.visitUs)}
                       </p>
                       <p className="text-xl font-bold">
                         KN 123 St, Musanze, Rwanda
@@ -153,7 +155,7 @@ const ContactPage = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-white/60 mb-1 uppercase tracking-widest">
-                        Work Hours
+                        {t(translations.contactPage.workHours)}
                       </p>
                       <p className="text-xl font-bold">
                         Mon - Sat: 08:00 - 18:00
@@ -165,7 +167,7 @@ const ContactPage = () => {
 
               <div className="mt-16">
                 <p className="text-sm font-medium text-white/60 mb-6 uppercase tracking-widest text-center lg:text-left">
-                  Follow Our Socials
+                  {t(translations.contactPage.followSocials)}
                 </p>
                 <div className="flex items-center justify-center lg:justify-start gap-4">
                   {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (
@@ -185,18 +187,17 @@ const ContactPage = () => {
             <div className="flex-1 p-8 md:p-16">
               <div className="max-w-xl">
                 <h2 className="text-3xl font-bold text-foreground mb-4 font-heading">
-                  Send Us a Message
+                  {t(translations.contactPage.formTitle)}
                 </h2>
                 <p className="text-muted-foreground mb-10">
-                  Fill out the form below and we'll get back to you as soon as
-                  possible.
+                  {t(translations.contactPage.formDesc)}
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground uppercase tracking-wider">
-                        Full Name
+                        {t(translations.checkoutPage.fullName)}
                       </label>
                       <Input
                         name="fullName"
@@ -209,7 +210,7 @@ const ContactPage = () => {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground uppercase tracking-wider">
-                        Email Address
+                        {t(translations.checkoutPage.email)}
                       </label>
                       <Input
                         name="email"
@@ -225,13 +226,13 @@ const ContactPage = () => {
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground uppercase tracking-wider">
-                      Subject
+                      {t(translations.contactPage.subject)}
                     </label>
                     <Input
                       name="subject"
                       value={formData.subject}
                       onChange={handleChange}
-                      placeholder="How can we help?"
+                      placeholder={t(translations.contactPage.formSubjectPlaceholder)}
                       required
                       className="h-14 rounded-xl border-border bg-muted/20 focus:bg-white transition-all text-lg"
                     />
@@ -239,13 +240,13 @@ const ContactPage = () => {
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground uppercase tracking-wider">
-                      Your Message
+                      {t(translations.feedbackPage.message)}
                     </label>
                     <Textarea
                       name="message"
                       value={formData.message}
                       onChange={handleChange}
-                      placeholder="Write your details here..."
+                      placeholder={t(translations.contactPage.formMessagePlaceholder)}
                       required
                       className="min-h-[180px] rounded-2xl border-border bg-muted/20 focus:bg-white transition-all text-lg p-4 resize-none"
                     />
@@ -259,12 +260,12 @@ const ContactPage = () => {
                     {loading ? (
                       <span className="flex items-center gap-2">
                         <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Sending...
+                        {t(translations.contactPage.sending)}
                       </span>
                     ) : (
                       <span className="flex items-center gap-2">
                         <Send className="h-5 w-5" />
-                        Send Message
+                        {t(translations.contactPage.sendMessage)}
                       </span>
                     )}
                   </Button>
@@ -280,13 +281,13 @@ const ContactPage = () => {
             <Headphones className="h-8 w-8 text-primary shrink-0" />
             <div>
               <h4 className="font-bold text-foreground mb-2 font-heading">
-                Order Help
+                {t(translations.contactPage.orderHelp)}
               </h4>
               <p className="text-sm text-muted-foreground mb-4">
-                Track your organic produce in real-time.
+                {t(translations.contactPage.orderHelpDesc)}
               </p>
               <button className="text-primary font-bold text-sm hover:underline">
-                Track Order
+                {t(translations.contactPage.trackOrder)}
               </button>
             </div>
           </div>
@@ -294,13 +295,13 @@ const ContactPage = () => {
             <Mail className="h-8 w-8 text-primary shrink-0" />
             <div>
               <h4 className="font-bold text-foreground mb-2 font-heading">
-                Email Support
+                {t(translations.contactPage.emailSupport)}
               </h4>
               <p className="text-sm text-muted-foreground mb-4">
-                We usually respond within 2-4 business hours.
+                {t(translations.contactPage.emailSupportDesc)}
               </p>
               <button className="text-primary font-bold text-sm hover:underline">
-                Send Email
+                {t(translations.contactPage.sendEmail)}
               </button>
             </div>
           </div>
