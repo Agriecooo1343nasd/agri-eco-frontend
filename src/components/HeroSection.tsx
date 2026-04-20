@@ -17,67 +17,66 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
-const slides = [
+const getSlides = (t: any) => [
   {
     id: "organic-ecommerce",
-    title: "Farm-Fresh Organic Produce",
-    description:
-      "Shop certified organic fruits, vegetables, and natural honey directly from Rwanda's best farmers.",
+    title: t(translations.hero.organic.title),
+    description: t(translations.hero.organic.desc),
     image: "/assets/landing/ecommerce.webp",
-    cta: "Shop Organic",
+    cta: t(translations.hero.organic.cta),
     href: "/shop",
     icon: ShoppingBag,
-    badge: "Organic Ecommerce",
+    badge: t(translations.hero.organic.cta),
   },
   {
     id: "beekeeping",
-    title: "The Magic of Rwandan Honey",
-    description:
-      "Explore the art of apiculture, from traditional hives to modern sustainable beekeeping practices.",
+    title: t(translations.hero.beekeeping.title),
+    description: t(translations.hero.beekeeping.desc),
     image: "/assets/landing/apiculture.webp",
-    cta: "Explore Beekeeping",
+    cta: t(translations.hero.beekeeping.cta),
     href: "/beekeeping",
     icon: Flower2,
-    badge: "Apiculture",
+    badge: t(translations.sections.beekeeping.badge),
   },
   {
     id: "training",
-    title: "Sustainable Farming Education",
-    description:
-      "Join our training programs and school visits to learn the future of sustainable agriculture.",
+    title: t(translations.hero.training.title),
+    description: t(translations.hero.training.desc),
     image: "/assets/landing/trainings.webp",
-    cta: "View Programs",
+    cta: t(translations.hero.training.cta),
     href: "/education",
     icon: GraduationCap,
-    badge: "Training & Education",
+    badge: t(translations.hero.training.cta),
   },
   {
     id: "partners-artisans",
-    title: "Empowering Local Communities",
-    description:
-      "Connecting local artisans and tourism partners to build a vibrant, sustainable ecosystem.",
+    title: t(translations.hero.community.title),
+    description: t(translations.hero.community.desc),
     image: "/assets/landing/partnership.webp",
-    cta: "Become a Partner",
+    cta: t(translations.hero.community.cta),
     href: "/community",
     icon: Handshake,
-    badge: "Community",
+    badge: t(translations.header.nav.community),
   },
   {
     id: "tours",
-    title: "Immersive Agritourism Tours",
-    description:
-      "Experience the beauty of Rwanda's landscapes with guided tours through tea and coffee plantations.",
+    title: t(translations.hero.tours.title),
+    description: t(translations.hero.tours.desc),
     image: "/assets/landing/tours.webp",
-    cta: "Book a Tour",
+    cta: t(translations.hero.tours.cta),
     href: "/tours",
     icon: Calendar,
-    badge: "Farm Tours",
+    badge: t(translations.hero.tours.cta),
   },
 ];
 
 const HeroSection = () => {
+  const { t } = useLanguage();
   const [current, setCurrent] = useState(0);
+  const slides = getSlides(t);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -167,7 +166,7 @@ const HeroSection = () => {
                     className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-base hover:bg-white/20 transition-all shadow-xl"
                   >
                     <Users className="h-5 w-5" />
-                    Meet Our Community
+                    {t(translations.hero.common.meetCommunity)}
                   </Link>
                 </div>
               </motion.div>
@@ -204,13 +203,13 @@ const HeroSection = () => {
             </div>
             <div>
               <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                Farm Tours
+                {t(translations.header.nav.tours)}
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Immersive agritourism
+                {t(translations.hero.tours.title)}
               </p>
               <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                Explore <ArrowRight className="h-3 w-3" />
+                {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
               </span>
             </div>
           </Link>
@@ -223,13 +222,13 @@ const HeroSection = () => {
             </div>
             <div>
               <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                Organic Shop
+                {t(translations.sections.ourProducts.title)}
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Farm-fresh produce
+                {t(translations.sections.ourProducts.sub).split(',')[0]}
               </p>
               <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                Shop Now <ArrowRight className="h-3 w-3" />
+                {t(translations.sections.ourProducts.exploreShop)} <ArrowRight className="h-3 w-3" />
               </span>
             </div>
           </Link>
@@ -242,13 +241,13 @@ const HeroSection = () => {
             </div>
             <div>
               <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                Beekeeping
+                {t(translations.header.nav.beekeeping)}
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Honey & workshops
+                {t(translations.sections.beekeeping.honeyTasting.title)}
               </p>
               <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                Discover <ArrowRight className="h-3 w-3" />
+                {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
               </span>
             </div>
           </Link>
@@ -261,13 +260,13 @@ const HeroSection = () => {
             </div>
             <div>
               <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                Education
+                {t(translations.header.nav.education)}
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Training & school visits
+                {t(translations.hero.training.title)}
               </p>
               <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                Learn More <ArrowRight className="h-3 w-3" />
+                {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
               </span>
             </div>
           </Link>

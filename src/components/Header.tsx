@@ -32,6 +32,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { fetchCategoriesForAdmin } from "@/lib/api/products";
 import { Skeleton } from "@/components/ui/skeleton";
+import { translations } from "@/i18n/translations";
 
 const languages = [
   { code: "en", label: "English", flag: "🇬🇧" },
@@ -43,36 +44,36 @@ const languages = [
 const searchScopes = [
   {
     key: "products",
-    label: "Products",
+    label: translations.header.nav.shop,
     icon: ShoppingBag,
-    placeholder: "Search for organic products...",
+    placeholder: translations.header.searchPlaceholder.products,
   },
   {
     key: "tours",
-    label: "Tours",
+    label: translations.header.nav.tours,
     icon: Map,
-    placeholder: "Search for tours...",
+    placeholder: translations.header.searchPlaceholder.tours,
   },
   {
     key: "training",
-    label: "Training",
+    label: translations.header.nav.education,
     icon: GraduationCap,
-    placeholder: "Search for training programs...",
+    placeholder: translations.header.searchPlaceholder.training,
   },
 ] as const;
 
 type SearchScope = (typeof searchScopes)[number]["key"];
 
 const navLinks = [
-  { label: "Home", href: "/" },
-  { label: "Shop", href: "/shop" },
-  { label: "Tours", href: "/tours" },
-  { label: "Beekeeping", href: "/beekeeping" },
-  { label: "Education", href: "/education" },
-  { label: "Blog", href: "/blog" },
-  { label: "Community", href: "/community" },
-  { label: "About", href: "/about" },
-  { label: "Hot Deals", href: "/deals" },
+  { label: translations.header.nav.home, href: "/" },
+  { label: translations.header.nav.shop, href: "/shop" },
+  { label: translations.header.nav.tours, href: "/tours" },
+  { label: translations.header.nav.beekeeping, href: "/beekeeping" },
+  { label: translations.header.nav.education, href: "/education" },
+  { label: translations.header.nav.blog, href: "/blog" },
+  { label: translations.header.nav.community, href: "/community" },
+  { label: translations.header.nav.about, href: "/about" },
+  { label: translations.header.nav.deals, href: "/deals" },
 ];
 
 const Header = () => {
@@ -85,7 +86,7 @@ const Header = () => {
   const [catPage, setCatPage] = useState(1);
   const { cartCount, wishlistItems } = useCart();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
-  const { locale, setLocale } = useLanguage();
+  const { locale, setLocale, t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -130,9 +131,9 @@ const Header = () => {
       <div className="bg-topbar text-topbar-foreground text-sm py-2 w-full">
         <div className="w-full max-w-screen-2xl mx-auto px-4 flex items-center justify-between">
           <span className="hidden sm:inline text-xs">
-            Welcome to Agri-Eco — Fresh Organic Products
+            {t(translations.header.welcome)}
           </span>
-          <span className="sm:hidden text-xs">Welcome to Agri-Eco</span>
+          <span className="sm:hidden text-xs">{t(translations.header.welcome)}</span>
           <div className="flex items-center gap-4">
             {/* Language Switcher */}
             <DropdownMenu>
@@ -164,7 +165,7 @@ const Header = () => {
               className="flex items-center gap-1 hover:underline text-xs"
             >
               <MessageCircle className="h-3 w-3" />
-              <span className="hidden sm:inline">Feedback</span>
+              <span className="hidden sm:inline">{t(translations.header.feedback)}</span>
             </Link>
             <a
               href="tel:+1234567890"
@@ -202,7 +203,7 @@ const Header = () => {
                   >
                     <currentScope.icon className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-xs font-medium">
-                      {currentScope.label}
+                      {t(currentScope.label)}
                     </span>
                     <ChevronDown className="h-3 w-3 text-muted-foreground" />
                   </button>
@@ -215,14 +216,14 @@ const Header = () => {
                       className={`gap-2.5 ${searchScope === scope.key ? "bg-primary/10 text-primary font-medium" : ""}`}
                     >
                       <scope.icon className="h-4 w-4" />
-                      {scope.label}
+                      {t(scope.label)}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
               <input
                 type="text"
-                placeholder={currentScope.placeholder}
+                placeholder={t(currentScope.placeholder)}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1 px-4 py-2.5 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground min-w-0"
@@ -292,7 +293,7 @@ const Header = () => {
                         onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
                       >
-                      Go to Dashboard
+                      {t(translations.header.account.dashboard)}
                       </Link>
                     )}
                     <Link
@@ -300,7 +301,7 @@ const Header = () => {
                       onClick={() => setUserMenuOpen(false)}
                       className="block px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
                     >
-                      My Account
+                      {t(translations.header.account.myAccount)}
                     </Link>
                     <button
                       onClick={() => {
@@ -309,7 +310,7 @@ const Header = () => {
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
                     >
-                      Log Out
+                      {t(translations.header.account.logout)}
                     </button>
                   </div>
                 </div>
@@ -367,8 +368,8 @@ const Header = () => {
                 className="flex h-full items-center gap-2 bg-primary text-primary-foreground px-4 py-3 font-semibold text-sm hover:bg-primary/90 transition-colors whitespace-nowrap"
               >
                 <Menu className="h-4 w-4" />
-                <span className="hidden lg:inline">All Categories</span>
-                <span className="lg:hidden">Categories</span>
+                <span className="hidden lg:inline">{t(translations.header.allCategories)}</span>
+                <span className="lg:hidden">{t(translations.header.nav.shop)}</span>
                 <ChevronDown
                   className={`h-3 w-3 transition-transform duration-200 ${catOpen ? "rotate-180" : ""}`}
                 />
@@ -411,7 +412,7 @@ const Header = () => {
                       ))
                     ) : (
                       <p className="px-4 py-3 text-xs text-muted-foreground text-center">
-                        No categories found
+                        {t(translations.sections.ourProducts?.noneFound || "No categories found")}
                       </p>
                     )}
                   </div>
@@ -445,7 +446,7 @@ const Header = () => {
             <div className="flex items-center flex-1">
               {navLinks.map((link) => (
                 <Link
-                  key={link.label}
+                  key={link.href}
                   href={link.href}
                   className={cn(
                     "shrink-0 px-3 py-3 text-xs font-medium transition-colors hover:text-primary lg:px-4 lg:text-sm whitespace-nowrap",
@@ -454,7 +455,7 @@ const Header = () => {
                       : "text-foreground",
                   )}
                 >
-                  {link.label}
+                  {t(link.label)}
                 </Link>
               ))}
             </div>
@@ -468,7 +469,7 @@ const Header = () => {
           <div className="py-2">
             {navLinks.map((link) => (
               <Link
-                key={link.label}
+                key={link.href}
                 href={link.href}
                 className={cn(
                   "block px-4 py-3 text-sm font-medium transition-colors hover:bg-accent",
@@ -478,7 +479,7 @@ const Header = () => {
                 )}
                 onClick={() => setMenuOpen(false)}
               >
-                {link.label}
+                {t(link.label)}
               </Link>
             ))}
             <div className="border-t border-border my-2" />

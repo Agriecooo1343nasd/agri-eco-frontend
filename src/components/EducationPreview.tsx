@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useState, useEffect } from "react";
+import { translations } from "@/i18n/translations";
 
 const statusColors: Record<string, string> = {
   open: "bg-primary/10 text-primary border-primary/20",
@@ -56,17 +57,17 @@ const EducationPreview = () => {
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-10 gap-4">
           <div className="max-w-xl">
             <h2 className="text-3xl font-bold font-heading mb-3">
-              Organic Education Hub
+              {t(translations.sections.education.title)}
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Empowering farmers and enthusiasts with practical organic knowledge
+              {t(translations.sections.education.sub)}
             </p>
           </div>
           <Link
             href="/education"
             className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2.5 rounded-full font-bold text-sm hover:bg-primary/90 transition-all"
           >
-            Explore Academy <ArrowRight className="h-4 w-4" />
+            {t(translations.sections.education.exploreAcademy)} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
@@ -136,11 +137,11 @@ const EducationPreview = () => {
                       <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-3">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
-                          {program.durationWeeks ? `${program.durationWeeks} Weeks` : "Self-paced"}
+                          {program.durationWeeks ? `${program.durationWeeks} ${t(translations.sections.education.weeks)}` : t(translations.sections.education.selfPaced)}
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3.5 w-3.5" />
-                          {program.startDate ? new Date(program.startDate).toLocaleDateString() : "TBD"}
+                          {program.startDate ? new Date(program.startDate).toLocaleDateString() : t(translations.sections.education.tbd)}
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3.5 w-3.5" />
@@ -149,7 +150,7 @@ const EducationPreview = () => {
                       </div>
                       <div className="mb-4">
                         <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                          <span>Enrollment</span>
+                          <span>{t(translations.sections.education.enrollment)}</span>
                           <span>
                             {Math.round((enrolled / Math.max(program.capacity || 1, 1)) * 100)}%
                           </span>
@@ -170,7 +171,7 @@ const EducationPreview = () => {
                         ))}
                         {topics.length > 4 && (
                           <span className="text-[10px] text-muted-foreground">
-                            +{topics.length - 4} more
+                            +{topics.length - 4} {t(translations.sections.education.more)}
                           </span>
                         )}
                       </div>
@@ -182,7 +183,7 @@ const EducationPreview = () => {
                           {certificate && (
                             <span className="flex items-center gap-1 text-[10px] text-primary mt-0.5 font-semibold">
                               <Award className="h-3 w-3" />
-                              Certificate included
+                              {t(translations.sections.education.cert)}
                             </span>
                           )}
                         </div>
@@ -192,7 +193,7 @@ const EducationPreview = () => {
                             className="text-xs"
                             variant="outline"
                           >
-                            View Details
+                            {t(translations.sections.education.viewDetails)}
                           </Button>
                         </Link>
                       </div>
@@ -214,7 +215,7 @@ const EducationPreview = () => {
 
         {!isLoading && allPrograms.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No training programs available at this time.</p>
+            <p className="text-muted-foreground">{t(translations.sections.education.none)}</p>
           </div>
         )}
 
@@ -225,7 +226,7 @@ const EducationPreview = () => {
                     disabled={isFetching}
                     className="inline-flex items-center gap-2 border-2 border-primary text-primary px-8 py-2.5 rounded-full font-bold text-sm hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-50"
                 >
-                    {isFetching ? "Loading..." : "Load More Programs"}
+                    {isFetching ? "Loading..." : t(translations.sections.education.loadMore)}
                 </button>
             </div>
         )}

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchArtisans, toAbsoluteArtisanImage } from "@/lib/api/artisans";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const ArtisanShowcase = () => {
   const { locale, t } = useLanguage();
@@ -21,10 +22,9 @@ const ArtisanShowcase = () => {
     <section className="py-12 md:py-16 bg-muted/30">
       <div className="container">
         <div className="text-center mb-10">
-          <h2 className="section-heading">Community & Crafts</h2>
+          <h2 className="section-heading">{t(translations.sections.artisans.title)}</h2>
           <p className="section-subheading">
-            Meet the talented artisans and partners who bring our organic
-            mission to life
+            {t(translations.sections.artisans.sub)}
           </p>
         </div>
 
@@ -67,7 +67,7 @@ const ArtisanShowcase = () => {
                     href={`/community/artisan/${artisan.id}`}
                     className="inline-flex items-center gap-2 text-xs font-bold text-foreground hover:text-primary transition-colors"
                   >
-                    <User className="h-3.5 w-3.5" /> View Profile
+                    <User className="h-3.5 w-3.5" /> {t(translations.sections.education.viewDetails)}
                   </Link>
                 </div>
               ))}
@@ -84,7 +84,7 @@ const ArtisanShowcase = () => {
             href="/community"
             className="inline-flex items-center gap-2 border-2 border-primary text-primary px-6 py-2.5 rounded-full font-bold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
           >
-            Explore Our Community
+            {t(translations.sections.artisans.exploreArtisans)}
           </Link>
         </div>
       </div>
