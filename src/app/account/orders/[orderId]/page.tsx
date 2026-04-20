@@ -21,6 +21,9 @@ import { fetchOrderById, fetchOrderByNumber, type Order } from "@/lib/api/orders
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { OrderStatus, PaymentStatus } from "@/constants/order-status";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
+import { usePricing } from "@/context/PricingContext";
 
 // Mock Data for a single order
 const orderData = {
@@ -74,6 +77,8 @@ export default function OrderDetailsPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = use(params);
+  const { t } = useLanguage();
+  const { formatPrice } = usePricing();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +100,7 @@ export default function OrderDetailsPage({
         }
 
         if (!data) {
-          setError("Order not found");
+          setError(t(translations.orderDetailsPage.orderNotFound));
         } else {
           setOrder(data);
         }
@@ -114,7 +119,7 @@ export default function OrderDetailsPage({
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse">Retrieving order details...</p>
+        <p className="text-muted-foreground animate-pulse">{t(translations.orderDetailsPage.retrievingDetails)}</p>
       </div>
     );
   }
@@ -126,13 +131,13 @@ export default function OrderDetailsPage({
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Error Loading Order</h2>
-          <p className="text-muted-foreground mt-2">{error || "The order you are looking for could not be found."}</p>
+          <h2 className="text-2xl font-bold text-foreground">{t(translations.common.errorLoading)}</h2>
+          <p className="text-muted-foreground mt-2">{error || t(translations.orderDetailsPage.orderNotFound)}</p>
         </div>
         <Link href="/account/orders">
           <Button variant="outline" className="rounded-md">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to My Orders
+            {t(translations.orderDetailsPage.backToOrders)}
           </Button>
         </Link>
       </div>
@@ -159,18 +164,18 @@ export default function OrderDetailsPage({
             className="flex items-center gap-2 text-sm font-medium text-primary hover:underline mb-2 group"
           >
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            Back to Orders
+            {t(translations.orderDetailsPage.backToOrders)}
           </Link>
           <h1 className="text-3xl font-black text-foreground font-heading">
-            Order #{order.orderNumber}
+            {t(translations.ordersPage.orderNumberShort)}{order.orderNumber}
           </h1>
           <p className="text-muted-foreground font-medium">
-            Placed on {format(new Date(order.createdAt), "MMM dd, yyyy p")}
+            {t(translations.orderDetailsPage.placedOn)} {format(new Date(order.createdAt), "MMM dd, yyyy p")}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <span className={`px-5 py-2 rounded-md text-sm font-medium uppercase ring-4 ${getStatusColor(order.status as string)}`}>
-            {order.status}
+            {t((translations.statuses as any)[(order.status as string).toLowerCase()] || order.status)}
           </span>
           <Button
             variant="outline"
@@ -178,7 +183,7 @@ export default function OrderDetailsPage({
             onClick={() => toast.info("Download Invoice coming soon")}
           >
             <Download className="h-4 w-4 mr-2" />
-            Invoice
+            {t(translations.orderDetailsPage.downloadInvoice)}
           </Button>
         </div>
       </div>
@@ -191,7 +196,7 @@ export default function OrderDetailsPage({
           </div>
           <div>
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1">
-              Customer
+              {t(translations.orderDetailsPage.customer)}
             </h4>
             <p className="text-sm font-medium text-foreground">
               {order.shippingAddress.fullName}
@@ -205,13 +210,13 @@ export default function OrderDetailsPage({
           </div>
           <div>
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1">
-              Shipping
+              {t(translations.orderDetailsPage.shipping)}
             </h4>
             <p className="text-sm font-medium text-foreground">
-              Standard Delivery
+              {t(translations.orderDetailsPage.standardDelivery)}
             </p>
             <p className="text-sm text-muted-foreground italic">
-              Tracking available after dispatch
+              {t(translations.orderDetailsPage.trackingAvailable)}
             </p>
           </div>
         </div>
@@ -222,12 +227,12 @@ export default function OrderDetailsPage({
           </div>
           <div>
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1">
-              Payment
+              {t(translations.orderDetailsPage.payment)}
             </h4>
             <p className="text-sm font-medium text-foreground capitalize">
               {order.paymentMethod}
             </p>
-            <p className="text-sm text-muted-foreground">Status: <span className="capitalize">{order.paymentStatus}</span></p>
+            <p className="text-sm text-muted-foreground">{t(translations.bookingsPage.paymentStatus)}: <span className="capitalize">{t((translations.statuses as any)[(order.paymentStatus as string).toLowerCase()] || order.paymentStatus)}</span></p>
           </div>
         </div>
       </div>
@@ -240,7 +245,7 @@ export default function OrderDetailsPage({
             <div className="p-6 border-b border-border">
               <h3 className="text-lg font-medium text-foreground font-heading flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" />
-                Items Ordered ({order.items.length})
+                {t(translations.orderDetailsPage.itemsOrdered)} ({order.items.length})
               </h3>
             </div>
             <div className="divide-y divide-border">
@@ -266,7 +271,7 @@ export default function OrderDetailsPage({
                       Qty: {item.quantity}
                     </p>
                     <p className="text-base font-black text-foreground">
-                      ${item.totalPrice.toFixed(2)}
+                      {formatPrice(item.totalPrice)}
                     </p>
                   </div>
                 </div>
@@ -277,7 +282,7 @@ export default function OrderDetailsPage({
           {/* Order Timeline */}
           <div className="bg-white rounded-md border border-border p-8 shadow-sm">
             <h3 className="text-lg font-medium text-foreground font-heading mb-8">
-              Order Timeline
+              {t(translations.orderDetailsPage.orderTimeline)}
             </h3>
             <div className="relative space-y-8">
               {/* Connector Line */}
@@ -308,7 +313,7 @@ export default function OrderDetailsPage({
           <div className="bg-white rounded-md border border-border p-8 shadow-sm">
             <h3 className="text-lg font-medium text-foreground font-heading mb-6 flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
-              Shipping Address
+              {t(translations.orderDetailsPage.shippingAddress)}
             </h3>
             <div className="space-y-1 text-sm font-medium text-muted-foreground leading-relaxed">
               <p className="text-foreground font-medium text-base mb-2">
@@ -317,53 +322,53 @@ export default function OrderDetailsPage({
               <p>{order.shippingAddress.addressLine1}</p>
               <p>{order.shippingAddress.city}, {order.shippingAddress.state}</p>
               <p>{order.shippingAddress.country} {order.shippingAddress.postalCode}</p>
-              <p className="pt-2">Phone: {order.shippingAddress.phone}</p>
+              <p className="pt-2">{t(translations.checkoutPage.phone)}: {order.shippingAddress.phone}</p>
             </div>
           </div>
 
           {/* Order Summary Card */}
           <div className="rounded-md border border-border p-8 shadow-sm bg-primary/5 border-primary/10">
             <h3 className="text-lg font-medium text-foreground font-heading mb-6">
-              Order Summary
+              {t(translations.orderDetailsPage.orderSummary)}
             </h3>
             <div className="space-y-4">
               <div className="flex justify-between text-sm font-medium text-muted-foreground">
-                <span>Subtotal</span>
+                <span>{t(translations.orderDetailsPage.subtotal)}</span>
                 <span className="text-foreground">
-                  ${order.subtotal.toFixed(2)}
+                  {formatPrice(order.subtotal)}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-medium text-muted-foreground">
-                <span>Shipping</span>
+                <span>{t(translations.orderDetailsPage.shipping)}</span>
                 <span className="text-foreground">
-                  ${order.shippingCost.toFixed(2)}
+                  {formatPrice(order.shippingCost)}
                 </span>
               </div>
               <div className="flex justify-between text-sm font-medium text-muted-foreground">
-                <span>Tax</span>
+                <span>{t(translations.orderDetailsPage.tax)}</span>
                 <span className="text-foreground">
-                  ${order.tax.toFixed(2)}
+                  {formatPrice(order.tax)}
                 </span>
               </div>
               {order.discount > 0 && (
                 <div className="flex justify-between text-sm font-medium text-green-600">
-                  <span>Discount</span>
-                  <span>-${order.discount.toFixed(2)}</span>
+                  <span>{t(translations.orderDetailsPage.discount)}</span>
+                  <span>-{formatPrice(order.discount)}</span>
                 </div>
               )}
               <div className="h-px bg-border my-2" />
               <div className="flex justify-between items-center">
                 <span className="text-base font-medium text-foreground">
-                  Total
+                  {t(translations.orderDetailsPage.total)}
                 </span>
                 <span className="text-2xl font-black text-primary">
-                  ${order.totalAmount.toFixed(2)}
+                  {formatPrice(order.totalAmount)}
                 </span>
               </div>
             </div>
             <Button className="w-full mt-8 rounded-md h-12 font-medium flex items-center gap-2">
               <HelpCircle className="h-4 w-4" />
-              Need Help?
+              {t(translations.orderDetailsPage.needHelp)}
             </Button>
           </div>
         </div>

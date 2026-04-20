@@ -35,8 +35,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { fetchMyOrders, type Order, type FetchOrdersParams } from "@/lib/api/orders";
 import { ApiPagination } from "@/lib/api/types";
 import { format, startOfToday, endOfToday, subDays } from "date-fns";
-import { OrderStatus } from "@/constants/order-status";
 import { type DateRange } from "react-day-picker";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 type SortConfig = {
   key: string | null;
@@ -45,11 +46,12 @@ type SortConfig = {
 
 const OrdersPage = () => {
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+ 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -112,15 +114,15 @@ const OrdersPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-foreground font-heading mb-2">
-            My Orders
+            {t(translations.ordersPage.title)}
           </h1>
           <p className="text-muted-foreground font-medium">
-            Check and manage all your historical orders.
+            {t(translations.ordersPage.checkManageOrders)}
           </p>
         </div>
         <div className="bg-primary/10 px-6 py-3 rounded-2xl border border-primary/20">
           <p className="text-sm font-bold text-primary">
-            Total Orders: {pagination?.total || 0}
+            {t(translations.ordersPage.totalOrders)}: {pagination?.total || 0}
           </p>
         </div>
       </div>
@@ -132,7 +134,7 @@ const OrdersPage = () => {
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
-              placeholder="Search orders, products..."
+              placeholder={t(translations.ordersPage.searchOrders)}
               className="pl-11 h-12 rounded-md border-border bg-muted/20 focus:bg-white focus:ring-primary/20 transition-all shadow-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -144,10 +146,10 @@ const OrdersPage = () => {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-12 w-full rounded-md border-border bg-muted/20 pl-11 focus:ring-primary/20 transition-all font-medium">
                 <Layers className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <SelectValue placeholder="All Statuses" />
+                <SelectValue placeholder={t(translations.ordersPage.allStatuses)} />
               </SelectTrigger>
               <SelectContent className="rounded-md border-border">
-                <SelectItem value="All">All Statuses</SelectItem>
+                <SelectItem value="All">{t(translations.ordersPage.allStatuses)}</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
                 <SelectItem value="PROCESSING">Processing</SelectItem>
                 <SelectItem value="SHIPPED">Shipped</SelectItem>
@@ -178,7 +180,7 @@ const OrdersPage = () => {
                       format(dateRange.from, "LLL dd, y")
                     )
                   ) : (
-                    <span>Filter by date range...</span>
+                    <span>{t(translations.ordersPage.filterByDate)}</span>
                   )}
                 </Button>
               </PopoverTrigger>
@@ -204,7 +206,7 @@ const OrdersPage = () => {
           dateRange?.to) && (
           <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border mt-2">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Active Filters:
+              {t(translations.ordersPage.activeFilters)}
             </span>
             {searchQuery && (
               <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full border border-primary/20 flex items-center gap-2">
@@ -241,7 +243,7 @@ const OrdersPage = () => {
               }}
               className="text-xs font-bold text-red-500 hover:underline"
             >
-              Clear All
+              {t(translations.ordersPage.clearAll)}
             </button>
           </div>
         )}
@@ -259,13 +261,13 @@ const OrdersPage = () => {
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-muted/30 text-muted-foreground uppercase text-[10px] font-bold tracking-widest border-b border-border">
               <tr>
-                <th className="px-8 py-5">Order #</th>
+                <th className="px-8 py-5">{t(translations.ordersPage.orderNumberShort)}</th>
                 <th className="px-8 py-5">
                   <button
                     onClick={() => handleSort("createdAt")}
                     className="flex items-center gap-1 hover:text-primary transition-colors group"
                   >
-                    Date Placed
+                    {t(translations.ordersPage.datePlaced)}
                     <div className="flex flex-col">
                       <ChevronUp
                         className={`h-3 w-3 -mb-1 ${sortConfig.key === "createdAt" && sortConfig.direction === "asc" ? "text-primary" : "text-muted-foreground/30"}`}
@@ -276,14 +278,14 @@ const OrdersPage = () => {
                     </div>
                   </button>
                 </th>
-                <th className="px-8 py-5">Items</th>
-                <th className="px-8 py-5">Status</th>
+                <th className="px-8 py-5">{t(translations.ordersPage.items)}</th>
+                <th className="px-8 py-5">{t(translations.bookingsPage.status)}</th>
                 <th className="px-8 py-5">
                   <button
                     onClick={() => handleSort("totalAmount")}
                     className="flex items-center gap-1 hover:text-primary transition-colors group"
                   >
-                    Total
+                    {t(translations.ordersPage.total)}
                     <div className="flex flex-col">
                       <ChevronUp
                         className={`h-3 w-3 -mb-1 ${sortConfig.key === "totalAmount" && sortConfig.direction === "asc" ? "text-primary" : "text-muted-foreground/30"}`}
@@ -316,7 +318,7 @@ const OrdersPage = () => {
                           {order.items.map(i => i.name).join(", ")}
                         </p>
                         <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
-                          Recipient: {order.shippingAddress.fullName}
+                          {t(translations.ordersPage.recipient)} {order.shippingAddress.fullName}
                         </p>
                       </div>
                     </td>
@@ -332,7 +334,7 @@ const OrdersPage = () => {
                                 : "bg-blue-100 text-blue-600"
                         }`}
                       >
-                        {order.status}
+                        {t((translations.statuses as any)[order.status.toLowerCase()] || order.status)}
                       </span>
                     </td>
                     <td className="px-8 py-6 font-black text-primary text-base">
@@ -365,10 +367,10 @@ const OrdersPage = () => {
                       </div>
                       <div>
                         <h4 className="text-lg font-bold text-foreground">
-                          {error ? "Error loading orders" : "No orders found"}
+                          {error ? t(translations.common.errorLoading) : t(translations.ordersPage.noOrdersFound)}
                         </h4>
                         <p className="text-sm text-muted-foreground">
-                          {error || "Try adjusting your filters or search keywords."}
+                          {error || t(translations.ordersPage.adjustFilters)}
                         </p>
                       </div>
                       <Button
@@ -381,7 +383,7 @@ const OrdersPage = () => {
                         variant="outline"
                         className="rounded-xl"
                       >
-                        {error ? "Retry" : "Clear All Filters"}
+                        {error ? t(translations.common.retry) : t(translations.ordersPage.clearAll)}
                       </Button>
                     </div>
                   </td>
@@ -395,7 +397,7 @@ const OrdersPage = () => {
         {pagination && pagination.pages > 1 && (
           <div className="px-8 py-6 border-t border-border flex items-center justify-between">
             <p className="text-sm text-muted-foreground font-medium">
-              Showing <span className="text-foreground font-bold">{(pagination.page - 1) * pagination.limit + 1}</span> to <span className="text-foreground font-bold">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-foreground font-bold">{pagination.total}</span> orders
+              {t(translations.ordersPage.showing)} <span className="text-foreground font-bold">{(pagination.page - 1) * pagination.limit + 1}</span> {t(translations.ordersPage.to)} <span className="text-foreground font-bold">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> {t(translations.ordersPage.of)} <span className="text-foreground font-bold">{pagination.total}</span> {t(translations.ordersPage.title).toLowerCase()}
             </p>
             <div className="flex items-center gap-2">
               <Button

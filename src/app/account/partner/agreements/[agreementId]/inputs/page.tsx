@@ -16,6 +16,8 @@ import {
   fetchPartnerAgreementInputs
 } from "@/lib/api/partners";
 import type { PartnerInputRecord } from "@/data/community";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const PAGE_SIZE = 5;
 
@@ -34,6 +36,7 @@ const storageBadge: Record<PartnerInputRecord["storageCategory"], string> = {
 
 export default function AgreementInputsPage() {
   const params = useParams<{ agreementId: string }>();
+  const { t } = useLanguage();
   const { formatPrice } = usePricing();
   const [page, setPage] = useState(1);
 
@@ -80,12 +83,12 @@ export default function AgreementInputsPage() {
       <div className="space-y-4">
         <Button variant="outline" asChild>
           <Link href="/account/partner">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t(translations.common.back)}
           </Link>
         </Button>
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
-            No inputs were found for this agreement.
+            {t(translations.partnerPage.noAgreements)}
           </CardContent>
         </Card>
       </div>
@@ -98,24 +101,24 @@ export default function AgreementInputsPage() {
         <div>
           <Button variant="outline" size="sm" asChild>
             <Link href="/account/partner">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Back to Agreements
+              <ArrowLeft className="h-4 w-4 mr-1" /> {t(translations.partnerPage.agreements)}
             </Link>
           </Button>
           <h1 className="text-2xl font-bold font-heading mt-3">
-            Partner Inputs
+            {t(translations.partnerPage.inputs)}
           </h1>
           <p className="text-xs text-muted-foreground">
             {agreement.title} · {displayPartner.name}
           </p>
         </div>
-        <Badge className="text-[10px] capitalize">{agreement.status}</Badge>
+        <Badge className="text-[10px] capitalize">{t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}</Badge>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Financial Support
+              {t({ en: "Financial Support", rw: "Inkunga y'Amafaranga", fr: "Soutien financier", sw: "Msaada wa Kifedha" })}
             </p>
             <p className="text-lg font-bold">{formatPrice(summary.totalFinancial)}</p>
           </CardContent>
@@ -123,7 +126,7 @@ export default function AgreementInputsPage() {
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Total Inputs
+              {t(translations.partnerPage.inputs)}
             </p>
             <p className="text-lg font-bold">{summary.records}</p>
           </CardContent>
@@ -131,12 +134,12 @@ export default function AgreementInputsPage() {
         <Card>
           <CardContent className="p-4 space-y-1">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Input Mix
+              {t({ en: "Input Mix", rw: "Irimo", fr: "Mix d'intrants", sw: "Mchanganyiko wa Vipengele" })}
             </p>
             <p className="text-xs text-muted-foreground">
-              Financial:{" "}
+              {t({ en: "Financial", rw: "Amafaranga", fr: "Financier", sw: "Kifedha" })}:{" "}
               {summary.financialCount || 0} ·
-              In-kind:{" "}
+              {t({ en: "In-kind", rw: "Ibikoresho", fr: "En nature", sw: "Bidhaa" })}:{" "}
               {summary.inKindCount || 0}
             </p>
           </CardContent>
@@ -146,12 +149,12 @@ export default function AgreementInputsPage() {
       <Card>
         <CardContent className="p-5 space-y-4">
           <h2 className="text-sm font-semibold flex items-center gap-2">
-            <HandCoins className="h-4 w-4" /> Inputs Linked to this Agreement
+            <HandCoins className="h-4 w-4" /> {t({ en: "Inputs Linked to this Agreement", rw: "Ibikoreshwa bifitanye isano n'amasezerano", fr: "Intrants liés à cet accord", sw: "Vipengele Vilivyounganishwa na Mkataba Huu" })}
           </h2>
 
           {paginatedInputs.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              No inputs recorded yet for this agreement.
+              {t(translations.partnerPage.noAgreements)}
             </p>
           ) : (
             <div className="space-y-2">
@@ -176,7 +179,7 @@ export default function AgreementInputsPage() {
                       <Badge
                         className={`text-[10px] capitalize border ${kindBadge[input.kind as PartnerInputRecord["kind"]] || "bg-muted"}`}
                       >
-                        {input.kind === "financial" ? "Financial" : "In-kind"}
+                        {input.kind === "financial" ? t({ en: "Financial", rw: "Amafaranga", fr: "Financier", sw: "Kifedha" }) : t({ en: "In-kind", rw: "Ibikoresho", fr: "En nature", sw: "Bidhaa" })}
                       </Badge>
                       <Badge
                         className={`text-[10px] capitalize border ${storageBadge[input.storageCategory as PartnerInputRecord["storageCategory"]] || "bg-muted"}`}
@@ -197,7 +200,7 @@ export default function AgreementInputsPage() {
 
           <div className="flex items-center justify-between border-t border-border pt-3">
             <p className="text-xs text-muted-foreground">
-              Page {page} of {totalPages}
+              {t(translations.common.page)} {page} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -207,7 +210,7 @@ export default function AgreementInputsPage() {
                 disabled={page <= 1}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               >
-                Previous
+                {t(translations.common.previous)}
               </Button>
               <Button
                 size="sm"
@@ -218,7 +221,7 @@ export default function AgreementInputsPage() {
                   setPage((prev) => Math.min(totalPages, prev + 1))
                 }
               >
-                Next
+                {t(translations.common.next)}
               </Button>
             </div>
           </div>

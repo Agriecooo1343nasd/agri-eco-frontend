@@ -43,29 +43,30 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import Link from "next/link";
+import { translations } from "@/i18n/translations";
 
 
 const statusConfig: Record<
   string,
-  { label: { en: string; rw: string }; className: string; textColor: string }
+  { label: string; className: string; textColor: string }
 > = {
   pending: {
-    label: { en: "Pending", rw: "Iritegerejwe" },
+    label: "pending",
     className: "bg-yellow-500/10 border-yellow-500/20",
     textColor: "text-yellow-600",
   },
   approved: {
-    label: { en: "Approved", rw: "Yemewe" },
+    label: "confirmed",
     className: "bg-green-500/10 border-green-500/20",
     textColor: "text-green-600",
   },
   rejected: {
-    label: { en: "Rejected", rw: "Yantswe" },
+    label: "failed",
     className: "bg-destructive/10 border-destructive/20",
     textColor: "text-destructive",
   },
   completed: {
-    label: { en: "Completed", rw: "Yarangiye" },
+    label: "completed",
     className: "bg-primary/10 border-primary/20",
     textColor: "text-primary",
   },
@@ -107,10 +108,10 @@ export default function Enrollments() {
       if (cert.fileUrl) {
         window.open(cert.fileUrl, "_blank");
       } else {
-        toast.error(t({ en: "Certificate file not found", rw: "Idosiye y'impamyabumenyi ntibonetse" }));
+        toast.error(t(translations.enrollmentsPage.noEnrollments));
       }
     } catch (err: any) {
-      toast.error(t({ en: "Failed to download certificate", rw: "Gukuraho impamyabumenyi byanze" }), {
+      toast.error(t(translations.common.errorLoading), {
         description: err.message,
       });
     }
@@ -130,16 +131,13 @@ export default function Enrollments() {
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <GraduationCap className="h-12 w-12 text-muted-foreground/30 mb-4" />
           <h3 className="text-lg font-bold">
-            {t({ en: "Authentication Required", rw: "Gukeneye kwiyandikisha" })}
+            {t(translations.auth.required)}
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-2">
-            {t({
-              en: "Please log in to view and manage your enrolled programs.",
-              rw: "Banza winjire kugira ngo urebe gahunda wiyandikishijemo.",
-            })}
+            {t(translations.auth.loginDescription)}
           </p>
           <Button asChild className="mt-6 h-9 text-xs">
-            <Link href="/auth/login">{t({ en: "Log In", rw: "Injira" })}</Link>
+            <Link href="/auth/login">{t(translations.auth.login)}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -151,14 +149,14 @@ export default function Enrollments() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-xl font-bold font-heading text-foreground flex items-center gap-2">
           <GraduationCap className="h-5 w-5 text-primary" />
-          {t({ en: "My Enrollments", rw: "Kwiyandikisha Kanjye" })}
+          {t(translations.enrollmentsPage.myEnrollments)}
         </h2>
 
         <div className="flex items-center gap-2">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder={t({ en: "Search programs...", rw: "Shaka gahunda..." })}
+              placeholder={t(translations.enrollmentsPage.searchPrograms)}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-9 text-xs"
@@ -167,23 +165,23 @@ export default function Enrollments() {
           <Select value={status} onValueChange={(val) => { setStatus(val); setPage(1); }}>
             <SelectTrigger className="w-[130px] h-9 text-xs gap-2">
               <Filter className="h-3 w-3 text-muted-foreground" />
-              <SelectValue placeholder={t({ en: "Status", rw: "Imiterere" })} />
+              <SelectValue placeholder={t(translations.common.status)} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">
-                {t({ en: "All Statuses", rw: "Imiterere Yose" })}
+                {t(translations.enrollmentsPage.allStatuses)}
               </SelectItem>
               <SelectItem value="pending" className="text-xs">
-                {t(statusConfig.pending.label)}
+                {t((translations.statuses as any).pending)}
               </SelectItem>
               <SelectItem value="approved" className="text-xs">
-                {t(statusConfig.approved.label)}
+                {t((translations.statuses as any).confirmed)}
               </SelectItem>
               <SelectItem value="completed" className="text-xs">
-                {t(statusConfig.completed.label)}
+                {t((translations.statuses as any).completed)}
               </SelectItem>
               <SelectItem value="rejected" className="text-xs">
-                {t(statusConfig.rejected.label)}
+                {t((translations.statuses as any).failed)}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -193,31 +191,31 @@ export default function Enrollments() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-muted/20 rounded-2xl border border-dashed text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin mb-4" />
-          <p className="text-sm">{t({ en: "Loading your enrollments...", rw: "Dukuraho kwiyandikisha..." })}</p>
+          <p className="text-sm">{t(translations.enrollmentsPage.loadingEnrollments)}</p>
         </div>
       ) : isError ? (
         <div className="flex flex-col items-center justify-center py-20 bg-destructive/5 rounded-2xl border border-dashed border-destructive/20 text-destructive text-center px-6">
           <p className="text-sm font-medium mb-2">
-            {t({ en: "Failed to load enrollments", rw: "Gukuraho kwiyandikisha byanze" })}
+            {t(translations.common.errorLoading)}
           </p>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="h-8 text-[10px] mt-2 border-destructive/20 text-destructive hover:bg-destructive/10">
-            {t({ en: "Try Again", rw: "Ongera ugerageze" })}
+            {t(translations.common.retry)}
           </Button>
         </div>
       ) : !data?.data || data.data.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-muted/20 rounded-2xl border border-dashed text-muted-foreground text-center px-6">
           <BookOpen className="h-10 w-10 opacity-20 mb-4" />
           <h3 className="text-sm font-semibold text-foreground">
-            {t({ en: "No enrollments found", rw: "Nta kwiyandikisha kwasanzwe" })}
+            {t(translations.enrollmentsPage.noEnrollments)}
           </h3>
           <p className="text-xs max-w-[200px] mt-2 mb-6">
             {debouncedSearch || status !== "all" 
-              ? t({ en: "Try adjusting your search or filters.", rw: "Gerageza guhindura ibyo ushaka." })
-              : t({ en: "You haven't enrolled in any training programs yet.", rw: "Nturiyandikisha muri gahunda n'imwe yo guhugurwa." })}
+              ? t(translations.common.noResults)
+              : t({ en: "You haven't enrolled in any training programs yet.", rw: "Nturiyandikisha muri gahunda n'imwe yo guhugurwa.", fr: "Vous n'êtes pas encore inscrit à des programmes.", sw: "Bado haujajiandikisha katika programu zozote." })}
           </p>
           {!debouncedSearch && status === "all" && (
             <Button asChild variant="outline" className="h-9 text-xs">
-              <Link href="/education">{t({ en: "Browse Programs", rw: "Reba Gahunda" })}</Link>
+              <Link href="/education">{t(translations.enrollmentsPage.browsePrograms)}</Link>
             </Button>
           )}
         </div>
@@ -265,7 +263,7 @@ export default function Enrollments() {
                                 variant="outline"
                                 className={`text-[10px] h-5 px-1.5 ${status.className} ${status.textColor} border-current`}
                               >
-                                {t(status.label)}
+                                {t((translations.statuses as any)[status.label] || status.label)}
                               </Badge>
                             </div>
                             
@@ -289,7 +287,7 @@ export default function Enrollments() {
                             {item.status === "approved" && (
                               <Button asChild size="sm" className="h-8 text-[11px] gap-1.5 px-4">
                                 <Link href={`/education/program/${program.slug}`}>
-                                  {t({ en: "Continue Learning", rw: "Komeza Kwiga" })}
+                                  {t(translations.enrollmentsPage.continueLearning)}
                                   <ChevronRight className="h-3.5 w-3.5" />
                                 </Link>
                               </Button>
@@ -298,7 +296,7 @@ export default function Enrollments() {
                               <div className="flex items-center gap-2">
                                 <Button asChild variant="outline" size="sm" className="h-8 text-[11px] gap-1.5 px-4">
                                   <Link href={`/education/program/${program.slug}`}>
-                                    {t({ en: "Review Course", rw: "Gusubiramo" })}
+                                    {t(translations.enrollmentsPage.reviewCourse)}
                                   </Link>
                                 </Button>
                                 {(item.certificateNumber?.trim() ||
@@ -310,14 +308,14 @@ export default function Enrollments() {
                                     onClick={() => handleDownloadCertificate(item.id)}
                                   >
                                     <Download className="h-3.5 w-3.5" />
-                                    {t({ en: "Certificate", rw: "Impamyabumenyi" })}
+                                    {t(translations.enrollmentsPage.certificate)}
                                   </Button>
                                 )}
                               </div>
                             )}
                             {item.status === "pending" && (
                               <Button variant="outline" disabled size="sm" className="h-8 text-[11px] opacity-70">
-                                {t({ en: "Pending Approval", rw: "Iritegerejwe" })}
+                                {t((translations.statuses as any).pending)}
                               </Button>
                             )}
                           </div>
@@ -329,10 +327,10 @@ export default function Enrollments() {
                             <span className="flex items-center gap-1.5">
                               <BookOpen className="h-3 w-3 text-primary/70" />
                               {item.status === "completed" 
-                                ? t({ en: "Course Completed", rw: "Gahunda Yarangiye" })
+                                ? t(translations.enrollmentsPage.courseCompleted)
                                 : item.status === "approved"
-                                  ? t({ en: "In Progress", rw: "Urakwiga" })
-                                  : t({ en: "Access granted upon approval", rw: "Uzemererwa nibimara kwemezwa" })}
+                                  ? t(translations.enrollmentsPage.inProgress)
+                                  : t({ en: "Access granted upon approval", rw: "Uzemererwa nibimara kwemezwa", fr: "Accès accordé après approbation", sw: "Ufikiaji utatolewa baada ya kuidhinishwa" })}
                             </span>
                             {["approved", "completed"].includes(item.status) && (
                               <span className="text-primary font-bold">

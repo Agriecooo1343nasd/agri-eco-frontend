@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { translations } from "@/i18n/translations";
 
 const PAGE_SIZE = 20;
 
@@ -86,7 +87,7 @@ export default function CertificatesPage() {
       mode === "dialog" ? exportDialogRef.current : exportCaptureRef.current;
     if (!node) {
       toast.error(
-        t({ en: "Could not capture certificate", rw: "Ntibyakunze" }),
+        t(translations.common.errorLoading),
       );
       return;
     }
@@ -99,10 +100,10 @@ export default function CertificatesPage() {
       a.download = `certificate-${id}-${slug}.png`;
       a.click();
       toast.success(
-        t({ en: "Certificate downloaded", rw: "Impamyabumenyi yakuritswe" }),
+        t({ en: "Certificate downloaded", rw: "Impamyabumenyi yakuritswe", fr: "Certificat téléchargé", sw: "Cheti kimepakuliwa" }),
       );
     } catch (err) {
-      toast.error(t({ en: "Download failed", rw: "Ntibyakunze" }), {
+      toast.error(t(translations.common.errorLoading), {
         description: String(err),
       });
     }
@@ -145,7 +146,7 @@ export default function CertificatesPage() {
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm">
-          {t({ en: "Loading your certificates…", rw: "Gutangira…" })}
+          {t(translations.enrollmentsPage.loadingEnrollments)}
         </p>
       </div>
     );
@@ -156,10 +157,7 @@ export default function CertificatesPage() {
       <Card>
         <CardContent className="py-12 text-center text-sm text-muted-foreground space-y-4">
           <p>
-            {t({
-              en: "Could not load certificates. Please try again.",
-              rw: "Ntibyakunze. Ongera ugerageze.",
-            })}
+            {t(translations.common.errorLoading)}
           </p>
           <Button
             type="button"
@@ -167,7 +165,7 @@ export default function CertificatesPage() {
             size="sm"
             onClick={() => void certificatesQuery.refetch()}
           >
-            {t({ en: "Retry", rw: "Ongera" })}
+            {t(translations.common.retry)}
           </Button>
         </CardContent>
       </Card>
@@ -178,7 +176,7 @@ export default function CertificatesPage() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <h2 className="text-xl font-bold font-heading text-foreground flex items-center gap-2">
         <Award className="h-5 w-5 text-primary" />
-        {t({ en: "My Certificates", rw: "Impamyabumenyi zanjye" })}
+        {t(translations.certificatesPage.myCertificates)}
       </h2>
 
       {issuedList.length === 0 ? (
@@ -186,14 +184,11 @@ export default function CertificatesPage() {
           <CardContent className="py-12 text-center">
             <Award className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground text-sm mb-4">
-              {t({
-                en: "No issued certificates yet. Complete a program to earn one.",
-                rw: "Nta mpamyabumenyi. Fata amahugurwa uce agasozwa.",
-              })}
+              {t(translations.certificatesPage.noCertificates)}
             </p>
             <Button asChild variant="outline" size="sm">
               <Link href="/education">
-                {t({ en: "Browse programs", rw: "Reba amahugurwa" })}
+                {t(translations.enrollmentsPage.browsePrograms)}
               </Link>
             </Button>
           </CardContent>
@@ -223,7 +218,7 @@ export default function CertificatesPage() {
                     <div className="p-4 space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                         <span className="min-w-0 truncate">
-                          {t({ en: "Recipient", rw: "Uwatanze" })}:{" "}
+                          {t(translations.certificatesPage.recipient)}:{" "}
                           <span className="text-foreground font-medium">
                             {cert.participantName || user?.name || "—"}
                           </span>
@@ -242,7 +237,7 @@ export default function CertificatesPage() {
                             onClick={() => setViewing(cert)}
                           >
                             <Award className="h-3 w-3" />
-                            {t({ en: "View", rw: "Reba" })}
+                            {t(translations.common.view)}
                           </Button>
                           <Button
                             variant="default"
@@ -256,7 +251,7 @@ export default function CertificatesPage() {
                             ) : (
                               <Download className="h-3 w-3" />
                             )}
-                            {t({ en: "Download PNG", rw: "Kuraho PNG" })}
+                            {t(translations.certificatesPage.downloadPng)}
                           </Button>
                           {slug ? (
                             <Button
@@ -284,10 +279,7 @@ export default function CertificatesPage() {
                             download
                           >
                             <FileText className="h-3 w-3" />
-                            {t({
-                              en: "Open official record",
-                              rw: "Fungura inyandiko",
-                            })}
+                            {t(translations.certificatesPage.openOfficial)}
                           </a>
                         </Button>
                       </div>
@@ -311,7 +303,7 @@ export default function CertificatesPage() {
                 {certificatesQuery.isFetchingNextPage ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
-                {t({ en: "Load more", rw: "Komeza" })}
+                {t(translations.common.next)}
               </Button>
             </div>
           ) : null}
@@ -322,12 +314,14 @@ export default function CertificatesPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-lg">
-              {t({ en: "Your Certificate", rw: "Impamyabumenyi Yawe" })}
+              {t(translations.certificatesPage.yourCertificate)}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {t({
                 en: "Save a copy as PNG. The QR code contains your certificate ID.",
                 rw: "Kuraho kopi. QR irimo indanganyanga.",
+                fr: "Enregistrez une copie au format PNG. Le code QR contient l'ID de votre certificat.",
+                sw: "Hifadhi nakala kama PNG. Msimbo wa QR una kitambulisho chako cha cheti."
               })}
             </DialogDescription>
           </DialogHeader>
@@ -349,7 +343,7 @@ export default function CertificatesPage() {
                   ) : (
                     <Download className="h-4 w-4" />
                   )}
-                  {t({ en: "Download PNG", rw: "Kuraho PNG" })}
+                  {t(translations.certificatesPage.downloadPng)}
                 </Button>
                 <Button variant="secondary" className="gap-2 text-xs h-10" asChild>
                   <a
@@ -359,10 +353,7 @@ export default function CertificatesPage() {
                     download
                   >
                     <FileText className="h-4 w-4" />
-                    {t({
-                      en: "Open official record",
-                      rw: "Fungura inyandiko",
-                    })}
+                    {t(translations.certificatesPage.openOfficial)}
                   </a>
                 </Button>
               </div>

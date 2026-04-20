@@ -7,6 +7,8 @@ import { MessageSquare, Clock, CheckCircle, XCircle, Inbox } from "lucide-react"
 import { fetchMyRequests, type UserRequest } from "@/lib/api/user";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const statusIcons: Record<string, React.ReactNode> = {
   pending: <Clock className="h-3.5 w-3.5 text-amber-500" />,
@@ -23,6 +25,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function Requests() {
+  const { t } = useLanguage();
   const [requests, setRequests] = useState<UserRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -45,7 +48,7 @@ export default function Requests() {
       <div className="space-y-4">
         <h2 className="text-xl font-bold font-heading text-foreground flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-primary" />
-          My Requests
+          {t(translations.requestsPage.myRequests)}
         </h2>
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -60,16 +63,16 @@ export default function Requests() {
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <h2 className="text-xl font-bold font-heading text-foreground flex items-center gap-2">
         <MessageSquare className="h-5 w-5 text-primary" />
-        My Requests
+        {t(translations.requestsPage.myRequests)}
       </h2>
 
       {requests.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-10 text-center">
             <Inbox className="h-10 w-10 text-muted-foreground/30 mb-3" />
-            <p className="text-sm text-muted-foreground font-medium">No requests found</p>
+            <p className="text-sm text-muted-foreground font-medium">{t(translations.requestsPage.noRequestsFound)}</p>
             <p className="text-xs text-muted-foreground/60 mt-1">
-              Your applications and special requests will appear here.
+              {t(translations.requestsPage.requestsDescription)}
             </p>
           </CardContent>
         </Card>
@@ -91,7 +94,7 @@ export default function Requests() {
                           statusColors[req.status.toLowerCase()] || statusColors.pending
                         }`}
                       >
-                        {req.status}
+                        {t((translations.statuses as any)[req.status.toLowerCase()] || req.status)}
                       </Badge>
                       <Badge variant="secondary" className="text-[10px] uppercase">
                         {req.type.replace("_", " ")}

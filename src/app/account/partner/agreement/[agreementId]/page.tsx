@@ -10,9 +10,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePricing } from "@/context/PricingContext";
 import { fetchPartnerMe, fetchPartnerAgreementById } from "@/lib/api/partners";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function AgreementDetailsPage() {
   const params = useParams<{ agreementId: string }>();
+  const { t } = useLanguage();
   const { formatPrice } = usePricing();
 
   const { data: partnerData, isLoading: isLoadingPartner } = useQuery({
@@ -45,12 +48,12 @@ export default function AgreementDetailsPage() {
       <div className="space-y-4">
         <Button variant="outline" asChild>
           <Link href="/account/partner">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Partner
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t(translations.common.back)}
           </Link>
         </Button>
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
-            Agreement not found for your partner profile.
+            {t(translations.partnerPage.noAgreements)}
           </CardContent>
         </Card>
       </div>
@@ -62,11 +65,11 @@ export default function AgreementDetailsPage() {
       <div>
         <Button variant="outline" size="sm" asChild>
           <Link href="/account/partner">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Agreements
+            <ArrowLeft className="h-4 w-4 mr-1" /> {t(translations.partnerPage.agreements)}
           </Link>
         </Button>
         <h1 className="text-2xl font-bold font-heading mt-3">
-          Agreement Details
+          {t(translations.partnerPage.agreementDetails)}
         </h1>
         <p className="text-xs text-muted-foreground">
           {displayPartner.name}
@@ -79,46 +82,46 @@ export default function AgreementDetailsPage() {
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <FileText className="h-4 w-4" /> {agreement.title}
             </h2>
-            <Badge className="text-[10px] capitalize">{agreement.status}</Badge>
+            <Badge className="text-[10px] capitalize">{t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}</Badge>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3 text-xs">
             <div className="border border-border rounded-lg p-3 space-y-1">
               <p>
-                <span className="text-muted-foreground">Version:</span>{" "}
+                <span className="text-muted-foreground">{t({ en: "Version", rw: "Imiterere", fr: "Version", sw: "Toleo" })}:</span>{" "}
                 {agreement.version}
               </p>
               <p>
-                <span className="text-muted-foreground">Effective:</span>{" "}
+                <span className="text-muted-foreground">{t({ en: "Effective", rw: "Byatangiye", fr: "Effectif", sw: "Inaanza" })}:</span>{" "}
                 {new Date(agreement.effectiveDate).toLocaleDateString()}
               </p>
               <p>
-                <span className="text-muted-foreground">End Date:</span>{" "}
-                {agreement.endDate ? new Date(agreement.endDate).toLocaleDateString() : "Open"}
+                <span className="text-muted-foreground">{t({ en: "End Date", rw: "Igihe kizarangirira", fr: "Date de fin", sw: "Tarehe ya Mwisho" })}:</span>{" "}
+                {agreement.endDate ? new Date(agreement.endDate).toLocaleDateString() : t({ en: "Open", rw: "Bifunguye", fr: "Ouvert", sw: "Wazi" })}
               </p>
               <p>
-                <span className="text-muted-foreground">Last Updated:</span>{" "}
+                <span className="text-muted-foreground">{t({ en: "Last Updated", rw: "Byavuguruwe", fr: "Dernière mise à jour", sw: "Ilisasishwa Mwisho" })}:</span>{" "}
                 {agreement.updatedAt ? new Date(agreement.updatedAt).toLocaleDateString() : "-"}
               </p>
             </div>
             <div className="border border-border rounded-lg p-3 space-y-1">
               <p>
-                <span className="text-muted-foreground">Paid to Date:</span>{" "}
+                <span className="text-muted-foreground">{t({ en: "Paid to Date", rw: "Ayishyuwe kugeza ubu", fr: "Payé à ce jour", sw: "Zilizolipwa kufikia Sasa" })}:</span>{" "}
                 <strong>{formatPrice(paidTotal)}</strong>
               </p>
               <p>
-                <span className="text-muted-foreground">Partner:</span>{" "}
+                <span className="text-muted-foreground">{t({ en: "Partner", rw: "Umufatanyabikorwa", fr: "Partenaire", sw: "Mshirika" })}:</span>{" "}
                 {displayPartner.contactName}
               </p>
               <p>
-                <span className="text-muted-foreground">Business Email:</span>{" "}
+                <span className="text-muted-foreground">{t({ en: "Business Email", rw: "Imeri", fr: "Email professionnel", sw: "Barua pepe ya Biashara" })}:</span>{" "}
                 {displayPartner.email}
               </p>
             </div>
           </div>
 
           <div className="border border-border rounded-lg p-3 text-xs">
-            <p className="text-muted-foreground mb-1">Terms Summary</p>
+            <p className="text-muted-foreground mb-1">{t({ en: "Terms Summary", rw: "Inshamake y'amasezerano", fr: "Résumé des conditions", sw: "Muhtasari wa Masharti" })}</p>
             <p>{agreement.termsSummary}</p>
           </div>
 
@@ -127,18 +130,18 @@ export default function AgreementDetailsPage() {
               <Link
                 href={`/account/partner/agreements/${agreement.id}/payments`}
               >
-                View Payment History
+                {t(translations.partnerPage.paymentHistory)}
               </Link>
             </Button>
             <Button size="sm" variant="outline" className="text-xs" asChild>
               <Link
                 href={`/account/partner/agreements/${agreement.id}/inputs`}
               >
-                View Inputs
+                {t({ en: "View Inputs", rw: "Reba ibikoreshwa", fr: "Voir les intrants", sw: "Angalia Vipengele" })}
               </Link>
             </Button>
             <Button size="sm" variant="outline" className="text-xs" asChild>
-              <Link href="/account/partner">Back to All Agreements</Link>
+              <Link href="/account/partner">{t({ en: "Back to All Agreements", rw: "Subira ku masezerano yose", fr: "Retour à tous les accords", sw: "Rudi kwenye Mikataba Yote" })}</Link>
             </Button>
           </div>
         </CardContent>

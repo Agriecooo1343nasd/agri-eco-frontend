@@ -10,8 +10,11 @@ import Footer from "@/components/Footer";
 import { resetPasswordRequest } from "@/lib/api/auth";
 import { getPasswordHelpText, isStrongPassword } from "@/lib/auth-validation";
 import { toast } from "sonner";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const ResetPasswordPage = () => {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const token = searchParams.get("token")?.trim() || "";
 
@@ -26,8 +29,8 @@ const ResetPasswordPage = () => {
     mutationFn: resetPasswordRequest,
     onSuccess: () => {
       setSuccess(true);
-      toast.success("Password reset!", {
-        description: "Your password has been updated successfully.",
+      toast.success(t(translations.auth.passwordUpdated), {
+        description: t(translations.auth.signWithNewPassword),
       });
     },
   });
@@ -38,16 +41,16 @@ const ResetPasswordPage = () => {
     setFormError(null);
 
     if (!token) {
-      setFormError("Open this page from the password reset email link.");
+      setFormError(t(translations.auth.openLinkFromEmail));
       return;
     }
 
     if (!password || !confirmPassword) {
-      setFormError("Please fill in both fields.");
+      setFormError(t(translations.checkoutPage.fillRequired));
       return;
     }
     if (password !== confirmPassword) {
-      setFormError("Please make sure your passwords match.");
+      setFormError(t(translations.auth.passwordsMatch));
       return;
     }
     if (!isStrongPassword(password)) {
@@ -68,23 +71,23 @@ const ResetPasswordPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <div className="container py-12 md:py-20 max-w-md mx-auto">
+      <div className="container py-12 md:py-20 max-w-lg mx-auto">
         <div className="bg-card border border-border rounded-2xl p-8">
           <div className="text-center mb-8">
             <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <KeyRound className="h-7 w-7 text-primary" />
             </div>
             <h1 className="text-2xl font-bold font-heading text-foreground">
-              {success ? "Password Updated!" : "Reset Password"}
+              {success ? t(translations.auth.passwordUpdated) : t(translations.auth.resetPasswordTitle)}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {success
-                ? "You can now sign in with your new password"
-                : "Enter your new password below"}
+                ? t(translations.auth.signWithNewPassword)
+                : t(translations.auth.enterNewPassword)}
             </p>
             {!token && !success && (
               <p className="text-xs text-destructive mt-2">
-                Reset token missing. Please use the link sent to your email.
+                {t(translations.auth.tokenMissing)}
               </p>
             )}
           </div>
@@ -93,7 +96,7 @@ const ResetPasswordPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">
-                  New Password *
+                  {t(translations.auth.newPassword)} *
                 </label>
                 <div className="relative">
                   <input
@@ -101,7 +104,7 @@ const ResetPasswordPage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground pr-12"
-                    placeholder="Min 8 characters"
+                    placeholder={t(translations.auth.minCharacters)}
                   />
                   <button
                     type="button"
@@ -118,7 +121,7 @@ const ResetPasswordPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">
-                  Confirm New Password *
+                  {t(translations.auth.confirmNewPassword)} *
                 </label>
                 <div className="relative">
                   <input
@@ -146,7 +149,7 @@ const ResetPasswordPage = () => {
                 disabled={loading}
                 className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {loading ? "Updating..." : "Reset Password"}
+                {loading ? t(translations.auth.updating) : t(translations.auth.resetPassword)}
               </button>
 
               {formError && (
@@ -161,7 +164,7 @@ const ResetPasswordPage = () => {
                 href="/login"
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground py-3 px-6 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
-                Go to Sign In
+                {t(translations.auth.backToSignIn)}
               </Link>
             </div>
           )}

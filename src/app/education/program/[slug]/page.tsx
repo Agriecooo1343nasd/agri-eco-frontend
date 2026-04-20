@@ -132,6 +132,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { usePricing } from "@/context/PricingContext";
 import { createProgramReview, fetchProgramReviews } from "@/lib/api/reviews";
+import { translations } from "@/i18n/translations";
 
 const statusColors: Record<string, string> = {
   open: "bg-primary/10 text-primary border-primary/20",
@@ -202,10 +203,7 @@ export default function ProgramDetail() {
 
     if (currentlyCompleted) {
       toast.info(
-        t({
-          en: "This module is already marked complete. Progress cannot be undone here.",
-          rw: "Iri somo ryamaze kwemezwa. Ntushobora kurihinduranya.",
-        }),
+        t(translations.common.errorLoading),
       );
       return;
     }
@@ -219,13 +217,10 @@ export default function ProgramDetail() {
       );
       if (!scoreEntry || scoreEntry.score < passNeed) {
         toast.error(
-          t({
-            en: "Pass the module quiz before marking this module complete.",
-            rw: "Banza usuzuze isuzumabumenyi mbere yo kwemeza isomo.",
-          }),
-        );
-        return;
-      }
+        t(translations.common.errorLoading),
+      );
+      return;
+    }
     }
 
     const currentProgress = progressData.moduleProgress || [];
@@ -399,7 +394,7 @@ export default function ProgramDetail() {
         <main className="container py-20 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground text-sm">
-            Loading program details...
+            {t(translations.common.loading)}
           </p>
         </main>
         <Footer />
@@ -413,14 +408,13 @@ export default function ProgramDetail() {
         <Header />
         <main className="container py-20 text-center">
           <h1 className="text-2xl font-bold text-foreground mb-4">
-            Program Not Found
+            {t(translations.common.noResults)}
           </h1>
           <p className="text-muted-foreground mb-6">
-            The training program you&apos;re looking for doesn&apos;t exist or
-            something went wrong.
+            {t(translations.common.errorLoading)}
           </p>
           <Button asChild>
-            <Link href="/education">Back to Education</Link>
+            <Link href="/education">{t({ en: "Back to Education", rw: "Subira kuri Education", fr: "Retour à l'Éducation", sw: "Rudi kwenye Elimu" })}</Link>
           </Button>
         </main>
         <Footer />
@@ -517,8 +511,8 @@ export default function ProgramDetail() {
 
   const handleEnrollClick = () => {
     if (!isAuthenticated) {
-      toast.error("Authentication Required", {
-        description: "Please log in to enroll in programs.",
+      toast.error(t(translations.auth.required), {
+        description: t(translations.auth.loginDescription),
       });
       setTimeout(() => {
         router.push("/login?redirect=" + pathname);
@@ -548,10 +542,10 @@ export default function ProgramDetail() {
       setIsEnrolled(isFree);
 
       setEnrollDialogOpen(false);
-      toast.success(isFree ? "Enrollment Successful!" : "Enrollment Pending", {
+      toast.success(t(translations.common.success), {
         description: isFree
-          ? `You're now enrolled in "${t(program.title)}".`
-          : "Your enrollment is being processed. Please proceed with payment if required.",
+          ? `${t(translations.common.success)} "${t(program.title)}".`
+          : t(translations.partnerPage.underReview),
       });
 
       // Refresh enrollments if authenticated
@@ -559,8 +553,8 @@ export default function ProgramDetail() {
         queryClient.invalidateQueries({ queryKey: ["myEnrollments"] });
       }
     } catch (err: any) {
-      toast.error("Enrollment Failed", {
-        description: err.message || "An error occurred during enrollment.",
+      toast.error(t(translations.common.errorLoading), {
+        description: err.message || t(translations.common.errorLoading),
       });
     } finally {
       setEnrolling(false);
@@ -570,8 +564,8 @@ export default function ProgramDetail() {
   const handleNotify = (e: React.FormEvent) => {
     e.preventDefault();
     setNotifyDialogOpen(false);
-    toast.success("Notification Set!", {
-      description: `We'll notify you when "${t(program.title)}" opens for enrollment.`,
+    toast.success(t(translations.common.success), {
+      description: t(translations.common.success),
     });
   };
 
@@ -604,9 +598,9 @@ export default function ProgramDetail() {
         String(program.id);
       a.download = `certificate-${certKey}.png`;
       a.click();
-      toast.success("Certificate Downloaded!");
+      toast.success(t(translations.common.success));
     } catch (err) {
-      toast.error("Failed to generate PNG", { description: String(err) });
+      toast.error(t(translations.common.errorLoading), { description: String(err) });
     }
   };
 
@@ -640,7 +634,7 @@ export default function ProgramDetail() {
               className="inline-flex items-center gap-1.5 text-card/70 hover:text-card text-sm mb-4 transition-colors w-fit"
             >
               <ArrowLeft className="h-4 w-4" />{" "}
-              {t({ en: "Back to Education", rw: "Subira kuri Education" })}
+              {t({ en: "Back to Education", rw: "Subira kuri Education", fr: "Retour à l'Éducation", sw: "Rudi kwenye Elimu" })}
             </Link>
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <Badge
@@ -683,7 +677,7 @@ export default function ProgramDetail() {
                     className="text-xs border-card/40 text-card gap-1.5"
                   >
                     <span className="text-card/80">
-                      {t({ en: "Your progress", rw: "Intambwe yawe" })}
+                      {t({ en: "Your progress", rw: "Intambwe yawe", fr: "Votre progression", sw: "Maendeleo yako" })}
                     </span>
                     <span className="font-bold text-primary-foreground tabular-nums">
                       {Math.round(
@@ -700,7 +694,7 @@ export default function ProgramDetail() {
             {program.instructor && (
               <p className="text-card/70 flex items-center gap-2 text-sm">
                 <User className="h-4 w-4" />{" "}
-                {t({ en: "Instructor", rw: "Umuhazabumenyi" })}:{" "}
+                {t({ en: "Instructor", rw: "Umuhazabumenyi", fr: "Instructeur", sw: "Mwalimu" })}:{" "}
                 {t(program.instructor)}
               </p>
             )}
@@ -719,6 +713,8 @@ export default function ProgramDetail() {
                     {t({
                       en: "About This Program",
                       rw: "Ibihereranye n'iyi gahunda",
+                      fr: "À propos de ce programme",
+                      sw: "Kuhusu Programu Hii"
                     })}
                   </h2>
                   <p className="text-muted-foreground leading-relaxed text-sm">
@@ -727,7 +723,7 @@ export default function ProgramDetail() {
                   {program.topics.length > 0 && (
                     <div className="mt-5">
                       <h3 className="text-sm font-semibold text-foreground mb-2">
-                        {t({ en: "Topics Covered", rw: "Ibizigwa" })}
+                        {t({ en: "Topics Covered", rw: "Ibizigwa", fr: "Sujets abordés", sw: "Mada Zinazoshughulikiwa" })}
                       </h3>
                       <div className="flex flex-wrap gap-2">
                         {program.topics.map(
@@ -753,7 +749,7 @@ export default function ProgramDetail() {
                   t(program.whatYouGet).length > 0 && (
                     <div className="bg-card border border-border rounded-2xl p-6">
                       <h2 className="text-xl font-bold font-heading text-foreground mb-4">
-                        {t({ en: "What You'll Get", rw: "Icyo uzahabwa" })}
+                        {t({ en: "What You'll Get", rw: "Icyo uzahabwa", fr: "Ce que vous obtiendrez", sw: "Utakachopata" })}
                       </h2>
                       <div className="grid sm:grid-cols-2 gap-3">
                         {(t(program.whatYouGet) || "")
@@ -781,9 +777,9 @@ export default function ProgramDetail() {
                 >
                   <h2 className="text-xl font-bold font-heading text-foreground mb-4">
                     <BookOpen className="h-5 w-5 inline-block mr-2 text-primary" />
-                    {t({ en: "Curriculum", rw: "Intekanyanyigisho" })} (
+                    {t({ en: "Curriculum", rw: "Intekanyanyigisho", fr: "Programme d'études", sw: "Mtaala" })} (
                     {program.modules.length}{" "}
-                    {t({ en: "Modules", rw: "Inyongerabyigwa" })})
+                    {t({ en: "Modules", rw: "Inyongerabyigwa", fr: "Modules", sw: "Moduli" })})
                   </h2>
 
                   {!isEnrolled && (
@@ -793,12 +789,16 @@ export default function ProgramDetail() {
                         {t({
                           en: "Course content is locked",
                           rw: "Ibirimo birafunze",
+                          fr: "Le contenu est verrouillé",
+                          sw: "Maudhui ya kozi yamefungwa"
                         })}
                       </p>
                       <p className="text-xs text-muted-foreground mb-3">
                         {t({
                           en: "Enroll in this program to access all modules, videos, downloads, and materials.",
                           rw: "Yandikishe muri iyi gahunda kugira ngo ubashe kubona amasomo, amavideo, no gukuraho ibitabo.",
+                          fr: "Inscrivez-vous à ce programme pour accéder à tous les modules, vidéos, téléchargements et supports.",
+                          sw: "Jiandikishe katika programu hii ili kufikia moduli zote, video, upakuaji, na nyenzo."
                         })}
                       </p>
                       {program.status === "open" && (
@@ -808,10 +808,12 @@ export default function ProgramDetail() {
                           className="gap-1.5 text-xs h-9"
                         >
                           <BookOpen className="h-3.5 w-3.5" />{" "}
-                          {t({
-                            en: "Enroll to Unlock",
-                            rw: "Yandikishe kugira ngo ufungure",
-                          })}
+                           {t({
+                             en: "Enroll to Unlock",
+                             rw: "Yandikishe kugira ngo ufungure",
+                             fr: "S'inscrire pour débloquer",
+                             sw: "Jiandikishe ili Kufungua"
+                           })}
                         </Button>
                       )}
                     </div>
@@ -858,6 +860,8 @@ export default function ProgramDetail() {
                                   {t({
                                     en: "content blocks",
                                     rw: "ibice bigize isomo",
+                                    fr: "blocs de contenu",
+                                    sw: "vitalu vya maudhui"
                                   })}
                                 </p>
                               </div>
@@ -921,13 +925,18 @@ export default function ProgramDetail() {
                                     {block.type === "video" && (
                                       <div className="mt-3 rounded-xl overflow-hidden bg-black/5 border border-border shadow-inner">
                                         <video
-                                          src={getMediaUrl(typeof block.content === "string" ? block.content : block.content.en)}
+                                          src={t(block.content)}
                                           controls
                                           playsInline
                                           className="w-full aspect-video object-contain bg-black"
-                                          poster={program.image}
+                                          poster={t(program.image)}
                                         >
-                                          Your browser does not support the video tag.
+                                          {t({
+                                            en: "Your browser does not support the video tag.",
+                                            rw: "Mushakisha yawe ntigushobora kureba amashusho.",
+                                            fr: "Votre navigateur ne supporte pas la balise vidéo.",
+                                            sw: "Kivinjari chako hakiauni lebo ya video."
+                                          })}
                                         </video>
                                       </div>
                                     )}
@@ -940,7 +949,12 @@ export default function ProgramDetail() {
                                           const url = t(block.content);
                                           if (!url) {
                                             toast.error(
-                                              "Download link is broken",
+                                              t({
+                                                en: "Download link is broken",
+                                                rw: "Irohereza ntirikora",
+                                                fr: "Le lien de téléchargement est rompu",
+                                                sw: "Kiungo cha kupakua kimevunjika"
+                                              })
                                             );
                                             return;
                                           }
@@ -958,11 +972,16 @@ export default function ProgramDetail() {
                                             a.download = fileName;
                                             a.click();
                                             URL.revokeObjectURL(a.href);
-                                            toast.success("Download started");
+                                            toast.success(t(translations.common.success));
                                           } catch (err) {
                                             window.open(url, "_blank");
                                             toast.error(
-                                              "Direct download failed, opened in new tab.",
+                                              t({
+                                                en: "Direct download failed, opened in new tab.",
+                                                rw: "Gukuraho byanze, bifunguwe ahandi.",
+                                                fr: "Le téléchargement direct a échoué, ouvert dans un nouvel onglet.",
+                                                sw: "Upakuaji wa moja kwa moja umefeli, umefunguliwa kwenye kichupo kipya."
+                                              }),
                                             );
                                           }
                                         }}
@@ -970,7 +989,9 @@ export default function ProgramDetail() {
                                         <Download className="h-3.5 w-3.5" />{" "}
                                         {t({
                                           en: "Download Resource",
-                                          rw: "Kuraho",
+                                          rw: "Kuraho ibikoresho",
+                                          fr: "Télécharger la ressource",
+                                          sw: "Pakua Rasilimali"
                                         })}
                                       </Button>
                                     )}
@@ -1132,7 +1153,7 @@ export default function ProgramDetail() {
                       <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold font-heading text-foreground">
                           <Award className="h-5 w-5 inline-block mr-2 text-primary" />
-                          {t({ en: "Certificate", rw: "Impamyabumenyi" })}
+                          {t({ en: "Certificate", rw: "Impamyabumenyi", fr: "Certificat", sw: "Cheti" })}
                         </h2>
                       </div>
 
@@ -1142,6 +1163,8 @@ export default function ProgramDetail() {
                           {t({
                             en: "Enroll in this program to earn your certificate.",
                             rw: "Yandikishe muri iyi gahunda kugira ngo uhabwe impamyabumenyi.",
+                            fr: "Inscrivez-vous à ce programme pour obtenir votre certificat.",
+                            sw: "Jiandikishe katika programu hii ili upate cheti chako."
                           })}
                         </div>
                       ) : (
@@ -1151,6 +1174,8 @@ export default function ProgramDetail() {
                             {t({
                               en: "You're enrolled! Complete the curriculum to get your certificate.",
                               rw: "Wiyandikishije! Reba inyigisho zose kugira ngo uhabwe impamyabumenyi.",
+                              fr: "Vous êtes inscrit ! Terminez le programme pour obtenir votre certificat.",
+                              sw: "Umejiandikisha! Kamilisha mtaala ili upate cheti chako."
                             })}
                           </div>
                           <div className="flex gap-3">
@@ -1162,6 +1187,8 @@ export default function ProgramDetail() {
                               {t({
                                 en: "View Certificate",
                                 rw: "Reba Impamyabumenyi",
+                                fr: "Voir le certificat",
+                                sw: "Tazama Cheti"
                               })}
                             </Button>
                           </div>
@@ -1173,7 +1200,7 @@ export default function ProgramDetail() {
                 {program.instructor && (
                   <div className="bg-card border border-border rounded-2xl p-6">
                     <h2 className="text-xl font-bold font-heading text-foreground mb-4">
-                      {t({ en: "Your Instructor", rw: "Umuhazabumenyi wawe" })}
+                      {t({ en: "Your Instructor", rw: "Umuhazabumenyi wawe", fr: "Votre Instructeur", sw: "Mkufunzi Wako" })}
                     </h2>
                     <div className="flex items-start gap-4">
                       <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -1192,16 +1219,16 @@ export default function ProgramDetail() {
                 )}
                 <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
                   <h2 className="text-xl font-bold font-heading text-foreground">
-                    {t({ en: "Program Reviews", rw: "Ibyavuzwe kuri gahunda" })}
+                    {t({ en: "Program Reviews", rw: "Ibyavuzwe kuri gahunda", sw:"Mapitio ya Programu", fr: "Évaluations de programmes"})}
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    {(apiProgram as any).reviewCount ?? 0} total reviews, average {(Number((apiProgram as any).averageRating || 0)).toFixed(1)}/5
+                    {(apiProgram as any).reviewCount ?? 0} {t({ en: "total reviews, average", rw: "ibitekerezo byose, impuzandengo", fr: "avis au total, moyenne", sw: "hakiki jumla, wastani" })} {(Number((apiProgram as any).averageRating || 0)).toFixed(1)}/5
                   </p>
 
                   {isEnrolled && isCourseCompleted && !myProgramReview ? (
                     <div className="rounded-xl border border-border p-4 space-y-3">
                       <p className="text-sm font-medium text-foreground">
-                        Share your learning experience
+                        {t({ en: "Share your learning experience", rw: "Sangiza uko wiyumva nyuma yo kwiga", fr: "Partagez votre expérience d'apprentissage", sw: "Shiriki uzoefu wako wa kujifunza" })}
                       </p>
                       <div className="flex gap-1">
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -1219,7 +1246,7 @@ export default function ProgramDetail() {
                       <Input
                         value={reviewComment}
                         onChange={(event) => setReviewComment(event.target.value)}
-                        placeholder="Write your review..."
+                        placeholder={t({ en: "Write your review...", rw: "Andika igitekerezo cyawe...", fr: "Écrivez votre avis...", sw: "Andika maoni yako..." })}
                         className="text-xs"
                       />
                       <Button
@@ -1228,7 +1255,7 @@ export default function ProgramDetail() {
                         disabled={reviewMutation.isPending || !reviewComment.trim()}
                         onClick={() => reviewMutation.mutate()}
                       >
-                        {reviewMutation.isPending ? "Submitting..." : "Submit review"}
+                        {reviewMutation.isPending ? t({ en: "Submitting...", rw: "Birimo koherezwa...", fr: "Envoi en cours...", sw: "Inatuma..." }) : t({ en: "Submit review", rw: "Ohereza igitekerezo", fr: "Envoyer l'avis", sw: "Wasilisha hakiki" })}
                       </Button>
                     </div>
                   ) : null}
@@ -1236,7 +1263,7 @@ export default function ProgramDetail() {
                   {myProgramReview ? (
                     <div className="rounded-lg border border-border p-3">
                       <p className="text-sm font-semibold text-foreground">
-                        Your review ({myProgramReview.rating}/5)
+                        {t({ en: "Your review", rw: "Igitekerezo cyawe", fr: "Votre avis", sw: "Hakiki yako" })} ({myProgramReview.rating}/5)
                       </p>
                       <div className="flex items-center gap-1 mt-1">
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -1265,20 +1292,20 @@ export default function ProgramDetail() {
                     {isLoadingReviews ? (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading reviews…
+                        {t({ en: "Loading reviews…", rw: "Dushakisha ibitekerezo…", fr: "Chargement des avis…", sw: "Inapakia hakiki…" })}
                       </div>
                     ) : isErrorReviews ? (
                       <p className="text-xs text-muted-foreground">
-                        Could not load reviews right now.
+                        {t({ en: "Could not load reviews right now.", rw: "Ntibyashobotse kuzana ibitekerezo ubu.", fr: "Impossible de charger les avis pour le moment.", sw: "Haikuweza kupakia hakiki sasa hivi." })}
                       </p>
                     ) : publicProgramReviews.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No public reviews yet.</p>
+                      <p className="text-xs text-muted-foreground">{t({ en: "No public reviews yet.", rw: "Nta bitekerezo bihari.", fr: "Aucun avis public pour le moment.", sw: "Hakuna hakiki za umma bado." })}</p>
                     ) : (
                       publicProgramReviews.slice(0, 6).map((review) => (
                         <div key={review.id} className="rounded-lg border border-border p-3">
                           <div className="flex items-center justify-between gap-3">
                             <p className="text-sm font-semibold text-foreground truncate">
-                              {review.user?.username || "Student"}
+                              {review.user?.username || t({ en: "Student", rw: "Umunyeshuri", fr: "Étudiant", sw: "Mwanafunzi" })}
                             </p>
                             <div className="flex items-center gap-1 shrink-0">
                               {[1, 2, 3, 4, 5].map((star) => (
@@ -1299,7 +1326,7 @@ export default function ProgramDetail() {
                             </p>
                           ) : (
                             <p className="text-[11px] text-muted-foreground/80 mt-1 italic">
-                              Rating only ({review.rating}/5)
+                              {t({ en: "Rating only", rw: "Inyenyeri gusa", fr: "Note uniquement", sw: "Ukadiriaji tu" })} ({review.rating}/5)
                             </p>
                           )}
                         </div>
@@ -1328,6 +1355,8 @@ export default function ProgramDetail() {
                           {t({
                             en: "Certificate included",
                             rw: "Harimo n'impamyabumenyi",
+                            fr: "Certificat inclus",
+                            sw: "Cheti kimejumuishwa"
                           })}
                         </p>
                       )}
@@ -1337,7 +1366,7 @@ export default function ProgramDetail() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 justify-center text-sm text-primary font-medium">
                           <CheckCircle className="h-4 w-4" />{" "}
-                          {t({ en: "You're Enrolled", rw: "Wiyandikishije" })}
+                          {t({ en: "You're Enrolled", rw: "Wiyandikishije", fr: "Inscrit", sw: "Umejiandikisha" })}
                         </div>
                         {progressData &&
                           typeof progressData.completionPercentage ===
@@ -1348,6 +1377,8 @@ export default function ProgramDetail() {
                                   {t({
                                     en: "Course progress",
                                     rw: "Inyigisho",
+                                    fr: "Progression du cours",
+                                    sw: "Maendeleo ya kozi"
                                   })}
                                 </span>
                                 <span className="font-semibold text-primary tabular-nums">
@@ -1385,7 +1416,7 @@ export default function ProgramDetail() {
                           }}
                         >
                           <Play className="h-4 w-4" />{" "}
-                          {t({ en: "View Curriculum", rw: "Reba inyigisho" })}
+                          {t({ en: "View Curriculum", rw: "Reba inyigisho", fr: "Voir le programme", sw: "Tazama Mtaala" })}
                         </Button>
                       </div>
                     ) : isPending ? (
@@ -1395,6 +1426,8 @@ export default function ProgramDetail() {
                           {t({
                             en: "Enrollment Pending",
                             rw: "Itagereje Kwemezwa",
+                            fr: "Inscription en attente",
+                            sw: "Uandikishaji Unasubiri"
                           })}
                         </div>
                         <Button
@@ -1406,6 +1439,8 @@ export default function ProgramDetail() {
                           {t({
                             en: "Awaiting Approval",
                             rw: "Itegereje Kwemezwa",
+                            fr: "En attente d'approbation",
+                            sw: "Inasubiri Idhini"
                           })}
                         </Button>
                       </div>
@@ -1418,7 +1453,7 @@ export default function ProgramDetail() {
                             onClick={handleEnrollClick}
                           >
                             <BookOpen className="h-4 w-4" />{" "}
-                            {t({ en: "Enroll Now", rw: "Iyandikishe ubu" })}
+                            {t({ en: "Enroll Now", rw: "Iyandikishe ubu", fr: "S'inscrire maintenant", sw: "Jiandikishe Sasa" })}
                           </Button>
                         )}
                         {program.status === "full" && (
@@ -1432,6 +1467,8 @@ export default function ProgramDetail() {
                             {t({
                               en: "Join Waitlist",
                               rw: "Yiyandikishe ku rutonde",
+                              fr: "Rejoindre la liste d'attente",
+                              sw: "Jiunge na Orodha ya Kusubiri"
                             })}
                           </Button>
                         )}
@@ -1443,7 +1480,7 @@ export default function ProgramDetail() {
                             onClick={() => setNotifyDialogOpen(true)}
                           >
                             <Bell className="h-4 w-4" />{" "}
-                            {t({ en: "Notify Me", rw: "Unyibutse" })}
+                            {t({ en: "Notify Me", rw: "Unyibutse", fr: "M'avertir", sw: "Nijulishe" })}
                           </Button>
                         )}
                         {program.status === "completed" && (
@@ -1456,6 +1493,8 @@ export default function ProgramDetail() {
                             {t({
                               en: "Program Completed",
                               rw: "Gahunda yarangiye",
+                              fr: "Programme terminé",
+                              sw: "Programu Imekamilika"
                             })}
                           </Button>
                         )}
@@ -1469,6 +1508,8 @@ export default function ProgramDetail() {
                       {t({
                         en: "Program Details",
                         rw: "Ibisobanuro bya Gahunda",
+                        fr: "Détails du Programme",
+                        sw: "Maelezo ya Programu"
                       })}
                     </h3>
                     <div className="space-y-3 text-sm">
@@ -1476,7 +1517,7 @@ export default function ProgramDetail() {
                         <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div>
                           <p className="text-muted-foreground text-xs">
-                            {t({ en: "Duration", rw: "Igihe kizamara" })}
+                            {t({ en: "Duration", rw: "Igihe kizamara", fr: "Durée", sw: "Muda" })}
                           </p>
                           <p className="font-medium text-foreground text-sm">
                             {t(program.duration)}
@@ -1487,7 +1528,7 @@ export default function ProgramDetail() {
                         <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div>
                           <p className="text-muted-foreground text-xs">
-                            {t({ en: "Starts", rw: "Itangira" })}
+                            {t({ en: "Starts", rw: "Itangira", fr: "Commence le", sw: "Inaanza" })}
                           </p>
                           <p className="font-medium text-foreground text-sm">
                             {t(program.startDate)}
@@ -1498,11 +1539,11 @@ export default function ProgramDetail() {
                         <Users className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div>
                           <p className="text-muted-foreground text-xs">
-                            {t({ en: "Class Size", rw: "Ingano y'ishuri" })}
+                            {t({ en: "Class Size", rw: "Ingano y'ishuri", fr: "Taille de la classe", sw: "Idadi ya Wanafunzi" })}
                           </p>
                           <p className="font-medium text-foreground text-sm">
                             {program.enrolled} / {program.maxParticipants}{" "}
-                            {t({ en: "enrolled", rw: "biyandikishije" })}
+                            {t({ en: "enrolled", rw: "biyandikishije", fr: "inscrits", sw: "wamejiandikisha" })}
                           </p>
                         </div>
                       </div>
@@ -1511,7 +1552,7 @@ export default function ProgramDetail() {
                           <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
                           <div>
                             <p className="text-muted-foreground text-xs">
-                              {t({ en: "Location", rw: "Ahantu" })}
+                              {t({ en: "Location", rw: "Ahantu", fr: "Lieu", sw: "Mahali" })}
                             </p>
                             <p className="font-medium text-foreground text-sm">
                               {t(program.location)}
@@ -1524,7 +1565,7 @@ export default function ProgramDetail() {
                           <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
                           <div>
                             <p className="text-muted-foreground text-xs">
-                              {t({ en: "Language", rw: "Ururimi" })}
+                              {t({ en: "Language", rw: "Ururimi", fr: "Langue", sw: "Lugha" })}
                             </p>
                             <p className="font-medium text-foreground text-sm">
                               {t(program.language)}
@@ -1541,7 +1582,7 @@ export default function ProgramDetail() {
                     t(program.requirements).length > 0 && (
                       <div className="bg-card border border-border rounded-2xl p-6">
                         <h3 className="font-semibold text-foreground text-sm mb-3">
-                          {t({ en: "Requirements", rw: "Ibisabwa" })}
+                          {t({ en: "Requirements", rw: "Ibisabwa", fr: "Exigences", sw: "Mahitaji" })}
                         </h3>
                         <ul className="space-y-2">
                           {(t(program.requirements) || "")
@@ -1572,24 +1613,28 @@ export default function ProgramDetail() {
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading text-lg">
-              {t({ en: "Enroll in Program", rw: "Iyandikishe muri Gahunda" })}
+              {t({ en: "Enroll in Program", rw: "Iyandikishe muri Gahunda", fr: "S'inscrire au programme", sw: "Jiandikishe katika Programu" })}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {isFree
                 ? t({
                     en: "This is a free program. Fill in your details to enroll.",
                     rw: "Iyi ni gahunda y'ubuntu. Uzuza neza amakuru yawe kugira ngo wiyandikishe.",
+                    fr: "Ce programme est gratuit. Remplissez vos coordonnées pour vous inscrire.",
+                    sw: "Hii ni programu ya bure. Jaza maelezo yako ili ujiandikishe."
                   })
                 : t({
                     en: `Complete your enrollment for ${formatPrice(program.price)}.`,
                     rw: `Uzuza iyandikisha ryawe wishyura ${formatPrice(program.price)}.`,
+                    fr: `Finalisez votre inscription pour ${formatPrice(program.price)}.`,
+                    sw: `Kamilisha uandikishaji wako kwa ${formatPrice(program.price)}.`
                   })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEnroll} className="space-y-4 pt-2">
             <div>
               <Label className="text-[11px] mb-1 block">
-                {t({ en: "Full Name *", rw: "Amazina Yose *" })}
+                {t({ en: "Full Name *", rw: "Amazina Yose *", fr: "Nom Complet *", sw: "Jina Kamili *" })}
               </Label>
               <Input
                 name="fullName"
@@ -1597,6 +1642,8 @@ export default function ProgramDetail() {
                 placeholder={t({
                   en: "Your full name",
                   rw: "Amazina yawe yose",
+                  fr: "Votre nom complet",
+                  sw: "Jina lako kamili"
                 })}
                 className="h-9 text-xs"
                 defaultValue={authUser?.name || ""}
@@ -1604,7 +1651,7 @@ export default function ProgramDetail() {
             </div>
             <div>
               <Label className="text-[11px] mb-1 block">
-                {t({ en: "Email *", rw: "Imeri *" })}
+                {t({ en: "Email *", rw: "Imeri *", fr: "E-mail *", sw: "Barua pepe *" })}
               </Label>
               <Input
                 name="email"
@@ -1617,7 +1664,7 @@ export default function ProgramDetail() {
             </div>
             <div>
               <Label className="text-[11px] mb-1 block">
-                {t({ en: "Phone *", rw: "Telefoni *" })}
+                {t({ en: "Phone *", rw: "Telefoni *", fr: "Téléphone *", sw: "Simu *" })}
               </Label>
               <Input
                 name="phone"
@@ -1629,7 +1676,7 @@ export default function ProgramDetail() {
             {!isFree && (
               <div className="space-y-3">
                 <Label className="text-[11px]">
-                  {t({ en: "Payment Method", rw: "Uburyo bwo kwishyura" })}
+                  {t({ en: "Payment Method", rw: "Uburyo bwo kwishyura", fr: "Méthode de Paiement", sw: "Njia ya Malipo" })}
                 </Label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -1642,7 +1689,7 @@ export default function ProgramDetail() {
                     }`}
                   >
                     <Smartphone className="h-4 w-4" />{" "}
-                    {t({ en: "Mobile Money", rw: "Momo" })}
+                    {t({ en: "Mobile Money", rw: "Momo", fr: "Mobile Money", sw: "Pesa za Simu" })}
                   </button>
                   <button
                     type="button"
@@ -1654,13 +1701,13 @@ export default function ProgramDetail() {
                     }`}
                   >
                     <CreditCard className="h-4 w-4" />{" "}
-                    {t({ en: "Card", rw: "Ikarita" })}
+                    {t({ en: "Card", rw: "Ikarita", fr: "Carte", sw: "Kadi" })}
                   </button>
                 </div>
                 {paymentMethod === "momo" && (
                   <div>
                     <Label className="text-[11px] mb-1 block">
-                      {t({ en: "MOMO Number *", rw: "Nimero ya MOMO *" })}
+                      {t({ en: "MOMO Number *", rw: "Nimero ya MOMO *", fr: "Numéro MOMO *", sw: "Namba ya MOMO *" })}
                     </Label>
                     <Input
                       name="momoNumber"
@@ -1674,7 +1721,7 @@ export default function ProgramDetail() {
                   <>
                     <div>
                       <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Card Number *", rw: "Nimero y'ikarita *" })}
+                        {t({ en: "Card Number *", rw: "Nimero y'ikarita *", fr: "Numéro de carte *", sw: "Namba ya Kadi *" })}
                       </Label>
                       <Input
                         name="cardNumber"
@@ -1686,7 +1733,7 @@ export default function ProgramDetail() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-[11px] mb-1 block">
-                          {t({ en: "Expiry *", rw: "Igihe izarangirira *" })}
+                          {t({ en: "Expiry *", rw: "Igihe izarangirira *", fr: "Expiration *", sw: "Kufa *" })}
                         </Label>
                         <Input
                           name="expiry"
@@ -1711,7 +1758,7 @@ export default function ProgramDetail() {
                 <div className="bg-accent/50 border border-border rounded-lg p-3">
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">
-                      {t({ en: "Program Fee", rw: "Ikiguzi cya Gahunda" })}
+                      {t({ en: "Program Fee", rw: "Ikiguzi cya Gahunda", fr: "Frais de programme", sw: "Ada ya Programu" })}
                     </span>
                     <span className="font-semibold text-foreground">
                       {formatPrice(program.price)}
@@ -1726,10 +1773,10 @@ export default function ProgramDetail() {
               disabled={enrolling}
             >
               {enrolling
-                ? t({ en: "Processing...", rw: "Biracyatunganywa..." })
+                ? t({ en: "Processing...", rw: "Biracyatunganywa...", fr: "Traitement en cours...", sw: "Inachakata..." })
                 : isFree
-                  ? t({ en: "Complete Enrollment", rw: "Yandikishe Burundu" })
-                  : `${t({ en: "Pay", rw: "Ishyura" })} ${formatPrice(program.price)}`}
+                  ? t({ en: "Complete Enrollment", rw: "Yandikishe Burundu", fr: "Finaliser l'inscription", sw: "Kamilisha Uandikishaji" })
+                  : `${t({ en: "Pay", rw: "Ishyura", fr: "Payer", sw: "Lipa" })} ${formatPrice(program.price)}`}
             </Button>
           </form>
         </DialogContent>
@@ -1741,38 +1788,44 @@ export default function ProgramDetail() {
           <DialogHeader>
             <DialogTitle className="font-heading text-lg">
               {program.status === "full"
-                ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde" })
-                : t({ en: "Get Notified", rw: "Unyibutse" })}
+                ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde", fr: "Rejoindre la liste d'attente", sw: "Jiunge na Orodha ya Kusubiri" })
+                : t({ en: "Get Notified", rw: "Unyibutse", fr: "Être notifié", sw: "Pata Arifa" })}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {program.status === "full"
                 ? t({
                     en: "We'll contact you when a spot opens up.",
                     rw: "Tuzakumenyesha umwanya niboneka.",
+                    fr: "Nous vous contacterons lorsqu'une place se libérera.",
+                    sw: "Tutawasiliana nawe wakati nafasi itakapopatikana."
                   })
                 : t({
                     en: "We'll notify you when enrollment opens.",
                     rw: "Tuzakumenyesha kwiyandikisha nibitangira.",
+                    fr: "Nous vous informerons de l'ouverture des inscriptions.",
+                    sw: "Tutakujulisha uandikishaji utakapofunguliwa."
                   })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleNotify} className="space-y-4 pt-2">
             <div>
               <Label className="text-[11px] mb-1 block">
-                {t({ en: "Full Name *", rw: "Amazina Yose *" })}
+                {t({ en: "Full Name *", rw: "Amazina Yose *", fr: "Nom Complet *", sw: "Jina Kamili *" })}
               </Label>
               <Input
                 required
                 placeholder={t({
                   en: "Your full name",
                   rw: "Amazina yawe yose",
+                  fr: "Votre nom complet",
+                  sw: "Jina lako kamili"
                 })}
                 className="h-9 text-xs"
               />
             </div>
             <div>
               <Label className="text-[11px] mb-1 block">
-                {t({ en: "Email *", rw: "Imeri *" })}
+                {t({ en: "Email *", rw: "Imeri *", fr: "E-mail *", sw: "Barua pepe *" })}
               </Label>
               <Input
                 type="email"
@@ -1783,14 +1836,14 @@ export default function ProgramDetail() {
             </div>
             <div>
               <Label className="text-[11px] mb-1 block">
-                {t({ en: "Phone (optional)", rw: "Telefoni (niba uayifite)" })}
+                {t({ en: "Phone (optional)", rw: "Telefoni (niba uayifite)", fr: "Téléphone (facultatif)", sw: "Simu (hiari)" })}
               </Label>
               <Input placeholder="+250 7XX XXX XXX" className="h-9 text-xs" />
             </div>
             <Button type="submit" className="w-full text-xs h-10">
               {program.status === "full"
-                ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde" })
-                : t({ en: "Notify Me", rw: "Unyibutse" })}
+                ? t({ en: "Join Waitlist", rw: "Yiyandikishe ku rutonde", fr: "Rejoindre la liste", sw: "Jiunge na Orodha" })
+                : t({ en: "Notify Me", rw: "Unyibutse", fr: "M'avertir", sw: "Nijulishe" })}
             </Button>
           </form>
         </DialogContent>
@@ -1802,12 +1855,14 @@ export default function ProgramDetail() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-heading text-lg">
-                {t({ en: "Your Certificate", rw: "Impamyabumenyi Yawe" })}
+                {t({ en: "Your Certificate", rw: "Impamyabumenyi Yawe", fr: "Votre Certificat", sw: "Cheti Chako" })}
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {t({
                   en: "Congratulations on completing the program!",
                   rw: "Urashimwa ko wasoje iyi gahunda!",
+                  fr: "Félicitations pour avoir terminé le programme !",
+                  sw: "Hongera kwa kukamilisha programu!"
                 })}
               </DialogDescription>
             </DialogHeader>
@@ -1816,6 +1871,8 @@ export default function ProgramDetail() {
                 {t({
                   en: "Your official certificate ID will appear here once the program is marked complete and issued by the platform.",
                   rw: "Indangamuntu y'impamyabumenyi izagaragara iyi namara gahunda koherewe kandi yatangwa.",
+                  fr: "L'ID officiel de votre certificat apparaîtra ici une fois le programme marqué comme terminé et délivré.",
+                  sw: "Kitambulisho chako rasmi cha cheti kitaonekana hapa pindi programu itakapokamilika na kutolewa."
                 })}
               </p>
             ) : null}
@@ -1825,7 +1882,7 @@ export default function ProgramDetail() {
               recipientName={
                 authUser?.name ||
                 activeEnrollment?.fullName ||
-                t({ en: "[Your Name]", rw: "[Amazina]" })
+                t({ en: "[Your Name]", rw: "[Amazina]", fr: "[Votre Nom]", sw: "[Jina Lako]" })
               }
               issueDate={
                 activeEnrollment?.certificateIssuedAt
@@ -1848,7 +1905,7 @@ export default function ProgramDetail() {
                 onClick={handleDownloadCertificate}
               >
                 <Download className="h-4 w-4" />{" "}
-                {t({ en: "Download", rw: "Kuraho" })}
+                {t({ en: "Download", rw: "Kuraho", fr: "Télécharger", sw: "Pakua" })}
               </Button>
             </div>
           </DialogContent>
@@ -1868,12 +1925,14 @@ export default function ProgramDetail() {
               <Brain className="h-5 w-5 text-green-600 dark:text-green-400" />
               {activeQuiz
                 ? t(activeQuiz.title)
-                : t({ en: "Module Quiz", rw: "Isuzumabumenyi" })}
+                : t({ en: "Module Quiz", rw: "Isuzumabumenyi", fr: "Quiz du module", sw: "Maswali ya Moduli" })}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {t({
                 en: "To complete this module, you need a passing score.",
                 rw: "Gutsinda neza ni ngombwa ngo wemerewe gukomeza.",
+                fr: "Pour terminer ce module, vous devez obtenir la moyenne.",
+                sw: "Ili kukamilisha moduli hii, unahitaji alama ya ufaulu."
               })}
             </p>
           </div>
@@ -1948,8 +2007,8 @@ export default function ProgramDetail() {
                 >
                   {quizScore &&
                   quizScore >= Math.ceil(activeQuiz.questions.length * 0.6)
-                    ? t({ en: "Passed!", rw: "Watsinze!" })
-                    : t({ en: "Try Again", rw: "Gerageza nanone" })}
+                    ? t({ en: "Passed!", rw: "Watsinze!", fr: "Réussi !", sw: "Umefaulu!" })
+                    : t({ en: "Try Again", rw: "Gerageza nanone", fr: "Réessayer", sw: "Jaribu Tena" })}
                 </div>
               </div>
             )}
