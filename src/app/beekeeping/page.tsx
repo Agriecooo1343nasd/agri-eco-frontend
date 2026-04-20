@@ -125,12 +125,12 @@ export default function BeekeepingPage() {
                 {t(translations.beekeepingPage.desc)}
               </p>
               <div className="flex gap-3 flex-wrap">
-                <Link href="/tours/beekeeping-discovery">
+                <Link href="#beekeeping-experiences">
                   <Button size="lg" className="gap-2 text-sm">
                     {t(translations.beekeepingPage.bookTour)} <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Link href="/tours/beeswax-workshop">
+                <Link href="#beekeeping-experiences">
                   <Button
                     size="lg"
                     variant="outline"
@@ -207,7 +207,7 @@ export default function BeekeepingPage() {
         </section>
 
         {/* Available Experiences (Integrated) */}
-        <section className="py-16">
+        <section id="beekeeping-experiences" className="py-16">
           <div className="container">
             <h2 className="section-heading mb-2 text-xl font-bold">
               {t(translations.beekeepingPage.bookExp)}

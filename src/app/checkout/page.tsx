@@ -25,6 +25,8 @@ import { validateDiscountCode } from "@/lib/api/discounts";
 import { placeOrder } from "@/lib/api/orders";
 import { fetchPublicDeliveryZones } from "@/lib/api/delivery-zones";
 import { toast } from "sonner";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 type PaymentMethod = "momo" | "card" | "cod" | null;
 
@@ -32,6 +34,7 @@ const CheckoutPage = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
   const { formatPrice } = usePricing();
   const { user, isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
 
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
@@ -198,7 +201,7 @@ const CheckoutPage = () => {
         err?.response?.data?.errors?.[0]?.message ||
         err?.response?.data?.message ||
         err?.message ||
-        "Failed to validate discount code.";
+        t(translations.checkoutPage.discountError || "Failed to validate discount code.");
       setDiscountFeedback({ type: "error", message: backendMessage });
       toast.error(backendMessage);
     } finally {
@@ -283,16 +286,16 @@ const CheckoutPage = () => {
         <Header />
         <div className="container py-20 text-center">
           <h2 className="text-xl font-bold font-heading text-foreground">
-            Your cart is empty
+            {t(translations.checkoutPage.emptyTitle || "Your cart is empty")}
           </h2>
           <p className="text-muted-foreground mt-2">
-            Add items to your cart before checking out.
+            {t(translations.checkoutPage.emptyDesc || "Add items to your cart before checking out.")}
           </p>
           <Link
             href="/shop"
             className="mt-6 inline-flex items-center gap-2 bg-primary text-primary-foreground py-3 px-6 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
           >
-            Go to Shop <ArrowRight className="h-4 w-4" />
+            {t(translations.checkoutPage.shopNow || "Go to Shop")} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
         <Footer />
@@ -308,18 +311,18 @@ const CheckoutPage = () => {
       <div className="bg-gradient-to-r from-primary/10 via-accent to-primary/5 border-b border-border">
         <div className="container py-8 md:py-12">
           <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
-            Checkout
+            {t(translations.checkoutPage.title)}
           </h1>
           <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary transition-colors">
-              Home
+              {t(translations.checkoutPage.home)}
             </Link>
             <ChevronRight className="h-3 w-3" />
             <Link href="/cart" className="hover:text-primary transition-colors">
-              Cart
+              {t(translations.checkoutPage.cart)}
             </Link>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-primary font-semibold">Checkout</span>
+            <span className="text-primary font-semibold">{t(translations.checkoutPage.title)}</span>
           </div>
         </div>
       </div>
@@ -331,7 +334,7 @@ const CheckoutPage = () => {
             {/* Shipping Info */}
             <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
               <h2 className="font-heading font-bold text-foreground text-lg mb-5 flex items-center gap-2">
-                <Truck className="h-5 w-5 text-primary" /> Shipping Information
+                <Truck className="h-5 w-5 text-primary" /> {t(translations.checkoutPage.shippingInfo)}
               </h2>
 
               <Link
@@ -343,16 +346,14 @@ const CheckoutPage = () => {
                 </div>
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="text-sm font-bold text-foreground">
-                    Is your address inside our delivery area?
+                    {t(translations.checkoutPage.deliveryAreaCheck)}
                   </p>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    We only ship to locations covered by our active delivery zones.
-                    Open the full list to search, sort, and confirm your city or sector
-                    before you finish this form.
+                    {t(translations.checkoutPage.deliveryAreaDesc)}
                   </p>
                   {zonesPreview?.data && zonesPreview.data.length > 0 ? (
                     <p className="text-[11px] text-muted-foreground pt-1">
-                      <span className="font-medium text-foreground">Examples: </span>
+                      <span className="font-medium text-foreground">{t(translations.checkoutPage.examples)}: </span>
                       {zonesPreview.data.slice(0, 4).map((z) => z.name).join(" · ")}
                       {zonesPreview.pagination && zonesPreview.pagination.total > 4
                         ? " · …"
@@ -362,7 +363,7 @@ const CheckoutPage = () => {
                 </div>
 
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary sm:shrink-0">
-                  View delivery areas
+                  {t(translations.checkoutPage.viewDeliveryAreas)}
                   <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
@@ -370,7 +371,7 @@ const CheckoutPage = () => {
               {isAuthenticated && (
                 <div className="mb-6 space-y-3">
                   <label className="block font-semibold text-foreground text-sm flex items-center gap-2">
-                    Shipping Destination
+                    {t(translations.checkoutPage.shippingDestination)}
                   </label>
                   
                   {loadingAddresses ? (
@@ -411,13 +412,15 @@ const CheckoutPage = () => {
                             : "border-border hover:border-primary/50 bg-accent/20"
                         }`}
                       >
-                        <p className="font-bold text-xs">Use a different address</p>
-                        <p className="text-[10px] text-muted-foreground">Enter manually</p>
+                        <p className="font-bold text-xs">{t(translations.checkoutPage.useDifferentAddress)}</p>
+                        <p className="text-[10px] text-muted-foreground">{t(translations.checkoutPage.enterManually)}</p>
                       </button>
                     </div>
                   ) : (
-                    <div className="text-[10px] text-muted-foreground bg-accent/10 p-3 rounded-lg border border-dashed border-border">
-                      No saved addresses found. Please enter your shipping details below.
+                    <div className="rounded-xl border border-dashed border-border p-8 text-center bg-muted/20">
+                      <p className="text-xs text-muted-foreground">
+                        {t(translations.checkoutPage.noSavedAddresses)}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -426,7 +429,7 @@ const CheckoutPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    First Name *
+                    {t(translations.checkoutPage.firstName)} *
                   </label>
                   <input
                     name="firstName"
@@ -438,7 +441,7 @@ const CheckoutPage = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    Last Name *
+                    {t(translations.checkoutPage.lastName)} *
                   </label>
                   <input
                     name="lastName"
@@ -450,7 +453,7 @@ const CheckoutPage = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    Email *
+                    {t(translations.checkoutPage.email)} *
                   </label>
                   <input
                     name="email"
@@ -463,7 +466,7 @@ const CheckoutPage = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    Phone *
+                    {t(translations.checkoutPage.phone)} *
                   </label>
                   <input
                     name="phone"
@@ -476,7 +479,7 @@ const CheckoutPage = () => {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block font-semibold text-foreground mb-1.5">
-                    Address Line 1 *
+                    {t(translations.checkoutPage.address)} *
                   </label>
                   <input
                     name="address"
@@ -488,7 +491,7 @@ const CheckoutPage = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    City *
+                    {t(translations.checkoutPage.city)} *
                   </label>
                   <input
                     name="city"
@@ -500,7 +503,7 @@ const CheckoutPage = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    State / Province
+                    {t(translations.checkoutPage.state)}
                   </label>
                   <input
                     name="state"
@@ -512,7 +515,7 @@ const CheckoutPage = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    ZIP / Postal Code *
+                    {t(translations.checkoutPage.zip)} *
                   </label>
                   <input
                     name="zip"
@@ -524,7 +527,7 @@ const CheckoutPage = () => {
                 </div>
                 <div>
                   <label className="block font-semibold text-foreground mb-1.5">
-                    Country
+                    {t(translations.checkoutPage.country)}
                   </label>
                   <select
                     name="country"
@@ -552,14 +555,14 @@ const CheckoutPage = () => {
                     className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
                   <label htmlFor="saveAddress" className="text-sm font-medium text-muted-foreground cursor-pointer">
-                    Save this address to my profile for future orders
+                    {t(translations.checkoutPage.saveAddress)}
                   </label>
                 </div>
               )}
 
               <div className="mt-4">
                 <label className="block font-semibold text-foreground mb-1.5">
-                  Order Notes (optional)
+                  {t(translations.checkoutPage.orderNotes)}
                 </label>
                 <textarea
                   name="notes"
@@ -567,7 +570,7 @@ const CheckoutPage = () => {
                   onChange={handleInput}
                   rows={3}
                   className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground resize-none transition-all"
-                  placeholder="Any special delivery instructions..."
+                  placeholder={t(translations.checkoutPage.notesPlaceholder)}
                 />
               </div>
             </div>
@@ -575,7 +578,7 @@ const CheckoutPage = () => {
             {/* Payment Method */}
             <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
               <h2 className="font-heading font-bold text-foreground text-lg mb-5 flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-primary" /> Payment Method
+                <ShieldCheck className="h-5 w-5 text-primary" /> {t(translations.checkoutPage.paymentMethod)}
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -591,11 +594,11 @@ const CheckoutPage = () => {
                   <div className="flex items-center gap-3 mb-2">
                     <Smartphone className="h-6 w-6 text-primary" />
                     <span className="font-bold text-foreground">
-                      Mobile Money (MOMO)
+                      {t(translations.checkoutPage.momo)}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Pay via MTN MoMo, Airtel Money, or other mobile wallets
+                    {t(translations.checkoutPage.momoDesc)}
                   </p>
                 </button>
 
@@ -611,7 +614,7 @@ const CheckoutPage = () => {
                   <div className="flex items-center gap-3 mb-2">
                     <CreditCard className="h-6 w-6 text-primary" />
                     <span className="font-bold text-foreground">
-                      Credit / Debit Card
+                      {t(translations.checkoutPage.card)}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -631,11 +634,11 @@ const CheckoutPage = () => {
                   <div className="flex items-center gap-3 mb-2">
                     <Truck className="h-6 w-6 text-primary" />
                     <span className="font-bold text-foreground">
-                      Cash on Delivery (COD)
+                      {t(translations.checkoutPage.cod)}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Pay when you receive your order
+                    {t(translations.checkoutPage.codDesc)}
                   </p>
                 </button>
               </div>
@@ -651,14 +654,14 @@ const CheckoutPage = () => {
                     disabled={!isFormValid || isPlacingOrder}
                     className="w-full h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                   >
-                    {isPlacingOrder ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Placing Order...
-                      </>
-                    ) : (
-                      <>Confirm Order {formatPrice(grandTotal)}</>
-                    )}
+                        {isPlacingOrder ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {t(translations.checkoutPage.placingOrder || "Placing Order...")}
+                          </>
+                        ) : (
+                          <>{t(translations.checkoutPage.confirmOrder)} {formatPrice(grandTotal)}</>
+                        )}
                   </Button>
                 </div>
               )}
@@ -667,7 +670,7 @@ const CheckoutPage = () => {
               {paymentMethod === "momo" && (
                 <div className="mt-6 bg-accent border border-border rounded-xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2">
                   <h3 className="font-semibold text-foreground text-sm font-heading">
-                    Enter your Mobile Money number
+                    {t(translations.checkoutPage.momoNumber)}
                   </h3>
                   <input
                     type="tel"
@@ -677,8 +680,7 @@ const CheckoutPage = () => {
                     className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground font-medium"
                   />
                   <p className="text-xs text-muted-foreground">
-                    You will receive a USSD push notification to confirm the
-                    payment on your phone.
+                    {t(translations.checkoutPage.momoInstruction)}
                   </p>
                   <Button
                     onClick={handlePlaceOrder}
@@ -690,10 +692,10 @@ const CheckoutPage = () => {
                     {isPlacingOrder ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
+                        {t(translations.checkoutPage.placingOrder || "Placing Order...")}
                       </>
                     ) : (
-                      <>Pay {formatPrice(grandTotal)} via MoMo</>
+                      <>{t(translations.checkoutPage.placeOrder)} {formatPrice(grandTotal)}</>
                     )}
                   </Button>
                 </div>
@@ -739,10 +741,10 @@ const CheckoutPage = () => {
                     {isPlacingOrder ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
+                        {t(translations.checkoutPage.placingOrder || "Placing Order...")}
                       </>
                     ) : (
-                      <>Pay {formatPrice(grandTotal)} with Card</>
+                      <> {t(translations.checkoutPage.placeOrder)} {formatPrice(grandTotal)}</>
                     )}
                   </Button>
                 </div>
@@ -754,7 +756,7 @@ const CheckoutPage = () => {
           <div className="lg:w-96 shrink-0">
             <div className="bg-card border border-border rounded-xl p-6 sticky top-36 shadow-sm">
               <h3 className="font-heading font-bold text-foreground text-lg mb-4">
-                Order Summary
+                {t(translations.checkoutPage.orderSummary)}
               </h3>
 
               <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
@@ -774,9 +776,8 @@ const CheckoutPage = () => {
                         <p className="text-sm font-semibold text-foreground truncate">
                           {product.name}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {quantity} × {formatPrice(product.price)} /{" "}
-                          {product.unit}
+                        <p className="text-[10px] text-muted-foreground font-medium">
+                          {quantity} × {formatPrice(product.price)} / {t(translations.checkoutPage.piece)}
                         </p>
                         {hasDiscount && (
                           <span className="text-[10px] font-bold text-badge-sale bg-badge-sale/10 px-1.5 py-0.5 rounded-full">
@@ -797,7 +798,7 @@ const CheckoutPage = () => {
 
               <div className="mt-6">
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-2">
-                  Discount Code
+                  {t(translations.checkoutPage.discountCode)}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -806,16 +807,20 @@ const CheckoutPage = () => {
                       setDiscountCode(e.target.value.toUpperCase());
                       if (discountFeedback) setDiscountFeedback(null);
                     }}
-                    placeholder="Enter Code"
+                    placeholder={t(translations.checkoutPage.enterCode)}
                     className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
                   />
                   <Button
                     onClick={handleValidateDiscount}
-                    disabled={!discountCode || isValidatingDiscount}
+                    disabled={!discountCode.trim() || isValidatingDiscount}
                     variant="outline"
-                    className="h-9 px-3 text-xs"
+                    className="h-11 px-4 font-bold"
                   >
-                    {isValidatingDiscount ? <Loader2 className="h-3 w-3 animate-spin"/> : "Apply"}
+                    {isValidatingDiscount ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      t(translations.checkoutPage.apply)
+                    )}
                   </Button>
                 </div>
                 {discountFeedback ? (
@@ -833,14 +838,14 @@ const CheckoutPage = () => {
 
               <div className="border-t border-border mt-4 pt-4 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="text-muted-foreground">{t(translations.cartPage.subtotal)}</span>
                   <span className="font-semibold text-foreground font-heading">
                     {formatPrice(cartTotal)}
                   </span>
                 </div>
                 {itemDiscounts > 0 && (
                   <div className="flex justify-between text-badge-sale">
-                    <span>Retail Discounts Applied</span>
+                    <span>{t(translations.checkoutPage.retailDiscounts || "Retail Discounts Applied")}</span>
                     <span className="font-semibold">
                       -{formatPrice(itemDiscounts)}
                     </span>
@@ -848,17 +853,17 @@ const CheckoutPage = () => {
                 )}
                 {appliedDiscount && (
                   <div className="flex justify-between text-primary font-bold">
-                    <span>Coupon: {appliedDiscount.code}</span>
+                    <span>{t(translations.checkoutPage.coupon || "Coupon")}: {appliedDiscount.code}</span>
                     <span className="font-semibold">
                       -{formatPrice(appliedDiscount.amount)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shipping</span>
+                  <span className="text-muted-foreground">{t(translations.cartPage.shipping)}</span>
                   <span className="font-semibold text-foreground font-heading">
                     {shipping === 0 ? (
-                      <span className="text-primary font-bold">Depends on the delivery zone</span>
+                      <span className="text-primary font-bold">{t(translations.checkoutPage.shippingDepends)}</span>
                     ) : (
                       formatPrice(shipping)
                     )}
@@ -866,11 +871,11 @@ const CheckoutPage = () => {
                 </div>
                 <div className="border-t-2 border-dashed border-border pt-4 flex justify-between items-end">
                   <span className="font-bold text-foreground text-base">
-                    Grand Total
+                    {t(translations.cartPage.total)}
                   </span>
                   <div className="text-right">
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
-                      Total inclusive of taxes
+                      {t(translations.checkoutPage.totalInclusive)}
                     </p>
                     <p className="font-bold text-primary text-2xl font-heading leading-tight">
                       {formatPrice(grandTotal)}
@@ -881,7 +886,7 @@ const CheckoutPage = () => {
 
               <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                <span>100% Safe and Secure Checkout</span>
+                <span>{t(translations.checkoutPage.safeCheckout)}</span>
               </div>
             </div>
           </div>

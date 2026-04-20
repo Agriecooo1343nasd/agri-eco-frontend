@@ -118,9 +118,8 @@ const Footer = () => {
                 { label: t(translations.header.nav.education), href: "/education" },
                 { label: t(translations.header.nav.community), href: "/community" },
                 { label: t(translations.header.nav.deals), href: "/deals" },
+                { label: t(translations.contactPage.heroBreadcrumb), href: "/contact" },
                 { label: t(translations.header.account.myAccount), href: "/account" },
-                { label: t(translations.header.nav.deals), href: "/wishlist" }, // Missing label for wishlist
-                { label: t(translations.header.nav.shop), href: "/cart" }, // Missing label for cart
               ].map((link) => (
                 <li key={link.href}>
                   <Link

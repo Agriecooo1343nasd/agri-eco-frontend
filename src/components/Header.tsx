@@ -357,10 +357,8 @@ const Header = () => {
 
       {/* Navigation bar */}
       <nav className="bg-card border-b border-border hidden md:block w-full">
-        {/* KEY FIX: use the same max-width container as the rows above */}
         <div className="w-full max-w-screen-2xl mx-auto px-4">
-          <div className="flex items-stretch overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-
+          <div className="flex items-stretch">
             {/* Categories dropdown */}
             <div className="relative shrink-0 border-r border-border/70">
               <button
@@ -382,7 +380,7 @@ const Header = () => {
                       <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                       <input
                         type="text"
-                        placeholder="Search categories..."
+                        placeholder={t(translations.header.searchPlaceholder.categories)}
                         value={catSearch}
                         onChange={(e) => {
                           setCatSearch(e.target.value);
@@ -412,7 +410,7 @@ const Header = () => {
                       ))
                     ) : (
                       <p className="px-4 py-3 text-xs text-muted-foreground text-center">
-                        {t(translations.sections.ourProducts?.noneFound || "No categories found")}
+                        {t(translations.common?.noResultsFound || "No categories found")}
                       </p>
                     )}
                   </div>
@@ -424,7 +422,7 @@ const Header = () => {
                           onClick={() => setCatPage((p) => Math.max(1, p - 1))}
                           className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
                         >
-                          Prev
+                          {t(translations.common?.previous || "Prev")}
                         </button>
                         <span className="text-[10px] text-muted-foreground">
                           {catPage} / {categoriesData.pagination.pages}
@@ -434,7 +432,7 @@ const Header = () => {
                           onClick={() => setCatPage((p) => p + 1)}
                           className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-background border border-border rounded disabled:opacity-50"
                         >
-                          Next
+                          {t(translations.common?.next || "Next")}
                         </button>
                       </div>
                     )}
@@ -442,8 +440,8 @@ const Header = () => {
               )}
             </div>
 
-            {/* Nav links — fill remaining space, left-aligned */}
-            <div className="flex items-center flex-1">
+            {/* Nav links — fill remaining space, left-aligned, scrollable */}
+            <div className="flex items-center flex-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}

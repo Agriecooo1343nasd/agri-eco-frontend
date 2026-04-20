@@ -15,10 +15,13 @@ import Footer from "@/components/Footer";
 import FeaturesBar from "@/components/FeaturesBar";
 import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const WishlistPage = () => {
   const { wishlistItems, removeFromWishlist, moveToCart, isInCart } = useCart();
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,14 +31,14 @@ const WishlistPage = () => {
       <div className="bg-gradient-to-r from-primary/10 via-accent to-primary/5 border-b border-border">
         <div className="container py-8 md:py-12">
           <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
-            My Wishlist
+            {t(translations.wishlistPage.title)}
           </h1>
           <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary transition-colors">
-              Home
+              {t(translations.wishlistPage.home)}
             </Link>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-primary font-semibold">Wishlist</span>
+            <span className="text-primary font-semibold">{t(translations.wishlistPage.wishlist)}</span>
           </div>
         </div>
       </div>
@@ -45,27 +48,27 @@ const WishlistPage = () => {
           <div className="text-center py-20">
             <Heart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-bold font-heading text-foreground">
-              Your wishlist is empty
+              {t(translations.wishlistPage.emptyTitle)}
             </h2>
             <p className="text-muted-foreground mt-2">
-              Save your favourite products here for later.
+              {t(translations.wishlistPage.emptyDesc)}
             </p>
             <Link
               href="/shop"
               className="mt-6 inline-flex items-center gap-2 bg-primary text-primary-foreground py-3 px-6 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
             >
-              Browse Products
+              {t(translations.wishlistPage.browseProducts)}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         ) : (
           <>
             <p className="text-sm text-muted-foreground mb-6">
-              You have{" "}
+              {t(translations.common?.youHave || "You have")}{" "}
               <span className="font-bold text-foreground">
                 {wishlistItems.length}
               </span>{" "}
-              item{wishlistItems.length > 1 ? "s" : ""} in your wishlist.
+              {t(translations.wishlistPage.itemsInWishlist)}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {wishlistItems.map((product) => {
@@ -143,7 +146,7 @@ const WishlistPage = () => {
                         }`}
                       >
                         <ShoppingCart className="h-4 w-4" />
-                        {alreadyInCart ? "Already in Cart" : "Move to Cart"}
+                        {alreadyInCart ? t(translations.wishlistPage.alreadyInCart) : t(translations.wishlistPage.moveToCart)}
                       </button>
                     </div>
                   </div>

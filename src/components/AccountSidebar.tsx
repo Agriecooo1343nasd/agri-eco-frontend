@@ -17,64 +17,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-
-const menuItems = [
-  { id: "dashboard", label: "Dashboard", icon: User, href: "/account" },
-  {
-    id: "profile",
-    label: "My Profile",
-    icon: User,
-    href: "/account/profile",
-  },
-  {
-    id: "orders",
-    label: "My Orders",
-    icon: ShoppingBag,
-    href: "/account/orders",
-  },
-  {
-    id: "bookings",
-    label: "My Tours",
-    icon: Map,
-    href: "/account/bookings",
-  },
-  {
-    id: "partner-network",
-    label: "Partner Network",
-    icon: Handshake,
-    href: "/account/partner",
-  },
-  {
-    id: "enrollments",
-    label: "My Enrollments",
-    icon: GraduationCap,
-    href: "/account/enrollments",
-  },
-  {
-    id: "certificates",
-    label: "My Certificates",
-    icon: Award,
-    href: "/account/certificates",
-  },
-  {
-    id: "requests",
-    label: "My Requests",
-    icon: MessageSquare,
-    href: "/account/requests",
-  },
-  {
-    id: "addresses",
-    label: "Saved Addresses",
-    icon: MapPin,
-    href: "/account/addresses",
-  },
-  {
-    id: "settings",
-    label: "Account Settings",
-    icon: Settings,
-    href: "/account/settings",
-  },
-];
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 interface AccountSidebarProps {
   isOpen: boolean;
@@ -84,6 +28,65 @@ interface AccountSidebarProps {
 const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const { t } = useLanguage();
+
+  const menuItems = [
+    { id: "dashboard", label: t(translations.accountPage.dashboard), icon: User, href: "/account" },
+    {
+      id: "profile",
+      label: t(translations.accountPage.myProfile),
+      icon: User,
+      href: "/account/profile",
+    },
+    {
+      id: "orders",
+      label: t(translations.accountPage.myOrders),
+      icon: ShoppingBag,
+      href: "/account/orders",
+    },
+    {
+      id: "bookings",
+      label: t(translations.accountPage.myTours),
+      icon: Map,
+      href: "/account/bookings",
+    },
+    {
+      id: "partner-network",
+      label: t(translations.accountPage.partnerNetwork),
+      icon: Handshake,
+      href: "/account/partner",
+    },
+    {
+      id: "enrollments",
+      label: t(translations.accountPage.myEnrollments),
+      icon: GraduationCap,
+      href: "/account/enrollments",
+    },
+    {
+      id: "certificates",
+      label: t(translations.accountPage.myCertificates),
+      icon: Award,
+      href: "/account/certificates",
+    },
+    {
+      id: "requests",
+      label: t(translations.accountPage.myRequests),
+      icon: MessageSquare,
+      href: "/account/requests",
+    },
+    {
+      id: "addresses",
+      label: t(translations.accountPage.savedAddresses),
+      icon: MapPin,
+      href: "/account/addresses",
+    },
+    {
+      id: "settings",
+      label: t(translations.accountPage.accountSettings),
+      icon: Settings,
+      href: "/account/settings",
+    },
+  ];
 
   return (
     <aside
@@ -155,7 +158,7 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
               className="w-full flex items-center gap-3 px-6 py-4 rounded-md text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
             >
               <LogOut className="h-5 w-5" />
-              Logout Account
+              {t(translations.accountPage.logout)}
             </button>
           </li>
         </ul>

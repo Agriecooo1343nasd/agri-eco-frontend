@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 import {
   ChevronRight,
   Minus,
@@ -9,6 +11,7 @@ import {
   ShoppingCart,
   ArrowRight,
   AlertTriangle,
+  Truck,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -40,6 +43,7 @@ const CartPage = () => {
     removeFromWishlist,
   } = useCart();
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
 
   const shipping = cartTotal > 50 ? 0 : 5.99;
   const grandTotal = cartTotal + shipping;
@@ -52,14 +56,14 @@ const CartPage = () => {
       <div className="bg-gradient-to-r from-primary/10 via-accent to-primary/5 border-b border-border">
         <div className="container py-8 md:py-12">
           <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
-            Shopping Cart
+            {t(translations.cartPage.title)}
           </h1>
           <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary transition-colors">
-              Home
+              {t(translations.cartPage.home)}
             </Link>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-primary font-semibold">Cart</span>
+            <span className="text-primary font-semibold">{t(translations.cartPage.cart)}</span>
           </div>
         </div>
       </div>
@@ -69,16 +73,16 @@ const CartPage = () => {
           <div className="text-center py-20">
             <ShoppingCart className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-bold font-heading text-foreground">
-              Your cart is empty
+              {t(translations.cartPage.emptyTitle)}
             </h2>
             <p className="text-muted-foreground mt-2">
-              Looks like you haven't added anything yet.
+              {t(translations.cartPage.emptyDesc)}
             </p>
             <Link
               href="/shop"
               className="mt-6 inline-flex items-center gap-2 bg-primary text-primary-foreground py-3 px-6 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
             >
-              Continue Shopping
+              {t(translations.cartPage.continueShopping)}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -88,10 +92,10 @@ const CartPage = () => {
             <div className="flex-1 min-w-0">
               {/* Header row (desktop) */}
               <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 items-center bg-card border border-border rounded-xl p-4 mb-4 text-sm font-semibold text-muted-foreground">
-                <span>Product</span>
-                <span className="text-center">Price</span>
-                <span className="text-center">Quantity</span>
-                <span className="text-center">Subtotal</span>
+                <span>{t(translations.cartPage.product)}</span>
+                <span className="text-center">{t(translations.cartPage.price)}</span>
+                <span className="text-center">{t(translations.cartPage.quantity)}</span>
+                <span className="text-center">{t(translations.cartPage.subtotal)}</span>
                 <span className="w-10" />
               </div>
 
@@ -196,13 +200,13 @@ const CartPage = () => {
                   href="/shop"
                   className="flex items-center gap-2 border border-border px-5 py-2.5 rounded-xl text-sm font-semibold text-foreground hover:bg-accent transition-colors"
                 >
-                  ← Continue Shopping
+                  ← {t(translations.cartPage.continueShopping)}
                 </Link>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <button className="flex items-center gap-2 border border-destructive/30 px-5 py-2.5 rounded-xl text-sm font-semibold text-destructive hover:bg-destructive/10 transition-colors">
                       <Trash2 className="h-4 w-4" />
-                      Clear Cart
+                      {t(translations.cartPage.clearCart)}
                     </button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -210,22 +214,20 @@ const CartPage = () => {
                       <div className="flex items-center gap-2 text-destructive mb-2">
                         <AlertTriangle className="h-5 w-5" />
                         <AlertDialogTitle>
-                          Empty Shopping Cart?
+                          {t(translations.cartPage.emptyCartDialogTitle)}
                         </AlertDialogTitle>
                       </div>
                       <AlertDialogDescription>
-                        Are you sure you want to remove all items from your
-                        cart? This action cannot be undone and you will have to
-                        add your items again.
+                        {t(translations.cartPage.emptyCartDialogDesc)}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Keep My Items</AlertDialogCancel>
+                      <AlertDialogCancel>{t(translations.cartPage.keepItems)}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={clearCart}
                         className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                       >
-                        Yes, Clear Cart
+                        {t(translations.cartPage.yesClear)}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -237,44 +239,42 @@ const CartPage = () => {
             <div className="lg:w-80 shrink-0">
               <div className="bg-card border border-border rounded-xl p-6 sticky top-36">
                 <h3 className="font-heading font-bold text-foreground text-lg mb-4">
-                  Order Summary
+                  {t(translations.cartPage.orderSummary)}
                 </h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      Subtotal ({cartItems.length} items)
+                      {t(translations.cartPage.subtotal)} ({cartItems.length} {t(translations.cartPage.quantity)})
                     </span>
                     <span className="font-semibold text-foreground">
                       {formatPrice(cartTotal)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping</span>
-                    <span className="font-semibold text-foreground">
-                      {shipping === 0 ? (
-                        <span className="text-primary font-bold">Free</span>
-                      ) : (
-                        formatPrice(shipping)
-                      )}
+                  <div className="border-t border-border pt-4 flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-foreground text-base">
+                        {t(translations.cartPage.total)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {t(translations.checkoutPage.totalInclusive)}
+                      </span>
+                    </div>
+                    <span className="font-bold text-primary text-2xl">
+                      {formatPrice(cartTotal)}
                     </span>
                   </div>
-                  {shipping > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Free shipping on orders over {formatPrice(50)}
+                  <div className="bg-muted/50 p-3 rounded-lg border border-border mt-2">
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-2">
+                      <Truck className="h-3.5 w-3.5" />
+                      {t(translations.checkoutPage.shippingDepends)}
                     </p>
-                  )}
-                  <div className="border-t border-border pt-3 flex justify-between">
-                    <span className="font-bold text-foreground">Total</span>
-                    <span className="font-bold text-primary text-xl">
-                      {formatPrice(grandTotal)}
-                    </span>
                   </div>
                 </div>
                 <Link
                   href="/checkout"
                   className="mt-6 w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                 >
-                  Proceed to Checkout
+                  {t(translations.cartPage.proceedToCheckout)}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -288,17 +288,17 @@ const CartPage = () => {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-2xl font-bold font-heading text-foreground">
-                  From Your Wishlist
+                  {t(translations.cartPage.wishlistSectionTitle)}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Items you've saved for later. Ready to add them to your order?
+                  {t(translations.cartPage.wishlistSectionDesc)}
                 </p>
               </div>
               <Link
                 href="/wishlist"
                 className="text-primary font-bold hover:underline text-sm flex items-center gap-1"
               >
-                View Full Wishlist <ChevronRight className="h-4 w-4" />
+                {t(translations.cartPage.viewFullWishlist)} <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -345,7 +345,7 @@ const CartPage = () => {
                         onClick={() => moveToCart(product.id)}
                         className="flex items-center gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                       >
-                        <Plus className="h-3 w-3" /> Add to Cart
+                        <Plus className="h-3 w-3" /> {t(translations.cartPage.addToCart)}
                       </button>
                     </div>
                   </div>

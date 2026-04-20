@@ -12,6 +12,8 @@ import { loginRequest } from "@/lib/api/auth";
 import { ADMIN_ROLES } from "@/lib/auth-types";
 import { isValidEmail } from "@/lib/auth-validation";
 import { toast } from "sonner";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -21,13 +23,14 @@ const LoginPage = () => {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   const loginMutation = useMutation({
     mutationFn: loginRequest,
     onSuccess: (session) => {
       login(session);
-      toast.success("Login successful", {
-        description: "Welcome back to Agri-Eco!",
+      toast.success(t({ en: "Login successful", rw: "Wunjiye neza", fr: "Connexion réussie", sw: "Umeingia kikamilifu" }), {
+        description: t({ en: "Welcome back to Agri-Eco!", rw: "Agri-Eco iguhaye ikaze!", fr: "Bienvenue sur Agri-Eco !", sw: "Karibu tena Agri-Eco!" }),
       });
 
       const requestedRedirect = searchParams.get("redirect");
@@ -56,12 +59,12 @@ const LoginPage = () => {
     setFormError(null);
 
     if (!email.trim() || !password) {
-      setFormError("Please fill in all required fields.");
+      setFormError(t(translations.checkoutPage.fillRequired));
       return;
     }
 
     if (!isValidEmail(email)) {
-      setFormError("Please enter a valid email address.");
+      setFormError(t({ en: "Please enter a valid email address.", rw: "Andika emeyiri nyayo.", fr: "Veuillez entrer une adresse e-mail valide.", sw: "Tafadhali ingiza barua pepe halali." }));
       return;
     }
 
@@ -85,17 +88,17 @@ const LoginPage = () => {
               />
             </div>
             <h1 className="text-2xl font-bold font-heading text-foreground">
-              Welcome Back
+              {t(translations.auth.welcomeBack)}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Sign in to your Agri-Eco account
+              {t(translations.auth.signInSubtitle)}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Email Address *
+                {t(translations.checkoutPage.email)} *
               </label>
               <input
                 type="email"
@@ -107,7 +110,7 @@ const LoginPage = () => {
             </div>
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">
-                Password *
+                {t(translations.auth.password)} *
               </label>
               <div className="relative">
                 <input
@@ -137,13 +140,13 @@ const LoginPage = () => {
                   type="checkbox"
                   className="rounded border-border text-primary focus:ring-primary/30"
                 />
-                Remember me
+                {t(translations.auth.rememberMe)}
               </label>
               <Link
                 href="/forgot-password"
                 className="text-sm text-primary hover:underline font-semibold"
               >
-                Forgot password?
+                {t(translations.auth.forgotPassword)}
               </Link>
             </div>
 
@@ -153,10 +156,10 @@ const LoginPage = () => {
               className="w-full bg-primary text-primary-foreground py-3 rounded-md text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
-                "Signing in..."
+                t(translations.auth.signingIn)
               ) : (
                 <>
-                  <LogIn className="h-4 w-4" /> Sign In
+                  <LogIn className="h-4 w-4" /> {t(translations.auth.signIn)}
                 </>
               )}
             </button>
@@ -169,12 +172,12 @@ const LoginPage = () => {
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Don't have an account?{" "}
+            {t(translations.auth.noAccount)}{" "}
             <Link
               href="/register"
               className="text-primary font-semibold hover:underline"
             >
-              Create Account
+              {t(translations.auth.createAccount)}
             </Link>
           </p>
         </div>

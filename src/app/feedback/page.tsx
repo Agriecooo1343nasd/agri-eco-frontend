@@ -21,6 +21,9 @@ import { MessageCircle, Send, Star, CheckCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitFeedback } from "@/lib/api/feedback";
 
+import { translations } from "@/i18n/translations";
+import { useLanguage } from "@/context/LanguageContext";
+
 const feedbackTypes = [
   "General",
   "Bug Report",
@@ -30,6 +33,7 @@ const feedbackTypes = [
 ];
 
 export default function Feedback() {
+  const { t } = useLanguage();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -46,7 +50,7 @@ export default function Feedback() {
     e.preventDefault();
     
     if (form.rating === 0) {
-      toast.error("Please provide a rating.");
+      toast.error(t(translations.feedbackPage.ratingRequired));
       return;
     }
 
@@ -67,16 +71,16 @@ export default function Feedback() {
         phone: form.phone || undefined,
         type: (typeMap[form.type] || "general") as any,
         rating: form.rating,
-        subject: form.subject || `Feedback: ${form.type}`,
+        subject: form.subject || `${t(translations.feedbackPage.badge)}: ${t(typeMap[form.type] || "general")}`,
         message: form.message,
       });
       
       setSubmitted(true);
-      toast.success("Thank you! Your feedback has been submitted.");
+      toast.success(t(translations.feedbackPage.successDesc));
     } catch (error: any) {
       console.error("Feedback submission failed:", error);
-      toast.error("Submission Failed", {
-        description: error.response?.data?.message || "There was an error submitting your feedback. Please try again.",
+      toast.error(t({ en: "Submission Failed", rw: "Ntibyashobotse kohereza", fr: "Échec de l'envoi", sw: "Imeshindwa kutuma" }), {
+        description: error.response?.data?.message || t({ en: "There was an error submitting your feedback. Please try again.", rw: "Habayeho ikibazo, ongera ugerageze.", fr: "Une erreur est survenue. Veuillez réessayer.", sw: "Hitilafu imetokea. Tafadhali jaribu tena." }),
       });
     } finally {
       setLoading(false);
@@ -93,11 +97,10 @@ export default function Feedback() {
               <CheckCircle className="h-8 w-8 text-primary" />
             </div>
             <h2 className="text-2xl font-bold font-heading text-foreground mb-2">
-              Thank You!
+              {t(translations.feedbackPage.successTitle)}
             </h2>
             <p className="text-muted-foreground mb-6">
-              Your feedback has been submitted successfully. We appreciate your
-              input and will review it shortly.
+              {t(translations.feedbackPage.successDesc)}
             </p>
             <Button
               onClick={() => {
@@ -114,7 +117,7 @@ export default function Feedback() {
               }}
               variant="outline"
             >
-              Submit Another
+              {t(translations.feedbackPage.submitAnother)}
             </Button>
           </div>
         </div>
@@ -131,14 +134,13 @@ export default function Feedback() {
         <div className="container py-10 text-center">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-medium mb-4">
             <MessageCircle className="h-4 w-4" />
-            Share Your Feedback
+            {t(translations.feedbackPage.badge)}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold font-heading text-foreground">
-            We Value Your Opinion
+            {t(translations.feedbackPage.title)}
           </h1>
           <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
-            Help us improve by sharing your experience. Your feedback helps
-            shape a better platform for everyone.
+            {t(translations.feedbackPage.desc)}
           </p>
         </div>
       </section>
@@ -150,7 +152,7 @@ export default function Feedback() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
-                    Full Name <span className="text-destructive">*</span>
+                    {t(translations.checkoutPage.fullName)} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     value={form.fullName}
@@ -161,7 +163,7 @@ export default function Feedback() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
-                    Email <span className="text-destructive">*</span>
+                    {t(translations.checkoutPage.email)} <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     type="email"
@@ -178,7 +180,7 @@ export default function Feedback() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
-                    Phone (optional)
+                    {t(translations.checkoutPage.phone)} ({t(translations.common.optional)})
                   </Label>
                   <Input
                     value={form.phone}
@@ -189,7 +191,7 @@ export default function Feedback() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Feedback Type</Label>
+                  <Label className="text-sm font-medium">{t(translations.feedbackPage.type)}</Label>
                   <Select
                     value={form.type}
                     onValueChange={(v) => setForm({ ...form, type: v })}
@@ -200,7 +202,12 @@ export default function Feedback() {
                     <SelectContent>
                       {feedbackTypes.map((ft) => (
                         <SelectItem key={ft} value={ft}>
-                          {ft}
+                          {t({
+                            en: ft,
+                            rw: ft === "General" ? "Rusange" : ft === "Bug Report" ? "Ibibazo" : ft === "Feature Request" ? "Icyifuzo" : ft === "Compliment" ? "Ishima" : "Ibibazo",
+                            fr: ft,
+                            sw: ft
+                          })}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -209,18 +216,18 @@ export default function Feedback() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Subject (optional)</Label>
+                <Label className="text-sm font-medium">{t(translations.feedbackPage.subject)} ({t(translations.common.optional)})</Label>
                 <Input
                   value={form.subject}
                   onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                  placeholder="Summarize your feedback"
+                  placeholder={t(translations.feedbackPage.subjectPlaceholder)}
                 />
               </div>
 
               {/* Star rating */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  How would you rate your experience?
+                  {t(translations.feedbackPage.ratingPrompt)}
                 </Label>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -245,14 +252,14 @@ export default function Feedback() {
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  Your Message <span className="text-destructive">*</span>
+                  {t(translations.feedbackPage.message)} <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   value={form.message}
                   onChange={(e) =>
                     setForm({ ...form, message: e.target.value })
                   }
-                  placeholder="Tell us what you think about the platform..."
+                  placeholder={t(translations.feedbackPage.messagePlaceholder)}
                   rows={5}
                   required
                 />
@@ -264,7 +271,7 @@ export default function Feedback() {
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                {loading ? "Submitting..." : "Submit Feedback"}
+                {loading ? t(translations.tourDetailPage.submitting) : t(translations.feedbackPage.submitBtn)}
               </Button>
             </form>
           </CardContent>

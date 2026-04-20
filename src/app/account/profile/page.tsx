@@ -11,9 +11,12 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useMutation } from "@tanstack/react-query";
 import { updateProfile } from "@/lib/api/user";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function Profile() {
   const { user, setAuthSession, tokens } = useAuth();
+  const { t } = useLanguage();
   
   const [formData, setFormData] = useState({
     username: "",
@@ -40,7 +43,7 @@ export default function Profile() {
   const profileMutation = useMutation({
     mutationFn: updateProfile,
     onSuccess: (updatedUser) => {
-      toast.success("Profile updated successfully");
+      toast.success(t(translations.profilePage.profileUpdated));
       // Update the auth context with the new user data
       if (tokens) {
         setAuthSession({
@@ -51,7 +54,7 @@ export default function Profile() {
       }
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to update profile");
+      toast.error(error.response?.data?.message || t({ en: "Failed to update profile", rw: "Ntabwo amakuru yahindutse", fr: "Échec de la mise à jour", sw: "Imeshindwa kusasisha wasifu" }));
     },
   });
 
@@ -66,7 +69,7 @@ export default function Profile() {
         <CardHeader className="bg-muted/30 border-b border-border/40">
           <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-wider">
             <User className="h-4 w-4 text-primary" />
-            Account Information
+            {t(translations.profilePage.accountInfo)}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-8 pt-8">
@@ -89,7 +92,7 @@ export default function Profile() {
                     {user?.role || "Member"}
                 </Badge>
                 <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground bg-muted/30 border-transparent">
-                    Active Account
+                    {t(translations.profilePage.activeAccount)}
                 </Badge>
               </div>
             </div>
@@ -97,7 +100,7 @@ export default function Profile() {
 
           <div className="grid sm:grid-cols-2 gap-6">
             <div className="space-y-2.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">First Name</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.profilePage.firstName)}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
@@ -111,7 +114,7 @@ export default function Profile() {
               </div>
             </div>
             <div className="space-y-2.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Last Name</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.profilePage.lastName)}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
@@ -125,7 +128,7 @@ export default function Profile() {
               </div>
             </div>
             <div className="space-y-2.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Username</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.auth.username)}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
@@ -139,7 +142,7 @@ export default function Profile() {
               </div>
             </div>
             <div className="space-y-2.5 opacity-60 cursor-not-allowed">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Email Address (Locked)</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.profilePage.emailLocked)}</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
@@ -150,7 +153,7 @@ export default function Profile() {
               </div>
             </div>
             <div className="space-y-2.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Phone Number</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.checkoutPage.phone)}</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
@@ -164,7 +167,7 @@ export default function Profile() {
               </div>
             </div>
             <div className="space-y-2.5">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Current Location</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.profilePage.currentLocation)}</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                 <Input
@@ -180,12 +183,12 @@ export default function Profile() {
           </div>
 
           <div className="space-y-2.5">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Personal Bio</Label>
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t(translations.profilePage.personalBio)}</Label>
             <textarea
               value={formData.bio}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
               className="w-full px-4 py-3 rounded-xl border border-border/60 bg-muted/10 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all text-sm font-medium resize-none min-h-[120px]"
-              placeholder="Tell us a bit about your interest in sustainable agriculture..."
+              placeholder={t(translations.profilePage.bioPlaceholder)}
             />
           </div>
 
@@ -199,7 +202,7 @@ export default function Profile() {
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              {profileMutation.isPending ? "Saving..." : "Update Profile"}
+              {profileMutation.isPending ? t(translations.profilePage.saving) : t(translations.profilePage.updateProfile)}
             </Button>
           </div>
         </CardContent>

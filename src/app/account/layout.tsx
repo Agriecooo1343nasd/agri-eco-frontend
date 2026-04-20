@@ -9,6 +9,8 @@ import Footer from "@/components/Footer";
 import AccountSidebar from "@/components/AccountSidebar";
 import { cn } from "@/lib/utils";
 import { UserAccessGuard } from "@/components/auth/UserAccessGuard";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function AccountLayout({
   children,
@@ -17,6 +19,7 @@ export default function AccountLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { t } = useLanguage();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -24,12 +27,12 @@ export default function AccountLayout({
   const getBreadcrumbs = () => {
     const paths = pathname.split("/").filter(Boolean);
     const breadcrumbs = [
-      { label: "Home", href: "/" },
-      { label: "My Account", href: "/account" },
+      { label: t(translations.common.home), href: "/" },
+      { label: t(translations.accountPage.dashboard), href: "/account" },
     ];
 
     if (paths.includes("orders")) {
-      breadcrumbs.push({ label: "My Orders", href: "/account/orders" });
+      breadcrumbs.push({ label: t(translations.accountPage.myOrders), href: "/account/orders" });
       if (paths.length > 2) {
         breadcrumbs.push({
           label: `#${paths[2].toUpperCase()}`,
@@ -38,42 +41,42 @@ export default function AccountLayout({
       }
     } else if (paths.includes("profile")) {
       breadcrumbs.push({
-        label: "My Profile",
+        label: t(translations.accountPage.myProfile),
         href: "/account/profile",
       });
     } else if (paths.includes("enrollments")) {
       breadcrumbs.push({
-        label: "My Enrollments",
+        label: t(translations.accountPage.myEnrollments),
         href: "/account/enrollments",
       });
     } else if (paths.includes("certificates")) {
       breadcrumbs.push({
-        label: "My Certificates",
+        label: t(translations.accountPage.myCertificates),
         href: "/account/certificates",
       });
     } else if (paths.includes("bookings")) {
       breadcrumbs.push({
-        label: "My Tours",
+        label: t(translations.accountPage.myTours),
         href: "/account/bookings",
       });
     } else if (paths.includes("partner")) {
       breadcrumbs.push({
-        label: "Partner Network",
+        label: t(translations.accountPage.partnerNetwork),
         href: "/account/partner",
       });
     } else if (paths.includes("requests")) {
       breadcrumbs.push({
-        label: "My Requests",
+        label: t(translations.accountPage.myRequests),
         href: "/account/requests",
       });
     } else if (paths.includes("addresses")) {
       breadcrumbs.push({
-        label: "Saved Addresses",
+        label: t(translations.accountPage.savedAddresses),
         href: "/account/addresses",
       });
     } else if (paths.includes("settings")) {
       breadcrumbs.push({
-        label: "Account Settings",
+        label: t(translations.accountPage.accountSettings),
         href: "/account/settings",
       });
     }

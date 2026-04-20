@@ -9,8 +9,11 @@ import Footer from "@/components/Footer";
 import { forgotPasswordRequest } from "@/lib/api/auth";
 import { isValidEmail } from "@/lib/auth-validation";
 import { toast } from "sonner";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 const ForgotPasswordPage = () => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -19,8 +22,8 @@ const ForgotPasswordPage = () => {
     mutationFn: forgotPasswordRequest,
     onSuccess: () => {
       setSent(true);
-      toast.success("Email sent!", {
-        description: "Check your inbox for the password reset link.",
+      toast.success(t(translations.auth.emailSent), {
+        description: t(translations.auth.checkInbox),
       });
     },
   });
@@ -31,12 +34,12 @@ const ForgotPasswordPage = () => {
     setFormError(null);
 
     if (!email.trim()) {
-      setFormError("Please enter your email address.");
+      setFormError(t({ en: "Please enter your email address.", rw: "Andika emeyiri yawe.", fr: "Entrez votre adresse e-mail.", sw: "Ingiza barua pepe yako." }));
       return;
     }
 
     if (!isValidEmail(email)) {
-      setFormError("Please provide a valid email address.");
+      setFormError(t({ en: "Please provide a valid email address.", rw: "Andika emeyiri nyayo.", fr: "Veuillez fournir une adresse e-mail valide.", sw: "Tafadhali toa barua pepe halali." }));
       return;
     }
 
@@ -56,12 +59,12 @@ const ForgotPasswordPage = () => {
               <Mail className="h-7 w-7 text-primary" />
             </div>
             <h1 className="text-2xl font-bold font-heading text-foreground">
-              Forgot Password?
+              {t(translations.auth.forgotPasswordTitle)}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {sent
-                ? "We've sent a reset link to your email"
-                : "Enter your email and we'll send you a reset link"}
+                ? t(translations.auth.emailSent) // Or a dedicated "Reset link sent" 
+                : t(translations.auth.enterEmailForLink)}
             </p>
           </div>
 
@@ -69,7 +72,7 @@ const ForgotPasswordPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">
-                  Email Address *
+                  {t(translations.checkoutPage.email)} *
                 </label>
                 <input
                   type="email"
@@ -84,7 +87,7 @@ const ForgotPasswordPage = () => {
                 disabled={loading}
                 className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {loading ? "Sending..." : "Send Reset Link"}
+                {loading ? t(translations.auth.sending) : t(translations.auth.sendResetLink)}
               </button>
 
               {formError && (
@@ -96,12 +99,12 @@ const ForgotPasswordPage = () => {
           ) : (
             <div className="text-center space-y-4">
               <p className="text-sm text-muted-foreground">
-                Didn't receive the email? Check your spam folder or{" "}
+                {t(translations.auth.didntReceiveEmail)}{" "}
                 <button
                   onClick={() => setSent(false)}
                   className="text-primary font-semibold hover:underline"
                 >
-                  try again
+                  {t(translations.auth.tryAgain)}
                 </button>
                 .
               </p>
@@ -113,7 +116,7 @@ const ForgotPasswordPage = () => {
               href="/login"
               className="inline-flex items-center gap-1 text-sm text-primary font-semibold hover:underline"
             >
-              <ArrowLeft className="h-3 w-3" /> Back to Sign In
+              <ArrowLeft className="h-3 w-3" /> {t(translations.auth.backToSignIn)}
             </Link>
           </div>
         </div>

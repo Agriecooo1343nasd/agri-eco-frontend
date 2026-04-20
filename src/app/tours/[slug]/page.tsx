@@ -67,6 +67,7 @@ import {
   type Review,
 } from "@/lib/api/reviews";
 import { useAuth } from "@/context/AuthContext";
+import { translations } from "@/i18n/translations";
 
 const statusColors: Record<string, string> = {
   available: "bg-primary/10 text-primary",
@@ -84,7 +85,7 @@ export default function TourDetailPage({
   const router = useRouter();
   const pathname = usePathname();
   const { formatPrice } = usePricing();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { user, isAuthenticated } = useAuth();
 
   const [experience, setExperience] = useState<Experience | null>(null);
@@ -278,7 +279,7 @@ export default function TourDetailPage({
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container py-20 text-center">
-          <p className="text-muted-foreground">Loading experience...</p>
+          <p className="text-muted-foreground">{t(translations.common.loading)}...</p>
         </div>
         <Footer />
       </div>
@@ -292,13 +293,13 @@ export default function TourDetailPage({
         <div className="container py-20 text-center">
           <Leaf className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
           <h1 className="text-2xl font-bold font-heading mb-2">
-            Tour Not Found
+            {t(translations.common?.error || "Tour Not Found")}
           </h1>
           <p className="text-muted-foreground mb-6">
             {error || "The experience you're looking for doesn't exist."}
           </p>
           <Link href="/tours">
-            <Button>Browse All Tours</Button>
+            <Button>{t(translations.common?.backToTours || "Browse All Tours")}</Button>
           </Link>
         </div>
         <Footer />
@@ -353,11 +354,11 @@ export default function TourDetailPage({
       <div className="bg-card border-b border-border">
         <div className="container py-3 flex items-center gap-2 text-[10px] text-muted-foreground">
           <Link href="/" className="hover:text-primary">
-            Home
+            {t(translations.common.home)}
           </Link>
           <ChevronRight className="h-3 w-3" />
           <Link href="/tours" className="hover:text-primary">
-            Tours
+            {t(translations.common?.tours || "Tours")}
           </Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-foreground font-medium truncate">
@@ -407,11 +408,11 @@ export default function TourDetailPage({
                 <Badge
                   className={`${experience.isActive ? statusColors.available : statusColors["sold-out"]} text-[10px] py-0 px-2`}
                 >
-                  {experience.isActive ? "Available Now" : "Currently Unavailable"}
+                  {experience.isActive ? t(translations.tourDetailPage.available) : t(translations.tourDetailPage.unavailable)}
                 </Badge>
                 {experience.seasonStart && (
                   <Badge variant="outline" className="text-[10px] py-0 px-2">
-                    Seasonal
+                    {t(translations.tourDetailPage.seasonal)}
                   </Badge>
                 )}
               </div>
@@ -425,7 +426,7 @@ export default function TourDetailPage({
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" />
-                  Up to {experience.capacity} guests
+                  {t(translations.tourDetailPage.guestsCapacity).replace("{count}", String(experience.capacity))}
                 </span>
                 <span className="flex items-center gap-1">
                   <MapPin className="h-3.5 w-3.5" />
@@ -446,23 +447,23 @@ export default function TourDetailPage({
                 <div className="min-w-0 flex-1 space-y-3">
                   <div>
                     <h3 className="font-heading font-semibold text-foreground text-sm">
-                      Rate this tour
+                      {t(translations.tourDetailPage.rateThisTour)}
                     </h3>
                     <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                      Joined one of our departures? Tell future guests how it went.
-                      A completed booking for this experience is required.
+                      {t(translations.tourDetailPage.joinedDepartures)}
+                      {" "}{t(translations.tourDetailPage.bookingRequired)}
                     </p>
                   </div>
                   {!isAuthenticated ? (
                     <Button asChild size="sm" className="text-xs h-9 w-full sm:w-auto">
                       <Link href={`/login?redirect=${encodeURIComponent(`/tours/${slug}`)}`}>
-                        Sign in to rate
+                        {t(translations.tourDetailPage.signInToRate)}
                       </Link>
                     </Button>
                   ) : myTourReview ? (
                     <div className="rounded-lg border border-border bg-background/90 p-3">
                       <p className="text-xs font-semibold text-foreground">
-                        Your rating: {myTourReview.rating}/5
+                        {t(translations.tourDetailPage.yourRating)}: {myTourReview.rating}/5
                       </p>
                       {[myTourReview.title, myTourReview.comment]
                         .filter(Boolean)
@@ -520,10 +521,10 @@ export default function TourDetailPage({
                         {submittingTourReview ? (
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            Submitting…
+                            {t(translations.tourDetailPage.submitting)}
                           </span>
                         ) : (
-                          "Submit review"
+                          t(translations.tourDetailPage.submitReview)
                         )}
                       </Button>
                     </div>
@@ -533,12 +534,15 @@ export default function TourDetailPage({
             </div>
 
             <div className="bg-card border border-border rounded-xl p-4">
-              <h3 className="font-semibold text-foreground text-sm mb-2">Guest Reviews</h3>
+              <h3 className="font-semibold text-foreground text-sm mb-2">
+                {t(translations.tourDetailPage.guestReviews)}
+              </h3>
               <p className="text-xs text-muted-foreground mb-3">
-                {experience.reviewCount ?? 0} total reviews, average {(Number(experience.averageRating || 0)).toFixed(1)}/5
+                {t(translations.tourDetailPage.totalReviews).replace("{count}", String(experience.reviewCount ?? 0))}, 
+                {" "}{t(translations.tourDetailPage.averageRating).replace("{rating}", (Number(experience.averageRating || 0)).toFixed(1))}
               </p>
               {reviews.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No public reviews yet.</p>
+                <p className="text-xs text-muted-foreground">{t(translations.tourDetailPage.noReviews)}</p>
               ) : (
                 <div className="space-y-2">
                   {reviews.slice(0, 4).map((review) => (
@@ -566,16 +570,16 @@ export default function TourDetailPage({
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="w-full justify-start bg-card border border-border overflow-x-auto">
                 <TabsTrigger value="overview" className="text-xs">
-                  Overview
+                  {t(translations.tourDetailPage.tabs.overview)}
                 </TabsTrigger>
                 <TabsTrigger value="includes" className="text-xs">
-                  What&apos;s Included
+                  {t(translations.tourDetailPage.tabs.includes)}
                 </TabsTrigger>
                 <TabsTrigger value="highlights" className="text-xs">
-                  Highlights
+                  {t(translations.tourDetailPage.tabs.highlights)}
                 </TabsTrigger>
                 <TabsTrigger value="policy" className="text-xs">
-                  Policy
+                  {t(translations.tourDetailPage.tabs.policy)}
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-4">
@@ -586,7 +590,7 @@ export default function TourDetailPage({
                   <div className="mt-6">
                     <h3 className="font-semibold text-foreground text-sm mb-2 flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-secondary" />{" "}
-                      Requirements
+                      {t(translations.tourDetailPage.requirements)}
                     </h3>
                     <ul className="space-y-1">
                       {experience.requirements.map((r: any, idx: number) => (
@@ -632,7 +636,7 @@ export default function TourDetailPage({
               <TabsContent value="policy" className="mt-4">
                 <div className="bg-accent/30 rounded-lg p-4">
                   <h3 className="font-semibold text-foreground text-sm mb-2">
-                    Cancellation Policy
+                    {t(translations.tourDetailPage.cancellationPolicy)}
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     {t(experience.cancellationPolicy) || "Please contact us for cancellation details."}
@@ -647,24 +651,24 @@ export default function TourDetailPage({
             <div className="bg-card border border-border rounded-xl p-5 md:sticky md:top-24">
               <div className="flex items-end justify-between mb-4">
                 <div>
-                  <p className="text-[10px] text-muted-foreground">From</p>
+                  <p className="text-[10px] text-muted-foreground">{t(translations.tourDetailPage.from)}</p>
                   <p className="text-3xl font-bold text-primary font-heading leading-none">
                     {formatPrice(experience.priceRwf)}
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    per person
+                    {t(translations.tourDetailPage.perPerson)}
                   </p>
                 </div>
                 {experience.pricePerGroupRwf > 0 && (
                   <div className="text-right">
                     <p className="text-[10px] text-muted-foreground">
-                      Group rate
+                      {t(translations.tourDetailPage.groupRate)}
                     </p>
                     <p className="text-lg font-bold text-foreground leading-none">
                       {formatPrice(experience.pricePerGroupRwf)}
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      per person
+                      {t(translations.tourDetailPage.perPerson)}
                     </p>
                   </div>
                 )}
@@ -683,16 +687,16 @@ export default function TourDetailPage({
               {bookingStep === 1 && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-foreground text-sm">
-                    1. Select Tour Slot
+                    {t(translations.tourDetailPage.step1)}
                   </h3>
 
                   <div>
                     <Label className="text-[11px] text-muted-foreground mb-1.5 block">
-                      Available Slots
+                      {t(translations.tourDetailPage.availableSlots)}
                     </Label>
                     {normalizedSlots.length === 0 ? (
                       <div className="rounded-lg border border-border bg-accent/30 px-3 py-2.5 text-xs text-muted-foreground">
-                        No slots are currently available for this tour. Please contact support or check back later.
+                        {t(translations.tourDetailPage.noSlots)}
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -720,8 +724,8 @@ export default function TourDetailPage({
                             {slot.bookedParticipants !== null && slot.capacity > 0 ? (
                               <span className={`text-[10px] ${full ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
                                 {full
-                                  ? "Full — Waitlist"
-                                  : `${slot.bookedParticipants}/${slot.capacity} joined`}
+                                  ? `${t(translations.tourDetailPage.waitlist)}`
+                                  : `${slot.bookedParticipants}/${slot.capacity} ${t(translations.tourDetailPage.joined)}`}
                               </span>
                             ) : null}
                           </button>
@@ -733,7 +737,7 @@ export default function TourDetailPage({
 
                   <div>
                     <Label className="text-[11px] text-muted-foreground mb-1.5 block">
-                      Participants
+                      {t(translations.tourDetailPage.participants)}
                     </Label>
                     <div className="flex items-center gap-3">
                       <button
@@ -760,20 +764,20 @@ export default function TourDetailPage({
                         <PlusCircle className="h-5 w-5" />
                       </button>
                       <span className="text-[10px] text-muted-foreground ml-1">
-                        (min {experience.minParticipants}, max {experience.capacity})
+                        ({t(translations.tourDetailPage.minMax).replace("{min}", String(experience.minParticipants)).replace("{max}", String(experience.capacity))})
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between py-1">
                     <Label className="text-xs text-foreground font-bold">
-                      Group Booking?
+                      {t(translations.tourDetailPage.groupBooking)}
                     </Label>
                     <Switch checked={isGroup} onCheckedChange={setIsGroup} />
                   </div>
                   {isGroup && (
                     <Input
-                      placeholder="Organization name"
+                      placeholder={t(translations.tourDetailPage.organizationName)}
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
                       className="h-9 text-xs"
@@ -784,8 +788,8 @@ export default function TourDetailPage({
                     className="w-full text-xs h-9"
                     onClick={() => {
                       if (!isAuthenticated) {
-                        toast.error("Authentication required", {
-                          description: "Please sign in to complete your booking.",
+                        toast.error(t(translations.common?.authRequired || "Authentication required"), {
+                          description: t(translations.common?.signInToComplete || "Please sign in to complete your booking."),
                         });
                         setTimeout(() => router.push(`/login?redirect=${pathname}`), 1500);
                         return;
@@ -794,7 +798,7 @@ export default function TourDetailPage({
                     }}
                     disabled={!selectedSlotKey}
                   >
-                    Continue
+                    {t(translations.common.continue)}
                   </Button>
                 </div>
               )}
@@ -802,12 +806,12 @@ export default function TourDetailPage({
               {bookingStep === 2 && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-foreground text-sm">
-                    2. Your Details
+                    {t(translations.tourDetailPage.step2)}
                   </h3>
 
                   <div>
                     <Label className="text-[11px] text-muted-foreground">
-                      Full Name
+                      {t(translations.checkoutPage.fullName)}
                     </Label>
                     <Input
                       placeholder="e.g. Jean Baptiste"
@@ -818,7 +822,7 @@ export default function TourDetailPage({
                   </div>
                   <div>
                     <Label className="text-[11px] text-muted-foreground">
-                      Email
+                      {t(translations.checkoutPage.email)}
                     </Label>
                     <Input
                       type="email"
@@ -830,7 +834,7 @@ export default function TourDetailPage({
                   </div>
                   <div>
                     <Label className="text-[11px] text-muted-foreground">
-                      Phone
+                      {t(translations.checkoutPage.phone)}
                     </Label>
                     <Input
                       type="tel"
@@ -842,10 +846,10 @@ export default function TourDetailPage({
                   </div>
                   <div>
                     <Label className="text-[11px] text-muted-foreground">
-                      Special Requirements
+                      {t(translations.checkoutPage.specialRequirements)}
                     </Label>
                     <Textarea
-                      placeholder="Dietary needs, etc."
+                      placeholder={t(translations.common?.optional || "Optional")}
                       value={specialReqs}
                       onChange={(e) => setSpecialReqs(e.target.value)}
                       className="mt-1 text-xs"
@@ -857,14 +861,14 @@ export default function TourDetailPage({
                   {accommodations.length > 0 && (
                     <div className="pt-2">
                       <Label className="mb-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Home className="h-3.5 w-3.5" /> Add Accommodation
+                        <Home className="h-3.5 w-3.5" /> {t(translations.tourDetailPage.addAccommodation)}
                       </Label>
                       <div className="space-y-2">
                         <button
                           onClick={() => setSelectedAccom("")}
                           className={`w-full text-left px-3 py-2 rounded-lg border text-[11px] ${!selectedAccom ? "border-primary bg-primary/5" : "border-border"}`}
                         >
-                          None needed
+                          {t(translations.tourDetailPage.noneNeeded)}
                         </button>
                         {accommodations.map((a) => (
                           <div
@@ -898,9 +902,9 @@ export default function TourDetailPage({
                                     className="flex-1 text-left"
                                   >
                                     <span className="font-semibold text-foreground block leading-tight">{t(a.name)}</span>
-                                    <span className="text-[10px] text-primary font-bold">{formatPrice(a.ratePerNightRwf)}/night</span>
+                                    <span className="text-[10px] text-primary font-bold">{formatPrice(a.ratePerNightRwf)}/{t(translations.tourDetailPage.nights).toLowerCase().slice(0, -1)}</span>
                                     <span className="text-[10px] text-muted-foreground capitalize block mt-0.5">
-                                      {a.category} &middot; {a.maxGuests} guests
+                                      {t(a.category)} &middot; {a.maxGuests} {t(translations.tourDetailPage.guests).toLowerCase()}
                                     </span>
                                   </button>
                                   <button
@@ -920,7 +924,7 @@ export default function TourDetailPage({
                       {selectedAccom && accomOption && (
                         <div className="flex items-center gap-3 mt-3">
                           <Label className="text-[11px] text-muted-foreground">
-                            Nights:
+                            {t(translations.tourDetailPage.nights)}:
                           </Label>
                           <div className="flex items-center gap-2">
                             <button
@@ -948,13 +952,13 @@ export default function TourDetailPage({
                       className="flex-1 text-xs h-9"
                       onClick={() => setBookingStep(1)}
                     >
-                      Back
+                      {t(translations.common.back)}
                     </Button>
                     <Button
                       className="flex-1 text-xs h-9"
                       onClick={() => setBookingStep(3)}
                     >
-                      Continue
+                      {t(translations.common.continue)}
                     </Button>
                   </div>
                 </div>
@@ -963,19 +967,19 @@ export default function TourDetailPage({
               {bookingStep === 3 && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-foreground text-sm">
-                    3. Review & Pay
+                    {t(translations.tourDetailPage.step3)}
                   </h3>
 
                   {/* Summary */}
                   <div className="bg-accent/30 rounded-lg p-4 space-y-2 text-[11px]">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tour</span>
+                      <span className="text-muted-foreground">{t(translations.tourDetailPage.tour)}</span>
                       <span className="max-w-35 truncate text-right font-medium text-foreground">
                         {t(experience.title)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Slot</span>
+                      <span className="text-muted-foreground">{t(translations.tourDetailPage.slot)}</span>
                       <span className="text-foreground">
                         {selectedSlot
                           ? `${selectedSlot.dateLabel} - ${selectedSlot.timeSlot}`
@@ -983,34 +987,34 @@ export default function TourDetailPage({
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Guests</span>
+                      <span className="text-muted-foreground">{t(translations.tourDetailPage.guests)}</span>
                       <span className="text-foreground">
                         {participants} {isGroup ? `(${groupName})` : ""}
                       </span>
                     </div>
                     <div className="flex justify-between font-medium">
-                      <span>Tour Subtotal</span>
+                      <span>{t(translations.tourDetailPage.tourSubtotal)}</span>
                       <span>{formatPrice(tourTotal)}</span>
                     </div>
                     {accomOption && (
                       <>
                         <div className="border-t border-border pt-1" />
                         <div className="flex justify-between font-medium">
-                          <span>Accommodation</span>
+                          <span>{t(translations.tourDetailPage.accommodation)}</span>
                           <span>{formatPrice(accomTotal)}</span>
                         </div>
                       </>
                     )}
                     <div className="border-t border-border pt-2" />
                     <div className="flex justify-between text-sm font-bold text-primary">
-                      <span>Total</span>
+                      <span>{t(translations.checkoutPage.total)}</span>
                       <span>{formatPrice(grandTotal)}</span>
                     </div>
                   </div>
 
                   <div>
                     <Label className="text-[11px] text-muted-foreground mb-1.5 block">
-                      Payment Method
+                      {t(translations.checkoutPage.paymentMethod)}
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
                       {["mobile_money", "credit_card"].map((m) => (
@@ -1023,7 +1027,9 @@ export default function TourDetailPage({
                               : "border-border hover:bg-accent"
                           }`}
                         >
-                          {m.replace("_", " ")}
+                          {m === "mobile_money" 
+                            ? (locale === "rw" ? "Mobile Money" : t(translations.checkoutPage.momo)) 
+                            : (locale === "rw" ? "Ikarita ya Banki" : t(translations.checkoutPage.card))}
                         </button>
                       ))}
                     </div>
@@ -1035,7 +1041,7 @@ export default function TourDetailPage({
                       className="flex-1 text-xs h-9"
                       onClick={() => setBookingStep(2)}
                     >
-                      Back
+                      {t(translations.common.back)}
                     </Button>
                     <Button
                       className="flex-1 text-xs h-9"
@@ -1045,10 +1051,10 @@ export default function TourDetailPage({
                       {submitting ? (
                         <>
                           <Loader2 className="h-3 w-3 animate-spin mr-2" />
-                          Processing...
+                          {t(translations.tourDetailPage.processing)}
                         </>
                       ) : (
-                        "Confirm & Pay"
+                        t(translations.tourDetailPage.confirmPay)
                       )}
                     </Button>
                   </div>
@@ -1136,11 +1142,11 @@ export default function TourDetailPage({
                   {/* Key Info grid */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-accent/40 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Rate / Night</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">{t(translations.tourDetailPage.rateNight)}</p>
                       <p className="text-base font-bold text-primary font-heading">{formatPrice(accom.ratePerNightRwf)}</p>
                     </div>
                     <div className="bg-accent/40 rounded-lg p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">Max Guests</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1">{t(translations.tourDetailPage.maxGuests)}</p>
                       <p className="text-base font-bold text-foreground font-heading flex items-center justify-center gap-1">
                         <Users className="h-4 w-4 text-primary" />{accom.maxGuests}
                       </p>
@@ -1150,7 +1156,7 @@ export default function TourDetailPage({
                   {/* Amenities */}
                   {accom.amenities && accom.amenities.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">Amenities</h4>
+                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">{t(translations.tourDetailPage.amenities)}</h4>
                       <div className="flex flex-wrap gap-2">
                         {accom.amenities.map((amenity, i) => (
                           <span
@@ -1176,20 +1182,20 @@ export default function TourDetailPage({
                         }}
                       >
                         <Check className="h-3.5 w-3.5 mr-2" />
-                        Select This Accommodation
+                        {t(translations.tourDetailPage.selectThisAccom)}
                       </Button>
                     ) : (
                       <div className="flex-1 text-center text-xs text-muted-foreground py-2">
-                        This accommodation is currently <strong className="capitalize">{accom.status}</strong> and not available for booking.
+                        {t(translations.tourDetailPage.accomNotAvailable)}
                       </div>
                     )}
-                    <Button
-                      variant="outline"
-                      className="text-xs h-10"
-                      onClick={() => setViewAccomDetail(null)}
-                    >
-                      Close
-                    </Button>
+                      <Button
+                        variant="outline"
+                        className="text-xs h-10"
+                        onClick={() => setViewAccomDetail(null)}
+                      >
+                        {t(translations.common.close)}
+                      </Button>
                   </div>
                 </div>
               </>
