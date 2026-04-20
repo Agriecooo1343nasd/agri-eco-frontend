@@ -37,15 +37,16 @@ import {
 } from "@/components/ui/select";
 import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
-const categoryLabels: Record<TourCategory, string> = {
-  "farm-tour": "Farm Tours",
-  beekeeping: "Beekeeping",
-  harvesting: "Harvesting",
-  cultural: "Cultural",
-  educational: "Educational",
-  "farm-stay": "Farm Stay",
-  workshop: "Workshops",
+const categoryLabels: Record<TourCategory, keyof typeof translations.tours> = {
+  "farm-tour": "catFarmTour",
+  beekeeping: "catBeekeeping",
+  harvesting: "catHarvesting",
+  cultural: "catCultural",
+  educational: "catEducational",
+  "farm-stay": "catFarmStay",
+  workshop: "catWorkshops",
 };
 
 const statusColors: Record<string, string> = {
@@ -55,11 +56,11 @@ const statusColors: Record<string, string> = {
   upcoming: "bg-accent text-accent-foreground border-border",
 };
 
-const statusLabels: Record<string, string> = {
-  available: "Available",
-  limited: "Limited Spots",
-  "sold-out": "Sold Out",
-  upcoming: "Coming Soon",
+const statusLabels: Record<string, keyof typeof translations.tours> = {
+  available: "statusAvailable",
+  limited: "statusLimited",
+  "sold-out": "statusSoldOut",
+  upcoming: "statusUpcoming",
 };
 
 type SortOption =
@@ -156,6 +157,7 @@ function mapExperienceToTour(
 
 const TourCard = ({ tour }: { tour: Tour }) => {
   const { formatPrice } = usePricing();
+  const { t } = useLanguage();
   const spotsLeft = tour.timeSlots.reduce(
     (sum, ts) => sum + (ts.capacity - ts.booked),
     0,
@@ -174,24 +176,24 @@ const TourCard = ({ tour }: { tour: Tour }) => {
           <Badge
             className={`${statusColors[tour.status]} border text-xs font-semibold`}
           >
-            {statusLabels[tour.status]}
+            {t(translations.tours[statusLabels[tour.status]])}
           </Badge>
           {tour.seasonal && (
             <Badge className="bg-secondary/90 text-secondary-foreground text-xs">
-              Seasonal
+              {t(translations.tours.seasonalBadge)}
             </Badge>
           )}
         </div>
         {tour.featured && (
           <div className="absolute top-3 right-3">
             <Badge className="bg-primary text-primary-foreground text-xs">
-              ⭐ Featured
+              {t(translations.tours.featuredBadge)}
             </Badge>
           </div>
         )}
         <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-foreground/60 to-transparent p-4">
           <span className="text-primary-foreground text-xs font-medium bg-foreground/30 px-2 py-1 rounded-full backdrop-blur-sm">
-            {categoryLabels[tour.category]}
+            {t(translations.tours[categoryLabels[tour.category]])}
           </span>
         </div>
       </div>
@@ -211,7 +213,7 @@ const TourCard = ({ tour }: { tour: Tour }) => {
           </span>
           <span className="flex items-center gap-1">
             <Users className="h-3.5 w-3.5" />
-            Max {tour.maxParticipants}
+            {t(translations.tours.max)} {tour.maxParticipants}
           </span>
           <span className="flex items-center gap-1">
             <MapPin className="h-3.5 w-3.5" />
@@ -238,24 +240,24 @@ const TourCard = ({ tour }: { tour: Tour }) => {
 
         <div className="flex items-end justify-between pt-3 border-t border-border">
           <div>
-            <p className="text-xs text-muted-foreground">From</p>
+            <p className="text-xs text-muted-foreground">{t(translations.tours.fromLabel)}</p>
             <p className="text-xl font-bold text-primary">
               {formatPrice(tour.price)}{" "}
               <span className="text-xs font-normal text-muted-foreground">
                 {" "}
-                / person
+                {t(translations.tours.perPerson)}
               </span>
             </p>
             {tour.groupPrice && (
               <p className="text-xs text-muted-foreground">
-                {formatPrice(tour.groupPrice)} group rate
+                {formatPrice(tour.groupPrice)} {t(translations.tours.groupRate)}
               </p>
             )}
           </div>
           <div className="text-right">
             {tour.status !== "sold-out" && tour.status !== "upcoming" && (
               <p className="text-xs text-muted-foreground mb-1">
-                {spotsLeft} spots left today
+                {spotsLeft} {t(translations.tours.spotsLeft)}
               </p>
             )}
             <Link href={`/tours/${tour.slug}`}>
@@ -265,10 +267,10 @@ const TourCard = ({ tour }: { tour: Tour }) => {
                 className="gap-1 text-xs"
               >
                 {tour.status === "upcoming"
-                  ? "Notify Me"
+                  ? t(translations.tours.notifyMe)
                   : tour.status === "sold-out"
-                    ? "Join Waitlist"
-                    : "Book Now"}
+                    ? t(translations.tours.joinWaitlist)
+                    : t(translations.tours.bookNow)}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
@@ -403,19 +405,16 @@ export default function ToursPage() {
                   Agri-Eco Iter Ltd
                 </span>
               </div>
-              <h1 className="text-3xl md:text-5xl font-bold font-heading text-primary-foreground mb-3 leading-tight">
-                Discover Rwanda's
-                <br />
-                Farm Experiences
+              <h1 className="text-3xl md:text-5xl font-bold font-heading text-primary-foreground mb-3 leading-tight whitespace-pre-line">
+                {t(translations.tours.heroTitle)}
               </h1>
               <p className="text-primary-foreground/80 text-sm md:text-base max-w-md">
-                Immersive agritourism tours, beekeeping adventures, cultural
-                experiences, and farm stays in the heart of Rwanda.
+                {t(translations.tours.heroSub)}
               </p>
               <div className="flex gap-3 mt-5">
                 <Link href="#tours-list">
                   <Button size="lg" className="gap-2">
-                    <Calendar className="h-4 w-4" /> Browse Experiences
+                    <Calendar className="h-4 w-4" /> {t(translations.tours.browseExp)}
                   </Button>
                 </Link>
                 <Link href="/tours/guided-organic-farm-tour">
@@ -424,7 +423,7 @@ export default function ToursPage() {
                     variant="outline"
                     className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/30 hover:bg-primary-foreground/20"
                   >
-                    Popular Tour
+                    {t(translations.tours.popularTour)}
                   </Button>
                 </Link>
               </div>
@@ -438,12 +437,12 @@ export default function ToursPage() {
         <div className="container py-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             {[
-              { value: `${tours.length}+`, label: "Unique Experiences" },
-              { value: "500+", label: "Happy Visitors" },
-              { value: "4.8★", label: "Average Rating" },
-              { value: "50 acres", label: "Farm Area" },
-            ].map((s) => (
-              <div key={s.label}>
+              { value: `${tours.length}+`, label: t(translations.tours.statUnique) },
+              { value: "500+", label: t(translations.tours.statVisitors) },
+              { value: "4.8★", label: t(translations.tours.statRating) },
+              { value: "50 acres", label: t(translations.tours.statArea) },
+            ].map((s, i) => (
+              <div key={i}>
                 <p className="text-2xl font-bold text-primary font-heading">
                   {s.value}
                 </p>
@@ -460,10 +459,10 @@ export default function ToursPage() {
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold font-heading text-foreground">
-                All Experiences
+                {t(translations.tours.allExp)}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {filtered.length} experiences available
+                {filtered.length} {t(translations.tours.expAvailable)}
               </p>
             </div>
             <div className="flex flex-wrap gap-3 w-full md:w-auto">
@@ -471,7 +470,7 @@ export default function ToursPage() {
                 <Search className="h-4 w-4 ml-3 text-muted-foreground shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search tours..."
+                  placeholder={t(translations.tours.searchTours)}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -505,10 +504,10 @@ export default function ToursPage() {
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">{t(translations.tours.allCat)}</SelectItem>
                   {Object.entries(categoryLabels).map(([k, v]) => (
                     <SelectItem key={k} value={k}>
-                      {v}
+                      {t(translations.tours[v])}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -521,13 +520,13 @@ export default function ToursPage() {
                 }}
               >
                 <SelectTrigger className="w-36 bg-card">
-                  <SelectValue placeholder="Sort by" />
+                  <SelectValue placeholder={t(translations.tours.sortByPlaceholder)} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="featured">Featured</SelectItem>
-                  <SelectItem value="price-low">Price: Low → High</SelectItem>
-                  <SelectItem value="price-high">Price: High → Low</SelectItem>
-                  <SelectItem value="rating">Top Rated</SelectItem>
+                  <SelectItem value="featured">{t(translations.tours.sortFeatured)}</SelectItem>
+                  <SelectItem value="price-low">{t(translations.shop.sortPriceLowHigh)}</SelectItem>
+                  <SelectItem value="price-high">{t(translations.shop.sortPriceHighLow)}</SelectItem>
+                  <SelectItem value="rating">{t(translations.shop.sortTopRated)}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -542,7 +541,7 @@ export default function ToursPage() {
               }}
               className={`px-4 py-2 rounded-full font-medium transition-colors ${selectedCategory === "all" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground hover:bg-accent"}`}
             >
-              All
+              {t(translations.shop.activeLabel).replace(":", "") || "All"}
             </button>
             {Object.entries(categoryLabels).map(([k, v]) => (
               <button
@@ -553,24 +552,24 @@ export default function ToursPage() {
                 }}
                 className={`px-4 py-2 rounded-full font-medium transition-colors ${selectedCategory === k ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground hover:bg-accent"}`}
               >
-                {v}
+                {t(translations.tours[v])}
               </button>
             ))}
           </div>
 
           {/* Grid */}
           {loading ? (
-            <div className="text-center py-16">Loading experiences...</div>
+            <div className="text-center py-16">{t(translations.tours.loadingTours)}</div>
           ) : error ? (
             <div className="text-center py-16 text-destructive">{error}</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16">
               <Leaf className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-foreground">
-                No experiences found
+                {t(translations.tours.noTours)}
               </h3>
               <p className="text-sm text-muted-foreground">
-                Try adjusting your search or filters.
+                {t(translations.tours.adjustFilters)}
               </p>
             </div>
           ) : (
@@ -587,21 +586,20 @@ export default function ToursPage() {
       <section className="bg-primary/5 border-y border-border">
         <div className="container py-12 text-center text-xs">
           <h2 className="text-2xl font-bold font-heading text-foreground mb-2">
-            Planning a Group Visit?
+            {t(translations.tours.groupTitle)}
           </h2>
           <p className="text-muted-foreground max-w-lg mx-auto mb-6">
-            We offer special rates for groups, schools, and corporate teams.
-            Custom itineraries available.
+            {t(translations.tours.groupDesc)}
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link href="/contact">
               <Button variant="outline" className="gap-2">
-                Contact Us for Group Rates
+                {t(translations.tours.contactGroup)}
               </Button>
             </Link>
             <Link href="/education/school-visit">
               <Button className="gap-2">
-                <Calendar className="h-4 w-4" /> School Bookings
+                <Calendar className="h-4 w-4" /> {t(translations.tours.schoolBookings)}
               </Button>
             </Link>
           </div>

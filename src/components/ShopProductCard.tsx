@@ -6,6 +6,8 @@ import { usePricing } from "@/context/PricingContext";
 import type { Product } from "@/components/ProductCard";
 import Link from "next/link";
 import Image from "next/image";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 interface ShopProductCardProps {
   product: Product;
@@ -19,6 +21,7 @@ const badgeStyles: Record<string, string> = {
 };
 
 const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
+  const { t } = useLanguage();
   const { addToCart, removeFromCart, addToWishlist, isInWishlist, isInCart } =
     useCart();
   const { formatPrice } = usePricing();
@@ -126,7 +129,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             }`}
           >
             <ShoppingCart className="h-4 w-4" />
-            {inCart ? "Added to Cart" : "Add to Cart"}
+            {inCart ? t(translations.shop.addedToCart) : t(translations.shop.addToCart)}
           </button>
         </div>
       </div>
@@ -225,7 +228,7 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
           }`}
         >
           <ShoppingCart className="h-4 w-4" />
-          {inCart ? "Added to Cart" : "Add to Cart"}
+          {inCart ? t(translations.shop.addedToCart) : t(translations.shop.addToCart)}
         </button>
       </div>
     </div>

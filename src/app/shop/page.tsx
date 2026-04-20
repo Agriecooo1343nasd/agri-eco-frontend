@@ -22,6 +22,8 @@ import { deals } from "@/data/deals";
 import { Slider } from "@/components/ui/slider";
 import { fetchProducts, type AdminProduct } from "@/lib/api/products";
 import { fetchAdminCategories, type AdminCategory } from "@/lib/api/categories";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 type SortOption =
   | "default"
@@ -36,6 +38,7 @@ function ShopContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { formatPrice } = usePricing();
+  const { t, locale } = useLanguage();
 
   // Backend state
   const [categories, setCategories] = useState<AdminCategory[]>([]);
@@ -294,7 +297,7 @@ function ShopContent() {
     onlyWithDiscount ||
     !!activeDeal;
 
-  const pageTitle = activeDeal ? `Deal: ${activeDeal.title}` : "Shop";
+  const pageTitle = activeDeal ? `${t(translations.shop.dealPrefix)} ${activeDeal.title}` : t(translations.shop.pageTitle);
 
   // Sidebar content
   const sidebarContent = (
@@ -303,12 +306,12 @@ function ShopContent() {
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
-          Search Products
+          {t(translations.shop.searchHeading)}
         </h3>
         <div className="flex border border-border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
           <input
             type="text"
-            placeholder="Search here..."
+            placeholder={t(translations.shop.searchPlaceholder)}
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="flex-1 px-3 py-2 bg-background text-foreground text-sm outline-none placeholder:text-muted-foreground"
@@ -329,12 +332,12 @@ function ShopContent() {
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
-          Product Categories
+          {t(translations.shop.categoriesHeading)}
         </h3>
         <div className="mb-2">
           <input
             type="text"
-            placeholder="Filter categories..."
+            placeholder={t(translations.shop.filterCategories)}
             value={categorySearch}
             onChange={(e) => setCategorySearch(e.target.value)}
             className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm outline-none placeholder:text-muted-foreground"
@@ -342,7 +345,7 @@ function ShopContent() {
         </div>
         <ul className="space-y-1">
           {categoriesLoading ? (
-            <li className="text-muted-foreground text-sm">Loading...</li>
+            <li className="text-muted-foreground text-sm">{t(translations.shop.loading)}</li>
           ) : (
             categories
               .filter((cat) =>
@@ -378,7 +381,7 @@ function ShopContent() {
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
-          Filter by Price
+          {t(translations.shop.priceHeading)}
         </h3>
         <div className="px-1">
           <Slider
@@ -394,7 +397,7 @@ function ShopContent() {
           />
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">
-              Price:{" "}
+              {t(translations.shop.priceLabel)}{" "}
               <span className="font-semibold text-foreground">
                 {formatPrice(priceRange[0])}
               </span>{" "}
@@ -411,7 +414,7 @@ function ShopContent() {
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
-          By Rating
+          {t(translations.shop.ratingHeading)}
         </h3>
         <div className="space-y-1">
           {[5, 4, 3, 2, 1, 0].map((star) => (
@@ -432,7 +435,7 @@ function ShopContent() {
                 ))}
               </div>
               <span>
-                {star} Star{star !== 1 ? "s" : ""}
+                {star} {star !== 1 ? t(translations.shop.stars) : t(translations.shop.star)}
               </span>
             </button>
           ))}
@@ -443,7 +446,7 @@ function ShopContent() {
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
-          Special Offers
+          {t(translations.shop.specialOffersHeading)}
         </h3>
         <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer hover:bg-accent transition-colors">
           <input
@@ -456,7 +459,7 @@ function ShopContent() {
             className="w-4 h-4 rounded text-primary focus:ring-primary border-border"
           />
           <span className="font-medium text-foreground">
-            Discounted Products
+            {t(translations.shop.discountedProducts)}
           </span>
         </label>
       </div>
@@ -465,11 +468,11 @@ function ShopContent() {
       <div>
         <h3 className="font-heading font-bold text-foreground text-sm mb-3 flex items-center gap-2">
           <span className="w-1 h-5 bg-primary rounded-full" />
-          Popular Tags
+          {t(translations.shop.popularTagsHeading)}
         </h3>
         <div className="flex flex-wrap gap-2">
           {tags.length === 0 ? (
-            <span className="text-muted-foreground text-xs">No tags found</span>
+            <span className="text-muted-foreground text-xs">{t(translations.shop.noTags)}</span>
           ) : (
             tags.slice(0, 10).map((tag) => (
               <button
@@ -498,7 +501,7 @@ function ShopContent() {
           </h1>
           <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-primary transition-colors">
-              Home
+              {t(translations.header.nav.home)}
             </Link>
             <ChevronRight className="h-3 w-3" />
             {activeDeal ? (
@@ -507,7 +510,7 @@ function ShopContent() {
                   href="/deals"
                   className="hover:text-primary transition-colors"
                 >
-                  Hot Deals
+                  {t(translations.header.nav.deals)}
                 </Link>
                 <ChevronRight className="h-3 w-3" />
                 <span className="text-primary font-semibold">
@@ -515,7 +518,7 @@ function ShopContent() {
                 </span>
               </>
             ) : (
-              <span className="text-primary font-semibold">Shop</span>
+              <span className="text-primary font-semibold">{t(translations.header.nav.shop)}</span>
             )}
           </div>
           {activeDeal && (
@@ -548,7 +551,7 @@ function ShopContent() {
                   onClick={() => setSidebarOpen(true)}
                   className="lg:hidden flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
                 >
-                  <SlidersHorizontal className="h-4 w-4" /> Filters
+                  <SlidersHorizontal className="h-4 w-4" /> {t(translations.shop.filtersTitle)}
                 </button>
                 <div className="hidden sm:flex border border-border rounded-lg overflow-hidden">
                   <button
@@ -567,15 +570,15 @@ function ShopContent() {
                   </button>
                 </div>
                 <p className="text-sm text-muted-foreground hidden sm:block">
-                  Showing{" "}
+                  {t(translations.shop.showing)}{" "}
                   <span className="font-semibold text-foreground">
                     {paginatedProducts.length}
                   </span>{" "}
-                  of{" "}
+                  {t(translations.shop.of)}{" "}
                   <span className="font-semibold text-foreground">
                     {productsTotal}
                   </span>{" "}
-                  results
+                  {t(translations.shop.results)}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -584,7 +587,7 @@ function ShopContent() {
                     onClick={clearFilters}
                     className="flex items-center gap-1 text-xs text-destructive hover:underline"
                   >
-                    <X className="h-3 w-3" /> Clear all
+                    <X className="h-3 w-3" /> {t(translations.shop.clearAll)}
                   </button>
                 )}
                 <select
@@ -592,9 +595,9 @@ function ShopContent() {
                   onChange={(e) => setSortBy(e.target.value as SortOption)}
                   className="border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground outline-none focus:ring-2 focus:ring-primary/30"
                 >
-                  <option value="default">Default sorting</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
+                  <option value="default">{t(translations.shop.sortDefault)}</option>
+                  <option value="price-low">{t(translations.shop.sortPriceLowHigh)}</option>
+                  <option value="price-high">{t(translations.shop.sortPriceHighLow)}</option>
                   <option value="rating">Top Rated</option>
                   <option value="name-az">Name: A to Z</option>
                   <option value="name-za">Name: Z to A</option>
@@ -605,11 +608,11 @@ function ShopContent() {
             {hasActiveFilters && (
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span className="text-xs text-muted-foreground font-semibold">
-                  Active:
+                  {t(translations.shop.activeLabel)}
                 </span>
                 {activeDeal && (
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
-                    Deal: {activeDeal.title}
+                    {t(translations.shop.dealPrefix)} {activeDeal.title}
                     <button onClick={clearDeal}>
                       <X className="h-3 w-3" />
                     </button>
@@ -642,7 +645,7 @@ function ShopContent() {
                 )}
                 {selectedRating !== null && (
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
-                    {selectedRating} Stars
+                    {selectedRating} {selectedRating !== 1 ? t(translations.shop.stars) : t(translations.shop.star)}
                     <button onClick={() => setSelectedRating(null)}>
                       <X className="h-3 w-3" />
                     </button>
@@ -650,7 +653,7 @@ function ShopContent() {
                 )}
                 {onlyWithDiscount && (
                   <span className="flex items-center gap-1 bg-accent text-accent-foreground text-xs px-2.5 py-1 rounded-full font-semibold">
-                    On Sale
+                    {t(translations.shop.onSaleActive)}
                     <button onClick={() => setOnlyWithDiscount(false)}>
                       <X className="h-3 w-3" />
                     </button>
@@ -663,7 +666,7 @@ function ShopContent() {
             {productsLoading ? (
               <div className="text-center py-20">
                 <p className="text-muted-foreground text-lg">
-                  Loading products...
+                  {t(translations.shop.loadingProducts)}
                 </p>
               </div>
             ) : paginatedProducts.length > 0 ? (
@@ -685,16 +688,16 @@ function ShopContent() {
             ) : (
               <div className="text-center py-20">
                 <p className="text-muted-foreground text-lg">
-                  No products found.
+                  {t(translations.shop.noProductsFound)}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Try adjusting your filters.
+                  {t(translations.shop.adjustFilters)}
                 </p>
                 <button
                   onClick={clearFilters}
                   className="mt-4 px-5 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
                 >
-                  Clear All Filters
+                  {t(translations.shop.clearFiltersBtn)}
                 </button>
               </div>
             )}
@@ -707,7 +710,7 @@ function ShopContent() {
                   disabled={currentPage === 1}
                   className="px-3 py-2 rounded-lg text-sm font-semibold border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Previous
+                  {t(translations.shop.prevBtn)}
                 </button>
                 {Array.from({ length: totalPages }).map((_, i) => (
                   <button
@@ -725,7 +728,7 @@ function ShopContent() {
                   disabled={currentPage === totalPages}
                   className="px-3 py-2 rounded-lg text-sm font-semibold border border-border hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  Next
+                  {t(translations.shop.nextBtn)}
                 </button>
               </div>
             )}
@@ -743,7 +746,7 @@ function ShopContent() {
           <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-card z-50 lg:hidden overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h2 className="font-heading font-bold text-foreground">
-                Filters
+                {t(translations.shop.filtersTitle)}
               </h2>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -764,11 +767,12 @@ function ShopContent() {
 }
 
 export default function ShopPage() {
+  const { t } = useLanguage();
   return (
     <Suspense
       fallback={
         <div className="min-h-screen bg-background flex items-center justify-center">
-          Loading shop...
+          {t(translations.shop.loadingShop)}
         </div>
       }
     >
