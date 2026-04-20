@@ -63,6 +63,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 import { useAuth } from "@/context/AuthContext";
 
 const statusColors: Record<string, string> = {
@@ -294,20 +295,18 @@ export default function EducationPage() {
           <div className="relative container h-full flex items-center">
             <div className="max-w-xl text-card">
               <Badge className="bg-secondary text-secondary-foreground mb-4 gap-1.5 text-[10px] py-0 px-2">
-                <GraduationCap className="h-3.5 w-3.5" /> Educational Hub
+                <GraduationCap className="h-3.5 w-3.5" /> {t(translations.educationPage.hub)}
               </Badge>
               <h1 className="text-4xl md:text-5xl font-bold font-heading mb-4 text-white leading-tight">
-                Learn, Grow, Thrive
+                {t(translations.educationPage.title)}
               </h1>
               <p className="text-white/90 text-lg mb-6">
-                Training programs for farmers, school visits for students, and
-                learning resources for everyone passionate about sustainable
-                agriculture.
+                {t(translations.educationPage.desc)}
               </p>
               <div className="flex gap-3 flex-wrap">
                 <Link href="/education/school-visit">
                   <Button size="lg" className="gap-2 text-sm">
-                    <School className="h-4 w-4" /> Book School Visit
+                    <School className="h-4 w-4" /> {t(translations.educationPage.bookSchool)}
                   </Button>
                 </Link>
                 <Button
@@ -315,7 +314,7 @@ export default function EducationPage() {
                   variant="outline"
                   className="border-card/30 text-white bg-card/10 hover:bg-card/40 gap-2 text-sm"
                 >
-                  <BookOpen className="h-4 w-4" /> Browse Resources
+                  <BookOpen className="h-4 w-4" /> {t(translations.educationPage.browseRes)}
                 </Button>
               </div>
             </div>
@@ -332,7 +331,7 @@ export default function EducationPage() {
                   className="gap-1 text-xs sm:text-sm py-2"
                 >
                   <GraduationCap className="h-3.5 w-3.5 hidden sm:block" />
-                  Training
+                  {t(translations.educationPage.trainingTabs)}
                 </TabsTrigger>
 
                 <TabsTrigger
@@ -340,7 +339,7 @@ export default function EducationPage() {
                   className="gap-1 text-xs sm:text-sm py-2"
                 >
                   <School className="h-3.5 w-3.5 hidden sm:block" />
-                  Schools
+                  {t(translations.educationPage.schoolsTabs)}
                 </TabsTrigger>
               </TabsList>
 
@@ -348,17 +347,17 @@ export default function EducationPage() {
               <TabsContent value="training" className="space-y-6">
                 <div className="text-center mb-8">
                   <h2 className="section-heading text-xl">
-                    Farmer Training Programs
+                    {t(translations.educationPage.farmerTraining)}
                   </h2>
                   <p className="section-subheading text-muted-foreground text-sm">
-                    Build your skills with hands-on courses and workshops
+                    {t(translations.educationPage.farmerTrainingSub)}
                   </p>
                 </div>
                 {/* Search and status filter */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-4 items-center justify-between">
                   <input
                     type="text"
-                    placeholder="Search training..."
+                    placeholder={t(translations.educationPage.searchTraining)}
                     value={trainingSearch}
                     onChange={(e) => {
                       setTrainingSearch(e.target.value);
@@ -378,18 +377,18 @@ export default function EducationPage() {
                     }}
                     className="w-full sm:w-48 px-3 py-2 border border-border rounded-lg text-sm outline-none bg-background"
                   >
-                    <option value="all">All Statuses</option>
-                    <option value="open">Open</option>
-                    <option value="upcoming">Upcoming</option>
-                    <option value="full">Full</option>
-                    <option value="completed">Completed</option>
+                    <option value="all">{t(translations.educationPage.allStatuses)}</option>
+                    <option value="open">{t(translations.educationPage.statusOpen)}</option>
+                    <option value="upcoming">{t(translations.educationPage.statusUpcoming)}</option>
+                    <option value="full">{t(translations.educationPage.statusFull)}</option>
+                    <option value="completed">{t(translations.educationPage.statusCompleted)}</option>
                   </select>
                 </div>
 
                 {loading ? (
                   <div className="text-center py-20">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground text-sm">Loading programs...</p>
+                    <p className="text-muted-foreground text-sm">{t(translations.educationPage.loadingPrograms)}</p>
                   </div>
                 ) : (
                   <>
@@ -397,7 +396,7 @@ export default function EducationPage() {
                       {trainingPrograms.length === 0 ? (
                         <div className="col-span-3 text-center py-12 bg-muted/30 rounded-2xl border border-dashed">
                           <BookOpen className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                          <p className="text-sm text-muted-foreground">No training programs found matching your criteria.</p>
+                          <p className="text-sm text-muted-foreground">{t(translations.educationPage.noPrograms)}</p>
                         </div>
                       ) : (
                         trainingPrograms.map((p) => (
@@ -465,7 +464,7 @@ export default function EducationPage() {
                               
                               <div className="mb-4">
                                 <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                                  <span>Enrollment</span>
+                                  <span>{t(translations.educationPage.enrollment)}</span>
                                   <span>
                                     {p.maxParticipants > 0
                                       ? Math.round(
@@ -506,7 +505,7 @@ export default function EducationPage() {
                                   className="w-full gap-2 text-xs sm:w-auto shrink-0"
                                 >
                                   <Link href={`/education/program/${p.slug}`}>
-                                    View Details
+                                    {t(translations.educationPage.viewDetails)}
                                     <ChevronRight className="h-4 w-4" />
                                   </Link>
                                 </Button>
@@ -582,7 +581,7 @@ export default function EducationPage() {
                     <div className="grid md:grid-cols-2 gap-8 mb-8">
                       <div>
                         <h3 className="font-bold font-heading text-foreground text-lg mb-4">
-                          What's Included
+                          {t(translations.educationPage.whatsIncluded)}
                         </h3>
                         <ul className="space-y-3">
                           {schoolVisitView.whatsIncluded.map((item) => (
@@ -598,7 +597,7 @@ export default function EducationPage() {
                       </div>
                       <div>
                         <h3 className="font-bold font-heading text-foreground text-lg mb-4">
-                          Program Details
+                          {t(translations.educationPage.progDetails)}
                         </h3>
                         <div className="space-y-2 text-xs">
                           {schoolVisitView.details.map((d) => (
@@ -619,7 +618,7 @@ export default function EducationPage() {
                     </div>
                     <Link href="/education/school-visit" className="block">
                       <Button size="lg" className="w-full gap-2 text-sm">
-                        <School className="h-4 w-4" /> Book a School Visit
+                        <School className="h-4 w-4" /> {t(translations.educationPage.bookSchoolVisit)}
                       </Button>
                     </Link>
                   </div>
