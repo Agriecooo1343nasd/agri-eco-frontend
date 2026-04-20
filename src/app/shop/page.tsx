@@ -22,6 +22,7 @@ import { deals } from "@/data/deals";
 import { Slider } from "@/components/ui/slider";
 import { fetchProducts, type AdminProduct } from "@/lib/api/products";
 import { fetchAdminCategories, type AdminCategory } from "@/lib/api/categories";
+import { resolveProductDiscountLabel } from "@/lib/discount-display";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
@@ -86,23 +87,12 @@ function ShopContent() {
   const paginatedProducts = useMemo(
     () =>
       products.map((p) => {
+        const backendDiscountLabel = resolveProductDiscountLabel({
+          discount: p.discount,
+          applicableDiscounts: p.applicableDiscounts,
+        });
         let badge: "sale" | "new" | "organic" | undefined = undefined;
-        let backendDiscountLabel: string | undefined = undefined;
-
-        if (p.discount) {
-          badge = "sale";
-          backendDiscountLabel =
-            p.discount.type === "percentage"
-              ? `-${p.discount.value}% OFF`
-              : `${p.discount.name}`;
-        } else if (p.applicableDiscounts && p.applicableDiscounts.length > 0) {
-          badge = "sale";
-          const firstDiscount = p.applicableDiscounts[0];
-          backendDiscountLabel =
-            firstDiscount.type === "percentage"
-              ? `-${firstDiscount.value}% OFF`
-              : `Sale!`;
-        } else if (p.isOnSale) {
+        if (backendDiscountLabel) {
           badge = "sale";
         } else if (p.isFeatured) {
           badge = "new";

@@ -59,6 +59,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
     useCart();
   const { formatPrice } = usePricing();
   const wishlisted = isInWishlist(product.id);
+  const showBadge =
+    product.badge === "sale"
+      ? Boolean(product.backendDiscountLabel)
+      : Boolean(product.badge && product.badge !== "organic");
+  const badgeKey = (product.badge ?? "new") as keyof typeof badgeStyles;
 
   return (
     <div className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
@@ -72,12 +77,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
             className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </Link>
-        {product.badge && product.badge !== "organic" && (
+        {showBadge && (
           <span
-            className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
+            className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[badgeKey]}`}
           >
             {product.badge === "sale"
-              ? product.backendDiscountLabel || "sale"
+              ? product.backendDiscountLabel
               : product.badge}
           </span>
         )}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ProductCard from "@/components/ProductCard";
+import { resolveProductDiscountLabel } from "@/lib/discount-display";
 import { useQuery } from "@tanstack/react-query";
 import { fetchProducts, fetchCategoriesForAdmin } from "@/lib/api/products";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -90,6 +91,10 @@ const BestSellers = () => {
               ))
             : products.map((product) => {
                 // Map AdminProduct to ProductCard expected type
+                const backendDiscountLabel = resolveProductDiscountLabel({
+                  discount: product.discount,
+                  applicableDiscounts: product.applicableDiscounts,
+                });
                 const mappedProduct = {
                   id: product.id,
                   slug: product.slug,
@@ -98,7 +103,12 @@ const BestSellers = () => {
                   oldPrice: product.originalPrice > product.sellingPrice ? product.originalPrice : undefined,
                   image: product.images?.[0]?.url || "/assets/products/placeholder.jpg",
                   rating: product.averageRating || 5,
-                  badge: product.isOnSale ? "sale" : product.isFeatured ? "featured" : undefined,
+                  badge: backendDiscountLabel
+                    ? "sale"
+                    : product.isFeatured
+                      ? "new"
+                      : undefined,
+                  backendDiscountLabel,
                   category: product.category?.name || "Organic",
                   unit: product.unit || "kg",
                 };

@@ -82,6 +82,7 @@ export interface AdminProduct {
   stockLevel?: number;
   lowStockThreshold?: number;
   unit: string;
+  measurementUnit?: string;
   tags?: string[];
   features?: string[];
   benefits?: string[];

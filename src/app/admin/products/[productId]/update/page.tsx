@@ -83,6 +83,22 @@ interface Batch {
   persisted?: boolean;
 }
 
+const VALID_UNITS = ["kg", "g", "lb", "oz", "pack", "piece", "bunch", "dozen"] as const;
+
+const normalizeUnit = (value?: string) => {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return "";
+
+  // Legacy aliases from older data entries.
+  if (normalized === "l" || normalized === "liter" || normalized === "litre") {
+    return "piece";
+  }
+
+  return (VALID_UNITS as readonly string[]).includes(normalized)
+    ? normalized
+    : "";
+};
+
 const toIsoDateTime = (value?: string) => {
   if (!value?.trim()) return undefined;
   const raw = value.trim();
@@ -187,10 +203,10 @@ export default function UpdateProduct() {
     setName(product.name ?? "");
     setShortDesc(product.shortDescription ?? "");
     setLongDesc(product.description ?? "");
-    setUnit(product.unit ?? "kg");
+    setUnit(normalizeUnit(product.unit || product.measurementUnit) || "kg");
     setActiveCategory(product.category?.id ?? "");
     setPrice(product.sellingPrice?.toString() ?? "");
-    setOldPrice(product.originalPrice?.toString() ?? "");
+    setOldPrice(product.originalPrice ? product.originalPrice.toString() : "");
     setTags(product.tags ?? []);
     setFeatures(product.features ?? []);
     setBenefits(product.benefits ?? []);
@@ -223,7 +239,6 @@ export default function UpdateProduct() {
     setInitialStatus(product.isActive ? "Active" : "Draft");
   }, [product]);
 
-  // Update mutation
   const updateMutation = useMutation({
     mutationFn: ({
       payload,
@@ -460,7 +475,7 @@ export default function UpdateProduct() {
     const errors: Record<string, string> = {};
     if (!name.trim()) errors.name = "Product name is required";
     if (!activeCategory) errors.category = "Category is required";
-    if (!unit) errors.unit = "Unit is required";
+    if (!unit.trim()) errors.unit = "Unit is required";
     if (!shortDesc.trim()) errors.shortDesc = "Short description is required";
     if (!price || Number(price) <= 0)
       errors.price = "Selling price must be greater than 0";
@@ -528,10 +543,10 @@ export default function UpdateProduct() {
       name,
       shortDescription: shortDesc,
       description: longDesc,
-      unit: unit as CreateAdminProductPayload["unit"],
+      unit: unit.trim().toLowerCase() as CreateAdminProductPayload["unit"],
       category: activeCategory,
       sellingPrice: Number(price),
-      originalPrice: Number(oldPrice) || undefined,
+      originalPrice: (Number(oldPrice) > 0 ? Number(oldPrice) : null) as unknown as number,
       tags,
       features,
       benefits,
@@ -792,7 +807,7 @@ export default function UpdateProduct() {
                       <Select
                         value={unit}
                         onValueChange={(val) => {
-                          setUnit(val);
+                          setUnit(normalizeUnit(val));
                           if (fieldErrors.unit)
                             setFieldErrors((prev) => {
                               const next = { ...prev };
@@ -816,8 +831,9 @@ export default function UpdateProduct() {
                           <SelectItem value="lb">Pounds (lb)</SelectItem>
                           <SelectItem value="oz">Ounces (oz)</SelectItem>
                           <SelectItem value="pack">Packets / Units</SelectItem>
-                          <SelectItem value="liter">Liters (L)</SelectItem>
                           <SelectItem value="piece">Pieces</SelectItem>
+                          <SelectItem value="bunch">Bunch</SelectItem>
+                          <SelectItem value="dozen">Dozen</SelectItem>
                         </SelectContent>
                       </Select>
                       {fieldErrors.unit && (

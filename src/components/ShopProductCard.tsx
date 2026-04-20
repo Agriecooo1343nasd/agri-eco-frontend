@@ -27,9 +27,13 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
   const { formatPrice } = usePricing();
   const wishlisted = isInWishlist(product.id);
   const inCart = isInCart(product.id);
-  const discount = product.oldPrice
-    ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
-    : 0;
+
+
+  const showBadge =
+    product.badge === "sale"
+      ? Boolean(product.backendDiscountLabel)
+      : Boolean(product.badge && product.badge !== "organic");
+  const badgeKey = (product.badge ?? "new") as keyof typeof badgeStyles;
 
   if (listView) {
     return (
@@ -44,12 +48,12 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
               className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
           </Link>
-          {product.badge && product.badge !== "organic" && (
+          {showBadge && (
             <span
-              className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
+              className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[badgeKey]}`}
             >
               {product.badge === "sale" 
-                ? product.backendDiscountLabel || `-${discount}%` 
+                ? product.backendDiscountLabel
                 : product.badge}
             </span>
           )}
@@ -148,12 +152,12 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </Link>
-        {product.badge && product.badge !== "organic" && (
+        {showBadge && (
           <span
-            className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[product.badge]}`}
+            className={`absolute top-3 left-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${badgeStyles[badgeKey]}`}
           >
             {product.badge === "sale" 
-              ? product.backendDiscountLabel || `-${discount}%` 
+              ? product.backendDiscountLabel
               : product.badge}
           </span>
         )}
