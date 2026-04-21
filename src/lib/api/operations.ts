@@ -50,28 +50,114 @@ export async function listReturns(): Promise<ReturnRequest[]> {
 
 export async function createReturn(input: {
   orderId: string;
-  product: string;
   buyer: string;
-  reason: string;
-  amount: number;
+  items: Array<{
+    id: string;
+    name: string;
+    qty: number;
+    image?: string;
+    price?: number;
+    reason?: string;
+  }>;
+  requestImages?: File[];
 }) {
   const rows = await listReturns();
+  const first = input.items[0];
+  const amount = input.items.reduce(
+    (sum, it) => sum + (Number(it.price || 0) || 0) * (Number(it.qty || 0) || 0),
+    0,
+  );
+  const requestImages = input.requestImages?.length
+    ? await Promise.all(
+        input.requestImages.map(async (f) => ({ name: f.name, dataUrl: await fileToDataUrl(f) })),
+      )
+    : undefined;
   const next: ReturnRequest = {
     id: `RET-${Date.now()}`,
     date: new Date().toISOString().slice(0, 10),
     status: "Pending",
-    ...input,
+    orderId: input.orderId,
+    buyer: input.buyer,
+    product: first?.name ?? "Return items",
+    reason: first?.reason ?? "Return request",
+    amount,
+    items: input.items,
+    requestImages,
   };
   const updated = [next, ...rows];
   writeLocal(RETURNS_KEY, updated);
   return next;
 }
 
-export async function appealReturn(id: string, appealNote: string) {
+export async function appealReturn(
+  id: string,
+  input:
+    | string
+    | {
+        note: string;
+        items?: Array<{
+          id: string;
+          name: string;
+          qty: number;
+          image?: string;
+          price?: number;
+          reason?: string;
+        }>;
+        images?: File[];
+      },
+) {
   const rows = await listReturns();
+  const note = typeof input === "string" ? input : input.note;
+  const images =
+    typeof input === "string" || !input.images?.length
+      ? undefined
+      : await Promise.all(
+          input.images.map(async (f) => ({ name: f.name, dataUrl: await fileToDataUrl(f) })),
+        );
+
+  const current = rows.find((r) => r.id === id);
+  if (!current) throw new Error("Return not found");
+  const submittedCount = (current.appeals ?? []).filter((a) => a.status === "Submitted").length;
+  if (submittedCount >= 2) throw new Error("Appeal limit reached");
+
   const updated = rows.map((r) =>
-    r.id === id ? { ...r, status: "Appealed" as ReturnStatus, appealNote } : r,
+    r.id === id
+      ? {
+          ...r,
+          status: "Appealed" as ReturnStatus,
+          appealNote: note,
+          appeals: [
+            ...(r.appeals ?? []),
+            {
+              id: `APL-${Date.now()}`,
+              note,
+              createdAt: new Date().toISOString(),
+              status: "Submitted" as const,
+              items: (typeof input === "string" ? r.items : input.items) ?? r.items ?? [],
+              images,
+            },
+          ],
+        }
+      : r,
   );
+  writeLocal(RETURNS_KEY, updated);
+}
+
+export async function cancelReturnAppeal(id: string, appealId: string) {
+  const rows = await listReturns();
+  const updated = rows.map((r) => {
+    if (r.id !== id) return r;
+    const appeals = (r.appeals ?? []).map((a) =>
+      a.id === appealId ? { ...a, status: "Cancelled" as const } : a,
+    );
+    const hasSubmitted = appeals.some((a) => a.status === "Submitted");
+    return {
+      ...r,
+      appeals,
+      // If user cancels their only active appeal, return goes back to rejected state.
+      status: hasSubmitted ? ("Appealed" as ReturnStatus) : r.status === "Appealed" ? ("Rejected" as ReturnStatus) : r.status,
+    };
+  });
   writeLocal(RETURNS_KEY, updated);
 }
 
@@ -318,8 +404,26 @@ export async function assignOrderToDeliveryAgent(order: {
   agent: string;
 }) {
   const rows = readLocal<DeliveryOrder[]>(DELIVERIES_KEY, initialDeliveryOrders);
-  const exists = rows.some((r) => r.orderId === order.orderId);
-  if (exists) return;
+  const existing = rows.find((r) => r.orderId === order.orderId);
+  if (existing) {
+    const updated = rows.map((r) =>
+      r.orderId === order.orderId
+        ? {
+            ...r,
+            customer: order.customer || r.customer,
+            address: order.address || r.address,
+            phone: order.phone || r.phone,
+            items: order.items || r.items,
+            amount: Number.isFinite(order.amount) ? order.amount : r.amount,
+            assignedAgent: order.agent,
+            status: "Assigned",
+          }
+        : r,
+    );
+    writeLocal(DELIVERIES_KEY, updated);
+    return;
+  }
+
   rows.unshift({
     id: `DLV-${Date.now()}`,
     orderId: order.orderId,

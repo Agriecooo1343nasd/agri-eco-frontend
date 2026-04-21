@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use } from "react";
+import { useMemo, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,7 +15,6 @@ import {
   Phone,
   Calendar,
   Plus,
-  Trash2,
   FileText,
   History,
   MessageSquare,
@@ -45,10 +44,15 @@ import {
     fetchAdminOrderById, 
     updateOrderStatusAdmin, 
     updateOrderPaymentStatusAdmin, 
-    refundOrderAdmin 
 } from "@/lib/api/orders";
 import { OrderStatus, PaymentStatus } from "@/constants/order-status";
 import { Loader2, AlertCircle } from "lucide-react";
+import {
+  assignOrderToDeliveryAgent,
+  deliveryAgents,
+  listDeliveryOrders,
+} from "@/lib/api/operations";
+import { DeliveryAgentPickerDialog } from "@/components/admin/DeliveryAgentPickerDialog";
 
 const allOrdersRaw = [
   {
@@ -147,10 +151,36 @@ export default function AdminOrderDetails({
   const queryClient = useQueryClient();
 
   const [noteInput, setNoteInput] = useState("");
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const { data: order, isLoading, isError } = useQuery({
       queryKey: ["admin-order", orderId],
       queryFn: () => fetchAdminOrderById(orderId),
+  });
+
+  const { data: deliveryAssignment } = useQuery({
+    queryKey: ["admin-delivery-assignment", orderId],
+    queryFn: async () => {
+      const deliveries = await listDeliveryOrders();
+      return deliveries.find((d) => d.orderId === orderId) ?? null;
+    },
+  });
+
+  const [agentsForDialog, setAgentsForDialog] = useState<Array<{ agent: string; assignments: number }>>(
+    deliveryAgents.map((a) => ({ agent: a, assignments: 0 })),
+  );
+
+  const loadAgentStats = useMutation({
+    mutationFn: async () => {
+      const deliveries = await listDeliveryOrders();
+      const counts = new Map<string, number>();
+      for (const a of deliveryAgents) counts.set(a, 0);
+      for (const d of deliveries) {
+        counts.set(d.assignedAgent, (counts.get(d.assignedAgent) ?? 0) + 1);
+      }
+      return deliveryAgents.map((a) => ({ agent: a, assignments: counts.get(a) ?? 0 }));
+    },
+    onSuccess: (data) => setAgentsForDialog(data),
   });
 
   const updateStatusMutation = useMutation({
@@ -169,27 +199,50 @@ export default function AdminOrderDetails({
       }
   });
 
-  const refundMutation = useMutation({
-      mutationFn: ({ reason }: { reason: string }) => refundOrderAdmin(orderId, reason),
-      onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["admin-order", orderId] });
-          toast.success("Order Refunded", {
-              description: "The order has been cancelled and refunded.",
-          });
-      },
-      onError: (error: any) => {
-          toast.error("Refund failed", {
-              description: error.message || "An error occurred while processing the refund.",
-          });
-      }
-  });
-
   const updatePaymentMutation = useMutation({
       mutationFn: (status: PaymentStatus) => updateOrderPaymentStatusAdmin(orderId, { paymentStatus: status }),
       onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ["admin-order", orderId] });
           toast.success("Payment Status Updated");
       }
+  });
+
+  const assignDeliveryMutation = useMutation({
+    mutationFn: async (agent: string) => {
+      if (!order) throw new Error("Order not loaded yet.");
+      await assignOrderToDeliveryAgent({
+        orderId,
+        customer:
+          order.user?.username ||
+          (order.user?.firstName || order.user?.lastName
+            ? `${order.user.firstName || ""} ${order.user.lastName || ""}`.trim()
+            : "") ||
+          order.shippingAddress?.fullName ||
+          "Customer",
+        address: [
+          order.shippingAddress?.street,
+          order.shippingAddress?.city,
+          order.shippingAddress?.state,
+          order.shippingAddress?.country,
+        ]
+          .filter(Boolean)
+          .join(", "),
+        phone: order.shippingAddress?.phone || order.user?.phone || "N/A",
+        amount: Number(order.totalAmount || 0),
+        items: `${order.items?.length ?? 0} items`,
+        agent,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-delivery-assignment", orderId] });
+      toast.success("Assigned", { description: "Order assigned to delivery agent." });
+      setAssignOpen(false);
+    },
+    onError: (error: any) => {
+      toast.error("Failed to assign", {
+        description: error?.message || "Unable to assign this order.",
+      });
+    },
   });
 
   if (isLoading) {
@@ -214,10 +267,6 @@ export default function AdminOrderDetails({
 
   const handleStatusChange = (newStatus: OrderStatus) => {
       updateStatusMutation.mutate({ status: newStatus });
-  };
-
-  const handleRefund = () => {
-      refundMutation.mutate({ reason: "Admin requested refund" });
   };
 
   const addNote = () => {
@@ -266,52 +315,52 @@ export default function AdminOrderDetails({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.CANCELLED && order.status !== OrderStatus.REFUNDED && (
-            <Button
-              variant="outline"
-              className=" border-rose-200 text-rose-600 hover:bg-rose-50"
-              onClick={handleRefund}
-              disabled={refundMutation.isPending}
-            >
-              {refundMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
-              Refund & Cancel
-            </Button>
-          )}
-
-          {(order.status === OrderStatus.SHIPPED ||
-            order.status === OrderStatus.OUT_FOR_DELIVERY) && (
-            <Button onClick={() => handleStatusChange(OrderStatus.DELIVERED)} disabled={updateStatusMutation.isPending}>
-              {updateStatusMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Confirm Delivery
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            onClick={() => {
+              setAssignOpen(true);
+              loadAgentStats.mutate();
+            }}
+          >
+            <Truck className="h-4 w-4 mr-2" />
+            {deliveryAssignment?.assignedAgent ? "Reassign delivery" : "Assign delivery"}
+          </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button>Update Status</Button>
+              <Button disabled={order.status === OrderStatus.CONFIRMED || updateStatusMutation.isPending}>
+                Update Status
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
               className="w-[200px] rounded-md p-2 border-border shadow-soft"
             >
               <DropdownMenuLabel className="text-[10px] font-black uppercase text-muted-foreground px-3 py-2">
-                Set New Status
+                Allowed status
               </DropdownMenuLabel>
-              {Object.values(OrderStatus)
-                .filter((st) => st !== order.status)
-                .map((st) => (
-                  <DropdownMenuItem
-                    key={st}
-                    className="rounded-md px-3 py-2.5 cursor-pointer focus:bg-primary/10 focus:text-primary font-bold capitalize"
-                    onClick={() => handleStatusChange(st)}
-                  >
-                    {st.replace(/_/g, ' ')}
-                  </DropdownMenuItem>
-                ))}
+              {order.status !== OrderStatus.CONFIRMED && (
+                <DropdownMenuItem
+                  className="rounded-md px-3 py-2.5 cursor-pointer focus:bg-primary/10 focus:text-primary font-bold capitalize"
+                  onClick={() => handleStatusChange(OrderStatus.CONFIRMED)}
+                >
+                  Confirmed
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      <DeliveryAgentPickerDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        title={`Assign delivery agent · ${orderId}`}
+        agents={agentsForDialog}
+        pickedAgent={deliveryAssignment?.assignedAgent ?? null}
+        picking={assignDeliveryMutation.isPending}
+        onPick={(agent) => assignDeliveryMutation.mutate(agent)}
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Left */}

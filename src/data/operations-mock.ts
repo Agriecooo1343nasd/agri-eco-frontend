@@ -19,6 +19,30 @@ export interface ReturnRequest {
   amount: number;
   date: string;
   status: ReturnStatus;
+  items?: Array<{
+    id: string;
+    name: string;
+    qty: number;
+    image?: string;
+    price?: number;
+    reason?: string;
+  }>;
+  requestImages?: Array<{ name: string; dataUrl: string }>;
+  appeals?: Array<{
+    id: string;
+    note: string;
+    createdAt: string;
+    status: "Submitted" | "Cancelled";
+    items: Array<{
+      id: string;
+      name: string;
+      qty: number;
+      image?: string;
+      price?: number;
+      reason?: string;
+    }>;
+    images?: Array<{ name: string; dataUrl: string }>;
+  }>;
   adminNote?: string;
   appealNote?: string;
   assignedAgent?: string;
@@ -70,6 +94,9 @@ export const initialReturns: ReturnRequest[] = [
     amount: 12.5,
     date: "2026-03-20",
     status: "Pending",
+    items: [
+      { id: "ri-1", name: "Organic Honey 500g", qty: 1, price: 12.5, image: "/assets/products/placeholder.jpg" },
+    ],
     assignedAgent: "Agent Thierry",
     agentStatus: "Pending pickup",
   },
@@ -82,6 +109,9 @@ export const initialReturns: ReturnRequest[] = [
     amount: 8.0,
     date: "2026-03-18",
     status: "Rejected",
+    items: [
+      { id: "ri-2", name: "Dried Pineapple Pack", qty: 1, price: 8.0, image: "/assets/products/placeholder.jpg" },
+    ],
     adminNote: "Evidence not sufficient.",
     assignedAgent: "Agent Thierry",
     agentStatus: "Picked up",
@@ -98,6 +128,9 @@ export const initialReturns: ReturnRequest[] = [
     amount: 15.0,
     date: "2026-03-16",
     status: "Appealed",
+    items: [
+      { id: "ri-3", name: "Avocado Crate", qty: 1, price: 15.0, image: "/assets/products/placeholder.jpg" },
+    ],
     appealNote: "I added new photos from the same day of delivery.",
     assignedAgent: "Agent Thierry",
     agentStatus: "Pending pickup",

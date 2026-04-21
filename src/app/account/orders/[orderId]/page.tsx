@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import {
   Truck,
   CheckCircle2,
@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { fetchOrderById, fetchOrderByNumber, type Order } from "@/lib/api/orders";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -24,6 +27,8 @@ import { OrderStatus, PaymentStatus } from "@/constants/order-status";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 import { usePricing } from "@/context/PricingContext";
+import { createReturn, listReturns } from "@/lib/api/operations";
+import type { ReturnRequest } from "@/data/operations-mock";
 
 // Mock Data for a single order
 const orderData = {
@@ -82,6 +87,12 @@ export default function OrderDetailsPage({
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnRows, setReturnRows] = useState<ReturnRequest[]>([]);
+  const [returnImages, setReturnImages] = useState<File[]>([]);
+  const [selected, setSelected] = useState<
+    Record<string, { checked: boolean; qty: number; reason: string }>
+  >({});
 
   useEffect(() => {
     async function loadOrder() {
@@ -114,6 +125,85 @@ export default function OrderDetailsPage({
 
     loadOrder();
   }, [orderId]);
+
+  useEffect(() => {
+    async function loadReturnsForOrder() {
+      const all = await listReturns();
+      setReturnRows(all.filter((r) => r.orderId === orderId));
+    }
+    void loadReturnsForOrder();
+  }, [orderId]);
+
+  const orderReturns = returnRows;
+
+  const MAX_RETURN_DAYS = 14;
+  const daysLeftByItemId = useMemo(() => {
+    if (!order) return {};
+    const createdAt = order.createdAt ? new Date(order.createdAt) : new Date();
+    const now = new Date();
+    const daysSince = Math.floor(
+      (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const remaining = Math.max(0, MAX_RETURN_DAYS - daysSince);
+    const m: Record<string, number> = {};
+    for (const it of (order.items as any[]) ?? []) m[String(it.id)] = remaining;
+    return m;
+  }, [order]);
+
+  const openReturnDialog = () => {
+    if (!order) return;
+    const base: Record<string, { checked: boolean; qty: number; reason: string }> =
+      {};
+    for (const it of (order.items as any[]) ?? []) {
+      const maxQty = Number(it.quantity || 1);
+      base[String(it.id)] = { checked: false, qty: Math.min(1, maxQty), reason: "" };
+    }
+    setSelected(base);
+    setReturnImages([]);
+    setReturnOpen(true);
+  };
+
+  const submitReturn = async () => {
+    if (!order) return;
+    const items = ((order.items as any[]) ?? [])
+      .filter((it) => selected[String(it.id)]?.checked)
+      .map((it) => {
+        const sel = selected[String(it.id)];
+        return {
+          id: String(it.id),
+          name: String(it.name || "Product"),
+          qty: Math.max(
+            1,
+            Math.min(Number(it.quantity || 1), Number(sel?.qty || 1)),
+          ),
+          image: String(
+            it.image ||
+              it.product?.images?.find?.((img: any) => img.isPrimary)?.url ||
+              it.product?.images?.[0]?.url ||
+              "/assets/products/placeholder.jpg",
+          ),
+          price: Number(it.unitPrice || it.price || 0),
+          reason: String(sel?.reason || ""),
+        };
+      })
+      .filter((it) => it.reason.trim());
+
+    if (!items.length) {
+      toast.warning("Select products and add reasons for each.");
+      return;
+    }
+
+    await createReturn({
+      orderId,
+      buyer: order.shippingAddress?.fullName || "Current user",
+      items,
+      requestImages: returnImages,
+    });
+    setReturnOpen(false);
+    const all = await listReturns();
+    setReturnRows(all.filter((r) => r.orderId === orderId));
+    toast.success("Return request submitted");
+  };
 
   if (loading) {
     return (
@@ -172,6 +262,17 @@ export default function OrderDetailsPage({
           <p className="text-muted-foreground font-medium">
             {t(translations.orderDetailsPage.placedOn)} {format(new Date(order.createdAt), "MMM dd, yyyy p")}
           </p>
+          {!!orderReturns.length && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {orderReturns.map((r) => (
+                <Button key={r.id} asChild size="sm" variant="outline">
+                  <Link href={`/return/${r.id}`}>
+                    Return {r.id} · {r.status}
+                  </Link>
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className={`px-5 py-2 rounded-md text-sm font-medium uppercase ring-4 ${getStatusColor(order.status as string)}`}>
@@ -185,8 +286,128 @@ export default function OrderDetailsPage({
             <Download className="h-4 w-4 mr-2" />
             {t(translations.orderDetailsPage.downloadInvoice)}
           </Button>
+          <Button className="rounded-md h-11" onClick={openReturnDialog}>
+            Request return
+          </Button>
         </div>
       </div>
+
+      <Dialog open={returnOpen} onOpenChange={setReturnOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Request a return</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Select products, adjust quantities, and provide a reason for each. You can attach images to support your request.
+            </p>
+
+            <div className="space-y-2 max-h-[45vh] overflow-auto pr-1">
+              {((order.items as any[]) ?? []).map((it) => {
+                const key = String(it.id);
+                const sel = selected[key] ?? { checked: false, qty: 1, reason: "" };
+                const maxQty = Number(it.quantity || 1);
+                const remainingDays = daysLeftByItemId[key] ?? 0;
+                const disabled = remainingDays <= 0;
+                const productImg =
+                  it.image ||
+                  it.product?.images?.find?.((img: any) => img.isPrimary)?.url ||
+                  it.product?.images?.[0]?.url ||
+                  "https://images.unsplash.com/photo-1587049352846-4a222e783134?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80";
+
+                return (
+                  <div key={key} className="border rounded-md p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={!!sel.checked}
+                          onChange={(e) =>
+                            setSelected((prev) => ({
+                              ...prev,
+                              [key]: { ...sel, checked: e.target.checked },
+                            }))
+                          }
+                          disabled={disabled}
+                        />
+                        <div className="w-12 h-12 rounded-md overflow-hidden border bg-muted shrink-0">
+                          <img src={productImg} alt={it.name || "Product"} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">{it.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Remaining return window:{" "}
+                            <span className={disabled ? "text-destructive font-medium" : "text-foreground font-medium"}>
+                              {remainingDays} day(s) left
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Qty</span>
+                        <Input
+                          type="number"
+                          className="w-[90px]"
+                          min={1}
+                          max={maxQty}
+                          value={sel.qty}
+                          onChange={(e) =>
+                            setSelected((prev) => ({
+                              ...prev,
+                              [key]: {
+                                ...sel,
+                                qty: Math.min(maxQty, Math.max(1, Number(e.target.value || 1))),
+                              },
+                            }))
+                          }
+                          disabled={!sel.checked || disabled}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground">Reason</p>
+                      <Textarea
+                        value={sel.reason}
+                        onChange={(e) =>
+                          setSelected((prev) => ({
+                            ...prev,
+                            [key]: { ...sel, reason: e.target.value },
+                          }))
+                        }
+                        placeholder="Explain why you want to return this product…"
+                        disabled={!sel.checked || disabled}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">Attach images (optional)</p>
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => setReturnImages(Array.from(e.target.files ?? []))}
+              />
+              {!!returnImages.length && (
+                <p className="text-xs text-muted-foreground">{returnImages.length} file(s) selected</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => setReturnOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={submitReturn}>Submit return request</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Order Info Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
