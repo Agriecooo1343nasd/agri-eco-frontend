@@ -42,6 +42,8 @@ export interface Product {
     type: string;
     value: number;
   }>;
+  ownerName?: string;
+  ownerHref?: string;
 }
 
 interface ProductCardProps {
@@ -112,6 +114,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
             {product.name}
           </h3>
         </Link>
+        {product.ownerName && product.ownerHref && (
+          <Link href={product.ownerHref} className="text-[11px] text-primary hover:underline">
+            by {product.ownerName}
+          </Link>
+        )}
         <div className="flex items-center gap-1 mt-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Star

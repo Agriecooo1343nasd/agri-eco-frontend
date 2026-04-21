@@ -1,10 +1,9 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
 import type { Product } from "@/components/ProductCard";
 import {
@@ -12,7 +11,6 @@ import {
   MapPin,
   Star,
   ShoppingBag,
-  Heart,
   MessageCircle,
   Share2,
   Award,
@@ -46,6 +44,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
+import ShopProductCard from "@/components/ShopProductCard";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function ArtisanProfilePage({
   params,
@@ -58,11 +65,13 @@ export default function ArtisanProfilePage({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   
-  const { addToCart, addToWishlist, removeFromWishlist, isInWishlist } = useCart();
   const { formatPrice } = usePricing();
   const { locale: activeLang, t } = useLanguage();
   const [contactOpen, setContactOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("default");
+  const [priceRange, setPriceRange] = useState<number[]>([0, 50000]);
 
   useEffect(() => {
     async function loadData() {
@@ -83,6 +92,94 @@ export default function ArtisanProfilePage({
     }
     loadData();
   }, [id]);
+
+  const getLangText = (text?: any, lang?: string) => {
+    if (!text) return "";
+    if (typeof text === "string") return text;
+    if (lang && text[lang]) return text[lang];
+    return text.en || text.rw || text.fr || text.sw || "";
+  };
+
+  const toCartProduct = (product: AdminArtisanProduct): Product => ({
+    id: product.id,
+    artisanProductId: product.id,
+    slug: `artisan-product-${product.id}`,
+    name: getLangText(product.name),
+    price: product.price || 0,
+    image: toAbsoluteArtisanImage(product.image),
+    rating: 5,
+    category: artisan?.specialty || "Artisan",
+    unit: "piece",
+    stock: product.stock,
+    ownerName: artisan?.name,
+    ownerHref: artisan?.id ? `/artisan/${artisan.id}` : undefined,
+  });
+
+  const mockedProducts: AdminArtisanProduct[] = useMemo(
+    () =>
+      products.length
+        ? products
+        : [
+            {
+              id: `mock-${id}-1`,
+              artisanId: id,
+              name: { en: "Handwoven Basket Set", rw: "", fr: "", sw: "" },
+              description: {
+                en: "Traditional woven basket crafted by hand.",
+                rw: "",
+                fr: "",
+                sw: "",
+              },
+              image: "/assets/products/placeholder.jpg",
+              price: 18000,
+              stock: 12,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as AdminArtisanProduct,
+            {
+              id: `mock-${id}-2`,
+              artisanId: id,
+              name: { en: "Clay Pot Collection", rw: "", fr: "", sw: "" },
+              description: {
+                en: "Decorative clay pots for modern and traditional homes.",
+                rw: "",
+                fr: "",
+                sw: "",
+              },
+              image: "/assets/products/placeholder.jpg",
+              price: 25000,
+              stock: 9,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as AdminArtisanProduct,
+          ],
+    [products, id],
+  );
+
+  const shopStyleProducts = useMemo(() => {
+    if (!artisan) return [];
+    const q = search.trim().toLowerCase();
+    let rows = mockedProducts.filter((p) => {
+      const name = getLangText(p.name).toLowerCase();
+      const desc = getLangText(p.description).toLowerCase();
+      return (
+        (!q || name.includes(q) || desc.includes(q)) &&
+        (p.price || 0) >= priceRange[0] &&
+        (p.price || 0) <= priceRange[1]
+      );
+    });
+    if (sortBy === "price-low")
+      rows = [...rows].sort((a, b) => (a.price || 0) - (b.price || 0));
+    if (sortBy === "price-high")
+      rows = [...rows].sort((a, b) => (b.price || 0) - (a.price || 0));
+    if (sortBy === "name")
+      rows = [...rows].sort((a, b) =>
+        getLangText(a.name).localeCompare(getLangText(b.name)),
+      );
+    return rows.map((p) => toCartProduct(p));
+  }, [artisan, mockedProducts, search, sortBy, priceRange]);
 
   if (isLoading) {
     return (
@@ -118,54 +215,13 @@ export default function ArtisanProfilePage({
             {t(translations.artisanPage.artisanNotFoundDesc)}
           </p>
           <Button asChild>
-            <Link href="/community">{t(translations.artisanPage.backToCommunity)}</Link>
+            <Link href="/artisans">{t(translations.artisanPage.backToCommunity)}</Link>
           </Button>
         </main>
         <Footer />
       </div>
     );
   }
-
-  const getLangText = (text?: any, lang?: string) => {
-    if (!text) return "";
-    if (typeof text === "string") return text;
-    if (lang && text[lang]) return text[lang];
-    return text.en || text.rw || text.fr || text.sw || "";
-  };
-
-  const hasLang = (text?: any, lang?: string) => {
-    return text && typeof text === "object" && text[lang as any];
-  };
-
-  const toCartProduct = (product: AdminArtisanProduct): Product => ({
-    id: product.id,
-    artisanProductId: product.id,
-    slug: `artisan-product-${product.id}`,
-    name: getLangText(product.name),
-    price: product.price || 0,
-    image: toAbsoluteArtisanImage(product.image),
-    rating: 5,
-    category: artisan.specialty,
-    unit: "piece",
-    stock: product.stock,
-  });
-
-  const handleAddToCart = (product: AdminArtisanProduct) => {
-    addToCart(toCartProduct(product));
-    toast.success(t(translations.artisanPage.addedToCart), {
-      description: `${getLangText(product.name)} has been added to your cart.`,
-    });
-  };
-
-  const handleToggleWishlist = (product: AdminArtisanProduct) => {
-    const p = toCartProduct(product);
-    if (isInWishlist(p.id)) {
-      void removeFromWishlist(p.id);
-      toast.info(t(translations.artisanPage.removedWishlist));
-    } else {
-      void addToWishlist(p);
-    }
-  };
 
   const handleShare = () => {
     if (typeof window !== "undefined") {
@@ -191,7 +247,7 @@ export default function ArtisanProfilePage({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/90 via-foreground/40 to-foreground/10" />
           <div className="relative container h-full flex items-end pb-8">
-            <Link href="/community" className="absolute top-6 left-4 md:left-0 inline-flex items-center gap-1.5 text-card/70 hover:text-card text-sm transition-colors">
+            <Link href="/artisans" className="absolute top-6 left-4 md:left-0 inline-flex items-center gap-1.5 text-card/70 hover:text-card text-sm transition-colors">
               <ArrowLeft className="h-4 w-4" /> {t(translations.artisanPage.backToCommunity)}
             </Link>
           </div>
@@ -277,71 +333,38 @@ export default function ArtisanProfilePage({
                     {t(translations.artisanPage.handcraftedProducts)} ({products.length})
                   </h2>
                 </div>
-                {products.length === 0 ? (
+                {shopStyleProducts.length === 0 ? (
                   <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-muted-foreground/20">
                     <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">{t(translations.artisanPage.noProducts)}</p>
                   </div>
                 ) : (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {products.map((product) => (
-                      <div
-                        key={product.id}
-                        className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-all group"
-                      >
-                        <div className="relative overflow-hidden">
-                          <img
-                            src={toAbsoluteArtisanImage(product.image)}
-                            alt={product.name.en}
-                            className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
-                            onClick={() => setSelectedImage(toAbsoluteArtisanImage(product.image))}
-                          />
-                          <Badge className="absolute top-3 left-3 bg-card/90 backdrop-blur-sm text-foreground text-[10px] border-0 px-2 py-0">
-                            {t(translations.artisanPage.handmade)}
-                          </Badge>
-                        </div>
-                        <div className="p-5">
-                          <h3 className="font-bold font-heading text-foreground mb-1 text-sm">
-                            {getLangText(product.name)}
-                          </h3>
-                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
-                            {getLangText(product.description) || t(translations.artisanPage.defaultProductDesc)}
-                          </p>
-                          <div className="flex items-center justify-between mb-4">
-                            <span className="text-lg font-bold text-foreground">
-                              {formatPrice(product.price || 0)}
-                            </span>
-                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Truck className="h-3 w-3" /> {t(translations.artisanPage.locallySourced)}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              className="flex-1 gap-1.5 text-xs"
-                              size="sm"
-                              onClick={() => handleAddToCart(product)}
-                            >
-                              <ShoppingBag className="h-3.5 w-3.5" /> {t(translations.artisanPage.addToCart)}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="px-3"
-                              onClick={() => handleToggleWishlist(product)}
-                              aria-label={
-                                isInWishlist(product.id)
-                                  ? "Remove from wishlist"
-                                  : "Add to wishlist"
-                              }
-                            >
-                              <Heart
-                                className={`h-3.5 w-3.5 ${isInWishlist(product.id) ? "fill-primary text-primary" : ""}`}
-                              />
-                            </Button>
-                          </div>
-                        </div>
+                  <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
+                    <div className="bg-card border border-border rounded-2xl p-4 space-y-4 h-fit">
+                      <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search artisan products..." />
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold">Sort</p>
+                        <Select value={sortBy} onValueChange={setSortBy}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default</SelectItem>
+                            <SelectItem value="name">Name A-Z</SelectItem>
+                            <SelectItem value="price-low">Price low to high</SelectItem>
+                            <SelectItem value="price-high">Price high to low</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    ))}
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold">Price Range</p>
+                        <Slider min={0} max={50000} step={500} value={priceRange} onValueChange={setPriceRange} />
+                        <p className="text-[11px] text-muted-foreground">{formatPrice(priceRange[0])} - {formatPrice(priceRange[1])}</p>
+                      </div>
+                    </div>
+                    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {shopStyleProducts.map((product) => (
+                        <ShopProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
                   </div>
                 )}
               </TabsContent>

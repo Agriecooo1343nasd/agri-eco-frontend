@@ -57,7 +57,7 @@ const getSlides = (t: any) => [
     description: t(translations.hero.community.desc),
     image: "/assets/landing/partnership.webp",
     cta: t(translations.hero.community.cta),
-    href: "/community",
+    href: "/artisans",
     icon: Handshake,
     badge: t(translations.header.nav.community),
   },
@@ -162,7 +162,7 @@ const HeroSection = () => {
                     );
                   })()}
                   <Link
-                    href="/community"
+                    href="/artisans"
                     className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-base hover:bg-white/20 transition-all shadow-xl"
                   >
                     <Users className="h-5 w-5" />

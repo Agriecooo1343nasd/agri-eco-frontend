@@ -197,7 +197,6 @@ export default function UpdateProduct() {
     rawUrl: url,
   }));
 
-  // Pre-populate fields from backend
   useEffect(() => {
     if (!product) return;
     setName(product.name ?? "");

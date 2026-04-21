@@ -117,6 +117,11 @@ function ShopContent() {
           shortDescription: p.shortDescription || "",
           longDescription: p.description || "",
           stock: p.stock,
+          ownerName: p.id.endsWith("1") || p.id.endsWith("3") ? "Artisan Collective" : undefined,
+          ownerHref:
+            p.id.endsWith("1") || p.id.endsWith("3")
+              ? "/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee"
+              : undefined,
         };
       }),
     [products],

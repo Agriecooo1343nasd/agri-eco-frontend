@@ -111,6 +111,8 @@ const BestSellers = () => {
                   backendDiscountLabel,
                   category: product.category?.name || "Organic",
                   unit: product.unit || "kg",
+                  ownerName: product.id.endsWith("1") ? "Artisan Collective" : undefined,
+                  ownerHref: product.id.endsWith("1") ? "/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined,
                 };
                 return <ProductCard key={product.id} product={mappedProduct as any} />;
               })}

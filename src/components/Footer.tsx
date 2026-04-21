@@ -116,7 +116,7 @@ const Footer = () => {
                 { label: t(translations.header.nav.tours), href: "/tours" },
                 { label: t(translations.header.nav.beekeeping), href: "/beekeeping" },
                 { label: t(translations.header.nav.education), href: "/education" },
-                { label: t(translations.header.nav.community), href: "/community" },
+                { label: t(translations.header.nav.community), href: "/artisans" },
                 { label: t(translations.header.nav.deals), href: "/deals" },
                 { label: t(translations.contactPage.heroBreadcrumb), href: "/contact" },
                 { label: t(translations.header.account.myAccount), href: "/account" },
@@ -141,7 +141,7 @@ const Footer = () => {
             <ul className="space-y-2">
               {[
                 { label: t(translations.footer.helpCenter), href: "#" },
-                { label: t(translations.footer.returnsRefunds), href: "#" },
+                { label: t(translations.footer.returnsRefunds), href: "/account/returns" },
                 { label: t(translations.footer.shippingInfo), href: "#" },
                 { label: t(translations.footer.trackOrder), href: "#" },
                 { label: t(translations.footer.privacyPolicy), href: "#" },

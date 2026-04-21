@@ -95,6 +95,11 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
               {product.name}
             </h3>
           </Link>
+          {product.ownerName && product.ownerHref && (
+            <Link href={product.ownerHref} className="text-[11px] text-primary hover:underline mt-0.5">
+              by {product.ownerName}
+            </Link>
+          )}
           <div className="flex items-center gap-1 mt-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
@@ -197,6 +202,11 @@ const ShopProductCard = ({ product, listView }: ShopProductCardProps) => {
             {product.name}
           </h3>
         </Link>
+        {product.ownerName && product.ownerHref && (
+          <Link href={product.ownerHref} className="text-[11px] text-primary hover:underline mt-0.5 inline-block">
+            by {product.ownerName}
+          </Link>
+        )}
         <div className="flex items-center gap-1 mt-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
