@@ -31,6 +31,17 @@ import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
 export default function CommunityPage() {
+  if (typeof window !== "undefined") {
+    window.location.replace("/artisans");
+  }
+  return null;
+}
+
+/*
+Legacy implementation kept below intentionally while migrating
+to split pages (`/artisans` and `/partners`).
+*/
+function LegacyCommunityPage() {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();

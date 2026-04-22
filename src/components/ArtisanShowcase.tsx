@@ -81,7 +81,7 @@ const ArtisanShowcase = () => {
 
         <div className="mt-10 text-center">
           <Link
-            href="/community"
+            href="/artisans"
             className="inline-flex items-center gap-2 border-2 border-primary text-primary px-6 py-2.5 rounded-full font-bold text-sm hover:bg-primary hover:text-primary-foreground transition-all"
           >
             {t(translations.sections.artisans.exploreArtisans)}

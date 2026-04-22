@@ -71,7 +71,8 @@ const navLinks = [
   { label: translations.header.nav.beekeeping, href: "/beekeeping" },
   { label: translations.header.nav.education, href: "/education" },
   { label: translations.header.nav.blog, href: "/blog" },
-  { label: translations.header.nav.community, href: "/community" },
+  { label: translations.header.nav.community, href: "/artisans" },
+  { label: "Partners", href: "/partners" },
   { label: translations.header.nav.about, href: "/about" },
   { label: translations.header.nav.deals, href: "/deals" },
 ];

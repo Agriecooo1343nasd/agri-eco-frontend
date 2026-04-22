@@ -12,6 +12,8 @@ import {
   Map,
   MessageSquare,
   Handshake,
+  RotateCcw,
+  Paintbrush,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -73,6 +75,18 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       label: t(translations.accountPage.myRequests),
       icon: MessageSquare,
       href: "/account/requests",
+    },
+    {
+      id: "returns",
+      label: "Returns & Appeals",
+      icon: RotateCcw,
+      href: "/account/returns",
+    },
+    {
+      id: "artisan",
+      label: "Artisan Portal",
+      icon: Paintbrush,
+      href: "/account/artisan",
     },
     {
       id: "addresses",
