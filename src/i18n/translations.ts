@@ -259,6 +259,7 @@ export const translations = {
     dealPrefix: { en: "Deal:", rw: "Ofu:", fr: "Offre:", sw: "Ofa:" },
     searchHeading: { en: "Search Products", rw: "Shakisha Ibicuruzwa", fr: "Rechercher des Produits", sw: "Tafuta Bidhaa" },
     searchPlaceholder: { en: "Search here...", rw: "Shakisha hano...", fr: "Chercher ici...", sw: "Tafuta hapa..." },
+    allProducts: { en: "All Products", rw: "Ibicuruzwa Byose", fr: "Tous les Produits", sw: "Bidhaa Zote" },
     categoriesHeading: { en: "Product Categories", rw: "Ibyiciro by'ibicuruzwa", fr: "Catégories de Produits", sw: "Jamii za Bidhaa" },
     filterCategories: { en: "Filter categories...", rw: "Yungurura ibyiciro...", fr: "Filtrer les catégories...", sw: "Chuja jamii..." },
     loading: { en: "Loading...", rw: "Biracyategurwa...", fr: "Chargement...", sw: "Inapakia..." },
