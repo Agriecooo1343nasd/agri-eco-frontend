@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { fetchProductBySlug } from "@/lib/api/products";
+import { fetchProductBySlug, fetchProducts } from "@/lib/api/products";
 import {
   createReview,
   fetchProductReviews,
@@ -96,9 +96,39 @@ export default function ProductDetailsPage() {
           stock: data.stock,
           reviews: [],
           applicableDiscounts: data.applicableDiscounts,
+          ownerName: (data as any).artisan?.name || (data.id.endsWith("1") ? "Artisan Collective" : undefined),
+          ownerHref: (data as any).artisan?.id 
+            ? `/community/artisan/${(data as any).artisan.id}` 
+            : (data.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined),
         };
         setProduct(mappedProduct);
         setSelectedImage(mappedProduct.image);
+        
+        // Mock related products (same category)
+        try {
+          const relatedData = await fetchProducts({ 
+            category: data.category?.id, 
+            limit: 5 
+          });
+          const filtered = (relatedData.data || [])
+            .filter(p => p.id !== data.id)
+            .map(p => ({
+              id: p.id,
+              slug: p.slug,
+              name: t(p.name as any),
+              price: p.sellingPrice,
+              image: p.images?.[0]?.url || "/assets/products/placeholder.jpg",
+              rating: p.averageRating || 5,
+              category: t(p.category?.name as any) || "",
+              unit: p.unit || "kg",
+              ownerName: p.id.endsWith("1") ? "Artisan Collective" : undefined,
+              ownerHref: p.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined,
+            } as Product));
+          setRelatedProducts(filtered);
+        } catch (e) {
+          console.error("Failed to load related products", e);
+        }
+
         setError(null);
       } catch (err: any) {
         console.error("Failed to load product:", err);
@@ -314,9 +344,16 @@ export default function ProductDetailsPage() {
                 </div>
               </div>
 
-              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4 font-heading">
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-1 font-heading">
                 {product.name}
               </h1>
+              {product.ownerName && product.ownerHref && (
+                <div className="mb-4">
+                  <Link href={product.ownerHref} className="text-sm font-semibold text-primary hover:underline flex items-center gap-1.5">
+                    {t(translations.common.by)} {product.ownerName}
+                  </Link>
+                </div>
+              )}
 
               <div className="flex items-baseline gap-3 mb-6">
                 <span className="text-3xl font-bold text-primary">
@@ -653,6 +690,23 @@ export default function ProductDetailsPage() {
             </div>
           </Tabs>
         </div>
+
+        {/* Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <div className="mt-20">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-bold font-heading">{t(translations.productPage.relatedProducts)}</h2>
+              <Link href="/shop" className="text-primary font-semibold hover:underline flex items-center gap-1 text-sm">
+                {t(translations.common.view)} {t(translations.shop.allProducts)} <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {relatedProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       <Footer />

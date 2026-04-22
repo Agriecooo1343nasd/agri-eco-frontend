@@ -117,10 +117,10 @@ function ShopContent() {
           shortDescription: p.shortDescription || "",
           longDescription: p.description || "",
           stock: p.stock,
-          ownerName: p.id.endsWith("1") || p.id.endsWith("3") ? "Artisan Collective" : undefined,
+          ownerName: p.id.endsWith("1") || p.id.endsWith("3") || p.id.endsWith("5") ? (p.id.endsWith("1") ? "Kagabo Emmanuel" : p.id.endsWith("3") ? "Mutesi Alice" : "Artisan Collective") : undefined,
           ownerHref:
-            p.id.endsWith("1") || p.id.endsWith("3")
-              ? "/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee"
+            p.id.endsWith("1") || p.id.endsWith("3") || p.id.endsWith("5")
+              ? (p.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : p.id.endsWith("3") ? "/community/artisan/c618b051-1972-4b11-b2c5-8d7dbf986f0e" : "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee")
               : undefined,
         };
       }),

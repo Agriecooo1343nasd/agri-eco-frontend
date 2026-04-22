@@ -8,19 +8,32 @@ import { Button } from "@/components/ui/button";
 import { partnerShowcase } from "@/data/operations-mock";
 import { Building2, Users, Calendar, MapPin, ArrowRight } from "lucide-react";
 import Image from "next/image";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function PartnersPage() {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen bg-background text-xs">
       <Header />
       <main>
         <section className="bg-primary/5 border-b border-border">
           <div className="container py-12 text-center">
-            <Badge className="mb-3 bg-secondary text-secondary-foreground">Community</Badge>
-            <h1 className="text-3xl font-bold font-heading">Our Partners</h1>
+            <Badge className="mb-3 bg-secondary text-secondary-foreground">
+              {t(translations.communityPage.community)}
+            </Badge>
+            <h1 className="text-3xl font-bold font-heading">{t(translations.partnerPage.partnerNetwork)}</h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Cooperatives, NGOs and logistics organizations powering Agri-Eco.
+              {t(translations.partnerPage.trackSub)}
             </p>
+            <div className="mt-6">
+              <Button asChild className="font-bold uppercase tracking-widest text-[10px] h-10 px-8">
+                <Link href="/account/partner">
+                  {t(translations.partnerPage.applyBtn)}
+                </Link>
+              </Button>
+            </div>
           </div>
         </section>
         <section className="container py-10">
@@ -50,7 +63,7 @@ export default function PartnersPage() {
                 </div>
                 <Button asChild size="sm" variant="outline" className="mt-4">
                   <Link href={`/partners/${p.id}`} className="gap-1">
-                    View partner details <ArrowRight className="h-3.5 w-3.5" />
+                    {t(translations.common.viewDetails)} <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
                 </div>

@@ -112,6 +112,10 @@ export interface AdminProduct {
     value: number;
     endDate: string;
   };
+  artisan?: {
+    id: string;
+    name: string;
+  };
 }
 
 export type AdminProductSort =
@@ -132,6 +136,7 @@ export interface FetchAdminProductsParams {
   sort?: AdminProductSort;
   order?: "asc" | "desc";
   discountId?: string;
+  artisanId?: string;
 }
 
 export interface FetchAdminProductsResult {
@@ -230,6 +235,7 @@ function buildQuery(params: FetchAdminProductsParams): string {
   if (params.sort) query.set("sort", params.sort);
   if (params.order) query.set("order", params.order);
   if (params.discountId) query.set("discountId", params.discountId);
+  if (params.artisanId) query.set("artisanId", params.artisanId);
 
   const queryString = query.toString();
   return queryString ? `?${queryString}` : "";

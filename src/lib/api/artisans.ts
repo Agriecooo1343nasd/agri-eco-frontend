@@ -18,6 +18,7 @@ export interface AdminArtisanProduct {
     id: string;
     name?: string;
   };
+  tags?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -238,6 +239,18 @@ export async function submitArtisanApplication(payload: any): Promise<any> {
     formattedPayload,
   );
   return response.data;
+}
+
+export async function fetchArtisanMyApplication(): Promise<AdminArtisanApplication | null> {
+  try {
+    const response = await apiClient.get<ApiSuccessResponse<AdminArtisanApplication>>(
+      "/artisans/applications/me",
+    );
+    return response.data.data ?? null;
+  } catch (error) {
+    console.error("Error fetching artisan application:", error);
+    return null;
+  }
 }
 
 function buildArtisanProductsQuery(

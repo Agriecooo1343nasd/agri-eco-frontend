@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useState, useEffect, useMemo } from "react";
+import { use, useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { usePricing } from "@/context/PricingContext";
@@ -20,6 +21,7 @@ import {
   Quote,
   Search,
   Loader2,
+  Palette,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,13 +69,77 @@ export default function ArtisanProfilePage({
   const { formatPrice } = usePricing();
   const { locale: activeLang, t } = useLanguage();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("default");
-  const [priceRange, setPriceRange] = useState<number[]>([0, 100000]);
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [onlyDiscounted, setOnlyDiscounted] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") || "default");
+  const [priceRange, setPriceRange] = useState<number[]>([
+    Number(searchParams.get("minPrice")) || 0,
+    Number(searchParams.get("maxPrice")) || 100000,
+  ]);
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "All");
+  const [onlyDiscounted, setOnlyDiscounted] = useState(searchParams.get("onSale") === "true");
+  const [selectedRating, setSelectedRating] = useState<number | null>(
+    searchParams.get("rating") ? Number(searchParams.get("rating")) : null
+  );
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    searchParams.get("tags") ? searchParams.get("tags")!.split(",") : []
+  );
+  const [categorySearch, setCategorySearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(Number(searchParams.get("page")) || 1);
   const itemsPerPage = 6;
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Sync state to URL
+  const updateQueryParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(window.location.search);
+      let hasChanged = false;
+
+      Object.entries(updates).forEach(([key, value]) => {
+        const currentValue = params.get(key);
+        const newValue = (value === null || value === "" || value === "All" || (key === "page" && value === "1")) ? null : value;
+        
+        if (currentValue !== newValue) {
+          if (newValue === null) {
+            params.delete(key);
+          } else {
+            params.set(key, newValue);
+          }
+          hasChanged = true;
+        }
+      });
+
+      if (hasChanged) {
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      }
+    },
+    [pathname, router]
+  );
+
+  useEffect(() => {
+    updateQueryParams({
+      search: debouncedSearch,
+      sort: sortBy === "default" ? null : sortBy,
+      minPrice: priceRange[0] === 0 ? null : priceRange[0].toString(),
+      maxPrice: priceRange[1] === 100000 ? null : priceRange[1].toString(),
+      category: selectedCategory,
+      onSale: onlyDiscounted ? "true" : null,
+      rating: selectedRating?.toString() || null,
+      tags: selectedTags.length > 0 ? selectedTags.join(",") : null,
+      page: currentPage.toString(),
+    });
+  }, [debouncedSearch, sortBy, priceRange, selectedCategory, onlyDiscounted, selectedRating, selectedTags, currentPage, updateQueryParams]);
 
   useEffect(() => {
     async function loadData() {
@@ -135,6 +201,7 @@ export default function ArtisanProfilePage({
               image: "/assets/products/placeholder.jpg",
               price: 18000,
               stock: 12,
+              tags: ["Handmade", "Traditional", "Eco-friendly"],
               isActive: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -152,6 +219,7 @@ export default function ArtisanProfilePage({
               image: "/assets/products/placeholder.jpg",
               price: 25000,
               stock: 9,
+              tags: ["Ceramic", "Home Decor", "Artisan"],
               isActive: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -161,13 +229,24 @@ export default function ArtisanProfilePage({
   );
 
   const artisanCategories = useMemo(() => {
-    const cats = new Set<string>(["All"]);
+    const cats = new Map<string, number>();
+    cats.set("All", mockedProducts.length);
     mockedProducts.forEach((p) => {
       const cat = p.category?.name || artisan?.specialty || "General";
-      cats.add(cat);
+      cats.set(cat, (cats.get(cat) || 0) + 1);
     });
-    return Array.from(cats);
+    return Array.from(cats.entries());
   }, [mockedProducts, artisan]);
+
+  const artisanTags = useMemo(() => {
+    const tags = new Set<string>();
+    mockedProducts.forEach((p) => {
+      if (Array.isArray(p.tags)) {
+        p.tags.forEach((t) => tags.add(t));
+      }
+    });
+    return Array.from(tags);
+  }, [mockedProducts]);
 
   const shopStyleProducts = useMemo(() => {
     if (!artisan) return [];
@@ -177,11 +256,16 @@ export default function ArtisanProfilePage({
       const desc = getLangText(p.description).toLowerCase();
       const cat = p.category?.name || artisan?.specialty || "General";
       
+      const matchesRating = !selectedRating || 5 >= selectedRating; // Mocked rating 5 for all artisan products
+      const matchesTags = selectedTags.length === 0 || selectedTags.some(tag => p.tags?.includes(tag));
+      
       return (
         (!q || name.includes(q) || desc.includes(q)) &&
         (p.price || 0) >= priceRange[0] &&
         (p.price || 0) <= priceRange[1] &&
-        (selectedCategory === "All" || cat === selectedCategory)
+        (selectedCategory === "All" || cat === selectedCategory) &&
+        matchesRating &&
+        matchesTags
       );
     });
     if (sortBy === "price-low")
@@ -301,6 +385,11 @@ export default function ArtisanProfilePage({
                     <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8" onClick={handleShare}>
                       <Share2 className="h-3.5 w-3.5" /> {t(translations.artisanPage.share)}
                     </Button>
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8" asChild>
+                      <Link href="/account/artisan/apply">
+                        <Palette className="h-3.5 w-3.5" /> {t(translations.communityPage.applyArtisanBtn)}
+                      </Link>
+                    </Button>
                     <Button size="sm" className="gap-1.5 text-xs h-8" onClick={() => {
                       const infoTab = document.querySelector('[value="info"]') as HTMLElement;
                       if (infoTab) infoTab.click();
@@ -351,135 +440,281 @@ export default function ArtisanProfilePage({
 
               {/* Products Tab */}
               <TabsContent value="products" className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold font-heading text-foreground">
-                    {t(translations.artisanPage.handcraftedProducts)} ({products.length})
-                  </h2>
-                </div>
-                {shopStyleProducts.length === 0 ? (
-                  <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-muted-foreground/20">
-                    <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">{t(translations.artisanPage.noProducts)}</p>
-                  </div>
-                ) : (
-                  <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
-                    <div className="lg:h-[calc(100vh-120px)] lg:sticky lg:top-24 space-y-6 bg-card border border-border rounded-2xl p-6 overflow-y-auto custom-scrollbar shadow-sm">
-
+                <div className="grid lg:grid-cols-[280px_minmax(0,1fr)] gap-8">
+                  {/* Sidebar - Always Visible */}
+                  <aside className="lg:h-[calc(100vh-140px)] lg:sticky lg:top-24 overflow-y-auto custom-scrollbar">
+                    <div className="bg-card border border-border rounded-xl p-5 space-y-8">
                       {/* Search */}
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3">{t(translations.shop.searchHeading)}</h3>
-                        <div className="relative">
-                          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products..." className="pr-8 text-xs h-9" />
-                          <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <div className="space-y-3">
+                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
+                          <span className="w-1 h-5 bg-primary rounded-full" />
+                          {t(translations.shop.searchHeading)}
+                        </h3>
+                        <div className="flex border border-border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
+                          <input
+                            type="text"
+                            placeholder={t(translations.shop.searchPlaceholder)}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="flex-1 px-3 py-2 bg-background text-foreground text-xs outline-none placeholder:text-muted-foreground"
+                          />
+                          <button className="bg-primary text-primary-foreground px-3 hover:bg-primary/90 transition-colors">
+                            <Search className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
 
                       {/* Categories */}
-                      <div className="space-y-2">
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-1">Categories</h3>
-                        <div className="space-y-1 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                          {artisanCategories.map(cat => (
+                      <div className="space-y-3">
+                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
+                          <span className="w-1 h-5 bg-primary rounded-full" />
+                          {t(translations.shop.categoriesHeading)}
+                        </h3>
+                        <div className="mb-2">
+                          <input
+                            type="text"
+                            placeholder={t(translations.shop.filterCategories)}
+                            value={categorySearch}
+                            onChange={(e) => setCategorySearch(e.target.value)}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-xs outline-none placeholder:text-muted-foreground"
+                          />
+                        </div>
+                        <ul className="space-y-1">
+                          {artisanCategories
+                            .filter(([name]) => name.toLowerCase().includes(categorySearch.toLowerCase()))
+                            .map(([name, count]) => (
+                            <li key={name}>
+                              <button
+                                onClick={() => {
+                                  setSelectedCategory(name);
+                                  setCurrentPage(1);
+                                }}
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${
+                                  selectedCategory === name
+                                    ? "bg-primary text-primary-foreground font-semibold"
+                                    : "text-foreground hover:bg-accent hover:text-accent-foreground"
+                                }`}
+                              >
+                                <span>{name}</span>
+                                <span className={`opacity-70 ${selectedCategory === name ? "text-primary-foreground/70" : "text-muted-foreground"}`}>({count})</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Price Filter */}
+                      <div className="space-y-3">
+                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
+                          <span className="w-1 h-5 bg-primary rounded-full" />
+                          {t(translations.shop.priceHeading)}
+                        </h3>
+                        <div className="px-1">
+                          <Slider
+                            min={0}
+                            max={100000}
+                            step={1000}
+                            value={priceRange}
+                            onValueChange={(val) => {
+                              setPriceRange(val);
+                              setCurrentPage(1);
+                            }}
+                            className="mb-3"
+                          />
+                          <div className="text-[11px] text-muted-foreground font-medium">
+                            {t(translations.shop.priceLabel)}{" "}
+                            <span className="text-foreground">{formatPrice(priceRange[0])}</span>
+                            {" — "}
+                            <span className="text-foreground">{formatPrice(priceRange[1])}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Rating Filter */}
+                      <div className="space-y-3">
+                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
+                          <span className="w-1 h-5 bg-primary rounded-full" />
+                          {t(translations.shop.ratingHeading)}
+                        </h3>
+                        <div className="space-y-1">
+                          {[5, 4, 3, 2, 1, 0].map((rating) => (
                             <button
-                              key={cat}
-                              onClick={() => setSelectedCategory(cat)}
-                              className={`w-full text-left px-2 py-1.5 rounded-lg text-xs transition-colors ${
-                                selectedCategory === cat
-                                  ? "bg-primary/10 text-primary font-semibold"
-                                  : "text-muted-foreground hover:bg-muted/50"
+                              key={rating}
+                              onClick={() => {
+                                setSelectedRating(selectedRating === rating ? null : rating);
+                                setCurrentPage(1);
+                              }}
+                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-colors ${
+                                selectedRating === rating
+                                  ? "bg-primary text-primary-foreground font-semibold"
+                                  : "text-foreground hover:bg-accent hover:text-accent-foreground"
                               }`}
                             >
-                              {cat}
+                              <div className="flex items-center gap-0.5">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`h-3.5 w-3.5 ${
+                                      i < rating ? "fill-secondary text-secondary" : "text-muted-foreground/30"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span>{rating} {rating !== 1 ? t(translations.shop.stars) : t(translations.shop.star)}</span>
                             </button>
                           ))}
                         </div>
                       </div>
 
-                      {/* Sort */}
-                      <div className="space-y-2">
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-1">Sort</h3>
-                        <Select value={sortBy} onValueChange={setSortBy}>
-                          <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="default">Default</SelectItem>
-                            <SelectItem value="name">Name A-Z</SelectItem>
-                            <SelectItem value="price-low">Price low to high</SelectItem>
-                            <SelectItem value="price-high">Price high to low</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      {/* Discount Filter */}
+                      <div className="space-y-3">
+                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
+                          <span className="w-1 h-5 bg-primary rounded-full" />
+                          {t(translations.shop.specialOffersHeading)}
+                        </h3>
+                        <label className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs cursor-pointer hover:bg-accent transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={onlyDiscounted}
+                            onChange={(e) => {
+                              setOnlyDiscounted(e.target.checked);
+                              setCurrentPage(1);
+                            }}
+                            className="w-4 h-4 rounded text-primary focus:ring-primary border-border"
+                          />
+                          <span className="font-medium text-foreground">
+                            {t(translations.shop.discountedProducts)}
+                          </span>
+                        </label>
                       </div>
 
-                      {/* Price Range */}
-                      <div className="space-y-4">
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-1">Price Range</h3>
-                        <Slider min={0} max={100000} step={1000} value={priceRange} onValueChange={setPriceRange} />
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{formatPrice(priceRange[0])}</span>
-                          <span>{formatPrice(priceRange[1])}</span>
+                      {/* Popular Tags */}
+                      <div className="space-y-3">
+                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
+                          <span className="w-1 h-5 bg-primary rounded-full" />
+                          {t(translations.shop.popularTagsHeading)}
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {artisanTags.length > 0 ? (
+                            artisanTags.map(tag => (
+                              <button
+                                key={tag}
+                                onClick={() => {
+                                  setSelectedTags(prev => 
+                                    prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                                  );
+                                  setCurrentPage(1);
+                                }}
+                                className={`px-3 py-1.5 rounded-full text-[10px] font-semibold transition-colors border ${
+                                  selectedTags.includes(tag)
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"
+                                }`}
+                              >
+                                {tag}
+                              </button>
+                            ))
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground italic">{t(translations.shop.noTags)}</p>
+                          )}
                         </div>
-                      </div>
-
-                      {/* Info Summary for Sidebar */}
-                      <div className="pt-4 border-t border-border space-y-3">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <MapPin className="h-3.5 w-3.5 text-primary" />
-                          <span>{artisan.location || "Rwanda"}</span>
-                        </div>
-                        {artisan.phone && (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <MessageCircle className="h-3.5 w-3.5 text-primary" />
-                            <span>{artisan.phone}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
+                  </aside>
+
+                  {/* Main Grid Content */}
+                  <div className="flex-1 min-w-0">
                     <div className="flex flex-col gap-8">
-                      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {paginatedProducts.map((product) => (
-                          <ShopProductCard key={product.id} product={product} />
-                        ))}
+                      {/* Toolbar/Sort */}
+                      <div className="flex flex-wrap items-center justify-between gap-4 bg-card border border-border rounded-xl p-4">
+                        <h2 className="text-xl font-bold font-heading text-foreground">
+                          {t(translations.artisanPage.handcraftedProducts)} ({shopStyleProducts.length})
+                        </h2>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t(translations.artisanPage.sortBy)}:</span>
+                          <Select value={sortBy} onValueChange={setSortBy}>
+                            <SelectTrigger className="h-8 text-xs min-w-[140px] rounded-lg"><SelectValue /></SelectTrigger>
+                            <SelectContent className="rounded-xl border-border">
+                              <SelectItem value="default">{t(translations.shop.sortDefault)}</SelectItem>
+                              <SelectItem value="name">{t(translations.artisanPage.sortNameAZ)}</SelectItem>
+                              <SelectItem value="price-low">{t(translations.shop.sortPriceLowHigh)}</SelectItem>
+                              <SelectItem value="price-high">{t(translations.shop.sortPriceHighLow)}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
 
-                      {/* Pagination */}
-                      {totalPages > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-4 pb-8">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(prev => prev - 1)}
-                            className="rounded-xl h-9 w-9 p-0"
+                      {shopStyleProducts.length === 0 ? (
+                        <div className="text-center py-20 bg-muted/20 rounded-2xl border border-dashed border-muted-foreground/20">
+                          <Package className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                          <h3 className="text-lg font-bold text-foreground">{t(translations.artisanPage.noProducts)}</h3>
+                          <p className="text-sm text-muted-foreground mt-2">{t(translations.shop.noProductsFound)}</p>
+                          <Button 
+                            variant="outline" 
+                            className="mt-6"
+                            onClick={() => {
+                              setSearch("");
+                              setSelectedCategory("All");
+                              setPriceRange([0, 100000]);
+                              setSelectedRating(null);
+                              setSelectedTags([]);
+                              setOnlyDiscounted(false);
+                            }}
                           >
-                            <ArrowLeft className="h-4 w-4" />
-                          </Button>
-                          {Array.from({ length: totalPages }).map((_, i) => (
-                            <Button
-                              key={i}
-                              variant={currentPage === i + 1 ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCurrentPage(i + 1)}
-                              className={`rounded-xl h-9 w-9 p-0 font-bold transition-all ${
-                                currentPage === i + 1 
-                                  ? "shadow-[0_4px_12px_rgba(var(--primary-rgb),0.3)] scale-110" 
-                                  : "hover:scale-105"
-                              }`}
-                            >
-                              {i + 1}
-                            </Button>
-                          ))}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={currentPage === totalPages}
-                            onClick={() => setCurrentPage(prev => prev + 1)}
-                            className="rounded-xl h-9 w-9 p-0"
-                          >
-                            <ArrowLeft className="h-4 w-4 rotate-180" />
+                            {t(translations.artisanPage.clearFilters)}
                           </Button>
                         </div>
+                      ) : (
+                        <>
+                          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {paginatedProducts.map((product) => (
+                              <ShopProductCard key={product.id} product={product} />
+                            ))}
+                          </div>
+
+                          {/* Pagination */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-center gap-2 mt-4 pb-8">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(prev => prev - 1)}
+                                className="rounded-xl h-9 w-9 p-0"
+                              >
+                                <ArrowLeft className="h-4 w-4" />
+                              </Button>
+                              {Array.from({ length: totalPages }).map((_, i) => (
+                                <Button
+                                  key={i}
+                                  variant={currentPage === i + 1 ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCurrentPage(i + 1)}
+                                  className={`rounded-xl h-9 w-9 p-0 font-bold transition-all ${
+                                    currentPage === i + 1 
+                                      ? "shadow-[0_4px_12px_rgba(var(--primary-rgb),0.3)] scale-110" 
+                                      : "hover:scale-105"
+                                  }`}
+                                >
+                                  {i + 1}
+                                </Button>
+                              ))}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(prev => prev + 1)}
+                                className="rounded-xl h-9 w-9 p-0"
+                              >
+                                <ArrowLeft className="h-4 w-4 rotate-180" />
+                              </Button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
-                )}
+                </div>
               </TabsContent>
 
               {/* Story Tab */}
@@ -519,76 +754,14 @@ export default function ArtisanProfilePage({
                       </div>
                       <div className="space-y-4">
                         <h4 className="font-bold text-foreground flex items-center gap-2">
-                          <MessageCircle className="h-4 w-4 text-primary" /> Contact Details
+                          <MessageCircle className="h-4 w-4 text-primary" /> {t(translations.artisanPage.contactDetails)}
                         </h4>
                         <div className="space-y-2 text-sm">
-                          {artisan.phone && <p className="text-muted-foreground">Phone: <span className="text-foreground font-medium">{artisan.phone}</span></p>}
-                          {artisan.email && <p className="text-muted-foreground">Email: <span className="text-foreground font-medium">{artisan.email}</span></p>}
+                          {artisan.phone && <p className="text-muted-foreground">{t(translations.artisanPage.phone)}: <span className="text-foreground font-medium">{artisan.phone}</span></p>}
+                          {artisan.email && <p className="text-muted-foreground">{t(translations.artisanPage.email)}: <span className="text-foreground font-medium">{artisan.email}</span></p>}
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Gallery */}
-                  <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
-                    <h3 className="font-semibold text-foreground mb-4">
-                      {t(translations.artisanPage.portfolioGallery)}
-                    </h3>
-                    {products.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-xs text-muted-foreground italic">{t(translations.artisanPage.noGallery)}</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {products.map((p) => (
-                          <img
-                            key={p.id}
-                            src={toAbsoluteArtisanImage(p.image)}
-                            alt={getLangText(p.name)}
-                            className="w-full h-32 object-cover rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setSelectedImage(toAbsoluteArtisanImage(p.image))}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Craft Process */}
-                <div className="bg-card border border-border rounded-2xl p-6 md:p-8">
-                  <h3 className="text-lg font-bold font-heading text-foreground mb-6">
-                    {t(translations.artisanPage.craftPromise)}
-                  </h3>
-                  <div className="grid sm:grid-cols-3 gap-6">
-                    {[
-                      {
-                        step: "1",
-                        title: t(translations.artisanPage.step1Title),
-                        desc: t(translations.artisanPage.step1Desc),
-                      },
-                      {
-                        step: "2",
-                        title: t(translations.artisanPage.step2Title),
-                        desc: t(translations.artisanPage.step2Desc),
-                      },
-                      {
-                        step: "3",
-                        title: t(translations.artisanPage.step3Title),
-                        desc: t(translations.artisanPage.step3Desc),
-                      },
-                    ].map((s) => (
-                      <div key={s.step} className="text-center">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center mx-auto mb-3 text-sm">
-                          {s.step}
-                        </div>
-                        <h4 className="font-semibold text-foreground text-sm mb-1">
-                          {s.title}
-                        </h4>
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {s.desc}
-                        </p>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </TabsContent>
@@ -646,46 +819,17 @@ export default function ArtisanProfilePage({
                     </div>
                   </div>
 
-                  <div className="bg-card border border-border rounded-2xl p-6">
-                    <h3 className="font-bold font-heading text-foreground mb-4">
-                      {t(translations.artisanPage.shippingAuth)}
-                    </h3>
-                    <div className="space-y-4">
-                      {[
-                        {
-                          icon: Truck,
-                          title: t(translations.artisanPage.deliveryTitle),
-                          desc: t(translations.artisanPage.deliveryDesc),
-                        },
-                        {
-                          icon: Shield,
-                          title: t(translations.artisanPage.authenticTitle),
-                          desc: t(translations.artisanPage.authenticDesc),
-                        },
-                        {
-                          icon: Package,
-                          title: t(translations.artisanPage.customTitle),
-                          desc: t(translations.artisanPage.customDesc),
-                        },
-                      ].map((item) => (
-                        <div
-                          key={item.title}
-                          className="flex items-start gap-3"
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <item.icon className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">
-                              {item.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground italic">
-                              {item.desc}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                  <div className="bg-card border border-border rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Shield className="h-8 w-8 text-primary" />
                     </div>
+                    <div>
+                      <h4 className="font-bold text-lg">Verified Artisan</h4>
+                      <p className="text-sm text-muted-foreground max-w-[280px]">
+                        This artisan has been personally verified by Agri-Eco for quality, authenticity, and sustainable practices.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">Official Artisan</Badge>
                   </div>
                 </div>
               </TabsContent>

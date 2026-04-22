@@ -148,22 +148,12 @@ export default function AdminArtisansPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [artisanPage, setArtisanPage] = useState(1);
   const [applicationsPage, setApplicationsPage] = useState(1);
-  const [productsPage, setProductsPage] = useState(1);
   const [activeTab, setActiveTab] = useState("artisans");
   const [viewApp, setViewApp] = useState<AdminArtisanApplication | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [reviewIntent, setReviewIntent] = useState<{
     application: AdminArtisanApplication;
     status: ReviewAdminArtisanApplicationPayload["status"];
-  } | null>(null);
-
-  // Delete product confirmation
-  const [deleteProductOpen, setDeleteProductOpen] = useState(false);
-  const [deleteProductTarget, setDeleteProductTarget] = useState<{
-    id: string;
-    artisanId: string;
-    name: string;
-    artisanName: string;
   } | null>(null);
 
   useEffect(() => {
@@ -175,10 +165,6 @@ export default function AdminArtisansPage() {
 
       if (activeTab === "applications") {
         setApplicationsPage(1);
-      }
-
-      if (activeTab === "products") {
-        setProductsPage(1);
       }
     }, 300);
 
@@ -216,19 +202,6 @@ export default function AdminArtisansPage() {
     enabled: activeTab === "applications",
   });
 
-  const productsQuery = useQuery({
-    queryKey: ["admin-artisan-products", productsPage, debouncedSearch],
-    queryFn: () =>
-      fetchAdminArtisanProducts({
-        page: productsPage,
-        limit: ITEMS_PER_PAGE,
-        search: debouncedSearch || undefined,
-        sort: "createdAt",
-        order: "desc",
-      }),
-    enabled: activeTab === "products",
-  });
-
   const reviewMutation = useMutation({
     mutationFn: ({
       id,
@@ -264,31 +237,6 @@ export default function AdminArtisansPage() {
     },
   });
 
-  const deleteProductMutation = useMutation({
-    mutationFn: ({
-      artisanId,
-      productId,
-    }: {
-      artisanId: string;
-      productId: string;
-    }) => deleteAdminArtisanProduct(artisanId, productId),
-    onSuccess: () => {
-      toast.success("Product deleted", {
-        description: "The artisan product has been removed.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["admin-artisan-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-artisan-products"] });
-      setDeleteProductOpen(false);
-      setDeleteProductTarget(null);
-    },
-    onError: (error: Error) => {
-      toast.error("Unable to delete product", {
-        description:
-          error.message || "Please retry or verify your admin authorization.",
-      });
-    },
-  });
-
   const activeArtisansCount = statsQuery.data?.activeArtisans ?? 0;
   const pendingApplicationsCount = statsQuery.data?.pendingApplications ?? 0;
   const totalProductsCount = statsQuery.data?.totalProducts ?? 0;
@@ -318,17 +266,6 @@ export default function AdminArtisansPage() {
       hasPrev: false,
     } as const);
 
-  const productRows = productsQuery.data?.data ?? [];
-  const productsPagination =
-    productsQuery.data?.pagination ??
-    ({
-      total: 0,
-      page: 1,
-      limit: ITEMS_PER_PAGE,
-      pages: 1,
-      hasNext: false,
-      hasPrev: false,
-    } as const);
 
   const getProductText = (value?: {
     en: string;
@@ -442,9 +379,6 @@ export default function AdminArtisansPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="products" className="gap-1.5 text-sm py-2">
-            <ShoppingBag className="h-4 w-4" /> Products
-          </TabsTrigger>
         </TabsList>
 
         {/* Search */}
@@ -468,7 +402,6 @@ export default function AdminArtisansPage() {
                     <TableHead>Artisan</TableHead>
                     <TableHead>Specialty</TableHead>
                     <TableHead>Location</TableHead>
-                    <TableHead>Products</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Featured</TableHead>
                     <TableHead className="w-12">Actions</TableHead>
@@ -528,9 +461,6 @@ export default function AdminArtisansPage() {
                             {a.location || "N/A"}
                           </span>
                         </TableCell>
-                        <TableCell className="font-semibold text-sm">
-                          {a.products?.length ?? 0}
-                        </TableCell>
                         <TableCell>
                           <Badge
                             className={`${statusColors[status]} border text-xs capitalize`}
@@ -562,16 +492,6 @@ export default function AdminArtisansPage() {
                                 }
                               >
                                 <Eye className="h-4 w-4" /> View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="gap-2"
-                                onClick={() =>
-                                  router.push(
-                                    `/admin/artisans/${a.id}/add-product`,
-                                  )
-                                }
-                              >
-                                <Plus className="h-4 w-4" /> Add Product
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="gap-2"
@@ -852,179 +772,6 @@ export default function AdminArtisansPage() {
             <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive mt-4">
               Failed to load applications. Please refresh or verify your admin
               authorization.
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Products Tab */}
-        <TabsContent value="products" className="mt-4">
-          <div className="border border-border rounded-xl overflow-hidden bg-card">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>Product</TableHead>
-                    <TableHead>Artisan</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead className="w-12">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {productsQuery.isLoading && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center py-8 text-muted-foreground"
-                      >
-                        Loading products...
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {!productsQuery.isLoading && productRows.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="text-center py-8 text-muted-foreground"
-                      >
-                        No products found.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {productRows.map((p) => {
-                    const productName = getProductText(p.name) || "Untitled";
-                    const productDescription =
-                      getProductText(p.description) || "No description";
-                    const artisanName = p.artisan?.name || "Unknown artisan";
-
-                    return (
-                      <TableRow key={p.id} className="hover:bg-muted/30">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={toAbsoluteArtisanImage(p.image)}
-                              alt={productName}
-                              className="w-10 h-10 rounded-lg object-cover"
-                            />
-                            <div>
-                              <p className="font-medium text-foreground text-sm">
-                                {productName}
-                              </p>
-                              <p className="text-xs text-muted-foreground line-clamp-1">
-                                {productDescription}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{artisanName}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {p.category?.name || "Uncategorized"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-semibold text-sm">
-                          {(Number(p.price) || 0).toLocaleString()} RWF
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {p.stock ?? "-"}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                className="gap-2"
-                                onClick={() =>
-                                  router.push(
-                                    `/admin/artisans/${p.artisan?.id ?? ""}/products/${p.id}`,
-                                  )
-                                }
-                                disabled={!p.artisan?.id}
-                              >
-                                <Eye className="h-4 w-4" /> View
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="gap-2"
-                                onClick={() =>
-                                  router.push(
-                                    `/admin/artisans/${p.artisan?.id ?? ""}/products/${p.id}/edit`,
-                                  )
-                                }
-                                disabled={!p.artisan?.id}
-                              >
-                                <Edit className="h-4 w-4" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="gap-2 text-destructive"
-                                onClick={() => {
-                                  if (!p.artisan?.id) {
-                                    return;
-                                  }
-
-                                  setDeleteProductTarget({
-                                    id: p.id,
-                                    artisanId: p.artisan.id,
-                                    name: productName,
-                                    artisanName,
-                                  });
-                                  setDeleteProductOpen(true);
-                                }}
-                                disabled={!p.artisan?.id}
-                              >
-                                <Trash2 className="h-4 w-4" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row mt-4">
-            <p className="text-xs font-medium text-muted-foreground">
-              Showing page {productsPagination.page} of{" "}
-              {productsPagination.pages} ({productsPagination.total} total
-              products)
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                disabled={
-                  !productsPagination.hasPrev || productsQuery.isFetching
-                }
-                onClick={() => setProductsPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                disabled={
-                  !productsPagination.hasNext || productsQuery.isFetching
-                }
-                onClick={() => setProductsPage((p) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-
-          {productsQuery.isError && (
-            <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive mt-4">
-              Failed to load artisan products. Please refresh or verify your
-              admin authorization.
             </div>
           )}
         </TabsContent>
@@ -1323,72 +1070,6 @@ export default function AdminArtisansPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Product Confirmation Dialog */}
-      <Dialog
-        open={deleteProductOpen}
-        onOpenChange={(open) => {
-          if (!open && !deleteProductMutation.isPending) {
-            setDeleteProductOpen(false);
-            setDeleteProductTarget(null);
-            return;
-          }
-
-          setDeleteProductOpen(open);
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-destructive">
-              Delete Product
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this product? This action cannot
-              be undone.
-            </DialogDescription>
-          </DialogHeader>
-          {deleteProductTarget && (
-            <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 space-y-2">
-              <p className="text-sm font-medium text-foreground">
-                {deleteProductTarget.name}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Assigned to: {deleteProductTarget.artisanName}
-              </p>
-            </div>
-          )}
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteProductOpen(false);
-                setDeleteProductTarget(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (!deleteProductTarget) {
-                  return;
-                }
-
-                deleteProductMutation.mutate({
-                  artisanId: deleteProductTarget.artisanId,
-                  productId: deleteProductTarget.id,
-                });
-              }}
-              disabled={deleteProductMutation.isPending}
-              className="gap-1.5"
-            >
-              <Trash2 className="h-4 w-4" />
-              {deleteProductMutation.isPending
-                ? "Deleting..."
-                : "Delete Product"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -111,8 +111,8 @@ const BestSellers = () => {
                   backendDiscountLabel,
                   category: product.category?.name || "Organic",
                   unit: product.unit || "kg",
-                  ownerName: product.id.endsWith("1") ? "Artisan Collective" : undefined,
-                  ownerHref: product.id.endsWith("1") ? "/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined,
+                  ownerName: product.id.endsWith("1") || product.id.endsWith("3") || product.id.endsWith("5") ? (product.id.endsWith("1") ? "Kagabo Emmanuel" : product.id.endsWith("3") ? "Mutesi Alice" : "Artisan Collective") : undefined,
+                  ownerHref: product.id.endsWith("1") || product.id.endsWith("3") || product.id.endsWith("5") ? (product.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : product.id.endsWith("3") ? "/community/artisan/c618b051-1972-4b11-b2c5-8d7dbf986f0e" : "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee") : undefined,
                 };
                 return <ProductCard key={product.id} product={mappedProduct as any} />;
               })}

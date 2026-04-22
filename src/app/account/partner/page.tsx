@@ -1,46 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
 import {
   AlertTriangle,
-  CheckCircle,
   Clock,
   FileText,
   Handshake,
   Wallet,
+  ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { usePricing } from "@/context/PricingContext";
-import { toast } from "sonner";
-
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   fetchPartnerAgreements,
   fetchPartnerMe,
   fetchPartnerMyApplication,
-  submitPartnerApplication,
 } from "@/lib/api/partners";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/LanguageContext";
@@ -63,9 +41,8 @@ export default function AccountPartnerPage() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
-  const queryClient = useQueryClient();
 
-  const { data: partnerData, isLoading: isLoadingPartner, isError: isErrorPartner, error: partnerError } = useQuery({
+  const { data: partnerData, isLoading: isLoadingPartner } = useQuery({
     queryKey: ["partner-me"],
     queryFn: fetchPartnerMe,
     retry: false
@@ -77,541 +54,353 @@ export default function AccountPartnerPage() {
     enabled: !!partnerData,
     retry: false
   });
+
   const { data: myApplication, isLoading: isLoadingApplication } = useQuery({
     queryKey: ["partner-me-application"],
     queryFn: fetchPartnerMyApplication,
     retry: false,
   });
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
-    businessName: "",
-    contactPerson: user?.name || "",
-    email: user?.email || "",
-    phone: "",
-    type: "tourism-operator",
-    aboutBusiness: "",
-  });
-
-  const userApplication = myApplication;
-
   const activeAgreements = partnerAgreements.filter((a: any) => a.status === "active");
   const endedAgreements = partnerAgreements.filter((a: any) => a.status !== "active");
   const totalEarnings = partnerAgreements.reduce((sum: number, agg: any) => sum + (agg.paidToDate || 0), 0);
   const fallbackStatus = activeAgreements.length > 0 ? "active" : partnerAgreements.length > 0 ? "inactive" : "pending";
   
-  const displayPartner = partnerData; // Using the real partner from the backend API
+  const displayPartner = partnerData;
   const revenueSummary = displayPartner?.revenueSummary || { gross: 0, earnings: totalEarnings, pending: 0, bookings: 0 };
 
-
-  const submitApplicationMutation = useMutation({
-    mutationFn: submitPartnerApplication,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-me-application"] });
-      setDialogOpen(false);
-      toast.success(t(translations.common.success), {
-        description: t(translations.partnerPage.underReview),
-      });
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to submit application", {
-        description: error.message || "Please try again.",
-      });
-    },
-  });
-
-  const submitApplication = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (
-      !form.businessName ||
-      !form.contactPerson ||
-      !form.email ||
-      !form.phone
-    ) {
-      toast.error(t(translations.common.errorLoading), {
-        description:
-          t(translations.auth.required),
-      });
-      return;
-    }
-
-    submitApplicationMutation.mutate({
-      businessName: form.businessName.trim(),
-      businessType: form.type.replace("-", "_"),
-      contactName: form.contactPerson.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      description: form.aboutBusiness.trim() || undefined,
-    });
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="bg-primary rounded-3xl text-primary-foreground p-6 md:p-8 relative overflow-hidden">
-        <h1 className="text-2xl font-bold font-heading">{t(translations.partnerPage.partnerNetwork)}</h1>
-        <p className="text-primary-foreground/80 text-sm mt-2 max-w-2xl">
-          {t(translations.partnerPage.trackSub)}
-        </p>
-        <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/10 blur-2xl" />
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="bg-primary rounded-3xl text-primary-foreground p-6 md:p-10 relative overflow-hidden shadow-2xl shadow-primary/20">
+        <div className="relative z-10">
+          <h1 className="text-3xl font-black font-heading tracking-tight">{t(translations.partnerPage.partnerNetwork)}</h1>
+          <p className="text-primary-foreground/80 text-sm mt-3 max-w-2xl font-medium">
+            {t(translations.partnerPage.trackSub)}
+          </p>
+        </div>
+        <div className="absolute -right-10 -top-10 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -left-10 -bottom-10 w-40 h-40 rounded-full bg-black/10 blur-2xl" />
       </div>
 
-      {displayPartner ? (
-        <>
+      {isLoadingPartner || isLoadingApplication ? (
+        <div className="grid gap-4">
+          <Skeleton className="h-[120px] w-full rounded-2xl" />
+          <Skeleton className="h-[200px] w-full rounded-2xl" />
+        </div>
+      ) : displayPartner ? (
+        <div className="space-y-6">
           <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4 space-y-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <Card className="rounded-2xl border-none shadow-soft hover:shadow-md transition-shadow">
+              <CardContent className="p-5 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                   {t(translations.partnerPage.status)}
                 </p>
                 <Badge
-                  className={`${statusBadge[displayPartner.status || fallbackStatus] || "bg-muted text-muted-foreground"} text-[10px] capitalize`}
+                  variant="outline"
+                  className={`${statusBadge[displayPartner.status || fallbackStatus] || "bg-muted text-muted-foreground"} text-[10px] uppercase font-bold py-1`}
                 >
                   {t((translations.statuses as any)[(displayPartner.status || fallbackStatus).toLowerCase()] || (displayPartner.status || fallbackStatus))}
                 </Badge>
-                <p className="text-xs text-muted-foreground">
-                  Type: <span className="capitalize">{displayPartner.type?.replace("_", " ")}</span>
+                <p className="text-xs text-muted-foreground font-medium pt-1">
+                  Type: <span className="capitalize text-foreground font-bold">{displayPartner.type?.replace("_", " ")}</span>
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4 space-y-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <Card className="rounded-2xl border-none shadow-soft hover:shadow-md transition-shadow">
+              <CardContent className="p-5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                   {t(translations.partnerPage.grossRevenue)}
                 </p>
-                <p className="text-lg font-bold">
+                <p className="text-2xl font-black text-foreground">
                   {formatPrice(revenueSummary.gross)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {t(translations.bookingsPage.participants)}: {revenueSummary.bookings || 0}
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  {t(translations.bookingsPage.participants)}: <span className="text-foreground">{revenueSummary.bookings || 0}</span>
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4 space-y-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <Card className="rounded-2xl border-none shadow-soft hover:shadow-md transition-shadow">
+              <CardContent className="p-5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                   {t(translations.partnerPage.yourEarnings)}
                 </p>
-                <p className="text-lg font-bold">
+                <p className="text-2xl font-black text-primary">
                   {formatPrice(revenueSummary.earnings)}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {t((translations.statuses as any).pending)}: {formatPrice(revenueSummary.pending || 0)}
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  {t((translations.statuses as any).pending)}: <span className="text-foreground">{formatPrice(revenueSummary.pending || 0)}</span>
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4 space-y-1">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <Card className="rounded-2xl border-none shadow-soft hover:shadow-md transition-shadow">
+              <CardContent className="p-5 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                   {t(translations.partnerPage.payoutCycle)}
                 </p>
-                <p className="text-sm font-bold capitalize">
+                <p className="text-lg font-black capitalize text-foreground">
                   {displayPartner.payoutCycle || "Not configured"}
                 </p>
-                <p className="text-xs text-muted-foreground capitalize">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   {t(translations.partnerPage.since)} {displayPartner.createdAt ? new Date(displayPartner.createdAt).toLocaleDateString() : ""}
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <Handshake className="h-4 w-4" /> {t(translations.partnerPage.overview)}
+          <Card className="rounded-2xl border-none shadow-soft overflow-hidden">
+            <div className="h-1 bg-primary/20 w-full" />
+            <CardContent className="p-6 space-y-4">
+              <h2 className="text-base font-black flex items-center gap-2">
+                <Handshake className="h-5 w-5 text-primary" /> {t(translations.partnerPage.overview)}
               </h2>
-              <div className="grid md:grid-cols-2 gap-4 text-xs">
-                <div className="space-y-1">
-                  <p>
-                    <span className="text-muted-foreground">{t(translations.partnerPage.business)}:</span>{" "}
-                    {displayPartner.name || "N/A"}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">{t(translations.partnerPage.contact)}:</span>{" "}
-                    {displayPartner.contactName || "N/A"}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Email:</span>{" "}
-                    {displayPartner.email || "N/A"}
-                  </p>
+              <div className="grid md:grid-cols-2 gap-8 text-sm">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2">
+                    <span className="text-muted-foreground font-medium">{t(translations.partnerPage.business)}:</span>
+                    <span className="font-bold">{displayPartner.name || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2">
+                    <span className="text-muted-foreground font-medium">{t(translations.partnerPage.contact)}:</span>
+                    <span className="font-bold">{displayPartner.contactName || "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2">
+                    <span className="text-muted-foreground font-medium">Email:</span>
+                    <span className="font-bold">{displayPartner.email || "N/A"}</span>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p>
-                    <span className="text-muted-foreground">{t(translations.partnerPage.commissionRate)}:</span>{" "}
-                    {displayPartner.revenueShareRate || displayPartner.commissionRate || activeAgreements[0]?.commissionRate || 0}%
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">{t(translations.checkoutPage.phone)}:</span>{" "}
-                    {displayPartner.phone || "N/A"}
-                  </p>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2">
+                    <span className="text-muted-foreground font-medium">{t(translations.partnerPage.commissionRate)}:</span>
+                    <span className="font-bold text-primary">{displayPartner.revenueShareRate || displayPartner.commissionRate || activeAgreements[0]?.commissionRate || 0}%</span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-border/50 pb-2">
+                    <span className="text-muted-foreground font-medium">{t(translations.checkoutPage.phone)}:</span>
+                    <span className="font-bold">{displayPartner.phone || "N/A"}</span>
+                  </div>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {displayPartner.notes || "Manage your active partner resources, view payouts, and monitor inputs."}
-              </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-5 space-y-3">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <FileText className="h-4 w-4" /> {t(translations.partnerPage.agreements)}
+          <Card className="rounded-2xl border-none shadow-soft overflow-hidden">
+            <div className="h-1 bg-primary/20 w-full" />
+            <CardContent className="p-6 space-y-6">
+              <h2 className="text-base font-black flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" /> {t(translations.partnerPage.agreements)}
               </h2>
 
               {isLoadingAgreements ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-[80px] w-full rounded-xl" />
-                  <Skeleton className="h-[120px] w-full rounded-xl" />
+                <div className="space-y-4">
+                  <Skeleton className="h-[80px] w-full rounded-2xl" />
+                  <Skeleton className="h-[120px] w-full rounded-2xl" />
                 </div>
               ) : partnerAgreements.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t(translations.partnerPage.noAgreements)}
-                </p>
+                <div className="text-center py-10 bg-muted/20 rounded-2xl border border-dashed">
+                  <Handshake className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-20" />
+                  <p className="text-sm text-muted-foreground font-medium">
+                    {t(translations.partnerPage.noAgreements)}
+                  </p>
+                </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    <div className="border border-border rounded-lg p-3 bg-muted/20">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                <div className="space-y-8">
+                  <div className="grid sm:grid-cols-3 gap-4">
+                    <div className="bg-primary/5 rounded-2xl p-5 border border-primary/10">
+                      <p className="text-[10px] text-primary font-bold uppercase tracking-widest">
                         {t(translations.partnerPage.activeContracts)}
                       </p>
-                      <p className="text-xl font-bold mt-1">
+                      <p className="text-3xl font-black mt-1">
                         {activeAgreements.length}
                       </p>
                     </div>
-                    <div className="border border-border rounded-lg p-3 bg-muted/20">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                    <div className="bg-muted/30 rounded-2xl p-5 border border-border">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
                         {t(translations.partnerPage.endedTerminated)}
                       </p>
-                      <p className="text-xl font-bold mt-1">
+                      <p className="text-3xl font-black mt-1">
                         {endedAgreements.length}
                       </p>
                     </div>
-                    <div className="border border-border rounded-lg p-3 bg-muted/20">
-                      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                        {t(translations.partnerPage.totalEarnings)}
-                      </p>
-                      <p className="text-sm font-bold mt-2">
-                        {formatPrice(revenueSummary.earnings)}
-                      </p>
-                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-black text-foreground uppercase tracking-widest flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                       {t(translations.partnerPage.activeContracts)}
-                    </p>
+                    </h3>
                     {activeAgreements.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground italic pl-4">
                         {t(translations.partnerPage.noAgreements)}
                       </p>
                     ) : (
-                      activeAgreements.map((agreement) => (
-                        <div
-                          key={agreement.id}
-                          className="border border-border rounded-lg p-3"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-semibold">
-                              {agreement.title}
+                      <div className="grid gap-4">
+                        {activeAgreements.map((agreement: any) => (
+                          <div
+                            key={agreement.id}
+                            className="bg-card border border-border rounded-2xl p-5 hover:border-primary/30 transition-colors shadow-sm group"
+                          >
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="space-y-1">
+                                <p className="text-sm font-black group-hover:text-primary transition-colors">
+                                  {agreement.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground font-medium">
+                                  {agreement.version} · {new Date(agreement.effectiveDate).toLocaleDateString()} -{" "}
+                                  {agreement.endDate ? new Date(agreement.endDate).toLocaleDateString() : "Open"}
+                                </p>
+                              </div>
+                              <Badge className="text-[10px] uppercase font-bold px-2 py-0.5">
+                                {t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-3 line-clamp-2">
+                              {agreement.termsSummary}
                             </p>
-                            <Badge className="text-[10px] capitalize">
-                              {t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {agreement.termsSummary}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            {agreement.version} · {agreement.effectiveDate} -{" "}
-                            {agreement.endDate || "Open"}
-                          </p>
-                          <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
-                            <p className="text-xs font-medium text-primary">
-                              {t(translations.partnerPage.earningsMade)}:{" "}
-                              {formatPrice(agreement.paidToDate || 0)}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs"
-                                asChild
-                              >
-                                <Link
-                                  href={`/account/partner/agreement/${agreement.id}`}
+                            <div className="flex items-center justify-between mt-5 pt-4 border-t border-border/50 gap-4 flex-wrap">
+                              <p className="text-xs font-bold text-primary uppercase tracking-wider">
+                                {t(translations.partnerPage.earningsMade)}:{" "}
+                                <span className="text-lg ml-1 font-black">{formatPrice(agreement.paidToDate || 0)}</span>
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-xl h-9 font-bold text-xs"
+                                  asChild
                                 >
-                                  {t(translations.partnerPage.viewAgreement)}
-                                </Link>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs"
-                                asChild
-                              >
-                                <Link
-                                  href={`/account/partner/agreements/${agreement.id}/payments`}
+                                  <Link href={`/account/partner/agreement/${agreement.id}`}>
+                                    {t(translations.partnerPage.viewAgreement)}
+                                  </Link>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="rounded-xl h-9 font-bold text-xs"
+                                  asChild
                                 >
-                                  {t(translations.partnerPage.paymentHistory)}
-                                </Link>
-                              </Button>
+                                  <Link href={`/account/partner/agreements/${agreement.id}/payments`}>
+                                    {t(translations.partnerPage.paymentHistory)}
+                                  </Link>
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                      {t(translations.partnerPage.contractHistory)}
-                    </p>
-                    {endedAgreements.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        No ended or terminated agreements yet.
-                      </p>
-                    ) : (
-                      endedAgreements.map((agreement) => (
-                        <div
-                          key={agreement.id}
-                          className="border border-border rounded-lg p-3 bg-muted/10"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs font-semibold">
-                              {agreement.title}
-                            </p>
-                            <Badge className="text-[10px] capitalize">
-                              {t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {agreement.termsSummary}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            {agreement.version} · {agreement.effectiveDate} -{" "}
-                            {agreement.endDate || "Open"}
-                          </p>
-                          <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
-                            <p className="text-xs font-medium text-foreground">
-                              {t(translations.partnerPage.earningsMade)}:{" "}
-                              {formatPrice(agreement.paidToDate || 0)}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs"
-                                asChild
-                              >
-                                <Link
-                                  href={`/account/partner/agreement/${agreement.id}`}
-                                >
-                                  {t(translations.partnerPage.viewAgreement)}
-                                </Link>
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs"
-                                asChild
-                              >
-                                <Link
-                                  href={`/account/partner/agreements/${agreement.id}/payments`}
-                                >
-                                  {t(translations.partnerPage.paymentHistory)}
-                                </Link>
-                              </Button>
+                  {endedAgreements.length > 0 && (
+                    <div className="space-y-4 pt-4">
+                      <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                        {t(translations.partnerPage.contractHistory)}
+                      </h3>
+                      <div className="grid gap-3">
+                        {endedAgreements.map((agreement: any) => (
+                          <div
+                            key={agreement.id}
+                            className="bg-muted/20 border border-border rounded-xl p-4 opacity-70 hover:opacity-100 transition-opacity"
+                          >
+                            <div className="flex items-center justify-between gap-4">
+                              <p className="text-xs font-bold">
+                                {agreement.title}
+                              </p>
+                              <Badge variant="outline" className="text-[9px] uppercase font-bold opacity-70">
+                                {t((translations.statuses as any)[agreement.status.toLowerCase()] || agreement.status)}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                              <p>{t(translations.partnerPage.earningsMade)}: {formatPrice(agreement.paidToDate || 0)}</p>
+                              <Link href={`/account/partner/agreement/${agreement.id}`} className="text-primary hover:underline">
+                                View Details
+                              </Link>
                             </div>
                           </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
-        </>
-      ) : isLoadingApplication ? (
-        <Skeleton className="h-[160px] w-full rounded-2xl" />
-      ) : userApplication?.status === "pending" ? (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-5 space-y-3">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-amber-600" /> {t(translations.partnerPage.pendingApplication)}
-            </p>
-            <Badge
-              className={`${applicationBadge[userApplication.status]} text-[10px] capitalize`}
-            >
-              {t((translations.statuses as any)[userApplication.status.toLowerCase()] || userApplication.status)}
-            </Badge>
-            <p className="text-xs text-muted-foreground">
-              {t(translations.partnerPage.underReview)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t(translations.partnerPage.appliedOn)} {userApplication.createdAt ? new Date(userApplication.createdAt).toLocaleDateString() : "recently"}
-            </p>
+        </div>
+      ) : myApplication?.status === "pending" ? (
+        <Card className="rounded-3xl border-amber-200 bg-amber-50/50 backdrop-blur overflow-hidden shadow-xl shadow-amber-500/10">
+          <div className="h-1 bg-amber-400 w-full" />
+          <CardContent className="p-8 space-y-6 text-center">
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <Clock className="h-10 w-10 text-amber-600 animate-pulse" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black font-heading text-amber-900">{t(translations.partnerPage.pendingApplication)}</h2>
+              <p className="text-sm text-amber-800/70 font-medium max-w-md mx-auto">
+                {t(translations.partnerPage.underReview)}
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-3 px-6 py-2 bg-amber-100 rounded-full text-xs font-black text-amber-700 uppercase tracking-widest border border-amber-200">
+              {t((translations.statuses as any)[myApplication.status.toLowerCase()] || myApplication.status)}
+            </div>
+            <div className="pt-4 border-t border-amber-200/50">
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest opacity-60">
+                {t(translations.partnerPage.appliedOn)} {myApplication.createdAt ? new Date(myApplication.createdAt).toLocaleDateString() : "recently"}
+              </p>
+            </div>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-muted-foreground" /> {t(translations.partnerPage.notPartner)}
-            </p>
-            {userApplication?.status === "rejected" && (
-              <div className="border border-destructive/20 rounded-lg p-3 bg-destructive/5">
-                <p className="text-xs font-medium text-destructive">
-                  Previous application was rejected.
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {userApplication.reviewNote ||
-                    "You can update your details and apply again."}
-                </p>
+        <Card className="rounded-3xl border-none shadow-2xl shadow-foreground/5 overflow-hidden">
+          <div className="h-1.5 bg-gradient-to-r from-primary via-primary/50 to-primary w-full" />
+          <CardContent className="p-10 space-y-8">
+            <div className="flex flex-col md:flex-row items-center gap-10">
+              <div className="w-32 h-32 bg-primary/5 rounded-3xl flex items-center justify-center shrink-0 shadow-inner">
+                <Handshake className="h-16 w-16 text-primary" />
               </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              You currently do not have an active partner profile. You can apply
-              to join the Agri-Eco partner network to manage agreements, revenue
-              sharing and payouts.
-            </p>
-            <Button
-              size="sm"
-              className="text-xs"
-              onClick={() => setDialogOpen(true)}
-            >
-              <Wallet className="h-3.5 w-3.5 mr-1" /> {t(translations.partnerPage.applyToJoin)}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+              <div className="text-center md:text-left space-y-4">
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-black font-heading text-foreground">
+                    {t(translations.partnerPage.notPartner)}
+                  </h2>
+                  <p className="text-sm text-muted-foreground font-medium max-w-xl leading-relaxed">
+                    Join the Agri-Eco partner network to manage agreements, coordinate operations, and participate in our sustainable ecosystem. Partners benefit from shared growth and streamlined logistics.
+                  </p>
+                </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading">
-              {t(translations.partnerPage.applyTitle)}
-            </DialogTitle>
-            <DialogDescription>
-              {t(translations.partnerPage.applyDescription)}
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={submitApplication} className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-[11px]">{t(translations.partnerPage.businessName)} *</Label>
-                <Input
-                  placeholder="Example: Green Valley Tours Ltd"
-                  className="h-9 text-xs"
-                  value={form.businessName}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      businessName: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px]">{t(translations.partnerPage.contactPerson)} *</Label>
-                <Input
-                  placeholder="Example: Jane Uwimana"
-                  className="h-9 text-xs"
-                  value={form.contactPerson}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      contactPerson: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px]">{t(translations.common.email)} *</Label>
-                <Input
-                  type="email"
-                  placeholder="Example: partner@business.rw"
-                  className="h-9 text-xs"
-                  value={form.email}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, email: event.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px]">{t(translations.checkoutPage.phone)} *</Label>
-                <Input
-                  placeholder="Example: +250 7XX XXX XXX"
-                  className="h-9 text-xs"
-                  value={form.phone}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, phone: event.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[11px]">{t(translations.partnerPage.businessType)} *</Label>
-                <Select
-                  value={form.type}
-                  onValueChange={(value) =>
-                    setForm((prev) => ({ ...prev, type: value }))
-                  }
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tourism-operator">
-                      Tourism Operator
-                    </SelectItem>
-                    <SelectItem value="hotel">Hotel / Lodge</SelectItem>
-                    <SelectItem value="restaurant">Restaurant</SelectItem>
-                    <SelectItem value="school">School / Institution</SelectItem>
-                    <SelectItem value="ngo">NGO / Non-profit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label className="text-[11px]">{t(translations.partnerPage.aboutBusiness)}</Label>
-                <Textarea
-                  rows={4}
-                  placeholder="Tell us your services, current audience and how you want to partner with Agri-Eco."
-                  className="text-xs"
-                  value={form.aboutBusiness}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      aboutBusiness: event.target.value,
-                    }))
-                  }
-                />
+                {myApplication?.status === "rejected" && (
+                  <div className="bg-destructive/5 border border-destructive/10 rounded-2xl p-5 text-left">
+                    <div className="flex items-center gap-2 text-destructive mb-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-xs font-black uppercase tracking-widest">Previous Application rejected</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-medium italic">
+                      "{myApplication.reviewNote || "Please update your business details and try applying again."}"
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <DialogFooter>
+            <div className="bg-muted/30 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6 border border-border/50">
+              <div className="space-y-1 text-center sm:text-left">
+                <p className="text-sm font-black uppercase tracking-widest text-foreground">Ready to collaborate?</p>
+                <p className="text-xs text-muted-foreground font-medium">Takes less than 5 minutes to submit your details.</p>
+              </div>
               <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
+                size="lg"
+                className="rounded-2xl px-10 h-14 font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 gap-3 group"
+                asChild
               >
-                {t(translations.common.cancel)}
+                <Link href="/account/partner/apply">
+                  <Wallet className="h-4 w-4" /> {t(translations.partnerPage.applyToJoin)}
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </Button>
-              <Button type="submit">
-                <CheckCircle className="h-3.5 w-3.5 mr-1" /> {t(translations.partnerPage.submitApplication)}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -70,7 +70,9 @@ import {
   toAbsoluteMediaUrl,
   type CreateAdminProductPayload,
   type ProductCategory,
+  type AdminProduct,
 } from "@/lib/api/products";
+import { fetchAdminArtisans } from "@/lib/api/artisans";
 
 interface Batch {
   id: string;
@@ -159,6 +161,17 @@ export default function UpdateProduct() {
   });
   const categories: ProductCategory[] = categoryResult?.data ?? [];
 
+  const [artisanId, setArtisanId] = useState("");
+  const [artisanSearch, setArtisanSearch] = useState("");
+  const [isArtisanOpen, setIsArtisanOpen] = useState(false);
+
+  const artisansQuery = useQuery({
+    queryKey: ["admin-artisans-search", artisanSearch],
+    queryFn: () => fetchAdminArtisans({ search: artisanSearch, limit: 10 }),
+  });
+  const artisans = artisansQuery.data?.data ?? [];
+  const activeArtisan = artisans.find((a) => a.id === artisanId) ?? product?.artisan;
+
   // State for form fields
   const [name, setName] = useState("");
   const [shortDesc, setShortDesc] = useState("");
@@ -233,6 +246,7 @@ export default function UpdateProduct() {
         ? `${product.shipping.dimensions.length} x ${product.shipping.dimensions.width} x ${product.shipping.dimensions.height}`
         : "",
     );
+    setArtisanId(product.artisan?.id ?? "");
     setExistingImageUrls((product.images ?? []).map((img) => img.url));
     setIsActivated(product.isActive ?? false);
     setInitialStatus(product.isActive ? "Active" : "Draft");
@@ -568,7 +582,8 @@ export default function UpdateProduct() {
             }
           : undefined,
       isActive: isActivated,
-    };
+      artisanId: artisanId || undefined,
+    } as any;
     updateMutation.mutate({ payload });
   };
 
@@ -797,6 +812,81 @@ export default function UpdateProduct() {
                           {fieldErrors.category}
                         </p>
                       )}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Artisan / Owner
+                      </label>
+                      <Popover
+                        open={isArtisanOpen}
+                        onOpenChange={setIsArtisanOpen}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className={cn(
+                              "w-full justify-between rounded-sm bg-muted/20 border-border text-left font-medium px-4 h-11",
+                              !artisanId && "text-muted-foreground",
+                            )}
+                          >
+                            {artisanId === "" ? "None (Our Shop)" : (activeArtisan?.name || "Select artisan...")}
+                            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-full min-w-[300px] p-0 rounded-sm border-border"
+                          align="start"
+                        >
+                          <Command className="rounded-sm">
+                            <CommandInput
+                              placeholder="Search artisan..."
+                              value={artisanSearch}
+                              onValueChange={setArtisanSearch}
+                            />
+                            <CommandList>
+                              <CommandEmpty>No artisan found.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="none"
+                                  onSelect={() => {
+                                    setArtisanId("");
+                                    setIsArtisanOpen(false);
+                                  }}
+                                  className="py-3 px-4 rounded-sm m-1"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      artisanId === "" ? "opacity-100" : "opacity-0",
+                                    )}
+                                  />
+                                  <span className="font-medium">None (Our Shop)</span>
+                                </CommandItem>
+                                {artisans.map((artisan) => (
+                                  <CommandItem
+                                    key={artisan.id}
+                                    value={artisan.name}
+                                    onSelect={() => {
+                                      setArtisanId(artisan.id);
+                                      setIsArtisanOpen(false);
+                                    }}
+                                    className="py-3 px-4 rounded-sm m-1"
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        artisanId === artisan.id ? "opacity-100" : "opacity-0",
+                                      )}
+                                    />
+                                    <span className="font-medium">{artisan.name}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">

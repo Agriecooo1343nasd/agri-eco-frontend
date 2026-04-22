@@ -85,6 +85,7 @@ import {
   unassignProductsFromDiscount,
   type AdminDiscount,
 } from "@/lib/api/discounts";
+import { fetchAdminArtisans } from "@/lib/api/artisans";
 
 type SortKey = "name" | "price" | "stock" | "sold" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -109,9 +110,12 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [ownerFilter, setOwnerFilter] = useState<string>("all"); // all, system, artisan
+  const [artisanIdFilter, setArtisanIdFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [artisanSearch, setArtisanSearch] = useState("");
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(
     null,
   );
@@ -138,16 +142,23 @@ export default function AdminProductsPage() {
 
   const productsQuery = useQuery({
     queryKey: [
-      "admin-products",
-      page,
-      search,
       statusFilter,
       categoryFilter,
+      ownerFilter,
+      artisanIdFilter,
       sortKey,
       sortDir,
     ],
-    queryFn: () =>
-      fetchAdminProducts({
+    queryFn: () => {
+      const artisanId = ownerFilter === "system" 
+        ? "none" 
+        : ownerFilter === "artisan" && artisanIdFilter !== "all" 
+          ? artisanIdFilter 
+          : ownerFilter === "artisan" 
+            ? "any" 
+            : undefined;
+
+      return fetchAdminProducts({
         page,
         limit: ITEMS_PER_PAGE,
         search,
@@ -155,8 +166,21 @@ export default function AdminProductsPage() {
         isActive: statusQuery,
         sort: apiSortKey,
         order: sortDir,
-      }),
+        artisanId: artisanId === "none" ? undefined : artisanId, // Adjust based on how API handles 'ours' vs 'artisan'
+        // If API supports a specific way to say "no artisan", use that.
+        // For now let's assume if we send an artisanId it filters. 
+        // If ownerFilter is system, we might need a special flag or just handle it if artisan is null in results.
+      });
+    },
   });
+
+  const artisansQuery = useQuery({
+    queryKey: ["admin-artisans-filter", artisanSearch],
+    queryFn: () => fetchAdminArtisans({ search: artisanSearch, limit: 10 }),
+    enabled: ownerFilter === "artisan",
+  });
+
+  const artisans = artisansQuery.data?.data ?? [];
 
   const categoriesQuery = useQuery({
     queryKey: ["admin-product-categories"],
@@ -379,10 +403,17 @@ export default function AdminProductsPage() {
           if (statusFilter === "draft") {
             return product.uiStatus === "Draft";
           }
-
+          return true;
+        })
+        .filter((product) => {
+          if (ownerFilter === "system") return !product.artisan;
+          if (ownerFilter === "artisan") {
+            if (artisanIdFilter !== "all") return product.artisan?.id === artisanIdFilter;
+            return !!product.artisan;
+          }
           return true;
         }),
-    [rows, statusFilter],
+    [rows, statusFilter, ownerFilter, artisanIdFilter],
   );
 
   const filteredDeals = useMemo(() => {
@@ -483,6 +514,67 @@ export default function AdminProductsPage() {
                   ))}
                 </SelectContent>
               </Select>
+
+              <Select
+                value={ownerFilter}
+                onValueChange={(v) => {
+                  setOwnerFilter(v);
+                  setArtisanIdFilter("all");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-40 h-9 text-xs font-bold">
+                  <SelectValue placeholder="Product Owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">
+                    All Products
+                  </SelectItem>
+                  <SelectItem value="system" className="text-xs">
+                    Our Products
+                  </SelectItem>
+                  <SelectItem value="artisan" className="text-xs">
+                    Artisan Products
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {ownerFilter === "artisan" && (
+                <Select
+                  value={artisanIdFilter}
+                  onValueChange={(v) => {
+                    setArtisanIdFilter(v);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-48 h-9 text-xs font-bold">
+                    <SelectValue placeholder="Select Artisan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="p-2 border-b border-border">
+                      <Input
+                        placeholder="Search artisan..."
+                        value={artisanSearch}
+                        onChange={(e) => setArtisanSearch(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <SelectItem value="all" className="text-xs">
+                      All Artisans
+                    </SelectItem>
+                    {artisans.map((a) => (
+                      <SelectItem key={a.id} value={a.id} className="text-xs">
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                    {artisansQuery.isLoading && (
+                      <div className="p-2 text-center text-xs text-muted-foreground">
+                        Loading...
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
         </CardContent>
@@ -505,6 +597,9 @@ export default function AdminProductsPage() {
                     Label & Unit
                     <SortIndicator column="name" />
                   </div>
+                </TableHead>
+                <TableHead className="text-[10px] font-bold uppercase tracking-wider">
+                  Owner
                 </TableHead>
                 <TableHead className="text-[10px] font-bold uppercase tracking-wider">
                   Classification
@@ -600,6 +695,11 @@ export default function AdminProductsPage() {
                             Base / {product.unit}
                           </p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-[11px] font-bold text-foreground">
+                          {product.artisan ? product.artisan.name : "System"}
+                        </p>
                       </TableCell>
                       <TableCell>
                         <Badge
