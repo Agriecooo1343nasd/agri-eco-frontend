@@ -7,6 +7,10 @@ import { partnerShowcase } from "@/data/operations-mock";
 import { Badge } from "@/components/ui/badge";
 import { Globe, Mail, Phone, MapPin } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/context/LanguageContext";
+import { translations } from "@/i18n/translations";
 
 export default function PartnerDetailsPage({
   params,
@@ -15,13 +19,14 @@ export default function PartnerDetailsPage({
 }) {
   const { partnerId } = use(params);
   const partner = partnerShowcase.find((p) => p.id === partnerId);
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-background text-xs">
       <Header />
       <main className="container py-12">
         {!partner ? (
-          <p className="text-muted-foreground">Partner not found.</p>
+          <p className="text-muted-foreground">{t(translations.common.errorLoading)}</p>
         ) : (
           <div className="space-y-6">
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -62,6 +67,20 @@ export default function PartnerDetailsPage({
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/10 rounded-2xl p-8 text-center space-y-4">
+              <h3 className="text-xl font-bold font-heading">{t(translations.partnerPage.applyTitle)}</h3>
+              <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+                {t(translations.partnerPage.applyDescription)}
+              </p>
+              <div className="flex justify-center">
+                <Button asChild className="font-bold uppercase tracking-widest text-xs h-11 px-10 shadow-lg shadow-primary/20">
+                  <Link href="/account/partner">
+                    {t(translations.partnerPage.applyBtn)}
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         )}

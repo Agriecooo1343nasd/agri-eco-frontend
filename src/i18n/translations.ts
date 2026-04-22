@@ -42,6 +42,8 @@ export const translations = {
     email: { en: "Email", rw: "Imeyili", fr: "E-mail", sw: "Barua pepe" },
     phone: { en: "Phone", rw: "Telefoni", fr: "Téléphone", sw: "Simu" },
     name: { en: "Name", rw: "Amazina", fr: "Nom", sw: "Jina" },
+    viewDetails: { en: "View Details", rw: "Reba Amakuru Arambuye", fr: "Voir les Détails", sw: "Tazama Maelezo" },
+    by: { en: "by", rw: "na", fr: "par", sw: "na" },
   },
 
   header: {
@@ -257,6 +259,7 @@ export const translations = {
     dealPrefix: { en: "Deal:", rw: "Ofu:", fr: "Offre:", sw: "Ofa:" },
     searchHeading: { en: "Search Products", rw: "Shakisha Ibicuruzwa", fr: "Rechercher des Produits", sw: "Tafuta Bidhaa" },
     searchPlaceholder: { en: "Search here...", rw: "Shakisha hano...", fr: "Chercher ici...", sw: "Tafuta hapa..." },
+    allProducts: { en: "All Products", rw: "Ibicuruzwa Byose", fr: "Tous les Produits", sw: "Bidhaa Zote" },
     categoriesHeading: { en: "Product Categories", rw: "Ibyiciro by'ibicuruzwa", fr: "Catégories de Produits", sw: "Jamii za Bidhaa" },
     filterCategories: { en: "Filter categories...", rw: "Yungurura ibyiciro...", fr: "Filtrer les catégories...", sw: "Chuja jamii..." },
     loading: { en: "Loading...", rw: "Biracyategurwa...", fr: "Chargement...", sw: "Inapakia..." },
@@ -444,6 +447,7 @@ export const translations = {
     backToBlog: { en: "Back to Blog", rw: "Subira Inyuma", fr: "Retour au blog", sw: "Rudi kwa blogu" }
   },
   communityPage: {
+    community: { en: "Community", rw: "Umuryango", fr: "Communauté", sw: "Jamii" },
     badge: { en: "Community & Partners", rw: "Umuryango n'Inshuti", fr: "Communauté & Partenaires", sw: "Jamii na Washirika" },
     title: { en: "Stronger Together", rw: "Gukomera hamwe", fr: "Plus Forts Ensemble", sw: "Nguvu Pamoja" },
     desc: { en: "Meet our local artisans, join as a partner, and support Rwanda's vibrant farming communities and cultural heritage.", rw: "Bona inzobere zacu, iyandikishe ngo ubeho Umufatanyabikorwa.", fr: "Rencontrez nos artisans, rejoignez notre réseau partenaire.", sw: "Kutana na mafundi wetu, jiunge kama mshirika." },
@@ -498,7 +502,8 @@ export const translations = {
     artisanPending: { en: "Your artisan application is now pending review.", rw: "Ubusabe bwawe busindagirwa.", fr: "Votre candidature artisan est en attente d'examen.", sw: "Maombi yako ya ufundi yanangoja ukaguzi." },
     partnerPending: { en: "Your partner application is now pending review.", rw: "Ubusabe bwawe busindagirwa.", fr: "Votre candidature partenaire est en attente d'examen.", sw: "Maombi yako ya ushirika yanangoja ukaguzi." },
     failedLoad: { en: "Failed to load community members", rw: "Gusunikira umuryango byanze", fr: "Erreur chargement membres", sw: "Imeshindwa kupakia wanachama" },
-    failedSubmit: { en: "Failed to submit application", rw: "Gusohora ubusabe byanze", fr: "Échec de soumission", sw: "Imeshindwa kuwasilisha maombi" }
+    failedSubmit: { en: "Failed to submit application", rw: "Gusohora ubusabe byanze", fr: "Échec de soumission", sw: "Imeshindwa kuwasilisha maombi" },
+    applyArtisanBtn: { en: "Become an Artisan", rw: "Saba kuba umuhamzi", fr: "Devenir artisan", sw: "Kuwa fundi" },
   },
   artisanPage: {
     backToCommunity: { en: "Back to Community", rw: "Garuka mu Muryango", fr: "Retour à la Communauté", sw: "Rudi kwa Jamii" },
@@ -551,7 +556,13 @@ export const translations = {
     noStory: { en: "No full story available yet.", rw: "Nta akamaro kahari.", fr: "Pas encore d'histoire complète.", sw: "Hakuna hadithi kamili bado." },
     addedToCart: { en: "Added to Cart", rw: "Byongerewe mu Kageti", fr: "Ajouté au panier", sw: "Imeongezwa kwenye Kikapu" },
     removedWishlist: { en: "Removed from wishlist", rw: "Gukurwa ku wishlist", fr: "Retiré des favoris", sw: "Imeondolewa kwenye wishlist" },
-    defaultProductDesc: { en: "Handcrafted with traditional Rwandan techniques.", rw: "Bikozwe ukoresheje ubuhanga bw'imigenereze y'u Rwanda.", fr: "Fait à la main avec des techniques traditionnelles rwandaises.", sw: "Imefanywa kwa mikono kwa mbinu za kimila za Rwanda." }
+    defaultProductDesc: { en: "Handcrafted with traditional Rwandan techniques.", rw: "Bikozwe ukoresheje ubuhanga bw'imigenereze y'u Rwanda.", fr: "Fait à la main avec des techniques traditionnelles rwandaises.", sw: "Imefanywa kwa mikono kwa mbinu za kimila za Rwanda." },
+    sortBy: { en: "Sort By", rw: "Panga na", fr: "Trier par", sw: "Panga kwa" },
+    sortNameAZ: { en: "Product Name (A-Z)", rw: "Izina: A kugeza Z", fr: "Nom : A à Z", sw: "Jina: A hadi Z" },
+    clearFilters: { en: "Clear All Filters", rw: "Siba akayunguruzo kose", fr: "Effacer tous les filtres", sw: "Safisha Vichungi Vyote" },
+    contactDetails: { en: "Contact Details", rw: "Amakuru y'aho wadusanga", fr: "Coordonnées", sw: "Maelezo ya Mawasiliano" },
+    phone: { en: "Phone", rw: "Telefoni", fr: "Téléphone", sw: "Simu" },
+    email: { en: "Email", rw: "Imeyili", fr: "E-mail", sw: "Barua pepe" },
   },
   aboutPage: {
     heroTitle1: { en: "Rooted in Nature.", rw: "Biturutse mu Kamere.", fr: "Enracinés dans la Nature.", sw: "Mizizi ya Asili." },
@@ -637,10 +648,11 @@ export const translations = {
     rating: { en: "Your Rating", rw: "Inzego zawe", fr: "Votre Note", sw: "Daraja Lako" },
     reviewPlaceholder: { en: "Write your experience here...", rw: "Andika hano uko wabibonye...", fr: "Écrivez votre expérience ici...", sw: "Andika uzoefu wako hapa..." },
     submitReview: { en: "Submit Review", rw: "Ohereza Igitekerezo", fr: "Envoyer l'Avis", sw: "Wasilisha Mapitio" },
-    submitting: { en: "Submitting...", rw: "Birimo koherezwa...", fr: "Envoi en cours...", sw: "Inawasilishwa..." },
+    submitting: { en: "Submitting...", rw: "Birimo koherezwa...", fr: "Envoi en cours...", sw: "Inatuma..." },
     alreadyReviewed: { en: "You already reviewed this product", rw: "Wamaze gutanga igitekerezo kuri iki gicuruzwa", fr: "Vous avez déjà donné un avis", sw: "Tayari umetoa mapitio ya bidhaa hii" },
     productNotFound: { en: "Product Not Found", rw: "Igicuruzwa ntabwo kibonetse", fr: "Produit non trouvé", sw: "Bidhaa Haikupatikana" },
     returnToShop: { en: "Return to Shop", rw: "Subira mu Iduka", fr: "Retour à la Boutique", sw: "Rudi Dukani" },
+    relatedProducts: { en: "Related Products", rw: "Ibicuruzwa bijyanye", fr: "Produits associés", sw: "Bidhaa zinazohusiana" },
   },
   cartPage: {
     title: { en: "Shopping Cart", rw: "Agatebo k'Ibihahwa", fr: "Panier", sw: "Kikapu cha Ununuzi" },
@@ -1099,6 +1111,13 @@ export const translations = {
     outputs: { en: "Outputs", rw: "Ibisohoka", fr: "Extrants", sw: "Matokeo" },
     agreementDetails: { en: "Agreement Details", rw: "Amakuru y'Amasezerano", fr: "Détails de l'accord", sw: "Maelezo ya Mkataba" },
     payouts: { en: "Payouts", rw: "Ubwishyu", fr: "Paiements", sw: "Malipo" },
+    partnerImage: { en: "Partner Image", rw: "Ifoto y'Umufatanyabikorwa", fr: "Image du partenaire", sw: "Picha ya Mshirika" },
+    location: { en: "Location", rw: "Aho uherereye", fr: "Localisation", sw: "Mahali" },
+    website: { en: "Website", rw: "Urubuga", fr: "Site web", sw: "Tovuti" },
+    twitter: { en: "Twitter / X URL", rw: "Twitter / X URL", fr: "URL Twitter / X", sw: "Twitter / X URL" },
+    linkedin: { en: "LinkedIn URL", rw: "LinkedIn URL", fr: "URL LinkedIn", sw: "LinkedIn URL" },
+    servicesAudience: { en: "Services & Audience", rw: "Serivisi n'Abaguzi", fr: "Services & Audience", sw: "Huduma na Walengwa" },
+    applyBtn: { en: "Apply to become a partner", rw: "Saba kuba umufatanyabikorwa", fr: "Devenir partenaire", sw: "Omba kuwa mshirika" },
   },
   enrollmentsPage: {
     myEnrollments: { en: "My Enrollments", rw: "Kwiyandikisha Kanjye", fr: "Mes inscriptions", sw: "Masomo Yangu" },

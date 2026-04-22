@@ -164,13 +164,6 @@ export default function ArtisanDetailsPage() {
         </div>
         <div className="flex items-center gap-2 ml-12 md:ml-0">
           <Button
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => router.push(`/admin/artisans/${id}/add-product`)}
-          >
-            <Plus className="h-4 w-4" /> Add Product
-          </Button>
-          <Button
             className="gap-1.5"
             onClick={() => router.push(`/admin/artisans/${id}/edit`)}
           >
@@ -278,17 +271,11 @@ export default function ArtisanDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3">
-              <div className="bg-muted/30 rounded-lg p-3 text-center">
-                <p className="text-2xl font-bold text-foreground">
-                  {products.length}
-                </p>
-                <p className="text-xs text-muted-foreground">Products</p>
-              </div>
-              <div className="bg-muted/30 rounded-lg p-3 text-center">
+              <div className="bg-muted/30 rounded-lg p-3 text-center col-span-2">
                 <p className="text-2xl font-bold text-foreground">
                   {totalProductsValue.toLocaleString()}
                 </p>
-                <p className="text-xs text-muted-foreground">Total RWF</p>
+                <p className="text-xs text-muted-foreground">Total Revenue RWF</p>
               </div>
             </CardContent>
           </Card>
@@ -358,121 +345,7 @@ export default function ArtisanDetailsPage() {
             </CardContent>
           </Card>
 
-          {/* Products */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Package className="h-4 w-4 text-primary" />
-                  Products ({products.length})
-                </CardTitle>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-xs"
-                  onClick={() =>
-                    router.push(`/admin/artisans/${id}/add-product`)
-                  }
-                >
-                  <Plus className="h-3 w-3" /> Add Product
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {products.length === 0 ? (
-                <div className="text-center py-8">
-                  <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No products yet.
-                  </p>
-                  <Button
-                    size="sm"
-                    className="mt-3 gap-1.5"
-                    onClick={() =>
-                      router.push(`/admin/artisans/${id}/add-product`)
-                    }
-                  >
-                    <Plus className="h-3 w-3" /> Add First Product
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {products.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl"
-                    >
-                      <img
-                        src={toAbsoluteArtisanImage(product.image)}
-                        alt={getText(product.name)}
-                        className="w-14 h-14 rounded-lg object-cover shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {getText(product.name)}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {getText(product.description) || "No description"}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {product.categoryId && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] py-0"
-                            >
-                              {product.categoryId}
-                            </Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            Stock: {product.stock ?? "—"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 space-y-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          {(Number(product.price) || 0).toLocaleString()} RWF
-                        </p>
-                        <div className="flex items-center gap-1 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() =>
-                              router.push(
-                                `/admin/artisans/${id}/products/${product.id}`,
-                              )
-                            }
-                          >
-                            <ShoppingBag className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() =>
-                              router.push(
-                                `/admin/artisans/${id}/products/${product.id}/edit`,
-                              )
-                            }
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDeleteProduct(product)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+
         </div>
       </div>
     </div>
