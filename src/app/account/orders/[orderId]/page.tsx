@@ -154,7 +154,6 @@ export default function OrderDetailsPage({
 
   const orderReturns = returnRows;
 
-  const MAX_RETURN_DAYS = 14;
   const daysLeftByItemId = useMemo(() => {
     if (!order) return {};
     const createdAt = order.createdAt ? new Date(order.createdAt) : new Date();
@@ -162,9 +161,12 @@ export default function OrderDetailsPage({
     const daysSince = Math.floor(
       (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24),
     );
-    const remaining = Math.max(0, MAX_RETURN_DAYS - daysSince);
     const m: Record<string, number> = {};
-    for (const it of (order.items as any[]) ?? []) m[String(it.id)] = remaining;
+    for (const it of (order.items as any[]) ?? []) {
+      const maxReturnDays = Number(it.product?.maxReturnDays ?? 14);
+      const remaining = Math.max(0, maxReturnDays - daysSince);
+      m[String(it.id)] = remaining;
+    }
     return m;
   }, [order]);
 
