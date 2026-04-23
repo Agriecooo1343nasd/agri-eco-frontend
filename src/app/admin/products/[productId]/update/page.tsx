@@ -211,6 +211,7 @@ export default function UpdateProduct() {
     "Active" | "Draft" | "Inactive"
   >("Draft");
   const [activeTab, setActiveTab] = useState("general");
+  const [maxReturnDays, setMaxReturnDays] = useState("14");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const selectedCategoryLabel =
     categories.find((c) => c.id === activeCategory)?.name ??
@@ -236,6 +237,7 @@ export default function UpdateProduct() {
     setTags(product.tags ?? []);
     setFeatures((product.features ?? []).map(normalizeML));
     setBenefits((product.benefits ?? []).map(normalizeML));
+    setMaxReturnDays(String((product as any).maxReturnDays || 14));
     setBatches(
       (product.batches ?? []).map((batch, index) => ({
         id: `${batch.batchId}-${index}`,
@@ -598,6 +600,9 @@ export default function UpdateProduct() {
             }
           : undefined,
       isActive: isActivated,
+      maxReturnDays: Number(maxReturnDays || 14),
+      trackInventory: true,
+      stock: batches.reduce((acc, b) => acc + (b.quantity || 0), 0),
       artisanId: artisanId || undefined,
     } as any;
     updateMutation.mutate({ payload });
@@ -1388,6 +1393,20 @@ export default function UpdateProduct() {
                         value={shelfLife}
                         onChange={(e) => setShelfLife(e.target.value)}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Max Return Days
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="14"
+                        value={maxReturnDays}
+                        onChange={(e) => setMaxReturnDays(e.target.value)}
+                      />
+                      <p className="text-[10px] text-muted-foreground italic ml-1 leading-relaxed">
+                        Allowed days for returns after delivery.
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

@@ -99,6 +99,7 @@ interface LocalDraftShape {
   oldPrice: string;
   costPrice: string;
   lowStockThreshold: string;
+  maxReturnDays: string;
   weight: string;
   dimensions: string;
   shelfLife: string;
@@ -244,6 +245,9 @@ export default function CreateProductPage() {
   const [costPrice, setCostPrice] = useState(initialDraft?.costPrice ?? "");
   const [lowStockThreshold, setLowStockThreshold] = useState(
     initialDraft?.lowStockThreshold ?? "10",
+  );
+  const [maxReturnDays, setMaxReturnDays] = useState(
+    initialDraft?.maxReturnDays ?? "14",
   );
 
   const [weight, setWeight] = useState(initialDraft?.weight ?? "");
@@ -499,6 +503,7 @@ export default function CreateProductPage() {
     oldPrice,
     costPrice,
     lowStockThreshold,
+    maxReturnDays,
     weight,
     dimensions,
     shelfLife,
@@ -598,6 +603,7 @@ export default function CreateProductPage() {
       measurementUnit: unit,
       stock: totalBatchQty,
       lowStockThreshold: Number(lowStockThreshold || 10),
+      maxReturnDays: Number(maxReturnDays || 14),
       trackInventory: true,
       features,
       benefits,
@@ -1110,6 +1116,20 @@ export default function CreateProductPage() {
                         value={lowStockThreshold}
                         onChange={(e) => setLowStockThreshold(e.target.value)}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Max Return Days
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder="14"
+                        value={maxReturnDays}
+                        onChange={(e) => setMaxReturnDays(e.target.value)}
+                      />
+                      <p className="text-[10px] text-muted-foreground italic ml-1 leading-relaxed">
+                        Allowed days for returns after delivery.
+                      </p>
                     </div>
                   </div>
 

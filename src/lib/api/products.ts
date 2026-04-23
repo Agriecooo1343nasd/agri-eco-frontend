@@ -192,6 +192,7 @@ export interface CreateAdminProductPayload {
     | "oz";
   stock: number;
   lowStockThreshold: number;
+  maxReturnDays: number;
   trackInventory: boolean;
   images?: Array<{ url: string; alt?: string; isPrimary?: boolean }>;
   videos?: Array<{
