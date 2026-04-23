@@ -131,24 +131,21 @@ export default function ReturnDetailsPage({
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">
-          <Link
-            href="/account/returns"
-            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline group"
-          >
-            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            Back to returns
-          </Link>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold font-heading">{row.id}</h1>
-            <Badge variant="outline">{row.status}</Badge>
+            <h1 className="text-3xl font-black text-foreground font-heading">
+              Return Request: {row.id}
+            </h1>
+            <Badge className="bg-primary/10 text-primary border-primary/20 px-3 py-1" variant="outline">
+              {row.status}
+            </Badge>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Order:{" "}
-            <Link href={`/account/orders/${row.orderId}`} className="text-primary hover:underline font-medium">
-              {row.orderId}
+          <p className="text-muted-foreground font-medium">
+            Requested for Order{" "}
+            <Link href={`/account/orders/${row.orderId}`} className="text-primary hover:underline font-bold">
+              #{row.orderId}
             </Link>
           </p>
         </div>
@@ -422,4 +419,3 @@ export default function ReturnDetailsPage({
     </div>
   );
 }
-

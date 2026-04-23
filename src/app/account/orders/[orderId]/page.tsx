@@ -14,7 +14,9 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
+  QrCode,
 } from "lucide-react";
+import QRCode from "qrcode";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -93,6 +95,7 @@ export default function OrderDetailsPage({
   const [selected, setSelected] = useState<
     Record<string, { checked: boolean; qty: number; reason: string }>
   >({});
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
 
   useEffect(() => {
     async function loadOrder() {
@@ -124,7 +127,22 @@ export default function OrderDetailsPage({
     }
 
     loadOrder();
-  }, [orderId]);
+  }, [orderId, t]);
+
+  useEffect(() => {
+    if (!order) return;
+    
+    // Generate QR code for the order (could be a receipt URL or just order details)
+    const orderUrl = `https://agri-eco-three.vercel.app/account/orders/${order.orderNumber}`;
+    QRCode.toDataURL(orderUrl, {
+      width: 400,
+      margin: 2,
+      color: {
+        dark: "#10b981", // primary color
+        light: "#ffffff"
+      }
+    }).then(setQrCodeUrl).catch(console.error);
+  }, [order]);
 
   useEffect(() => {
     async function loadReturnsForOrder() {
@@ -221,8 +239,12 @@ export default function OrderDetailsPage({
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-foreground">{t(translations.common.errorLoading)}</h2>
-          <p className="text-muted-foreground mt-2">{error || t(translations.orderDetailsPage.orderNotFound)}</p>
+          <h2 className="text-2xl font-bold text-foreground">
+            {t(translations.common.errorLoading)}
+          </h2>
+          <p className="text-muted-foreground mt-2">
+            {error || t(translations.orderDetailsPage.orderNotFound)}
+          </p>
         </div>
         <Link href="/account/orders">
           <Button variant="outline" className="rounded-md">
@@ -233,6 +255,19 @@ export default function OrderDetailsPage({
       </div>
     );
   }
+
+  const downloadQRCode = () => {
+    if (!qrCodeUrl) return;
+    const link = document.createElement("a");
+    link.href = qrCodeUrl;
+    link.download = `order-qr-${order.orderNumber}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("QR Code Downloaded", {
+      description: "You can use this QR code at our collection points."
+    });
+  };
 
   // Helper to map backend status to UI color
   const getStatusColor = (status: string) => {
@@ -545,6 +580,37 @@ export default function OrderDetailsPage({
               <p>{order.shippingAddress.country} {order.shippingAddress.postalCode}</p>
               <p className="pt-2">{t(translations.checkoutPage.phone)}: {order.shippingAddress.phone}</p>
             </div>
+          </div>
+
+          {/* QR Code Receipt Card */}
+          <div className="bg-white rounded-md border border-border p-8 shadow-sm text-center">
+            <h3 className="text-lg font-medium text-foreground font-heading mb-4 flex items-center justify-center gap-2">
+              <QrCode className="h-5 w-5 text-primary" />
+              Digital Receipt
+            </h3>
+            <p className="text-xs text-muted-foreground mb-6 font-medium">
+              Scan this code at pick-up points or for delivery verification.
+            </p>
+            <div className="relative group mx-auto w-48 h-48 mb-6 rounded-xl border-4 border-muted p-2 overflow-hidden bg-white">
+              {qrCodeUrl ? (
+                <img src={qrCodeUrl} alt="Order QR Code" className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full bg-muted animate-pulse rounded-md" />
+              )}
+              <div className="absolute inset-0 bg-primary/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                 <QrCode className="h-12 w-12 text-white animate-pulse" />
+              </div>
+            </div>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full h-11 font-black uppercase tracking-widest text-[10px] gap-2 rounded-lg"
+                onClick={downloadQRCode}
+                disabled={!qrCodeUrl}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download PNG
+            </Button>
           </div>
 
           {/* Order Summary Card */}

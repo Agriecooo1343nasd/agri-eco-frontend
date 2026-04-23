@@ -580,7 +580,7 @@ export default function CreateProgramPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-10">
+    <div className="space-y-6 pb-10">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button

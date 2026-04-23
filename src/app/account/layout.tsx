@@ -69,6 +69,17 @@ export default function AccountLayout({
         label: t(translations.accountPage.myRequests),
         href: "/account/requests",
       });
+    } else if (paths.includes("returns")) {
+      breadcrumbs.push({
+        label: "Returns",
+        href: "/account/returns",
+      });
+      if (paths.length > 2) {
+        breadcrumbs.push({
+          label: `#${paths[2].toUpperCase()}`,
+          href: pathname,
+        });
+      }
     } else if (paths.includes("addresses")) {
       breadcrumbs.push({
         label: t(translations.accountPage.savedAddresses),

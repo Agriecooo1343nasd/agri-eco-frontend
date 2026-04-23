@@ -71,6 +71,11 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  MultiLangInput,
+  emptyLangValue,
+  type MultiLangValue,
+} from "@/components/admin/MultiLangInput";
 
 interface BatchRow {
   id: string;
@@ -84,10 +89,10 @@ interface BatchRow {
 
 interface LocalDraftShape {
   isActivated: boolean;
-  name: string;
+  name: MultiLangValue;
   sku: string;
-  shortDesc: string;
-  longDesc: string;
+  shortDesc: MultiLangValue;
+  longDesc: MultiLangValue;
   unit: UnitValue;
   activeCategoryId: string;
   price: string;
@@ -97,11 +102,12 @@ interface LocalDraftShape {
   weight: string;
   dimensions: string;
   shelfLife: string;
-  storage: string;
+  storage: MultiLangValue;
   requiresRefrigeration: boolean;
   tags: string[];
-  features: string[];
-  benefits: string[];
+  features: MultiLangValue[];
+  benefits: MultiLangValue[];
+  productType: "consumable" | "articraft";
   batches: BatchRow[];
   artisanId?: string;
 }
@@ -172,6 +178,12 @@ function parseDimensions(
   };
 }
 
+const normalizeML = (val: any): MultiLangValue => {
+  if (!val) return emptyLangValue();
+  if (typeof val === "string") return { ...emptyLangValue(), en: val };
+  return { ...emptyLangValue(), ...val };
+};
+
 function readInitialLocalDraft(): LocalDraftShape | null {
   if (typeof window === "undefined") {
     return null;
@@ -200,11 +212,20 @@ export default function CreateProductPage() {
   const [isActivated, setIsActivated] = useState(
     initialDraft?.isActivated ?? false,
   );
-  const [name, setName] = useState(initialDraft?.name ?? "");
+  const [name, setName] = useState<MultiLangValue>(
+    normalizeML(initialDraft?.name),
+  );
   const [sku, setSku] = useState(initialDraft?.sku ?? "");
-  const [shortDesc, setShortDesc] = useState(initialDraft?.shortDesc ?? "");
-  const [longDesc, setLongDesc] = useState(initialDraft?.longDesc ?? "");
+  const [shortDesc, setShortDesc] = useState<MultiLangValue>(
+    normalizeML(initialDraft?.shortDesc),
+  );
+  const [longDesc, setLongDesc] = useState<MultiLangValue>(
+    normalizeML(initialDraft?.longDesc),
+  );
   const [unit, setUnit] = useState<UnitValue>(initialDraft?.unit ?? "kg");
+  const [productType, setProductType] = useState<"consumable" | "articraft">(
+    initialDraft?.productType ?? "consumable",
+  );
 
   const [activeCategoryId, setActiveCategoryId] = useState(
     initialDraft?.activeCategoryId ?? "",
@@ -228,18 +249,20 @@ export default function CreateProductPage() {
   const [weight, setWeight] = useState(initialDraft?.weight ?? "");
   const [dimensions, setDimensions] = useState(initialDraft?.dimensions ?? "");
   const [shelfLife, setShelfLife] = useState(initialDraft?.shelfLife ?? "");
-  const [storage, setStorage] = useState(initialDraft?.storage ?? "");
+  const [storage, setStorage] = useState<MultiLangValue>(
+    initialDraft?.storage ?? emptyLangValue(),
+  );
   const [requiresRefrigeration, setRequiresRefrigeration] = useState(
     initialDraft?.requiresRefrigeration ?? false,
   );
 
   const [tags, setTags] = useState<string[]>(initialDraft?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
-  const [features, setFeatures] = useState<string[]>(
-    initialDraft?.features?.length ? initialDraft.features : [""],
+  const [features, setFeatures] = useState<MultiLangValue[]>(
+    initialDraft?.features?.length ? initialDraft.features : [emptyLangValue()],
   );
-  const [benefits, setBenefits] = useState<string[]>(
-    initialDraft?.benefits?.length ? initialDraft.benefits : [""],
+  const [benefits, setBenefits] = useState<MultiLangValue[]>(
+    initialDraft?.benefits?.length ? initialDraft.benefits : [emptyLangValue()],
   );
   const [batches, setBatches] = useState<BatchRow[]>(
     initialDraft?.batches?.length ? initialDraft.batches : [EMPTY_BATCH()],
@@ -314,15 +337,15 @@ export default function CreateProductPage() {
   }, [categories, searchCategory]);
 
   const isDirty =
-    !!name ||
+    !!name.en ||
     !!sku ||
-    !!shortDesc ||
-    !!longDesc ||
+    !!shortDesc.en ||
+    !!longDesc.en ||
     !!price ||
     !!activeCategoryId ||
     tags.length > 0 ||
-    features.some((item) => item.trim()) ||
-    benefits.some((item) => item.trim()) ||
+    features.some((item) => item.en.trim()) ||
+    benefits.some((item) => item.en.trim()) ||
     batches.some((b) => b.batchNumber || b.quantity > 0 || b.costPrice > 0);
 
   useEffect(() => {
@@ -341,8 +364,8 @@ export default function CreateProductPage() {
     };
   }, [imagePreviews, videoPreviews]);
 
-  const addFeature = () => setFeatures([...features, ""]);
-  const updateFeature = (index: number, value: string) => {
+  const addFeature = () => setFeatures([...features, emptyLangValue()]);
+  const updateFeature = (index: number, value: MultiLangValue) => {
     const next = [...features];
     next[index] = value;
     setFeatures(next);
@@ -350,8 +373,8 @@ export default function CreateProductPage() {
   const removeFeature = (index: number) =>
     setFeatures(features.filter((_, i) => i !== index));
 
-  const addBenefit = () => setBenefits([...benefits, ""]);
-  const updateBenefit = (index: number, value: string) => {
+  const addBenefit = () => setBenefits([...benefits, emptyLangValue()]);
+  const updateBenefit = (index: number, value: MultiLangValue) => {
     const next = [...benefits];
     next[index] = value;
     setBenefits(next);
@@ -481,6 +504,7 @@ export default function CreateProductPage() {
     shelfLife,
     storage,
     requiresRefrigeration,
+    productType,
     tags,
     features,
     benefits,
@@ -500,13 +524,13 @@ export default function CreateProductPage() {
   };
 
   const getRequiredValidationMessage = () => {
-    if (!name.trim()) return "Product name is required.";
+    if (!name.en.trim()) return "Product name (English) is required.";
     if (!sku.trim()) return "SKU is required.";
     if (!activeCategoryId) return "Category is required.";
     if (!price || Number(price) < 0)
       return "Selling price is required and must be non-negative.";
-    if (!longDesc.trim() && !shortDesc.trim()) {
-      return "Provide at least one description (short or long).";
+    if (!longDesc.en.trim() && !shortDesc.en.trim()) {
+      return "Provide at least one description in English (short or long).";
     }
     return null;
   };
@@ -539,17 +563,17 @@ export default function CreateProductPage() {
     const parsedCostPrice = Number(costPrice || 0);
 
     const cleanedFeatures = features
-      .map((value) => value.trim())
+      .map((value) => value.en.trim())
       .filter(Boolean);
     const cleanedBenefits = benefits
-      .map((value) => value.trim())
+      .map((value) => value.en.trim())
       .filter(Boolean);
 
     const shipping = {
       weight: weight ? Number(weight) : undefined,
       dimensions: parseDimensions(dimensions),
       shelfLife: shelfLife.trim() || undefined,
-      storageCondition: storage.trim() || undefined,
+      storageCondition: storage,
       requiresRefrigeration,
     };
 
@@ -560,11 +584,12 @@ export default function CreateProductPage() {
     );
 
     return {
-      name: name.trim(),
+      name,
       sku: sku.trim(),
-      description: (longDesc.trim() || shortDesc.trim()).trim(),
-      shortDescription: shortDesc.trim() || undefined,
+      description: longDesc,
+      shortDescription: shortDesc,
       category: activeCategoryId,
+      productType,
       tags: tags.map((tag) => tag.trim()).filter(Boolean),
       sellingPrice,
       originalPrice: originalPrice > 0 ? originalPrice : sellingPrice,
@@ -574,13 +599,13 @@ export default function CreateProductPage() {
       stock: totalBatchQty,
       lowStockThreshold: Number(lowStockThreshold || 10),
       trackInventory: true,
-      features: cleanedFeatures,
-      benefits: cleanedBenefits,
-      marketingHooks: cleanedFeatures.map((label) => ({
-        label,
+      features,
+      benefits,
+      marketingHooks: features.map((f) => ({
+        label: f.en || "",
         isActive: true,
       })),
-      healthBenefits: cleanedBenefits.map((title) => ({ title })),
+      healthBenefits: benefits.map((b) => ({ title: b.en || "" })),
       nutrition: [],
       shipping,
       certifications: [],
@@ -590,7 +615,7 @@ export default function CreateProductPage() {
         (originalPrice > 0 ? originalPrice : sellingPrice) > sellingPrice,
       batches: batchesPayload,
       artisanId: artisanId || undefined,
-    } as any; // Cast because our local type might need update but API expects it
+    } as any;
   };
 
   const onSubmit = async (event: React.FormEvent) => {
@@ -741,13 +766,33 @@ export default function CreateProductPage() {
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                         Product Name <span className="text-destructive">*</span>
                       </label>
-                      <Input
-                        placeholder="e.g. Pure Mountain Honey"
+                      <MultiLangInput
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={setName}
+                        placeholder="e.g. Pure Mountain Honey"
                         required
                       />
                     </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Product Type <span className="text-destructive">*</span>
+                      </label>
+                      <Select
+                        value={productType}
+                        onValueChange={(v: any) => setProductType(v)}
+                      >
+                        <SelectTrigger className="rounded-sm bg-muted/20 border-border font-medium">
+                          <SelectValue placeholder="Select type..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-sm border-border">
+                          <SelectItem value="consumable">Consumable</SelectItem>
+                          <SelectItem value="articraft">Articraft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                         SKU <span className="text-destructive">*</span>
@@ -866,6 +911,31 @@ export default function CreateProductPage() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                      Short Description
+                    </label>
+                    <MultiLangInput
+                      type="textarea"
+                      value={shortDesc}
+                      onChange={setShortDesc}
+                      placeholder="A brief overview of the product..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                      Long Description
+                    </label>
+                    <MultiLangInput
+                      type="textarea"
+                      value={longDesc}
+                      onChange={setLongDesc}
+                      placeholder="Detailed product information..."
+                      rows={6}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
                       Artisan / Owner
                     </label>
                     <Popover
@@ -938,31 +1008,6 @@ export default function CreateProductPage() {
                         </Command>
                       </PopoverContent>
                     </Popover>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Short Description
-                      </label>
-                      <Input
-                        placeholder="Brief summary for product cards..."
-                        value={shortDesc}
-                        onChange={(e) => setShortDesc(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Long Description{" "}
-                        <span className="text-destructive">*</span>
-                      </label>
-                      <Textarea
-                        placeholder="Detailed product information, origin, organic certifications..."
-                        className="min-h-40 rounded-sm bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
-                        value={longDesc}
-                        onChange={(e) => setLongDesc(e.target.value)}
-                      />
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1330,12 +1375,12 @@ export default function CreateProductPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Storage Condition
+                        Storage Conditions
                       </label>
-                      <Input
-                        placeholder="e.g. Store in cool, dry place"
+                      <MultiLangInput
                         value={storage}
-                        onChange={(e) => setStorage(e.target.value)}
+                        onChange={setStorage}
+                        placeholder="e.g. Store in a cool, dry place"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1511,26 +1556,23 @@ export default function CreateProductPage() {
                         + Add Feature
                       </Button>
                     </div>
-                    <div className="space-y-3">
-                      {features.map((feature, index) => (
-                        <div key={index} className="flex gap-2">
-                          <Input
-                            placeholder="e.g. 100% Raw and Unfiltered"
+                    <div className="space-y-4">
+                      {features.map((feature, i) => (
+                        <div key={i} className="flex gap-3">
+                          <MultiLangInput
                             value={feature}
-                            onChange={(e) =>
-                              updateFeature(index, e.target.value)
-                            }
+                            onChange={(val) => updateFeature(i, val)}
+                            className="flex-1"
+                            hideLabel
                           />
-                          {features.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeFeature(index)}
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFeature(i)}
+                            className="shrink-0 text-muted-foreground hover:text-destructive mt-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -1550,26 +1592,23 @@ export default function CreateProductPage() {
                         + Add Benefit
                       </Button>
                     </div>
-                    <div className="space-y-3">
-                      {benefits.map((benefit, index) => (
-                        <div key={index} className="flex gap-2">
-                          <Input
-                            placeholder="e.g. Boosts immune system"
+                    <div className="space-y-4">
+                      {benefits.map((benefit, i) => (
+                        <div key={i} className="flex gap-3">
+                          <MultiLangInput
                             value={benefit}
-                            onChange={(e) =>
-                              updateBenefit(index, e.target.value)
-                            }
+                            onChange={(val) => updateBenefit(i, val)}
+                            className="flex-1"
+                            hideLabel
                           />
-                          {benefits.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeBenefit(index)}
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeBenefit(i)}
+                            className="shrink-0 text-muted-foreground hover:text-destructive mt-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -1672,10 +1711,10 @@ export default function CreateProductPage() {
             <CardContent className="p-8 space-y-6">
               <div>
                 <h3 className="text-xl font-black font-heading mb-1">
-                  {name || "Unnamed Product"}
+                  {name.en || "Unnamed Product"}
                 </h3>
                 <p className="text-sm font-medium text-muted-foreground line-clamp-2 italic">
-                  {shortDesc || "No description provided yet."}
+                  {shortDesc.en || "No description provided yet."}
                 </p>
               </div>
               <div className="flex items-center justify-between pt-4 border-t border-border">

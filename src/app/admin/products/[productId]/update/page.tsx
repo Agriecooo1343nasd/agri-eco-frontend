@@ -58,6 +58,11 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePricing } from "@/context/PricingContext";
 import { toast } from "sonner";
+import {
+  MultiLangInput,
+  emptyLangValue,
+  type MultiLangValue,
+} from "@/components/admin/MultiLangInput";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -134,6 +139,12 @@ const parseDimensions = (value: string) => {
   return { length, width, height };
 };
 
+const normalizeML = (val: any): MultiLangValue => {
+  if (!val) return emptyLangValue();
+  if (typeof val === "string") return { ...emptyLangValue(), en: val };
+  return { ...emptyLangValue(), ...val };
+};
+
 export default function UpdateProduct() {
   const routeParams = useParams<{ productId: string | string[] }>();
   const routeProductId = Array.isArray(routeParams?.productId)
@@ -173,9 +184,9 @@ export default function UpdateProduct() {
   const activeArtisan = artisans.find((a) => a.id === artisanId) ?? product?.artisan;
 
   // State for form fields
-  const [name, setName] = useState("");
-  const [shortDesc, setShortDesc] = useState("");
-  const [longDesc, setLongDesc] = useState("");
+  const [name, setName] = useState<MultiLangValue>(emptyLangValue());
+  const [shortDesc, setShortDesc] = useState<MultiLangValue>(emptyLangValue());
+  const [longDesc, setLongDesc] = useState<MultiLangValue>(emptyLangValue());
   const [unit, setUnit] = useState("kg");
   const [activeCategory, setActiveCategory] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -185,12 +196,15 @@ export default function UpdateProduct() {
   const [weight, setWeight] = useState("");
   const [dimensions, setDimensions] = useState("");
   const [shelfLife, setShelfLife] = useState("");
-  const [storage, setStorage] = useState("");
+  const [storage, setStorage] = useState<MultiLangValue>(emptyLangValue());
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [features, setFeatures] = useState<string[]>([]);
-  const [benefits, setBenefits] = useState<string[]>([]);
+  const [features, setFeatures] = useState<MultiLangValue[]>([]);
+  const [benefits, setBenefits] = useState<MultiLangValue[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [productType, setProductType] = useState<"consumable" | "articraft">(
+    "consumable",
+  );
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [isActivated, setIsActivated] = useState(false);
   const [initialStatus, setInitialStatus] = useState<
@@ -212,16 +226,16 @@ export default function UpdateProduct() {
 
   useEffect(() => {
     if (!product) return;
-    setName(product.name ?? "");
-    setShortDesc(product.shortDescription ?? "");
-    setLongDesc(product.description ?? "");
+    setName(normalizeML(product.name));
+    setShortDesc(normalizeML(product.shortDescription));
+    setLongDesc(normalizeML(product.description));
     setUnit(normalizeUnit(product.unit || product.measurementUnit) || "kg");
     setActiveCategory(product.category?.id ?? "");
     setPrice(product.sellingPrice?.toString() ?? "");
     setOldPrice(product.originalPrice ? product.originalPrice.toString() : "");
     setTags(product.tags ?? []);
-    setFeatures(product.features ?? []);
-    setBenefits(product.benefits ?? []);
+    setFeatures((product.features ?? []).map(normalizeML));
+    setBenefits((product.benefits ?? []).map(normalizeML));
     setBatches(
       (product.batches ?? []).map((batch, index) => ({
         id: `${batch.batchId}-${index}`,
@@ -240,7 +254,8 @@ export default function UpdateProduct() {
         : "",
     );
     setShelfLife(product.shipping?.shelfLife ?? "");
-    setStorage(product.shipping?.storageCondition ?? "");
+    setStorage(normalizeML(product.shipping?.storageCondition));
+    setProductType(product.productType ?? "consumable");
     setDimensions(
       product.shipping?.dimensions
         ? `${product.shipping.dimensions.length} x ${product.shipping.dimensions.width} x ${product.shipping.dimensions.height}`
@@ -369,8 +384,8 @@ export default function UpdateProduct() {
     }
   };
 
-  const addFeature = () => setFeatures([...features, ""]);
-  const updateFeature = (i: number, val: string) => {
+  const addFeature = () => setFeatures([...features, emptyLangValue()]);
+  const updateFeature = (i: number, val: MultiLangValue) => {
     const next = [...features];
     next[i] = val;
     setFeatures(next);
@@ -391,8 +406,8 @@ export default function UpdateProduct() {
     }
   };
 
-  const addBenefit = () => setBenefits([...benefits, ""]);
-  const updateBenefit = (i: number, val: string) => {
+  const addBenefit = () => setBenefits([...benefits, emptyLangValue()]);
+  const updateBenefit = (i: number, val: MultiLangValue) => {
     const next = [...benefits];
     next[i] = val;
     setBenefits(next);
@@ -486,10 +501,10 @@ export default function UpdateProduct() {
     firstErrorFieldId: string;
   } => {
     const errors: Record<string, string> = {};
-    if (!name.trim()) errors.name = "Product name is required";
+    if (!name.en.trim()) errors.name = "Product name (English) is required";
     if (!activeCategory) errors.category = "Category is required";
     if (!unit.trim()) errors.unit = "Unit is required";
-    if (!shortDesc.trim()) errors.shortDesc = "Short description is required";
+    if (!shortDesc.en.trim()) errors.shortDesc = "Short description (English) is required";
     if (!price || Number(price) <= 0)
       errors.price = "Selling price must be greater than 0";
     batches.forEach((batch, i) => {
@@ -527,12 +542,7 @@ export default function UpdateProduct() {
   // Submit handler
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const {
-      valid,
-      errors: validationErrors,
-      firstErrorTab,
-      firstErrorFieldId,
-    } = validateForm();
+    const { errors: validationErrors, firstErrorTab, firstErrorFieldId, valid } = validateForm();
     if (!valid) {
       setFieldErrors(validationErrors);
       setActiveTab(firstErrorTab);
@@ -556,6 +566,7 @@ export default function UpdateProduct() {
       name,
       shortDescription: shortDesc,
       description: longDesc,
+      productType,
       unit: unit.trim().toLowerCase() as CreateAdminProductPayload["unit"],
       category: activeCategory,
       sellingPrice: Number(price),
@@ -563,6 +574,11 @@ export default function UpdateProduct() {
       tags,
       features,
       benefits,
+      marketingHooks: features.map((f) => ({
+        label: f.en || "",
+        isActive: true,
+      })),
+      healthBenefits: benefits.map((b) => ({ title: b.en || "" })),
       batches: batches.map((batch) => ({
         batchId: batch.batchNumber || batch.id,
         quantity: batch.quantity,
@@ -573,12 +589,12 @@ export default function UpdateProduct() {
         supplier: batch.supplier,
       })),
       shipping:
-        weight || shelfLife || storage || parsedDimensions
+        weight || shelfLife || storage.en || parsedDimensions
           ? {
               weight: weight ? Number(weight) : undefined,
               dimensions: parsedDimensions,
               shelfLife: shelfLife || undefined,
-              storageCondition: storage || undefined,
+              storageCondition: storage,
             }
           : undefined,
       isActive: isActivated,
@@ -615,7 +631,7 @@ export default function UpdateProduct() {
             </Badge>
           </div>
           <p className="text-muted-foreground font-medium text-sm">
-            Modify the properties and stock levels for {name}.
+            Modify the properties and stock levels for {name.en}.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -686,34 +702,35 @@ export default function UpdateProduct() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-8 space-y-8">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                      Product Name <span className="text-destructive">*</span>
-                    </label>
-                    <Input
-                      id="field-name"
-                      placeholder="e.g. Pure Mountain Honey"
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        if (fieldErrors.name)
-                          setFieldErrors((prev) => {
-                            const next = { ...prev };
-                            delete next.name;
-                            return next;
-                          });
-                      }}
-                      className={cn(
-                        fieldErrors.name &&
-                          "border-destructive focus-visible:ring-destructive",
-                      )}
-                      required
-                    />
-                    {fieldErrors.name && (
-                      <p className="text-destructive text-xs mt-1 font-medium">
-                        {fieldErrors.name}
-                      </p>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Product Name <span className="text-destructive">*</span>
+                      </label>
+                      <MultiLangInput
+                        value={name}
+                        onChange={setName}
+                        placeholder="e.g. Pure Mountain Honey"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
+                        Product Type <span className="text-destructive">*</span>
+                      </label>
+                      <Select
+                        value={productType}
+                        onValueChange={(v: any) => setProductType(v)}
+                      >
+                        <SelectTrigger className="rounded-xl bg-muted/20 border-border font-medium">
+                          <SelectValue placeholder="Select type..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border-border">
+                          <SelectItem value="consumable">Consumable</SelectItem>
+                          <SelectItem value="articraft">Articraft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
@@ -932,52 +949,29 @@ export default function UpdateProduct() {
                       )}
                     </div>
                   </div>
-                  <div className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Short Description{" "}
-                        <span className="text-destructive">*</span>
+                        Short Description <span className="text-destructive">*</span>
                       </label>
-                      <Input
-                        id="field-shortDesc"
-                        placeholder="Brief summary for product cards..."
+                      <MultiLangInput
+                        type="textarea"
                         value={shortDesc}
-                        onChange={(e) => {
-                          setShortDesc(e.target.value);
-                          if (fieldErrors.shortDesc)
-                            setFieldErrors((prev) => {
-                              const next = { ...prev };
-                              delete next.shortDesc;
-                              return next;
-                            });
-                        }}
-                        className={cn(
-                          fieldErrors.shortDesc &&
-                            "border-destructive focus-visible:ring-destructive",
-                        )}
-                        required
+                        onChange={setShortDesc}
+                        placeholder="Brief summary for product cards..."
                       />
-                      {fieldErrors.shortDesc && (
-                        <p className="text-destructive text-xs mt-1 font-medium">
-                          {fieldErrors.shortDesc}
-                        </p>
-                      )}
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Long Description{" "}
-                        <span className="text-muted-foreground ml-2 text-[10px] italic">
-                          (Optional)
-                        </span>
+                        Long Description
                       </label>
-                      <Textarea
-                        placeholder="Detailed product information, origin, organic certifications..."
-                        className="min-h-40 bg-muted/20 border-border p-4 font-medium resize-none focus:bg-white transition-all"
+                      <MultiLangInput
+                        type="textarea"
                         value={longDesc}
-                        onChange={(e) => setLongDesc(e.target.value)}
+                        onChange={setLongDesc}
+                        placeholder="Detailed product information..."
+                        rows={6}
                       />
                     </div>
-                  </div>
                 </CardContent>
               </Card>
               <Card className="rounded-md border-border shadow-soft">
@@ -1062,7 +1056,7 @@ export default function UpdateProduct() {
                           Inventory & Stock
                         </CardTitle>
                         <CardDescription className="font-medium">
-                          Manage current batches for {name}.
+                          Manage current batches for {name.en}.
                         </CardDescription>
                       </div>
                     </div>
@@ -1399,15 +1393,12 @@ export default function UpdateProduct() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Storage Condition{" "}
-                        <span className="text-muted-foreground ml-2 text-[10px] italic">
-                          (Optional)
-                        </span>
+                        Storage Conditions
                       </label>
-                      <Input
-                        placeholder="e.g. Store in cool, dry place"
+                      <MultiLangInput
                         value={storage}
-                        onChange={(e) => setStorage(e.target.value)}
+                        onChange={setStorage}
+                        placeholder="e.g. Store in a cool, dry place"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1535,19 +1526,20 @@ export default function UpdateProduct() {
                         + Add Feature
                       </Button>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {features.map((f, i) => (
-                        <div key={i} className="flex gap-2">
-                          <Input
-                            placeholder="e.g. 100% Raw and Unfiltered"
+                        <div key={i} className="flex gap-3">
+                          <MultiLangInput
                             value={f}
-                            onChange={(e) => updateFeature(i, e.target.value)}
+                            onChange={(val) => updateFeature(i, val)}
+                            className="flex-1"
+                            hideLabel
                           />
                           <Button
-                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => removeFeature(i)}
+                            className="shrink-0 text-muted-foreground hover:text-destructive mt-1"
                           >
                             <Trash2 className="h-5 w-5" />
                           </Button>
@@ -1569,19 +1561,20 @@ export default function UpdateProduct() {
                         + Add Benefit
                       </Button>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {benefits.map((b, i) => (
-                        <div key={i} className="flex gap-2">
-                          <Input
-                            placeholder="e.g. Boosts Immune System"
+                        <div key={i} className="flex gap-3">
+                          <MultiLangInput
                             value={b}
-                            onChange={(e) => updateBenefit(i, e.target.value)}
+                            onChange={(val) => updateBenefit(i, val)}
+                            className="flex-1"
+                            hideLabel
                           />
                           <Button
-                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => removeBenefit(i)}
+                            className="shrink-0 text-muted-foreground hover:text-destructive mt-1"
                           >
                             <Trash2 className="h-5 w-5" />
                           </Button>
@@ -1685,10 +1678,10 @@ export default function UpdateProduct() {
             <CardContent className="p-8 space-y-6">
               <div>
                 <h3 className="text-xl font-black font-heading mb-1">
-                  {name || "Unnamed"}
+                  {name.en || "Unnamed"}
                 </h3>
                 <p className="text-sm font-medium text-muted-foreground line-clamp-2 italic">
-                  {shortDesc}
+                  {shortDesc.en}
                 </p>
               </div>
               <div className="flex items-center justify-between pt-4 border-t border-border">

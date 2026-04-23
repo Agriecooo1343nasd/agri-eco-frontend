@@ -19,6 +19,7 @@ export interface AdminArtisanProduct {
     name?: string;
   };
   tags?: string[];
+  slug?: string;
   createdAt?: string;
   updatedAt?: string;
 }

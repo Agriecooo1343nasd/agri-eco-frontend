@@ -122,7 +122,7 @@ export default function AccountReturnsPage() {
                     <TableCell className="whitespace-nowrap">{r.date}</TableCell>
                     <TableCell className="text-right">
                       <Button asChild size="sm" variant="outline">
-                        <Link href={`/return/${r.id}`}>
+                        <Link href={`/account/returns/${r.id}`}>
                           <Eye className="h-4 w-4 mr-2" />
                           View
                         </Link>

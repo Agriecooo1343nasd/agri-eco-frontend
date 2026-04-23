@@ -121,6 +121,12 @@ export default function AdminOrders() {
     from: undefined,
     to: undefined,
   });
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [appliedStatusFilter, setAppliedStatusFilter] = useState<OrderStatus | "all">(OrderStatus.PENDING);
+  const [appliedDate, setAppliedDate] = useState<DateRange | undefined>({
+    from: undefined,
+    to: undefined,
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -130,16 +136,16 @@ export default function AdminOrders() {
   });
 
   const ordersQuery = useQuery({
-      queryKey: ["admin-orders", search, statusFilter, sortKey, sortDir, date, currentPage],
+      queryKey: ["admin-orders", appliedSearch, appliedStatusFilter, sortKey, sortDir, appliedDate, currentPage],
       queryFn: () => fetchAdminOrders({
           page: currentPage,
           limit: pageSize,
-          search,
-          status: statusFilter,
+          search: appliedSearch,
+          status: appliedStatusFilter,
           sort: sortKey,
           order: sortDir,
-          startDate: date?.from?.toISOString(),
-          endDate: date?.to?.toISOString()
+          startDate: appliedDate?.from?.toISOString(),
+          endDate: appliedDate?.to?.toISOString()
       }),
   });
 
@@ -165,11 +171,18 @@ export default function AdminOrders() {
     );
   }
 
+  const handleApplyFilters = () => {
+    setAppliedSearch(search);
+    setAppliedStatusFilter(statusFilter);
+    setAppliedDate(date);
+    setCurrentPage(1);
+  };
+
   const handleExport = () => {
     const query = new URLSearchParams({
-        status: statusFilter !== "all" ? statusFilter : "",
-        startDate: date?.from?.toISOString() || "",
-        endDate: date?.to?.toISOString() || ""
+        status: appliedStatusFilter !== "all" ? appliedStatusFilter : "",
+        startDate: appliedDate?.from?.toISOString() || "",
+        endDate: appliedDate?.to?.toISOString() || ""
     }).toString();
     window.open(`${process.env.NEXT_PUBLIC_API_URL}/orders/admin/export?${query}`, '_blank');
     toast.success("Export Started", {
@@ -279,7 +292,7 @@ export default function AdminOrders() {
                     variant={"outline"}
                     className={cn(
                         "h-9 w-64 justify-start text-left font-normal text-xs bg-white rounded-lg border-border/60 shadow-sm",
-                        !date && "text-muted-foreground"
+                        !date?.from && "text-muted-foreground"
                     )}
                 >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -309,10 +322,20 @@ export default function AdminOrders() {
             </PopoverContent>
         </Popover>
 
+        <Button
+            className="h-9 px-6 text-[10px] font-black uppercase tracking-widest gap-2 shadow-lg shadow-primary/10"
+            onClick={handleApplyFilters}
+        >
+            Apply Filter
+        </Button>
+
         {(search ||
           statusFilter !== "all" ||
           date?.from ||
-          date?.to) && (
+          date?.to ||
+          appliedSearch ||
+          appliedStatusFilter !== "all" ||
+          appliedDate?.from) && (
           <Button
             variant="ghost"
             size="sm"
@@ -321,6 +344,10 @@ export default function AdminOrders() {
               setSearch("");
               setStatusFilter("all");
               setDate({ from: undefined, to: undefined });
+              setAppliedSearch("");
+              setAppliedStatusFilter("all");
+              setAppliedDate({ from: undefined, to: undefined });
+              setCurrentPage(1);
             }}
           >
             Clear filters
