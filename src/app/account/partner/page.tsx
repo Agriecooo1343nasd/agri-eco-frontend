@@ -389,7 +389,7 @@ export default function AccountPartnerPage() {
               </div>
               <Button
                 size="lg"
-                className="rounded-2xl px-10 h-14 font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 gap-3 group"
+                className="group"
                 asChild
               >
                 <Link href="/account/partner/apply">

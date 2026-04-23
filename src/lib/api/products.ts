@@ -116,6 +116,7 @@ export interface AdminProduct {
     id: string;
     name: string;
   };
+  productType?: "consumable" | "articraft";
 }
 
 export type AdminProductSort =
@@ -170,10 +171,10 @@ export interface UpdateBatchPayload {
 }
 
 export interface CreateAdminProductPayload {
-  name: string;
+  name: string | Record<string, string>;
   sku: string;
-  description: string;
-  shortDescription?: string;
+  description: string | Record<string, string>;
+  shortDescription?: string | Record<string, string>;
   category: string;
   tags: string[];
   sellingPrice: number;
@@ -199,8 +200,9 @@ export interface CreateAdminProductPayload {
     duration?: number;
     isPrimary?: boolean;
   }>;
-  features: string[];
-  benefits: string[];
+  features: Array<string | Record<string, string>>;
+  benefits: Array<string | Record<string, string>>;
+  productType?: "consumable" | "articraft";
   marketingHooks: Array<{ label: string; isActive?: boolean }>;
   healthBenefits: Array<{ title: string; description?: string }>;
   nutrition: Array<{ label: string; value: string }>;
@@ -212,7 +214,7 @@ export interface CreateAdminProductPayload {
       height: number;
     };
     shelfLife?: string;
-    storageCondition?: string;
+    storageCondition?: string | Record<string, string>;
     requiresRefrigeration?: boolean;
   };
   certifications: string[];

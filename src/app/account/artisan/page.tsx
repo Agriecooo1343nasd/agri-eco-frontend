@@ -83,53 +83,108 @@ export default function AccountArtisanPage() {
     setApplication(readLocal<LocalArtisanApplication>(ARTISAN_APP_KEY));
   }, []);
 
-  const isArtisan = useMemo(() => {
-    // Backend-ready: if role becomes 'artisan' later, swap here.
-    // For now, allow FARMER role OR localStorage approved flag.
-    return user?.role === "farmer" || status === "approved";
-  }, [status, user?.role]);
+  const isArtisan = true; // FORCED FOR UI PREVIEW
 
   useEffect(() => {
     let ignore = false;
     async function load() {
-      if (!isArtisan || !user?.id) return;
+      if (!isArtisan) return;
       try {
         setLoadingProducts(true);
-        const res = await fetchPublicArtisanProducts(user.id, { limit: 100 });
-        if (ignore) return;
-        setProducts(Array.isArray(res.data) ? res.data : []);
-      } catch {
-        // Backend not wired? Fall back to mock products.
-        if (ignore) return;
+        // Rich mock data for preview
         setProducts([
           {
-            id: `mock-${user?.id}-1`,
-            name: { en: "Handcrafted Basket" },
-            price: 18000,
-            stock: 12,
-            image: "/assets/products/placeholder.jpg",
+            id: "mock-1",
+            name: { en: "Traditional Imigongo Wall Art", rw: "Imigongo" },
+            slug: "imigongo-wall-art",
+            price: 45000,
+            stock: 8,
+            image: "https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?q=80&w=400&auto=format&fit=crop",
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
           {
-            id: `mock-${user?.id}-2`,
-            name: { en: "Clay Pot (Medium)" },
-            price: 25000,
-            stock: 4,
-            image: "/assets/products/placeholder.jpg",
+            id: "mock-2",
+            name: { en: "Hand-Woven Agaseke Basket", rw: "Agaseke" },
+            slug: "agaseke-basket",
+            price: 12000,
+            stock: 3,
+            image: "https://images.unsplash.com/photo-1590736962387-97596a258804?q=80&w=400&auto=format&fit=crop",
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
           {
-            id: `mock-${user?.id}-3`,
-            name: { en: "Woven Tray Set" },
-            price: 14000,
-            stock: 2,
-            image: "/assets/products/placeholder.jpg",
+            id: "mock-3",
+            name: { en: "Hand-Carved Wooden Gorillas", rw: "Ingagi mu mbaho" },
+            slug: "wooden-gorillas",
+            price: 35000,
+            stock: 15,
+            image: "https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=400&auto=format&fit=crop",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: "mock-4",
+            name: { en: "Pure Beeswax Candles (Set of 4)", rw: "Buji z'ubuki" },
+            slug: "beeswax-candles",
+            price: 8500,
+            stock: 22,
+            image: "https://images.unsplash.com/photo-1603006905003-be475563bc59?q=80&w=400&auto=format&fit=crop",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: "mock-5",
+            name: { en: "Organic Honey Ginger Tea", rw: "Icyayi cy'ubuki" },
+            slug: "honey-ginger-tea",
+            price: 5500,
+            stock: 1,
+            image: "https://images.unsplash.com/photo-1544787210-2212bb22416b?q=80&w=400&auto=format&fit=crop",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: "mock-6",
+            name: { en: "Decorative Banana Leaf Mat", rw: "Ikirago" },
+            slug: "banana-leaf-mat",
+            price: 9000,
+            stock: 10,
+            image: "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=400&auto=format&fit=crop",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: "mock-7",
+            name: { en: "Organic Chili Oil (100ml)", rw: "Akabanga style" },
+            slug: "organic-chili-oil",
+            price: 4500,
+            stock: 45,
+            image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?q=80&w=400&auto=format&fit=crop",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: "mock-8",
+            name: { en: "Bamboo Serving Utensils", rw: "Ibikoresho mu mugano" },
+            slug: "bamboo-utensils",
+            price: 7500,
+            stock: 14,
+            image: "https://images.unsplash.com/photo-1584346133934-a3afd2a33c4c?q=80&w=400&auto=format&fit=crop",
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
         ]);
+        
+        // Mock application data for preview
+        setApplication({
+          fullName: "Abayo Hirwa Jovin",
+          email: "abayohirwajovin@gmail.com",
+          phone: "+250 788 000 000",
+          specialty: "Traditional Arts & Crafts",
+          location: "Musanze, Rwanda",
+          story: "A master artisan with 15 years of experience in Imigongo and traditional weaving.",
+          createdAt: new Date().toISOString(),
+        });
       } finally {
         if (!ignore) setLoadingProducts(false);
       }
@@ -138,7 +193,14 @@ export default function AccountArtisanPage() {
     return () => {
       ignore = true;
     };
-  }, [isArtisan, user?.id]);
+  }, [isArtisan]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, sortBy, sortDir]);
 
   const visibleProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -155,6 +217,13 @@ export default function AccountArtisanPage() {
     return rows;
   }, [products, search, sortBy, sortDir]);
 
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return visibleProducts.slice(start, start + pageSize);
+  }, [visibleProducts, currentPage]);
+
+  const totalPages = Math.ceil(visibleProducts.length / pageSize);
+
   const kpis = useMemo(() => {
     const totalProducts = products.length;
     const totalStock = products.reduce((sum, p) => sum + (p.stock ?? 0), 0);
@@ -170,9 +239,10 @@ export default function AccountArtisanPage() {
     const top = [...products]
       .sort((a, b) => (b.stock ?? 0) - (a.stock ?? 0))
       .slice(0, 6);
-    return top.map((p) => ({
+    return top.map((p, idx) => ({
       name: (p.name?.en ?? "Product").slice(0, 14),
       stock: p.stock ?? 0,
+      fill: `var(--chart-${(idx % 5) + 1})`,
     }));
   }, [products]);
 
@@ -224,11 +294,6 @@ export default function AccountArtisanPage() {
                   </div>
                 )}
                 <div className="flex gap-2 flex-wrap">
-                  <Button asChild>
-                    <Link href="/account/artisan/apply">
-                      View / update application
-                    </Link>
-                  </Button>
                   <Button
                     variant="outline"
                     onClick={() => toast.info("We’ll notify you once it’s reviewed.")}
@@ -325,10 +390,6 @@ export default function AccountArtisanPage() {
                 </div>
               </div>
             </div>
-
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/account/artisan/apply">Edit artisan info</Link>
-            </Button>
           </CardContent>
         </Card>
 
@@ -402,14 +463,20 @@ export default function AccountArtisanPage() {
           <ChartContainer
             className="h-[240px] w-full"
             config={{
-              stock: { label: "Stock", color: "hsl(var(--primary))" },
+              stock: { label: "Stock Units", color: "var(--primary)" },
             }}
           >
             <BarChart data={stockChart} margin={{ left: 12, right: 12 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="name" tickLine={false} axisLine={false} />
+              <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis 
+                dataKey="name" 
+                tickLine={false} 
+                axisLine={false} 
+                fontSize={12}
+                tick={{ fill: "var(--muted-foreground)" }}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="stock" fill="var(--color-stock)" radius={6} />
+              <Bar dataKey="stock" radius={[4, 4, 0, 0]} barSize={40} />
             </BarChart>
           </ChartContainer>
         </CardContent>
@@ -420,7 +487,7 @@ export default function AccountArtisanPage() {
           <div>
             <CardTitle className="text-sm font-black">My products</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Search and sort your catalog. (Orders are not visible in this portal.)
+              Search and sort your catalog.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full md:w-auto">
@@ -450,17 +517,17 @@ export default function AccountArtisanPage() {
             </Select>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-6">
           {loadingProducts ? (
             <p className="text-sm text-muted-foreground">Loading products…</p>
-          ) : !visibleProducts.length ? (
+          ) : !paginatedProducts.length ? (
             <p className="text-sm text-muted-foreground">No products found.</p>
           ) : (
             <div className="grid gap-3">
-              {visibleProducts.map((p) => (
+              {paginatedProducts.map((p) => (
                 <div
                   key={p.id}
-                  className="rounded-md border p-3 flex items-center justify-between gap-3 flex-wrap"
+                  className="rounded-md border p-3 flex items-center justify-between gap-3 flex-wrap hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-12 h-12 rounded-md overflow-hidden border bg-muted shrink-0">
@@ -471,7 +538,12 @@ export default function AccountArtisanPage() {
                       />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold truncate">{p.name?.en || "Untitled product"}</p>
+                      <Link 
+                        href={`/product/${p.slug || "mock-product"}`}
+                        className="font-semibold truncate hover:text-primary hover:underline transition-colors block"
+                      >
+                        {p.name?.en || "Untitled product"}
+                      </Link>
                       <p className="text-xs text-muted-foreground">
                         Price: <span className="text-foreground font-medium">{(p.price ?? 0).toLocaleString()}</span>
                       </p>
@@ -490,6 +562,48 @@ export default function AccountArtisanPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <p className="text-xs text-muted-foreground">
+                Showing {Math.min(visibleProducts.length, (currentPage - 1) * pageSize + 1)} to {Math.min(visibleProducts.length, currentPage * pageSize)} of {visibleProducts.length} products
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-md"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <Button
+                      key={i}
+                      variant={currentPage === i + 1 ? "default" : "outline"}
+                      size="sm"
+                      className="h-8 w-8 rounded-md"
+                      onClick={() => setCurrentPage(i + 1)}
+                    >
+                      {i + 1}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-md"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
