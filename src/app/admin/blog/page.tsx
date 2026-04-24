@@ -196,7 +196,7 @@ export default function BlogManagementPage() {
             Manage articles, pages and resources across all languages.
           </p>
         </div>
-        <Button className="gap-2 rounded-xl h-10 px-5" asChild>
+        <Button className="h-10 px-5" asChild>
           <Link href="/admin/blog/create">
             <Plus className="h-4 w-4" />
             New Article

@@ -241,14 +241,32 @@ export const translations = {
       payments: { title: { en: "Secure Payments", rw: "kwishyura Kutajegajega", fr: "Paiements Sécurisés", sw: "Malipo Salama" }, sub: { en: "Safe & encrypted transactions", rw: "kwishyura mu mutekano", fr: "Transactions sûres et cryptées", sw: "Mihamala salama" } },
       support: { title: { en: "Local Support", rw: "Gushyigikira ab'iwacu", fr: "Support Local", sw: "Msaada wa Ndani" }, sub: { en: "Empowering Rwandan farmers", rw: "Gushyigikira abahinzi b'Abanyarwanda", fr: "Soutenir les agriculteurs rwandais", sw: "Kuwezesha wakulima wa Rwanda" } },
     },
-    promo: {
-      special: { en: "Special Offer", rw: "Ofu Ridasanzwe", fr: "Offre Spéciale", sw: "Ofa Maalum" },
-      discount: { en: "Get 15% Discount", rw: "Habwa igabanuka rya 15%", fr: "Obtenez 15% de Réduction", sw: "Pata Punguzo la 15%" },
-      firstPurchase: { en: "on Your First Purchase", rw: "kuri komande yawe ya mbere", fr: "sur votre premier achat", sw: "kwa agizo lako la kwanza" },
-      useCode: { en: "Use code", rw: "Koresha kodi", fr: "Utilisez le code", sw: "Tumia msimbo" },
-      validFor: { en: "at checkout. Valid for new customers on orders above", rw: "at checkout. Bikora ku bakiriya bashya kuri komande hejuru ya", fr: "lors du paiement. Valable pour les nouveaux clients sur les commandes supérieures à", sw: "wakati wa kulipa. Inafanya kazi kwa wateja wapya kwenye maagizo zaidi ya" },
-      shopNow: { en: "Shop Now", rw: "Gura Ubu", fr: "Achetez Maintenant", sw: "Nunua Sasa" },
-    },
+   promo: {
+  label: {
+    en: "Deals & Offers",
+    rw: "Ibiciro Binoze",
+    fr: "Offres & Promotions",
+    sw: "Matoleo & Ofa",
+  },
+  heading: {
+    en: "Fresh Deals on Organic Products",
+    rw: "Ibiciro Binoze kuri Ibicuruzwa Bitera Ubuzima",
+    fr: "Offres Fraîches sur les Produits Bio",
+    sw: "Matoleo Mapya ya Bidhaa za Kikaboni",
+  },
+  subheading: {
+    en: "We regularly offer discounts and special promotions on our best products. Check our deals page to see what's available today.",
+    rw: "Duha amafaranga make no kugabanya ibiciro buri gihe ku bicuruzwa byacu biza. Reba urupapuro rw'ibiciro binoze kugirango ubone ibiriho uyu munsi.",
+    fr: "Nous proposons régulièrement des réductions et des promotions spéciales sur nos meilleurs produits. Consultez notre page des offres pour voir ce qui est disponible aujourd'hui.",
+    sw: "Mara kwa mara tunatoa punguzo na matoleo maalum kwenye bidhaa zetu bora. Angalia ukurasa wetu wa matoleo kuona kinachoopatikana leo.",
+  },
+  cta: {
+    en: "See Current Deals",
+    rw: "Reba Ibiciro Binoze Ubu",
+    fr: "Voir les Offres Actuelles",
+    sw: "Angalia Matoleo ya Sasa",
+  },
+},
     feedback: {
       none: { en: "Hear from our community soon!", rw: "Ibyo batuvugaho biri vuba!", fr: "Découvrez bientôt l'avis de notre communauté !", sw: "Sikia kutoka kwa jamii yetu hivi karibuni!" },
       loadMore: { en: "Load More Feedbacks", rw: "Reba Ibindibe", fr: "Charger plus d'avis", sw: "Pakia Maoni Zaidi" },

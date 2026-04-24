@@ -144,7 +144,7 @@ export default function AdminEnrollments() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-card border border-border rounded-md shadow-sm overflow-hidden">
         <div className="p-4 border-b border-border/50 bg-muted/20 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:w-[350px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
