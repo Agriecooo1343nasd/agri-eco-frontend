@@ -44,6 +44,7 @@ export interface Order {
   deliveredAt?: string;
   createdAt: string;
   items: OrderItem[];
+  qrCodeDataUrl?: string;
   user?: {
     id: string;
     username?: string;

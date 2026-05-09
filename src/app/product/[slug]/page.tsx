@@ -95,11 +95,13 @@ export default function ProductDetailsPage() {
             : [],
           stock: data.stock,
           reviews: [],
-          applicableDiscounts: data.applicableDiscounts,
-          ownerName: (data as any).artisan?.name || (data.id.endsWith("1") ? "Artisan Collective" : undefined),
-          ownerHref: (data as any).artisan?.id 
-            ? `/community/artisan/${(data as any).artisan.id}` 
-            : (data.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined),
+           applicableDiscounts: data.applicableDiscounts,
+          source: data.source,
+          artisan: data.artisan,
+          ownerName: data.source === "artisan" ? data.artisan?.name : undefined,
+          ownerHref: data.source === "artisan" && data.artisan?.id 
+            ? `/community/artisan/${data.artisan.id}` 
+            : undefined,
         };
         setProduct(mappedProduct);
         setSelectedImage(mappedProduct.image);
@@ -119,10 +121,12 @@ export default function ProductDetailsPage() {
               price: p.sellingPrice,
               image: p.images?.[0]?.url || "/assets/products/placeholder.jpg",
               rating: p.averageRating || 5,
-              category: t(p.category?.name as any) || "",
+               category: t(p.category?.name as any) || "",
               unit: p.unit || "kg",
-              ownerName: p.id.endsWith("1") ? "Artisan Collective" : undefined,
-              ownerHref: p.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined,
+              source: p.source,
+              artisan: p.artisan,
+              ownerName: p.source === "artisan" ? p.artisan?.name : undefined,
+              ownerHref: p.source === "artisan" && p.artisan?.id ? `/community/artisan/${p.artisan.id}` : undefined,
             } as Product));
           setRelatedProducts(filtered);
         } catch (e) {
@@ -495,6 +499,14 @@ export default function ProductDetailsPage() {
                 >
                   {t(translations.productPage.reviews)} ({reviews.length})
                 </TabsTrigger>
+                {product.source === "artisan" && product.artisan && (
+                  <TabsTrigger
+                    value="artisan"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold h-10 px-6 rounded-lg transition-all"
+                  >
+                    {t(translations.common.artisan || "Artisan")}
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -687,6 +699,46 @@ export default function ProductDetailsPage() {
                   </div>
                 </div>
               </TabsContent>
+              {product.source === "artisan" && product.artisan && (
+                <TabsContent value="artisan" className="mt-0 focus-visible:ring-0">
+                  <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-border shrink-0 bg-muted">
+                      {product.artisan.image ? (
+                        <Image
+                          src={product.artisan.image}
+                          alt={product.artisan.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-black text-4xl">
+                          {product.artisan.name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-foreground">
+                          {product.artisan.name}
+                        </h3>
+                        {product.artisan.specialty && (
+                          <p className="text-primary font-semibold text-sm">
+                            {product.artisan.specialty}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Discover the craftsmanship and passion behind this product. Our artisans bring generations of expertise and sustainable practices to every piece they create.
+                      </p>
+                      <Button asChild variant="outline" className="rounded-xl font-bold">
+                        <Link href={`/community/artisan/${product.artisan.id}`}>
+                          View Profile & Collections
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+              )}
             </div>
           </Tabs>
         </div>

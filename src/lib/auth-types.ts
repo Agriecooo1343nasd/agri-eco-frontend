@@ -6,6 +6,8 @@ export const AUTH_ROLES = {
   MEMBER: "member",
   PARTNER: "partner",
   FARMER: "farmer",
+  DELIVERY_AGENT: "delivery_agent",
+  ARTISAN: "artisan",
 } as const;
 
 export type AuthRole = (typeof AUTH_ROLES)[keyof typeof AUTH_ROLES];
@@ -27,6 +29,7 @@ export interface AuthUser {
   phone?: string;
   avatar?: string;
   role?: AuthRole;
+  roles?: AuthRole[];
 }
 
 export interface AuthTokens {
@@ -44,6 +47,7 @@ export type LegacyAuthUser = {
   email: string;
   avatar?: string;
   role?: AuthRole;
+  roles?: AuthRole[];
   firstName?: string;
   lastName?: string;
   username?: string;
@@ -65,5 +69,6 @@ export function normalizeAuthUser(user: LegacyAuthUser): AuthUser {
     phone: user.phone,
     avatar: user.avatar,
     role: user.role,
+    roles: user.roles,
   };
 }

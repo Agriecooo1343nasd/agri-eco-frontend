@@ -44,6 +44,14 @@ export interface Product {
   }>;
   ownerName?: string;
   ownerHref?: string;
+  source?: "shop" | "artisan";
+  artisan?: {
+    id: string;
+    name: string;
+    specialty?: string;
+    image?: string | null;
+    isFeatured?: boolean;
+  };
 }
 
 interface ProductCardProps {

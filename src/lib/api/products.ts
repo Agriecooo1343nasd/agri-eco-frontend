@@ -115,7 +115,11 @@ export interface AdminProduct {
   artisan?: {
     id: string;
     name: string;
+    specialty?: string;
+    image?: string | null;
+    isFeatured?: boolean;
   };
+  source?: "shop" | "artisan";
   productType?: "consumable" | "articraft";
 }
 
@@ -152,6 +156,7 @@ interface CategoryListResult {
 
 export interface CreateCategoryPayload {
   name: string;
+  type?: string;
 }
 
 export interface InventoryBatchPayload {
@@ -301,6 +306,7 @@ export interface FetchCategoriesParams {
   isActive?: boolean | "true" | "false";
   sort?: string;
   order?: "asc" | "desc";
+  type?: string;
 }
 
 export async function fetchCategoriesForAdmin(
@@ -313,6 +319,7 @@ export async function fetchCategoriesForAdmin(
   else query.set("limit", "100");
   
   if (params?.search?.trim()) query.set("search", params.search.trim());
+  if (params?.type) query.set("type", params.type);
   
   if (params?.isActive !== undefined) query.set("isActive", String(params.isActive));
   else query.set("isActive", "true");
@@ -340,6 +347,7 @@ export async function createCategoryForAdmin(
     "/categories",
     {
       name: payload.name.trim(),
+      type: payload.type,
       isActive: true,
     },
   );

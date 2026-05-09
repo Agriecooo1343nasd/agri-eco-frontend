@@ -11,12 +11,13 @@ import {
   AlertCircle,
   Inbox,
   ChevronRight,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { usePricing } from "@/context/PricingContext";
 import { useQuery } from "@tanstack/react-query";
-import { fetchCustomerDashboard } from "@/lib/api/user";
+import { fetchCustomerDashboard, fetchMyRoleStatus } from "@/lib/api/user";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/context/LanguageContext";
@@ -32,7 +33,13 @@ const AccountDashboard = () => {
     queryFn: fetchCustomerDashboard,
   });
 
+  const roleStatusQuery = useQuery({
+    queryKey: ["user-role-status"],
+    queryFn: fetchMyRoleStatus,
+  });
+
   const statsData = dashboardQuery.data;
+  const roleStatus = roleStatusQuery.data;
 
   const stats = [
     {
@@ -109,6 +116,37 @@ const AccountDashboard = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Application Status Alerts */}
+      {roleStatus && (roleStatus.partner.hasPendingApplication || roleStatus.artisan.hasPendingApplication) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+             <Clock className="h-5 w-5 text-amber-600" />
+          </div>
+          <div className="flex-1">
+             <h3 className="text-sm font-bold text-amber-900">
+                {roleStatus.partner.hasPendingApplication && roleStatus.artisan.hasPendingApplication 
+                  ? t({ en: "Multiple Applications Pending", rw: "Ibisabwa byinshi birategereje", fr: "Plusieurs demandes en attente", sw: "Maombi Mengi Yanasubiri" })
+                  : roleStatus.partner.hasPendingApplication 
+                    ? t({ en: "Partner Application Pending", rw: "Gusaba kuba umufatanyabikorwa", fr: "Demande de partenariat en attente", sw: "Ombi la Ushirika Linasubiri" })
+                    : t({ en: "Artisan Application Pending", rw: "Gusaba kuba umunyabugeni", fr: "Demande d'artisan en attente", sw: "Ombi la Sanaa Linasubiri" })}
+             </h3>
+             <p className="text-xs text-amber-700 mt-1">
+                {t({ 
+                   en: "Our team is currently reviewing your request. We will notify you once a decision is made.", 
+                   rw: "Ikipe yacu irimo gusuzuma ubusabe bwawe. Tuzakumenyesha nibimara kwemezwa.",
+                   fr: "Notre équipe examine actuellement votre demande. Nous vous informerons dès qu'une décision sera prise.",
+                   sw: "Timu yetu inakagua ombi lako kwa sasa. Tutakujulisha uamuzi ukishatolewa."
+                })}
+             </p>
+          </div>
+          <Link href="/account/requests">
+             <Button variant="outline" size="sm" className="bg-white border-amber-200 text-amber-700 hover:bg-amber-100">
+                {t(translations.accountPage.viewAll)}
+             </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Welcome Banner */}
       <div className="bg-primary overflow-hidden rounded-[20px] text-white p-8 md:p-12 relative shadow-2xl">
         <div className="relative z-10">

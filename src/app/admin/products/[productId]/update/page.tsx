@@ -96,12 +96,39 @@ const normalizeUnit = (value?: string) => {
   const normalized = (value ?? "").trim().toLowerCase();
   if (!normalized) return "";
 
-  // Legacy aliases from older data entries.
-  if (normalized === "l" || normalized === "liter" || normalized === "litre") {
-    return "piece";
+  // Handle common plurals and legacy aliases
+  const aliasMap: Record<string, typeof VALID_UNITS[number]> = {
+    l: "piece",
+    liter: "piece",
+    litre: "piece",
+    liters: "piece",
+    litres: "piece",
+    pcs: "piece",
+    pieces: "piece",
+    kilogram: "kg",
+    kilograms: "kg",
+    kgs: "kg",
+    gram: "g",
+    grams: "g",
+    pound: "lb",
+    pounds: "lb",
+    lbs: "lb",
+    ounce: "oz",
+    ounces: "oz",
+    packet: "pack",
+    packets: "pack",
+    packs: "pack",
+    box: "pack",
+    boxes: "pack",
+    bunches: "bunch",
+    dozens: "dozen"
+  };
+
+  if (aliasMap[normalized]) {
+    return aliasMap[normalized];
   }
 
-  return (VALID_UNITS as readonly string[]).includes(normalized)
+  return (VALID_UNITS as readonly string[]).includes(normalized as any)
     ? normalized
     : "";
 };
@@ -167,8 +194,8 @@ export default function UpdateProduct() {
 
   // Fetch categories
   const { data: categoryResult } = useQuery({
-    queryKey: ["admin-product-categories"],
-    queryFn: () => fetchCategoriesForAdmin(),
+    queryKey: ["admin-categories", "product"],
+    queryFn: () => fetchCategoriesForAdmin({ type: "product" }),
   });
   const categories: ProductCategory[] = categoryResult?.data ?? [];
 
@@ -230,7 +257,7 @@ export default function UpdateProduct() {
     setName(normalizeML(product.name));
     setShortDesc(normalizeML(product.shortDescription));
     setLongDesc(normalizeML(product.description));
-    setUnit(normalizeUnit(product.unit || product.measurementUnit) || "kg");
+    setUnit(normalizeUnit(product.measurementUnit || product.unit) || "kg");
     setActiveCategory(product.category?.id ?? "");
     setPrice(product.sellingPrice?.toString() ?? "");
     setOldPrice(product.originalPrice ? product.originalPrice.toString() : "");
@@ -263,7 +290,7 @@ export default function UpdateProduct() {
         ? `${product.shipping.dimensions.length} x ${product.shipping.dimensions.width} x ${product.shipping.dimensions.height}`
         : "",
     );
-    setArtisanId(product.artisan?.id ?? "");
+    setArtisanId(product.artisan?.id ?? (product as any).artisanId ?? "");
     setExistingImageUrls((product.images ?? []).map((img) => img.url));
     setIsActivated(product.isActive ?? false);
     setInitialStatus(product.isActive ? "Active" : "Draft");
@@ -565,22 +592,37 @@ export default function UpdateProduct() {
       : undefined;
 
     const payload = {
-      name,
-      shortDescription: shortDesc,
-      description: longDesc,
+      name: name.en,
+      nameI18n: name,
+      shortDescription: shortDesc.en,
+      shortDescriptionI18n: shortDesc,
+      description: longDesc.en,
+      descriptionI18n: longDesc,
       productType,
-      unit: unit.trim().toLowerCase() as CreateAdminProductPayload["unit"],
-      category: activeCategory,
+      categoryId: activeCategory,
+      measurementUnit: unit,
       sellingPrice: Number(price),
       originalPrice: (Number(oldPrice) > 0 ? Number(oldPrice) : null) as unknown as number,
       tags,
-      features,
-      benefits,
+      features: features.map((f) => f.en).filter(Boolean),
+      featuresI18n: {
+        en: features.map((f) => f.en).filter(Boolean),
+        rw: features.map((f) => f.rw || "").filter(Boolean),
+        fr: features.map((f) => f.fr || "").filter(Boolean),
+        sw: features.map((f) => f.sw || "").filter(Boolean),
+      },
+      benefits: benefits.map((b) => b.en).filter(Boolean),
       marketingHooks: features.map((f) => ({
         label: f.en || "",
         isActive: true,
       })),
       healthBenefits: benefits.map((b) => ({ title: b.en || "" })),
+      healthBenefitsI18n: {
+        en: benefits.map((b) => ({ title: b.en || "" })).filter(i => i.title),
+        rw: benefits.map((b) => ({ title: b.rw || "" })).filter(i => i.title),
+        fr: benefits.map((b) => ({ title: b.fr || "" })).filter(i => i.title),
+        sw: benefits.map((b) => ({ title: b.sw || "" })).filter(i => i.title),
+      },
       batches: batches.map((batch) => ({
         batchId: batch.batchNumber || batch.id,
         quantity: batch.quantity,
@@ -596,14 +638,16 @@ export default function UpdateProduct() {
               weight: weight ? Number(weight) : undefined,
               dimensions: parsedDimensions,
               shelfLife: shelfLife || undefined,
-              storageCondition: storage,
+              storageCondition: storage.en,
+              storageConditionI18n: storage,
             }
           : undefined,
       isActive: isActivated,
       maxReturnDays: Number(maxReturnDays || 14),
       trackInventory: true,
       stock: batches.reduce((acc, b) => acc + (b.quantity || 0), 0),
-      artisanId: artisanId || undefined,
+      source: artisanId ? "artisan" : "shop",
+      artisanId: artisanId || null,
     } as any;
     updateMutation.mutate({ payload });
   };

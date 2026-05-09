@@ -44,6 +44,7 @@ export const translations = {
     name: { en: "Name", rw: "Amazina", fr: "Nom", sw: "Jina" },
     viewDetails: { en: "View Details", rw: "Reba Amakuru Arambuye", fr: "Voir les Détails", sw: "Tazama Maelezo" },
     by: { en: "by", rw: "na", fr: "par", sw: "na" },
+    artisan: { en: "Artisan", rw: "Umuhanzi", fr: "Artisan", sw: "Fundi" },
   },
 
   header: {

@@ -246,10 +246,10 @@ export async function fetchArtisanMyApplication(): Promise<AdminArtisanApplicati
   try {
     const response = await apiClient.get<ApiSuccessResponse<AdminArtisanApplication>>(
       "/artisans/applications/me",
+      { skipErrorToast: true } as any,
     );
     return response.data.data ?? null;
   } catch (error) {
-    console.error("Error fetching artisan application:", error);
     return null;
   }
 }

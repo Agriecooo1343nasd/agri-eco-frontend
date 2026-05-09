@@ -183,8 +183,8 @@ export default function AdminProductsPage() {
   const artisans = artisansQuery.data?.data ?? [];
 
   const categoriesQuery = useQuery({
-    queryKey: ["admin-product-categories"],
-    queryFn: () => fetchCategoriesForAdmin(),
+    queryKey: ["admin-categories", "product"],
+    queryFn: () => fetchCategoriesForAdmin({ type: "product" }),
   });
 
   const rows = productsQuery.data?.data ?? [];

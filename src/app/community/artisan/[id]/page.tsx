@@ -37,11 +37,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   fetchArtisanById,
-  fetchPublicArtisanProducts,
   type AdminArtisan,
-  type AdminArtisanProduct,
   toAbsoluteArtisanImage,
 } from "@/lib/api/artisans";
+import { fetchProducts, type AdminProduct } from "@/lib/api/products";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
@@ -62,7 +61,7 @@ export default function ArtisanProfilePage({
 }) {
   const { id } = use(params);
   const [artisan, setArtisan] = useState<AdminArtisan | null>(null);
-  const [products, setProducts] = useState<AdminArtisanProduct[]>([]);
+  const [products, setProducts] = useState<AdminProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   
@@ -147,10 +146,10 @@ export default function ArtisanProfilePage({
         setIsLoading(true);
         const [artisanData, productsData] = await Promise.all([
           fetchArtisanById(id),
-          fetchPublicArtisanProducts(id, { limit: 100 }),
+          fetchProducts({ artisanId: id, limit: 100 }),
         ]);
         setArtisan(artisanData);
-        setProducts(Array.isArray(productsData.data) ? productsData.data : []);
+        setProducts(productsData.data || []);
       } catch (err) {
         console.error("Failed to load artisan profile:", err);
         setError(true);
@@ -168,116 +167,73 @@ export default function ArtisanProfilePage({
     return text.en || text.rw || text.fr || text.sw || "";
   };
 
-  const toCartProduct = (product: AdminArtisanProduct): Product => ({
+  const toCartProduct = (product: AdminProduct): Product => ({
     id: product.id,
-    artisanProductId: product.id,
-    slug: `artisan-product-${product.id}`,
+    slug: product.slug,
     name: getLangText(product.name),
-    price: product.price || 0,
-    image: toAbsoluteArtisanImage(product.image),
-    rating: 5,
-    category: artisan?.specialty || "Artisan",
-    unit: "piece",
+    price: product.sellingPrice || 0,
+    oldPrice: product.originalPrice,
+    image: product.images?.[0]?.url || "/assets/products/placeholder.jpg",
+    rating: product.averageRating || 5,
+    category: product.category?.name || artisan?.specialty || "Artisan",
+    unit: product.unit || "piece",
     stock: product.stock,
     ownerName: artisan?.name,
-    ownerHref: artisan?.id ? `/artisan/${artisan.id}` : undefined,
+    ownerHref: artisan?.id ? `/community/artisan/${artisan.id}` : undefined,
+    source: product.source,
+    artisan: product.artisan,
   });
-
-  const mockedProducts: AdminArtisanProduct[] = useMemo(
-    () =>
-      products.length
-        ? products
-        : [
-            {
-              id: `mock-${id}-1`,
-              artisanId: id,
-              name: { en: "Handwoven Basket Set", rw: "", fr: "", sw: "" },
-              description: {
-                en: "Traditional woven basket crafted by hand.",
-                rw: "",
-                fr: "",
-                sw: "",
-              },
-              image: "/assets/products/placeholder.jpg",
-              price: 18000,
-              stock: 12,
-              tags: ["Handmade", "Traditional", "Eco-friendly"],
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            } as AdminArtisanProduct,
-            {
-              id: `mock-${id}-2`,
-              artisanId: id,
-              name: { en: "Clay Pot Collection", rw: "", fr: "", sw: "" },
-              description: {
-                en: "Decorative clay pots for modern and traditional homes.",
-                rw: "",
-                fr: "",
-                sw: "",
-              },
-              image: "/assets/products/placeholder.jpg",
-              price: 25000,
-              stock: 9,
-              tags: ["Ceramic", "Home Decor", "Artisan"],
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            } as AdminArtisanProduct,
-          ],
-    [products, id],
-  );
 
   const artisanCategories = useMemo(() => {
     const cats = new Map<string, number>();
-    cats.set("All", mockedProducts.length);
-    mockedProducts.forEach((p) => {
+    cats.set("All", products.length);
+    products.forEach((p) => {
       const cat = p.category?.name || artisan?.specialty || "General";
       cats.set(cat, (cats.get(cat) || 0) + 1);
     });
     return Array.from(cats.entries());
-  }, [mockedProducts, artisan]);
+  }, [products, artisan]);
 
   const artisanTags = useMemo(() => {
     const tags = new Set<string>();
-    mockedProducts.forEach((p) => {
+    products.forEach((p) => {
       if (Array.isArray(p.tags)) {
         p.tags.forEach((t) => tags.add(t));
       }
     });
     return Array.from(tags);
-  }, [mockedProducts]);
+  }, [products]);
 
   const shopStyleProducts = useMemo(() => {
     if (!artisan) return [];
     const q = search.trim().toLowerCase();
-    let rows = mockedProducts.filter((p) => {
+    let rows = products.filter((p) => {
       const name = getLangText(p.name).toLowerCase();
       const desc = getLangText(p.description).toLowerCase();
       const cat = p.category?.name || artisan?.specialty || "General";
       
-      const matchesRating = !selectedRating || 5 >= selectedRating; // Mocked rating 5 for all artisan products
+      const matchesRating = !selectedRating || (p.averageRating || 5) >= selectedRating;
       const matchesTags = selectedTags.length === 0 || selectedTags.some(tag => p.tags?.includes(tag));
       
       return (
         (!q || name.includes(q) || desc.includes(q)) &&
-        (p.price || 0) >= priceRange[0] &&
-        (p.price || 0) <= priceRange[1] &&
+        (p.sellingPrice || 0) >= priceRange[0] &&
+        (p.sellingPrice || 0) <= priceRange[1] &&
         (selectedCategory === "All" || cat === selectedCategory) &&
         matchesRating &&
         matchesTags
       );
     });
     if (sortBy === "price-low")
-      rows = [...rows].sort((a, b) => (a.price || 0) - (b.price || 0));
+      rows = [...rows].sort((a, b) => (a.sellingPrice || 0) - (b.sellingPrice || 0));
     if (sortBy === "price-high")
-      rows = [...rows].sort((a, b) => (b.price || 0) - (a.price || 0));
+      rows = [...rows].sort((a, b) => (b.sellingPrice || 0) - (a.sellingPrice || 0));
     if (sortBy === "name")
       rows = [...rows].sort((a, b) =>
         getLangText(a.name).localeCompare(getLangText(b.name)),
       );
     return rows.map((p) => toCartProduct(p));
-  }, [artisan, mockedProducts, search, sortBy, priceRange, selectedCategory, onlyDiscounted]);
+  }, [artisan, products, search, sortBy, priceRange, selectedCategory, onlyDiscounted, selectedRating, selectedTags]);
 
   const paginatedProducts = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;

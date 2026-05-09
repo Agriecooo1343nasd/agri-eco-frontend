@@ -113,11 +113,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     : null;
   const isAuthenticated = !!user;
   const role = user?.role ?? null;
-  const isAdmin = !!role && ADMIN_ROLES.includes(role);
+  const roles = user?.roles ?? (role ? [role] : []);
+  const isAdmin = roles.some(r => ADMIN_ROLES.includes(r));
 
-  const hasRole = (roles: AuthRole | AuthRole[]) => {
-    if (!role) return false;
-    return Array.isArray(roles) ? roles.includes(role) : roles === role;
+  const hasRole = (checkRoles: AuthRole | AuthRole[]) => {
+    if (roles.length === 0) return false;
+    const requiredRoles = Array.isArray(checkRoles) ? checkRoles : [checkRoles];
+    return roles.some(r => requiredRoles.includes(r));
   };
 
   return (

@@ -670,29 +670,40 @@ export async function terminateAdminPartner(
 // Partner Self-Service (Client-facing)
 // ============================================================================
 
-export async function fetchPartnerMe(): Promise<any> {
-  const response = await apiClient.get<ApiSuccessResponse<any>>("/partners/me");
-  if (!response.data.data) throw new Error("Partner profile not found");
-  const payload = response.data.data;
-  if (payload.partner && payload.summary) {
-    return {
-      ...payload.partner,
-      revenueSummary: {
-        gross: payload.summary.grossRevenue ?? 0,
-        earnings: payload.summary.totalEarnings ?? 0,
-        pending: payload.summary.pendingEarnings ?? 0,
-        bookings: payload.summary.bookings ?? 0,
-      },
-      payoutCycle: payload.summary.payoutCycle,
-    };
+export async function fetchPartnerMe(): Promise<any | null> {
+  try {
+    const response = await apiClient.get<ApiSuccessResponse<any>>("/partners/me", {
+      skipErrorToast: true,
+    } as any);
+    if (!response.data.data) return null;
+    const payload = response.data.data;
+    if (payload.partner && payload.summary) {
+      return {
+        ...payload.partner,
+        revenueSummary: {
+          gross: payload.summary.grossRevenue ?? 0,
+          earnings: payload.summary.totalEarnings ?? 0,
+          pending: payload.summary.pendingEarnings ?? 0,
+          bookings: payload.summary.bookings ?? 0,
+        },
+        payoutCycle: payload.summary.payoutCycle,
+      };
+    }
+    return payload;
+  } catch (error: any) {
+    // If forbidden, they just aren't a partner yet
+    if (error.response?.status === 403 || error.response?.status === 404) {
+      return null;
+    }
+    throw error;
   }
-  return payload;
 }
 
 export async function fetchPartnerMyApplication(): Promise<any | null> {
   try {
     const response = await apiClient.get<ApiSuccessResponse<any>>(
       "/partners/me/application",
+      { skipErrorToast: true } as any,
     );
     return response.data.data ?? null;
   } catch {
@@ -701,8 +712,15 @@ export async function fetchPartnerMyApplication(): Promise<any | null> {
 }
 
 export async function fetchPartnerAgreements(): Promise<any[]> {
-  const response = await apiClient.get<ApiSuccessResponse<any[]>>("/partners/me/agreements");
-  return response.data.data ?? [];
+  try {
+    const response = await apiClient.get<ApiSuccessResponse<any[]>>(
+      "/partners/me/agreements",
+      { skipErrorToast: true } as any,
+    );
+    return response.data.data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchPartnerAgreementById(agreementId: string): Promise<any> {

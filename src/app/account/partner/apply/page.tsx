@@ -36,8 +36,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { submitPartnerApplication, fetchPartnerMyApplication } from "@/lib/api/partners";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { submitPartnerApplication } from "@/lib/api/partners";
+import { fetchMyRoleStatus } from "@/lib/api/user";
 import { uploadSingleImage } from "@/lib/api/uploads";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
@@ -52,7 +53,6 @@ export default function PartnerApplyPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [existing, setExisting] = useState<any | null>(null);
   const [agreed, setAgreed] = useState(false);
 
   const [form, setForm] = useState({
@@ -71,31 +71,34 @@ export default function PartnerApplyPage() {
     links: [] as string[],
   });
 
+  const { data: roleStatus, isLoading: isLoadingRoleStatus } = useQuery({
+    queryKey: ["user-role-status-partner-apply"],
+    queryFn: fetchMyRoleStatus,
+  });
+
+  const existing = roleStatus?.partner?.latestApplication;
+
   useEffect(() => {
-    fetchPartnerMyApplication()
-      .then((data) => {
-        if (data) {
-          setExisting(data);
-          setForm({
-            businessName: data.businessName || "",
-            contactPerson: data.contactName || user?.name || "",
-            email: data.email || user?.email || "",
-            phone: data.phone || "",
-            type: data.businessType || "tourism_operator",
-            aboutBusiness: data.description || "",
-            publicDescription: data.publicDescription || "",
-            location: data.location || "",
-            website: data.website || "",
-            twitter: data.twitterUrl || "",
-            linkedin: data.linkedinUrl || "",
-            image: data.image || "",
-            links: data.links || [],
-          });
-          if (data.status !== "none") setAgreed(true);
-        }
-      })
-      .finally(() => setIsLoading(false));
-  }, [user]);
+    if (existing) {
+      setForm({
+        businessName: (existing as any).businessName || "",
+        contactPerson: (existing as any).contactName || user?.name || "",
+        email: (existing as any).email || user?.email || "",
+        phone: (existing as any).phone || "",
+        type: (existing as any).businessType || "tourism_operator",
+        aboutBusiness: (existing as any).description || "",
+        publicDescription: (existing as any).publicDescription || "",
+        location: (existing as any).location || "",
+        website: (existing as any).website || "",
+        twitter: (existing as any).twitterUrl || "",
+        linkedin: (existing as any).linkedinUrl || "",
+        image: (existing as any).image || "",
+        links: (existing as any).links || [],
+      });
+      if (existing.status !== "none") setAgreed(true);
+    }
+    setIsLoading(isLoadingRoleStatus);
+  }, [existing, isLoadingRoleStatus, user]);
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadSingleImage(file),
@@ -118,7 +121,9 @@ export default function PartnerApplyPage() {
   const submitApplicationMutation = useMutation({
     mutationFn: submitPartnerApplication,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-me-application"] });
+      queryClient.invalidateQueries({ queryKey: ["user-role-status-partner"] });
+      queryClient.invalidateQueries({ queryKey: ["user-role-status-partner-apply"] });
+      queryClient.invalidateQueries({ queryKey: ["user-role-status-header"] });
       toast.success(t(translations.common.success), {
         description: t(translations.partnerPage.underReview),
       });

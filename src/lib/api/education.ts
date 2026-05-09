@@ -39,6 +39,7 @@ export interface TrainingProgram {
   language: string;
   isPublished: boolean;
   isFeatured: boolean;
+  quizTimeLimitSeconds?: number | null;
   curriculum: any[];
   topics: TrainingTopic[];
   instructorName?: string;
@@ -115,6 +116,7 @@ export interface CreateAdminTrainingProgramPayload {
   language: string;
   isPublished: boolean;
   isFeatured: boolean;
+  quizTimeLimitSeconds?: number | null;
   curriculum: any[];
   topics: { name: MultiLangText; sortOrder: number }[];
   instructorName?: string;
@@ -430,6 +432,51 @@ export async function updateProgress(
     payload,
   );
   if (!response.data.data) throw new Error("Failed to update progress");
+  return response.data.data;
+}
+
+export interface QuizAttempt {
+  id: string;
+  enrollmentId: string;
+  trainingProgramId: string;
+  quizId?: string;
+  status: "in_progress" | "submitted" | "timed_out";
+  startedAt: string;
+  expiresAt?: string;
+  timeLimitSeconds?: number;
+}
+
+export async function startQuizAttempt(
+  enrollmentId: string,
+  quizId?: string,
+): Promise<{ attempt: QuizAttempt; remainingSeconds: number | null }> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    `/training-programs/me/enrollments/${enrollmentId}/quiz-attempts`,
+    { quizId },
+  );
+  if (!response.data.data) throw new Error("Failed to start quiz attempt");
+  return response.data.data;
+}
+
+export async function listQuizAttempts(
+  enrollmentId: string,
+): Promise<QuizAttempt[]> {
+  const response = await apiClient.get<ApiSuccessResponse<QuizAttempt[]>>(
+    `/training-programs/me/enrollments/${enrollmentId}/quiz-attempts`,
+  );
+  return response.data.data ?? [];
+}
+
+export async function submitQuizAttempt(
+  attemptId: string,
+  payload: { score?: number; maxScore?: number; answers?: any },
+): Promise<any> {
+  const response = await apiClient.post<ApiSuccessResponse<any>>(
+    `/training-programs/me/quiz-attempts/${attemptId}/submit`,
+    payload,
+  );
+  if (!response.data.success)
+    throw new Error(response.data.message || "Failed to submit quiz attempt");
   return response.data.data;
 }
 

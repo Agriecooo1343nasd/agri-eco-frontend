@@ -15,12 +15,19 @@ import {
   ShoppingBag,
   Map,
   GraduationCap,
+  ShieldCheck,
+  Building2,
+  Paintbrush,
+  Truck,
+  User as UserIcon,
+  Clock,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { fetchMyRoleStatus } from "@/lib/api/user";
 import { useLanguage, type LanguageCode } from "@/context/LanguageContext";
 import { cn } from "@/lib/utils";
 import {
@@ -99,6 +106,13 @@ const Header = () => {
     queryFn: () =>
       fetchCategoriesForAdmin({ search: catSearch, page: catPage, limit: 10 }),
     enabled: catOpen,
+  });
+
+  const { data: roleStatus } = useQuery({
+    queryKey: ["user-role-status-header"],
+    queryFn: fetchMyRoleStatus,
+    enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000,
   });
 
   const catList = categoriesData?.data || [];
@@ -294,16 +308,65 @@ const Header = () => {
                         onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
                       >
-                      {t(translations.header.account.dashboard)}
+                       <ShieldCheck className="h-4 w-4" />
+                       {t(translations.header.account.dashboard)}
                       </Link>
                     )}
+                    
+                    {roleStatus?.isPartner && (
+                      <Link
+                        href="/account/partner"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      >
+                       <Building2 className="h-4 w-4" />
+                       Partner Portal
+                      </Link>
+                    )}
+
+                    {roleStatus?.isArtisan && (
+                      <Link
+                        href="/account/artisan"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors"
+                      >
+                       <Paintbrush className="h-4 w-4" />
+                       Artisan Portal
+                      </Link>
+                    )}
+
+                    {roleStatus?.isDeliveryAgent && (
+                      <Link
+                        href="/account/delivery"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-green-600 hover:bg-green-50 transition-colors"
+                      >
+                       <Truck className="h-4 w-4" />
+                       Delivery Portal
+                      </Link>
+                    )}
+
                     <Link
                       href="/account"
                       onClick={() => setUserMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
                     >
+                      <UserIcon className="h-4 w-4" />
                       {t(translations.header.account.myAccount)}
                     </Link>
+
+                    {/* Pending Application Statuses */}
+                    {(roleStatus?.partner.hasPendingApplication || roleStatus?.artisan.hasPendingApplication) && (
+                       <div className="mx-2 my-1 p-2 bg-amber-50 rounded-lg border border-amber-100">
+                          <p className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-1">
+                             <Clock className="h-3 w-3" /> Pending Review
+                          </p>
+                          <Link href="/account/requests" onClick={() => setUserMenuOpen(false)} className="text-[9px] text-amber-700 hover:underline mt-0.5 block">
+                             {roleStatus.partner.hasPendingApplication ? "• Partner application" : ""}
+                             {roleStatus.artisan.hasPendingApplication ? " • Artisan application" : ""}
+                          </Link>
+                       </div>
+                    )}
                     <button
                       onClick={() => {
                         logout();

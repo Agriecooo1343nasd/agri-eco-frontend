@@ -16,7 +16,6 @@ import {
   AlertCircle,
   QrCode,
 } from "lucide-react";
-import QRCode from "qrcode";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -32,51 +31,7 @@ import { usePricing } from "@/context/PricingContext";
 import { createReturn, listReturns } from "@/lib/api/operations";
 import type { ReturnRequest } from "@/data/operations-mock";
 
-// Mock Data for a single order
-const orderData = {
-  id: "#AE-2045",
-  date: "Jan 12, 2024 10:45 AM",
-  status: "Delivered",
-  total: 45.0,
-  subtotal: 38.5,
-  shipping: 5.0,
-  tax: 1.5,
-  paymentMethod: "Visa ending in 4242",
-  items: [
-    {
-      id: "p1",
-      name: "Pure Organic Honey",
-      price: 15.5,
-      quantity: 2,
-      image:
-        "https://images.unsplash.com/photo-1587049352846-4a222e783134?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80",
-      sku: "ORG-HNY-01",
-    },
-    {
-      id: "p2",
-      name: "Organic Green Tea",
-      price: 7.5,
-      quantity: 1,
-      image:
-        "https://images.unsplash.com/photo-1597481499750-3e6b22637e12?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80",
-      sku: "TEA-GRN-05",
-    },
-  ],
-  shippingAddress: {
-    name: "John Doe",
-    address: "KN 123 St, Muhima",
-    city: "Kigali City",
-    country: "Rwanda",
-    phone: "+250 788 000 000",
-  },
-  timeline: [
-    { status: "Order Placed", date: "Jan 12, 10:45 AM", completed: true },
-    { status: "Processing", date: "Jan 12, 01:20 PM", completed: true },
-    { status: "Shipped", date: "Jan 13, 09:00 AM", completed: true },
-    { status: "Out for delivery", date: "Jan 14, 02:30 PM", completed: true },
-    { status: "Delivered", date: "Jan 14, 04:15 PM", completed: true },
-  ],
-};
+
 
 export default function OrderDetailsPage({
   params,
@@ -95,7 +50,7 @@ export default function OrderDetailsPage({
   const [selected, setSelected] = useState<
     Record<string, { checked: boolean; qty: number; reason: string }>
   >({});
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+
 
   useEffect(() => {
     async function loadOrder() {
@@ -110,7 +65,11 @@ export default function OrderDetailsPage({
         if (isUuid) {
           data = await fetchOrderById(orderId);
         } else {
-          data = await fetchOrderByNumber(orderId);
+          const found = await fetchOrderByNumber(orderId);
+          if (found) {
+            // Fetch full order by ID to get the QR code (list view doesn't include it)
+            data = await fetchOrderById(found.id);
+          }
         }
 
         if (!data) {
@@ -129,20 +88,7 @@ export default function OrderDetailsPage({
     loadOrder();
   }, [orderId, t]);
 
-  useEffect(() => {
-    if (!order) return;
-    
-    // Generate QR code for the order (could be a receipt URL or just order details)
-    const orderUrl = `https://agri-eco-three.vercel.app/account/orders/${order.orderNumber}`;
-    QRCode.toDataURL(orderUrl, {
-      width: 400,
-      margin: 2,
-      color: {
-        dark: "#10b981", // primary color
-        light: "#ffffff"
-      }
-    }).then(setQrCodeUrl).catch(console.error);
-  }, [order]);
+
 
   useEffect(() => {
     async function loadReturnsForOrder() {
@@ -259,9 +205,9 @@ export default function OrderDetailsPage({
   }
 
   const downloadQRCode = () => {
-    if (!qrCodeUrl) return;
+    if (!order.qrCodeDataUrl) return;
     const link = document.createElement("a");
-    link.href = qrCodeUrl;
+    link.href = order.qrCodeDataUrl;
     link.download = `order-qr-${order.orderNumber}.png`;
     document.body.appendChild(link);
     link.click();
@@ -594,10 +540,12 @@ export default function OrderDetailsPage({
               Scan this code at pick-up points or for delivery verification.
             </p>
             <div className="relative group mx-auto w-48 h-48 mb-6 rounded-xl border-4 border-muted p-2 overflow-hidden bg-white">
-              {qrCodeUrl ? (
-                <img src={qrCodeUrl} alt="Order QR Code" className="w-full h-full object-contain" />
+              {order.qrCodeDataUrl ? (
+                <img src={order.qrCodeDataUrl} alt="Order QR Code" className="w-full h-full object-contain" />
               ) : (
-                <div className="w-full h-full bg-muted animate-pulse rounded-md" />
+                <div className="w-full h-full bg-muted flex items-center justify-center rounded-md">
+                   <QrCode className="h-10 w-10 text-muted-foreground/30" />
+                </div>
               )}
               <div className="absolute inset-0 bg-primary/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                  <QrCode className="h-12 w-12 text-white animate-pulse" />
@@ -608,7 +556,7 @@ export default function OrderDetailsPage({
                 size="sm" 
                 className="w-full h-11 font-black uppercase tracking-widest text-[10px] gap-2 rounded-lg"
                 onClick={downloadQRCode}
-                disabled={!qrCodeUrl}
+                disabled={!order.qrCodeDataUrl}
             >
               <Download className="h-3.5 w-3.5" />
               Download PNG

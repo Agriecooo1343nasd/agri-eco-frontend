@@ -81,6 +81,9 @@ import {
   fetchMyEnrollments,
   fetchProgress,
   updateProgress,
+  startQuizAttempt,
+  listQuizAttempts,
+  submitQuizAttempt,
   type QuizScoreItem,
 } from "@/lib/api/education";
 import { getMediaUrl } from "@/lib/config/api";
@@ -116,6 +119,7 @@ import {
   Brain,
   Star,
   Loader2,
+  Plus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -262,6 +266,58 @@ export default function ProgramDetail() {
   const [quizAnswers, setQuizAnswers] = useState<any>({}); // { [questionIdx]: optionIdx }
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [quizError, setQuizError] = useState<string | null>(null);
+  const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutSubmittedRef = useRef(false);
+
+  // Timer effect
+  useEffect(() => {
+    if (quizDialogOpen && remainingSeconds !== null && remainingSeconds > 0 && !quizSubmitted && !quizError) {
+      timerRef.current = setInterval(() => {
+        setRemainingSeconds((prev) => {
+          if (prev !== null && prev <= 1) {
+            clearInterval(timerRef.current!);
+            handleQuizTimeout();
+            return 0;
+          }
+          return prev !== null ? prev - 1 : null;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [quizDialogOpen, remainingSeconds, quizSubmitted, quizError]);
+
+  const handleQuizTimeout = async () => {
+    if (timeoutSubmittedRef.current) return;
+    timeoutSubmittedRef.current = true;
+
+    setQuizError("Quiz time limit elapsed. Please start a new attempt.");
+    setQuizSubmitted(true);
+    setQuizScore(0);
+    
+    if (quizAttemptId) {
+       try {
+         await submitQuizAttempt(quizAttemptId, { score: 0, maxScore: activeQuiz?.questions?.length || 0 });
+       } catch (err) {
+         console.error("Failed to submit timed-out quiz", err);
+       }
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   // Helper: get correct index (backend may use correctIndex or correctOption)
   const getCorrectIndex = (q: any) =>
@@ -271,18 +327,34 @@ export default function ProgramDetail() {
         ? q.correctOption
         : undefined;
 
-  const startQuiz = (quiz: any, moduleId: string) => {
+  const startQuiz = async (quiz: any, moduleId: string) => {
     if (!quiz) {
       console.warn("No quiz data found for this module.", quiz);
       return;
     }
-    setActiveQuizModuleId(moduleId);
-    setActiveQuiz(quiz);
-    setQuizDialogOpen(true);
-    setQuizStep(0);
-    setQuizAnswers({});
-    setQuizSubmitted(false);
-    setQuizScore(null);
+
+    if (!activeEnrollment?.id) {
+      toast.error("You must be enrolled to take the quiz");
+      return;
+    }
+
+    try {
+      const { attempt, remainingSeconds: backendRemaining } = await startQuizAttempt(activeEnrollment.id, moduleId);
+      setQuizAttemptId(attempt.id);
+      setRemainingSeconds(backendRemaining);
+      
+      setActiveQuizModuleId(moduleId);
+      setActiveQuiz(quiz);
+      setQuizDialogOpen(true);
+      setQuizStep(0);
+      setQuizAnswers({});
+      setQuizSubmitted(false);
+      setQuizScore(null);
+      setQuizError(null);
+      timeoutSubmittedRef.current = false;
+    } catch (err: any) {
+      toast.error("Failed to start quiz", { description: err.message });
+    }
   };
 
   // Handle answer selection
@@ -307,26 +379,25 @@ export default function ProgramDetail() {
     setQuizScore(score);
     setQuizSubmitted(true);
 
-    // Persist quiz score to backend progress if enrolled
-    if (activeEnrollment?.id && progressData) {
-      const prevQuizScores = progressData.quizScores || [];
-      const maxScore = activeQuiz.questions.length;
-      const quizKey = activeQuizModuleId || activeQuiz.id;
-      const quizScoreItem: QuizScoreItem = {
-        quizId: quizKey,
-        title:
-          typeof activeQuiz.title === "string"
-            ? activeQuiz.title
-            : activeQuiz.title?.en || "Quiz",
-        score,
-        maxScore,
-        attemptedAt: new Date().toISOString(),
-      };
-      const updatedQuizScores = [
-        ...prevQuizScores.filter((q: any) => q.quizId !== quizKey),
-        quizScoreItem,
-      ];
-      updateProgressMutation.mutate({ quizScores: updatedQuizScores });
+    if (quizAttemptId) {
+      try {
+        await submitQuizAttempt(quizAttemptId, { 
+          score, 
+          maxScore: activeQuiz.questions.length,
+          answers: quizAnswers 
+        });
+        
+        // Refresh progress to show new score
+        refetchProgress();
+      } catch (err: any) {
+        if (err.status === 422 || err.message?.includes("timed_out") || err.message?.includes("elapsed")) {
+           setQuizError(err.message || "Time limit elapsed.");
+           setQuizSubmitted(true);
+           setQuizScore(0);
+        } else {
+           toast.error("Failed to submit results", { description: err.message });
+        }
+      }
     }
   };
 
@@ -351,6 +422,43 @@ export default function ProgramDetail() {
     activeEnrollment,
     pendingEnrollment,
   ]);
+
+  // Resume check
+  useEffect(() => {
+    const checkResume = async () => {
+      if (activeEnrollment?.id && apiProgram && !quizDialogOpen && !quizSubmitted) {
+        try {
+          const attempts = await listQuizAttempts(activeEnrollment.id);
+          const active = attempts.find((a) => a.status === "in_progress");
+          if (active) {
+             // Find module
+             const moduleId = active.quizId || (active as any).moduleId;
+             const module = apiProgram.curriculum?.find((m: any) => m.id === moduleId);
+             if (module && module.quiz) {
+               // Calculate remaining time
+               const remaining = active.expiresAt 
+                 ? Math.max(0, Math.floor((new Date(active.expiresAt).getTime() - Date.now()) / 1000))
+                 : null;
+               
+               if (remaining === null || remaining > 0) {
+                  setQuizAttemptId(active.id);
+                  setRemainingSeconds(remaining);
+                  setActiveQuizModuleId(moduleId);
+                  setActiveQuiz(module.quiz);
+                  setQuizDialogOpen(true);
+                  setQuizStep(0);
+                  setQuizAnswers({});
+                  setQuizSubmitted(false);
+               }
+             }
+          }
+        } catch (err) {
+          console.error("Failed to check resume attempts", err);
+        }
+      }
+    };
+    checkResume();
+  }, [activeEnrollment?.id, apiProgram]);
 
   const {
     data: programReviewsResult,
@@ -1926,6 +2034,12 @@ export default function ProgramDetail() {
               {activeQuiz
                 ? t(activeQuiz.title)
                 : t({ en: "Module Quiz", rw: "Isuzumabumenyi", fr: "Quiz du module", sw: "Maswali ya Moduli" })}
+              {remainingSeconds !== null && (
+                <Badge variant="outline" className={`ml-auto font-mono text-xs ${remainingSeconds < 60 ? "text-destructive border-destructive animate-pulse" : "text-primary border-primary"}`}>
+                  <Clock className="h-3 w-3 mr-1" />
+                  {formatTime(remainingSeconds)}
+                </Badge>
+              )}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {t({
@@ -1997,7 +2111,29 @@ export default function ProgramDetail() {
                 </div>
               </>
             )}
-            {quizSubmitted && (
+
+            {quizError && (
+               <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-6 text-center space-y-4">
+                 <Clock className="h-10 w-10 text-destructive mx-auto animate-pulse" />
+                 <div className="space-y-1">
+                   <h3 className="text-lg font-bold text-destructive">
+                     {t({ en: "Session Expired", rw: "Igihe cyarangiye", fr: "Session expirée", sw: "Muda Umeisha" })}
+                   </h3>
+                   <p className="text-sm text-muted-foreground">
+                     {quizError}
+                   </p>
+                 </div>
+                 <Button 
+                   className="gap-2" 
+                   onClick={() => startQuiz(activeQuiz, activeQuizModuleId!)}
+                 >
+                   <Plus className="h-4 w-4" />
+                   {t({ en: "Retry Quiz", rw: "Gerageza nanone", fr: "Réessayer le quiz", sw: "Jaribu Tena" })}
+                 </Button>
+               </div>
+            )}
+
+            {quizSubmitted && !quizError && (
               <div className="mt-6 text-center">
                 <div className="text-lg font-bold">
                   Score: {quizScore} / {activeQuiz.questions.length}
@@ -2005,11 +2141,21 @@ export default function ProgramDetail() {
                 <div
                   className={`mt-2 text-${quizScore && quizScore >= Math.ceil(activeQuiz.questions.length * 0.6) ? "green-600" : "red-600"} font-semibold`}
                 >
-                  {quizScore &&
+                  {quizScore !== null &&
                   quizScore >= Math.ceil(activeQuiz.questions.length * 0.6)
                     ? t({ en: "Passed!", rw: "Watsinze!", fr: "Réussi !", sw: "Umefaulu!" })
-                    : t({ en: "Try Again", rw: "Gerageza nanone", fr: "Réessayer", sw: "Jaribu Tena" })}
+                    : t({ en: "Failed", rw: "Ntiwatsinze", fr: "Échoué", sw: "Umefeli" })}
                 </div>
+                {(quizScore === null || quizScore < Math.ceil(activeQuiz.questions.length * 0.6)) && (
+                   <Button 
+                     variant="outline" 
+                     className="mt-4 gap-2 text-xs" 
+                     onClick={() => startQuiz(activeQuiz, activeQuizModuleId!)}
+                   >
+                     <Plus className="h-4 w-4" />
+                     {t({ en: "Retry Quiz", rw: "Gerageza nanone", fr: "Réessayer le quiz", sw: "Jaribu Tena" })}
+                   </Button>
+                )}
               </div>
             )}
           </div>

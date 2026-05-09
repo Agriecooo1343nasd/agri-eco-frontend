@@ -280,8 +280,8 @@ export default function CreateProductPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const categoriesQuery = useQuery({
-    queryKey: ["admin-product-categories"],
-    queryFn: () => fetchCategoriesForAdmin(),
+    queryKey: ["admin-categories", "product"],
+    queryFn: () => fetchCategoriesForAdmin({ type: "product" }),
   });
 
   const artisansQuery = useQuery({
@@ -295,7 +295,7 @@ export default function CreateProductPage() {
   const createCategoryMutation = useMutation({
     mutationFn: createCategoryForAdmin,
     onSuccess: (category) => {
-      queryClient.invalidateQueries({ queryKey: ["admin-product-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-categories", "product"] });
       setActiveCategoryId(category.id);
       setSearchCategory("");
       setIsCategoryOpen(false);
@@ -578,7 +578,8 @@ export default function CreateProductPage() {
       weight: weight ? Number(weight) : undefined,
       dimensions: parseDimensions(dimensions),
       shelfLife: shelfLife.trim() || undefined,
-      storageCondition: storage,
+      storageCondition: storage.en,
+      storageConditionI18n: storage,
       requiresRefrigeration,
     };
 
@@ -589,10 +590,13 @@ export default function CreateProductPage() {
     );
 
     return {
-      name,
+      name: name.en,
+      nameI18n: name,
       sku: sku.trim(),
-      description: longDesc,
-      shortDescription: shortDesc,
+      description: longDesc.en,
+      descriptionI18n: longDesc,
+      shortDescription: shortDesc.en,
+      shortDescriptionI18n: shortDesc,
       category: activeCategoryId,
       productType,
       tags: tags.map((tag) => tag.trim()).filter(Boolean),
@@ -605,8 +609,20 @@ export default function CreateProductPage() {
       lowStockThreshold: Number(lowStockThreshold || 10),
       maxReturnDays: Number(maxReturnDays || 14),
       trackInventory: true,
-      features,
-      benefits,
+      features: features.map((f) => f.en).filter(Boolean),
+      featuresI18n: {
+        en: features.map((f) => f.en).filter(Boolean),
+        rw: features.map((f) => f.rw || "").filter(Boolean),
+        fr: features.map((f) => f.fr || "").filter(Boolean),
+        sw: features.map((f) => f.sw || "").filter(Boolean),
+      },
+      benefits: benefits.map((b) => b.en).filter(Boolean),
+      healthBenefitsI18n: {
+        en: benefits.map((b) => ({ title: b.en || "" })).filter(i => i.title),
+        rw: benefits.map((b) => ({ title: b.rw || "" })).filter(i => i.title),
+        fr: benefits.map((b) => ({ title: b.fr || "" })).filter(i => i.title),
+        sw: benefits.map((b) => ({ title: b.sw || "" })).filter(i => i.title),
+      },
       marketingHooks: features.map((f) => ({
         label: f.en || "",
         isActive: true,
@@ -620,7 +636,8 @@ export default function CreateProductPage() {
       isOnSale:
         (originalPrice > 0 ? originalPrice : sellingPrice) > sellingPrice,
       batches: batchesPayload,
-      artisanId: artisanId || undefined,
+      source: artisanId ? "artisan" : "shop",
+      artisanId: artisanId || null,
     } as any;
   };
 
