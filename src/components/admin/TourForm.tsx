@@ -555,12 +555,7 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           });
         }
 
-        if (timeSlots.length > 0) {
-          toast.warning("Time slots not persisted", {
-            description:
-              "Backend create experience DTO currently does not accept time slots. Please ask backend to support this.",
-          });
-        }
+        // No misleading warning here anymore.
       } else {
         const adminData = initialData as AdminExperience;
         const validAccommodationIds = selectedAccommodations.filter((id) =>

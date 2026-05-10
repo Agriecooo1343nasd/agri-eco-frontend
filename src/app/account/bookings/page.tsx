@@ -552,7 +552,19 @@ export default function MyBookingsPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-2 flex-col sm:flex-row gap-2">
+              {["pending", "confirmed", "waitlisted"].includes(selectedBooking?.status || "") && (
+                <Button 
+                  variant="destructive" 
+                  className="w-full text-xs font-bold gap-2"
+                  onClick={() => {
+                    setCancelDialog(selectedBooking);
+                    setSelectedBooking(null);
+                  }}
+                >
+                  <X className="h-4 w-4" /> {t(translations.bookingsPage.cancel)}
+                </Button>
+              )}
               <Button variant="outline" className="w-full text-xs" onClick={() => setSelectedBooking(null)}>{t(translations.common.close)}</Button>
           </DialogFooter>
         </DialogContent>

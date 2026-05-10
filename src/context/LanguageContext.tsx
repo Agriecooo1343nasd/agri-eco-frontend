@@ -20,7 +20,7 @@ export interface MultiLangText {
 interface LanguageContextType {
   locale: LanguageCode;
   setLocale: (locale: LanguageCode) => void;
-  t: (data: MultiLangText | string | undefined) => string;
+  t: (data: MultiLangText | Record<string, string> | string | undefined) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(
@@ -61,7 +61,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
    * 4. Empty string
    */
   const t = useCallback(
-    (data: MultiLangText | string | undefined): string => {
+    (data: MultiLangText | Record<string, string> | string | undefined): string => {
       if (!data) return "";
 
       if (typeof data === "string") return data;

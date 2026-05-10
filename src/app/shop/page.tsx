@@ -101,25 +101,22 @@ function ShopContent() {
         return {
           id: p.id,
           slug: p.slug,
-          name: p.name,
+          name: t(p.nameI18n || p.name),
           price: p.sellingPrice,
           oldPrice: p.originalPrice,
           backendDiscountLabel,
-          image:
-            p.images && p.images.length > 0
-              ? p.images[0].url
-              : "/assets/products/placeholder.jpg",
+          image: p.images?.find(img => img.isPrimary)?.url || p.images?.[0]?.url || "/assets/products/placeholder.jpg",
           images: p.images ? p.images.map((img) => img.url) : [],
           rating: typeof p.averageRating === "number" ? p.averageRating : 0,
           badge,
           category: p.category?.name || "",
           unit: p.unit || "",
-          shortDescription: p.shortDescription || "",
-          longDescription: p.description || "",
+          shortDescription: t(p.shortDescriptionI18n || p.shortDescription) || "",
+          longDescription: t(p.descriptionI18n || p.description) || "",
           stock: p.stock,
           source: p.source,
           artisan: p.artisan,
-          ownerName: p.source === "artisan" ? p.artisan?.name : undefined,
+          ownerName: p.source === "artisan" ? t(p.artisan?.name) : undefined,
           ownerHref: p.source === "artisan" && p.artisan?.id ? `/community/artisan/${p.artisan.id}` : undefined,
         };
       }),

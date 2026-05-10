@@ -66,16 +66,20 @@ export interface ProductShipping {
   };
   shelfLife?: string;
   storageCondition?: string;
+  storageConditionI18n?: Record<string, string>;
   requiresRefrigeration?: boolean;
 }
 
 export interface AdminProduct {
   id: string;
   name: string;
+  nameI18n?: Record<string, string>;
   slug: string;
   sku: string;
   description?: string;
+  descriptionI18n?: Record<string, string>;
   shortDescription?: string;
+  shortDescriptionI18n?: Record<string, string>;
   sellingPrice: number;
   originalPrice: number;
   stock: number;
@@ -85,7 +89,9 @@ export interface AdminProduct {
   measurementUnit?: string;
   tags?: string[];
   features?: string[];
+  featuresI18n?: Record<string, string[]>;
   benefits?: string[];
+  healthBenefitsI18n?: Record<string, Array<{ title: string }>>;
   batches?: ProductBatch[];
   shipping?: ProductShipping;
   images?: ProductImage[];
@@ -176,10 +182,13 @@ export interface UpdateBatchPayload {
 }
 
 export interface CreateAdminProductPayload {
-  name: string | Record<string, string>;
+  name: string;
+  nameI18n?: Record<string, string>;
   sku: string;
-  description: string | Record<string, string>;
-  shortDescription?: string | Record<string, string>;
+  description: string;
+  descriptionI18n?: Record<string, string>;
+  shortDescription?: string;
+  shortDescriptionI18n?: Record<string, string>;
   category: string;
   tags: string[];
   sellingPrice: number;
@@ -206,11 +215,13 @@ export interface CreateAdminProductPayload {
     duration?: number;
     isPrimary?: boolean;
   }>;
-  features: Array<string | Record<string, string>>;
-  benefits: Array<string | Record<string, string>>;
+  features: string[];
+  featuresI18n?: Record<string, string[]>;
+  benefits: string[];
   productType?: "consumable" | "articraft";
   marketingHooks: Array<{ label: string; isActive?: boolean }>;
   healthBenefits: Array<{ title: string; description?: string }>;
+  healthBenefitsI18n?: Record<string, Array<{ title: string }>>;
   nutrition: Array<{ label: string; value: string }>;
   shipping?: {
     weight?: number;
@@ -220,7 +231,8 @@ export interface CreateAdminProductPayload {
       height: number;
     };
     shelfLife?: string;
-    storageCondition?: string | Record<string, string>;
+    storageCondition?: string;
+    storageConditionI18n?: Record<string, string>;
     requiresRefrigeration?: boolean;
   };
   certifications: string[];

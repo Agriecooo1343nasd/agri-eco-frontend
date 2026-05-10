@@ -254,16 +254,53 @@ export default function UpdateProduct() {
 
   useEffect(() => {
     if (!product) return;
-    setName(normalizeML(product.name));
-    setShortDesc(normalizeML(product.shortDescription));
-    setLongDesc(normalizeML(product.description));
+    setName(normalizeML(product.nameI18n || product.name));
+    setShortDesc(normalizeML(product.shortDescriptionI18n || product.shortDescription));
+    setLongDesc(normalizeML(product.descriptionI18n || product.description));
     setUnit(normalizeUnit(product.measurementUnit || product.unit) || "kg");
     setActiveCategory(product.category?.id ?? "");
     setPrice(product.sellingPrice?.toString() ?? "");
     setOldPrice(product.originalPrice ? product.originalPrice.toString() : "");
     setTags(product.tags ?? []);
-    setFeatures((product.features ?? []).map(normalizeML));
-    setBenefits((product.benefits ?? []).map(normalizeML));
+    if (product.featuresI18n) {
+      const fI18n = product.featuresI18n;
+      const maxLen = Math.max(
+        fI18n.en?.length || 0,
+        fI18n.rw?.length || 0,
+        fI18n.fr?.length || 0,
+        fI18n.sw?.length || 0,
+      );
+      setFeatures(
+        Array.from({ length: maxLen }).map((_, i) => ({
+          en: fI18n.en?.[i] || "",
+          rw: fI18n.rw?.[i] || "",
+          fr: fI18n.fr?.[i] || "",
+          sw: fI18n.sw?.[i] || "",
+        })),
+      );
+    } else {
+      setFeatures((product.features ?? []).map(normalizeML));
+    }
+
+    if (product.healthBenefitsI18n) {
+      const hI18n = product.healthBenefitsI18n;
+      const maxLen = Math.max(
+        hI18n.en?.length || 0,
+        hI18n.rw?.length || 0,
+        hI18n.fr?.length || 0,
+        hI18n.sw?.length || 0,
+      );
+      setBenefits(
+        Array.from({ length: maxLen }).map((_, i) => ({
+          en: hI18n.en?.[i]?.title || "",
+          rw: hI18n.rw?.[i]?.title || "",
+          fr: hI18n.fr?.[i]?.title || "",
+          sw: hI18n.sw?.[i]?.title || "",
+        })),
+      );
+    } else {
+      setBenefits((product.benefits ?? []).map(normalizeML));
+    }
     setMaxReturnDays(String((product as any).maxReturnDays || 14));
     setBatches(
       (product.batches ?? []).map((batch, index) => ({
@@ -283,7 +320,7 @@ export default function UpdateProduct() {
         : "",
     );
     setShelfLife(product.shipping?.shelfLife ?? "");
-    setStorage(normalizeML(product.shipping?.storageCondition));
+    setStorage(normalizeML(product.shipping?.storageConditionI18n || product.shipping?.storageCondition));
     setProductType(product.productType ?? "consumable");
     setDimensions(
       product.shipping?.dimensions
@@ -425,7 +462,7 @@ export default function UpdateProduct() {
     setFeatures(next);
 
     try {
-      await persistPartialUpdate({ features: next });
+      await persistPartialUpdate({ features: next.map(f => f.en).filter(Boolean) });
     } catch (error) {
       setFeatures(previous);
       toast.error("Unable to remove feature", {
@@ -447,7 +484,7 @@ export default function UpdateProduct() {
     setBenefits(next);
 
     try {
-      await persistPartialUpdate({ benefits: next });
+      await persistPartialUpdate({ benefits: next.map(b => b.en).filter(Boolean) });
     } catch (error) {
       setBenefits(previous);
       toast.error("Unable to remove benefit", {
@@ -591,6 +628,9 @@ export default function UpdateProduct() {
       ? parseDimensions(dimensions)
       : undefined;
 
+    const activeFeatures = features.filter(f => f.en.trim() || f.rw?.trim() || f.fr?.trim() || f.sw?.trim());
+    const activeBenefits = benefits.filter(b => b.en.trim() || b.rw?.trim() || b.fr?.trim() || b.sw?.trim());
+
     const payload = {
       name: name.en,
       nameI18n: name,
@@ -604,24 +644,24 @@ export default function UpdateProduct() {
       sellingPrice: Number(price),
       originalPrice: (Number(oldPrice) > 0 ? Number(oldPrice) : null) as unknown as number,
       tags,
-      features: features.map((f) => f.en).filter(Boolean),
+      features: activeFeatures.map((f) => f.en),
       featuresI18n: {
-        en: features.map((f) => f.en).filter(Boolean),
-        rw: features.map((f) => f.rw || "").filter(Boolean),
-        fr: features.map((f) => f.fr || "").filter(Boolean),
-        sw: features.map((f) => f.sw || "").filter(Boolean),
+        en: activeFeatures.map((f) => f.en),
+        rw: activeFeatures.map((f) => f.rw || ""),
+        fr: activeFeatures.map((f) => f.fr || ""),
+        sw: activeFeatures.map((f) => f.sw || ""),
       },
-      benefits: benefits.map((b) => b.en).filter(Boolean),
-      marketingHooks: features.map((f) => ({
+      benefits: activeBenefits.map((b) => b.en),
+      marketingHooks: activeFeatures.map((f) => ({
         label: f.en || "",
         isActive: true,
       })),
-      healthBenefits: benefits.map((b) => ({ title: b.en || "" })),
+      healthBenefits: activeBenefits.map((b) => ({ title: b.en || "" })),
       healthBenefitsI18n: {
-        en: benefits.map((b) => ({ title: b.en || "" })).filter(i => i.title),
-        rw: benefits.map((b) => ({ title: b.rw || "" })).filter(i => i.title),
-        fr: benefits.map((b) => ({ title: b.fr || "" })).filter(i => i.title),
-        sw: benefits.map((b) => ({ title: b.sw || "" })).filter(i => i.title),
+        en: activeBenefits.map((b) => ({ title: b.en || "" })).filter(b => b.title),
+        rw: activeBenefits.map((b) => ({ title: b.rw || "" })).filter(b => b.title),
+        fr: activeBenefits.map((b) => ({ title: b.fr || "" })).filter(b => b.title),
+        sw: activeBenefits.map((b) => ({ title: b.sw || "" })).filter(b => b.title),
       },
       batches: batches.map((batch) => ({
         batchId: batch.batchNumber || batch.id,

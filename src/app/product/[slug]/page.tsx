@@ -46,7 +46,7 @@ export default function ProductDetailsPage() {
   const { addToCart, removeFromCart, addToWishlist, isInWishlist, isInCart } =
     useCart();
   const { formatPrice } = usePricing();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { isAuthenticated, user } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -71,42 +71,56 @@ export default function ProductDetailsPage() {
           discount: data.discount,
           applicableDiscounts: data.applicableDiscounts,
         });
+
+        // Locale-aware feature picker: use featuresI18n[locale] → en → plain features
+        const pickFeatures = (): string[] => {
+          if (data.featuresI18n) {
+            const arr = data.featuresI18n[locale] || data.featuresI18n.en || [];
+            return arr.filter(Boolean);
+          }
+          return (data.features || []).filter(Boolean);
+        };
+
+        // Locale-aware benefit picker: use healthBenefitsI18n[locale] → en → plain benefits
+        const pickBenefits = (): string[] => {
+          if (data.healthBenefitsI18n) {
+            const arr = (data.healthBenefitsI18n[locale] || data.healthBenefitsI18n.en || []) as Array<{ title: string }>;
+            return arr.map(b => b.title).filter(Boolean);
+          }
+          return (data.benefits || []).filter(Boolean);
+        };
+
         const mappedProduct: Product = {
           id: data.id,
           slug: data.slug,
-          name: t(data.name as any),
+          name: t(data.nameI18n || data.name),
           price: data.sellingPrice,
           oldPrice: data.originalPrice,
-          image: data.images?.[0]?.url || "/assets/products/placeholder.jpg",
+          image: data.images?.find(img => img.isPrimary)?.url || data.images?.[0]?.url || "/assets/products/placeholder.jpg",
           images: data.images?.map((img) => img.url) || [],
-          rating:
-            typeof data.averageRating === "number" ? data.averageRating : 0,
+          rating: typeof data.averageRating === "number" ? data.averageRating : 0,
           badge: backendDiscountLabel ? "sale" : data.isFeatured ? "new" : undefined,
           backendDiscountLabel,
           category: t(data.category?.name as any) || "",
           unit: data.unit || "piece",
-          shortDescription: t(data.shortDescription as any),
-          longDescription: t(data.description as any),
-          features: Array.isArray(data.features)
-            ? data.features.map((f) => t(f as any))
-            : [],
-          benefits: Array.isArray(data.benefits)
-            ? data.benefits.map((b) => t(b as any))
-            : [],
+          shortDescription: t(data.shortDescriptionI18n || data.shortDescription),
+          longDescription: t(data.descriptionI18n || data.description),
+          features: pickFeatures(),
+          benefits: pickBenefits(),
           stock: data.stock,
           reviews: [],
-           applicableDiscounts: data.applicableDiscounts,
+          applicableDiscounts: data.applicableDiscounts,
           source: data.source,
           artisan: data.artisan,
           ownerName: data.source === "artisan" ? data.artisan?.name : undefined,
-          ownerHref: data.source === "artisan" && data.artisan?.id 
-            ? `/community/artisan/${data.artisan.id}` 
+          ownerHref: data.source === "artisan" && data.artisan?.id
+            ? `/community/artisan/${data.artisan.id}`
             : undefined,
         };
         setProduct(mappedProduct);
         setSelectedImage(mappedProduct.image);
         
-        // Mock related products (same category)
+        // Related products (same category)
         try {
           const relatedData = await fetchProducts({ 
             category: data.category?.id, 
@@ -117,11 +131,11 @@ export default function ProductDetailsPage() {
             .map(p => ({
               id: p.id,
               slug: p.slug,
-              name: t(p.name as any),
+              name: t(p.nameI18n || p.name),
               price: p.sellingPrice,
-              image: p.images?.[0]?.url || "/assets/products/placeholder.jpg",
+              image: p.images?.find(img => img.isPrimary)?.url || p.images?.[0]?.url || "/assets/products/placeholder.jpg",
               rating: p.averageRating || 5,
-               category: t(p.category?.name as any) || "",
+              category: t(p.category?.name as any) || "",
               unit: p.unit || "kg",
               source: p.source,
               artisan: p.artisan,
@@ -144,7 +158,7 @@ export default function ProductDetailsPage() {
 
     loadProduct();
     window.scrollTo(0, 0);
-  }, [slug, t]);
+  }, [slug, t, locale]);
 
   useEffect(() => {
     async function loadReviews() {

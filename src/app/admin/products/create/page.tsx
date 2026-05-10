@@ -589,6 +589,9 @@ export default function CreateProductPage() {
       0,
     );
 
+    const activeFeatures = features.filter(f => f.en.trim() || f.rw?.trim() || f.fr?.trim() || f.sw?.trim());
+    const activeBenefits = benefits.filter(b => b.en.trim() || b.rw?.trim() || b.fr?.trim() || b.sw?.trim());
+
     return {
       name: name.en,
       nameI18n: name,
@@ -609,25 +612,25 @@ export default function CreateProductPage() {
       lowStockThreshold: Number(lowStockThreshold || 10),
       maxReturnDays: Number(maxReturnDays || 14),
       trackInventory: true,
-      features: features.map((f) => f.en).filter(Boolean),
+      features: activeFeatures.map((f) => f.en),
       featuresI18n: {
-        en: features.map((f) => f.en).filter(Boolean),
-        rw: features.map((f) => f.rw || "").filter(Boolean),
-        fr: features.map((f) => f.fr || "").filter(Boolean),
-        sw: features.map((f) => f.sw || "").filter(Boolean),
+        en: activeFeatures.map((f) => f.en),
+        rw: activeFeatures.map((f) => f.rw || ""),
+        fr: activeFeatures.map((f) => f.fr || ""),
+        sw: activeFeatures.map((f) => f.sw || ""),
       },
-      benefits: benefits.map((b) => b.en).filter(Boolean),
+      benefits: activeBenefits.map((b) => b.en),
       healthBenefitsI18n: {
-        en: benefits.map((b) => ({ title: b.en || "" })).filter(i => i.title),
-        rw: benefits.map((b) => ({ title: b.rw || "" })).filter(i => i.title),
-        fr: benefits.map((b) => ({ title: b.fr || "" })).filter(i => i.title),
-        sw: benefits.map((b) => ({ title: b.sw || "" })).filter(i => i.title),
+        en: activeBenefits.map((b) => ({ title: b.en || "" })).filter(b => b.title),
+        rw: activeBenefits.map((b) => ({ title: b.rw || "" })).filter(b => b.title),
+        fr: activeBenefits.map((b) => ({ title: b.fr || "" })).filter(b => b.title),
+        sw: activeBenefits.map((b) => ({ title: b.sw || "" })).filter(b => b.title),
       },
-      marketingHooks: features.map((f) => ({
+      marketingHooks: activeFeatures.map((f) => ({
         label: f.en || "",
         isActive: true,
       })),
-      healthBenefits: benefits.map((b) => ({ title: b.en || "" })),
+      healthBenefits: activeBenefits.map((b) => ({ title: b.en || "" })),
       nutrition: [],
       shipping,
       certifications: [],
