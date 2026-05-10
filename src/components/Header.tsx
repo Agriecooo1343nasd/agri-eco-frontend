@@ -337,7 +337,7 @@ const Header = () => {
 
                     {roleStatus?.isDeliveryAgent && (
                       <Link
-                        href="/account/delivery"
+                        href="/delivery-agent"
                         onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-green-600 hover:bg-green-50 transition-colors"
                       >
