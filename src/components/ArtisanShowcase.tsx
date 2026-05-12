@@ -13,10 +13,16 @@ const ArtisanShowcase = () => {
 
   const { data: artisansData, isLoading } = useQuery({
     queryKey: ["featured-artisans", locale],
-    queryFn: () => fetchArtisans({ isFeatured: "true", limit: 4 }),
+    queryFn: () => fetchArtisans({ limit: 8 }),
   });
 
-  const featuredArtisans = artisansData?.data || [];
+  const allArtisans = artisansData?.data || [];
+  // Sort featured ones first
+  const sortedArtisans = [...allArtisans].sort((a, b) => {
+    if (a.isFeatured && !b.isFeatured) return -1;
+    if (!a.isFeatured && b.isFeatured) return 1;
+    return 0;
+  });
 
   return (
     <section className="py-12 md:py-16 bg-muted/30">
@@ -40,7 +46,7 @@ const ArtisanShowcase = () => {
                   </div>
                 </div>
               ))
-            : featuredArtisans.map((artisan) => (
+            : sortedArtisans.map((artisan) => (
                 <div
                   key={artisan.id}
                   className="bg-card border border-border rounded-2xl p-6 text-center hover:shadow-lg transition-all group"
@@ -73,7 +79,7 @@ const ArtisanShowcase = () => {
               ))}
         </div>
 
-        {!isLoading && featuredArtisans.length === 0 && (
+        {!isLoading && sortedArtisans.length === 0 && (
           <div className="text-center py-12">
              <p className="text-muted-foreground">No featured partners available at this time.</p>
           </div>

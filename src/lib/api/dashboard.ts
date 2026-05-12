@@ -299,3 +299,23 @@ export async function fetchVisitorStats(): Promise<VisitorStats> {
   );
   return res.data.data!;
 }
+export interface PendingCounts {
+  orders: number;
+  bookings: number;
+  enrollments: number;
+  artisanApplications: number;
+  partnerApplications: number;
+  reviews: number;
+  returns: number;
+  appeals: number;
+  contacts: number;
+  feedback: number;
+  activePartners: number;
+}
+
+export async function fetchPendingCounts(): Promise<PendingCounts> {
+  const res = await apiClient.get<ApiSuccessResponse<PendingCounts>>(
+    "/dashboard/pending-counts",
+  );
+  return res.data.data!;
+}

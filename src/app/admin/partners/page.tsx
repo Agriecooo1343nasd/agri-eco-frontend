@@ -745,7 +745,7 @@ export default function AdminPartnersPage() {
                   ) : (
                     applications.map((application: AdminPartnerApplication) => (
                       <TableRow key={application.id}>
-                        <TableCell>
+                        <TableCell className="max-w-[250px]">
                           <p className="font-bold text-[11px]">
                             {application.businessName}
                           </p>

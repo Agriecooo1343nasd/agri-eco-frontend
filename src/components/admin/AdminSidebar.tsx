@@ -52,17 +52,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const mockPendingCounts: Record<string, number> = {
-  bookings: 4,
-  education: 12,
-  artisans: 3,
-  partners: 5,
-  orders: 8,
-  returns: 2,
-  reviews: 7,
-  contacts: 9,
-  feedback: 1,
-};
+import { useQuery } from "@tanstack/react-query";
+import { fetchPendingCounts } from "@/lib/api/dashboard";
 
 const sidebarGroups = [
   {
@@ -90,14 +81,14 @@ const sidebarGroups = [
   {
     label: "Education",
     items: [
-      { title: "Education", url: "/admin/education", icon: GraduationCap, badgeKey: "education", badgeHover: "pending education enrollments" },
+      { title: "Education", url: "/admin/education", icon: GraduationCap, badgeKey: "enrollments", badgeHover: "pending education enrollments" },
     ],
   },
   {
     label: "Community",
     items: [
-      { title: "Artisans", url: "/admin/artisans", icon: Palette, badgeKey: "artisans", badgeHover: "pending artisan applications" },
-      { title: "Partners", url: "/admin/partners", icon: Handshake, badgeKey: "partners", badgeHover: "pending partner applications" },
+      { title: "Artisans", url: "/admin/artisans", icon: Palette, badgeKey: "artisanApplications", badgeHover: "pending artisan applications" },
+      { title: "Partners", url: "/admin/partners", icon: Handshake, badgeKey: "partnerApplications", badgeHover: "pending partner applications" },
     ],
   },
   {
@@ -146,6 +137,12 @@ export function AdminSidebar() {
   const collapsed = state === "collapsed";
   const pathname = usePathname();
 
+  const { data: counts } = useQuery({
+    queryKey: ["pending-counts"],
+    queryFn: fetchPendingCounts,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const isActive = (url: string) =>
     url === "/admin/dashboard"
       ? pathname === "/admin/dashboard" || pathname === "/admin"
@@ -181,16 +178,16 @@ export function AdminSidebar() {
                           <item.icon className="h-4 w-4 shrink-0" />
                           {!collapsed && <span>{item.title}</span>}
                         </div>
-                        {!collapsed && (item as any).badgeKey && mockPendingCounts[(item as any).badgeKey] > 0 && (
+                        {!collapsed && (item as any).badgeKey && (counts as any)?.[(item as any).badgeKey] > 0 && (
                           <TooltipProvider delayDuration={0}>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Badge variant="secondary" className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full text-[10px]">
-                                  {mockPendingCounts[(item as any).badgeKey]}
+                                  {(counts as any)[(item as any).badgeKey]}
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent side="right">
-                                <p>{mockPendingCounts[(item as any).badgeKey]} {(item as any).badgeHover}</p>
+                                <p>{(counts as any)[(item as any).badgeKey]} {(item as any).badgeHover}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>

@@ -263,9 +263,13 @@ const Header = () => {
               aria-label="Wishlist"
             >
               <Heart className="h-5 w-5 text-foreground" />
-              <span className="absolute -top-0.5 -right-0.5 bg-badge-sale text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                {wishlistItems.length}
-              </span>
+              {
+                wishlistItems.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-badge-sale text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {wishlistItems.length}
+                  </span>
+                )
+              }
             </Link>
             <Link
               href="/cart"
@@ -273,9 +277,13 @@ const Header = () => {
               aria-label="Cart"
             >
               <ShoppingCart className="h-5 w-5 text-foreground" />
-              <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                {cartCount}
-              </span>
+              {
+                cartCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {cartCount}
+                  </span>
+                )
+              }
             </Link>
 
             {/* User Account */}
