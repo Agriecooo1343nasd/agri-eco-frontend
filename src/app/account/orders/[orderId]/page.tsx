@@ -28,8 +28,15 @@ import { OrderStatus, PaymentStatus } from "@/constants/order-status";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 import { usePricing } from "@/context/PricingContext";
-import { createReturn, listReturns } from "@/lib/api/operations";
-import type { ReturnRequest } from "@/data/operations-mock";
+import { createReturn, fetchMyReturns, ReturnReason, type ReturnRecord } from "@/lib/api/returns";
+import { uploadMultipleImages } from "@/lib/api/uploads";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 
 
@@ -45,10 +52,13 @@ export default function OrderDetailsPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
-  const [returnRows, setReturnRows] = useState<ReturnRequest[]>([]);
+  const [returnRows, setReturnRows] = useState<ReturnRecord[]>([]);
   const [returnImages, setReturnImages] = useState<File[]>([]);
+  const [globalReason, setGlobalReason] = useState<ReturnReason>(ReturnReason.DAMAGED);
+  const [globalDescription, setGlobalDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selected, setSelected] = useState<
-    Record<string, { checked: boolean; qty: number; reason: string }>
+    Record<string, { checked: boolean; qty: number }>
   >({});
 
 
@@ -92,11 +102,15 @@ export default function OrderDetailsPage({
 
   useEffect(() => {
     async function loadReturnsForOrder() {
-      const all = await listReturns();
-      setReturnRows(all.filter((r) => r.orderId === orderId));
+      try {
+        const { data } = await fetchMyReturns();
+        setReturnRows(data.filter((r) => r.orderId === order?.id));
+      } catch (err) {
+        console.error("Failed to load returns:", err);
+      }
     }
-    void loadReturnsForOrder();
-  }, [orderId]);
+    if (order?.id) void loadReturnsForOrder();
+  }, [order?.id]);
 
   const orderReturns = returnRows;
 
@@ -118,57 +132,75 @@ export default function OrderDetailsPage({
 
   const openReturnDialog = () => {
     if (!order) return;
-    const base: Record<string, { checked: boolean; qty: number; reason: string }> =
+    const base: Record<string, { checked: boolean; qty: number }> =
       {};
     for (const it of (order.items as any[]) ?? []) {
       const maxQty = Number(it.quantity || 1);
-      base[String(it.id)] = { checked: false, qty: Math.min(1, maxQty), reason: "" };
+      base[String(it.id)] = { checked: false, qty: Math.min(1, maxQty) };
     }
     setSelected(base);
     setReturnImages([]);
+    setGlobalReason(ReturnReason.DAMAGED);
+    setGlobalDescription("");
     setReturnOpen(true);
   };
 
   const submitReturn = async () => {
     if (!order) return;
+    
     const items = ((order.items as any[]) ?? [])
       .filter((it) => selected[String(it.id)]?.checked)
       .map((it) => {
         const sel = selected[String(it.id)];
         return {
-          id: String(it.id),
+          orderItemId: String(it.id),
+          productId: it.productId,
+          artisanProductId: it.artisanProductId,
           name: String(it.name || "Product"),
-          qty: Math.max(
+          quantity: Math.max(
             1,
             Math.min(Number(it.quantity || 1), Number(sel?.qty || 1)),
           ),
-          image: String(
-            it.image ||
-              it.product?.images?.find?.((img: any) => img.isPrimary)?.url ||
-              it.product?.images?.[0]?.url ||
-              "/assets/products/placeholder.jpg",
-          ),
-          price: Number(it.unitPrice || it.price || 0),
-          reason: String(sel?.reason || ""),
+          unitPrice: Number(it.unitPrice || it.price || 0),
         };
-      })
-      .filter((it) => it.reason.trim());
+      });
 
     if (!items.length) {
-      toast.warning("Select products and add reasons for each.");
+      toast.warning("Select at least one product to return.");
       return;
     }
 
-    await createReturn({
-      orderId,
-      buyer: order.shippingAddress?.fullName || "Current user",
-      items,
-      requestImages: returnImages,
-    });
-    setReturnOpen(false);
-    const all = await listReturns();
-    setReturnRows(all.filter((r) => r.orderId === orderId));
-    toast.success("Return request submitted");
+    if (globalDescription.trim().length < 5) {
+      toast.warning("Please provide a description (min 5 characters).");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      let imageUrls: string[] = [];
+      if (returnImages.length > 0) {
+        const uploaded = await uploadMultipleImages(returnImages);
+        imageUrls = uploaded.map(u => u.path);
+      }
+
+      await createReturn({
+        orderId: order.id,
+        reason: globalReason,
+        description: globalDescription,
+        items,
+        evidenceImages: imageUrls,
+      });
+
+      setReturnOpen(false);
+      const { data } = await fetchMyReturns();
+      setReturnRows(data.filter((r) => r.orderId === order.id));
+      toast.success("Return request submitted");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to submit return request");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -248,9 +280,9 @@ export default function OrderDetailsPage({
           {!!orderReturns.length && (
             <div className="mt-3 flex flex-wrap gap-2">
               {orderReturns.map((r) => (
-                <Button key={r.id} asChild size="sm" variant="outline">
-                  <Link href={`/return/${r.id}`}>
-                    Return {r.id} · {r.status}
+                <Button key={r.id} asChild size="sm" variant="outline" className="border-primary/20 text-primary">
+                  <Link href={`/account/returns?id=${r.id}`}>
+                    Return {r.returnNumber} · {r.status.replace(/_/g, " ")}
                   </Link>
                 </Button>
               ))}
@@ -269,9 +301,11 @@ export default function OrderDetailsPage({
             <Download className="h-4 w-4 mr-2" />
             {t(translations.orderDetailsPage.downloadInvoice)}
           </Button>
-          <Button className="rounded-md h-11" onClick={openReturnDialog}>
-            Request return
-          </Button>
+          {order.status.toLowerCase() === OrderStatus.DELIVERED && (
+            <Button className="rounded-md h-11" onClick={openReturnDialog}>
+              Request return
+            </Button>
+          )}
         </div>
       </div>
 
@@ -286,10 +320,10 @@ export default function OrderDetailsPage({
               Select products, adjust quantities, and provide a reason for each. You can attach images to support your request.
             </p>
 
-            <div className="space-y-2 max-h-[45vh] overflow-auto pr-1">
+            <div className="space-y-4 max-h-[40vh] overflow-auto pr-1">
               {((order.items as any[]) ?? []).map((it) => {
                 const key = String(it.id);
-                const sel = selected[key] ?? { checked: false, qty: 1, reason: "" };
+                const sel = selected[key] ?? { checked: false, qty: 1 };
                 const maxQty = Number(it.quantity || 1);
                 const remainingDays = daysLeftByItemId[key] ?? 0;
                 const disabled = remainingDays <= 0;
@@ -300,11 +334,12 @@ export default function OrderDetailsPage({
                   "https://images.unsplash.com/photo-1587049352846-4a222e783134?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80";
 
                 return (
-                  <div key={key} className="border rounded-md p-3 space-y-3">
+                  <div key={key} className="border rounded-md p-3 space-y-3 bg-muted/20">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex items-center gap-3 min-w-0">
                         <input
                           type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                           checked={!!sel.checked}
                           onChange={(e) =>
                             setSelected((prev) => ({
@@ -314,25 +349,25 @@ export default function OrderDetailsPage({
                           }
                           disabled={disabled}
                         />
-                        <div className="w-12 h-12 rounded-md overflow-hidden border bg-muted shrink-0">
+                        <div className="w-12 h-12 rounded-md overflow-hidden border bg-white shrink-0">
                           <img src={productImg} alt={it.name || "Product"} className="w-full h-full object-cover" />
                         </div>
                         <div className="min-w-0">
-                          <p className="font-semibold truncate">{it.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Remaining return window:{" "}
-                            <span className={disabled ? "text-destructive font-medium" : "text-foreground font-medium"}>
-                              {remainingDays} day(s) left
+                          <p className="font-semibold text-sm truncate">{it.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                            Return window:{" "}
+                            <span className={disabled ? "text-destructive" : "text-emerald-600"}>
+                              {remainingDays} days left
                             </span>
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Qty</span>
+                      <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Qty</span>
                         <Input
                           type="number"
-                          className="w-[90px]"
+                          className="w-20 h-8 text-xs"
                           min={1}
                           max={maxQty}
                           value={sel.qty}
@@ -349,44 +384,75 @@ export default function OrderDetailsPage({
                         />
                       </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground">Reason</p>
-                      <Textarea
-                        value={sel.reason}
-                        onChange={(e) =>
-                          setSelected((prev) => ({
-                            ...prev,
-                            [key]: { ...sel, reason: e.target.value },
-                          }))
-                        }
-                        placeholder="Explain why you want to return this product…"
-                        disabled={!sel.checked || disabled}
-                      />
-                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">Attach images (optional)</p>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => setReturnImages(Array.from(e.target.files ?? []))}
-              />
-              {!!returnImages.length && (
-                <p className="text-xs text-muted-foreground">{returnImages.length} file(s) selected</p>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="space-y-2">
+                <p className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">Primary Reason</p>
+                <Select value={globalReason} onValueChange={(v) => setGlobalReason(v as ReturnReason)}>
+                  <SelectTrigger className="w-full h-11 text-sm bg-white border-border/60 shadow-sm rounded-lg">
+                    <SelectValue placeholder="Select reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(ReturnReason).map((r) => (
+                      <SelectItem key={r} value={r} className="capitalize">
+                        {r.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">Evidence Images</p>
+                <div className="relative">
+                   <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="h-11 pt-2.5 text-xs bg-white cursor-pointer"
+                    onChange={(e) => setReturnImages(Array.from(e.target.files ?? []))}
+                  />
+                  {!!returnImages.length && (
+                    <span className="absolute right-3 top-3 text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded-full">
+                      {returnImages.length} selected
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" onClick={() => setReturnOpen(false)}>
+            <div className="space-y-2">
+              <p className="text-[11px] font-black uppercase text-muted-foreground tracking-widest">Detailed Explanation</p>
+              <Textarea
+                className="min-h-[100px] text-sm bg-white border-border/60 shadow-sm rounded-lg resize-none"
+                value={globalDescription}
+                onChange={(e) => setGlobalDescription(e.target.value)}
+                placeholder="Please describe exactly what is wrong with the items…"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/40">
+              <Button variant="outline" className="h-11 px-8 rounded-lg font-bold text-xs uppercase tracking-widest" onClick={() => setReturnOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={submitReturn}>Submit return request</Button>
+              <Button 
+                className="h-11 px-8 rounded-lg font-bold text-xs uppercase tracking-widest gap-2 shadow-lg shadow-primary/20" 
+                onClick={submitReturn}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Submitting…
+                  </>
+                ) : (
+                  "Submit Return Request"
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>

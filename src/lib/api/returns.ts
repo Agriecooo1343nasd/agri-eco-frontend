@@ -247,6 +247,7 @@ export async function fetchDeliveryAssignments(params: {
   limit?: number;
   status?: string;
   targetType?: string;
+  search?: string;
   deliveryAgentId?: string;
   from?: string;
   to?: string;
@@ -258,6 +259,7 @@ export async function fetchDeliveryAssignments(params: {
   if (params.limit) query.set("limit", String(params.limit));
   if (params.status && params.status !== "all") query.set("status", params.status);
   if (params.targetType && params.targetType !== "all") query.set("targetType", params.targetType);
+  if (params.search) query.set("search", params.search);
   if (params.deliveryAgentId) query.set("deliveryAgentId", params.deliveryAgentId);
   if (params.from) query.set("from", params.from);
   if (params.to) query.set("to", params.to);

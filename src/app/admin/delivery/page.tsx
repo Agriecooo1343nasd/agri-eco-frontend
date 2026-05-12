@@ -94,13 +94,14 @@ export default function AdminDeliveryOpsPage() {
   const limit = 10;
 
   const { data: assignmentsData, isLoading, isError } = useQuery({
-    queryKey: ["admin-delivery-assignments", statusFilter, typeFilter, page],
+    queryKey: ["admin-delivery-assignments", statusFilter, typeFilter, search, page],
     queryFn: () =>
       fetchDeliveryAssignments({
         page,
         limit,
         status: statusFilter,
         targetType: typeFilter,
+        search,
       }),
   });
 
@@ -202,12 +203,12 @@ export default function AdminDeliveryOpsPage() {
           </SelectContent>
         </Select>
 
-        {(statusFilter !== "all" || typeFilter !== "all") && (
+        {(statusFilter !== "all" || typeFilter !== "all" || search !== "") && (
           <Button
             variant="ghost"
             size="sm"
             className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-destructive"
-            onClick={() => { setStatusFilter("all"); setTypeFilter("all"); setPage(1); }}
+            onClick={() => { setStatusFilter("all"); setTypeFilter("all"); setSearch(""); setPage(1); }}
           >
             Clear Filters
           </Button>
