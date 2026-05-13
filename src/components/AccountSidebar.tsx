@@ -21,6 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
+import { useFeatures } from "@/context/FeatureContext";
 
 interface AccountSidebarProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
 
   const menuItems = [
     { id: "dashboard", label: t(translations.accountPage.dashboard), icon: User, href: "/account" },
@@ -45,12 +47,14 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       label: t(translations.accountPage.myOrders),
       icon: ShoppingBag,
       href: "/account/orders",
+      feature: "shopping"
     },
     {
       id: "bookings",
       label: t(translations.accountPage.myTours),
       icon: Map,
       href: "/account/bookings",
+      feature: "tours"
     },
     {
       id: "partner-network",
@@ -63,12 +67,14 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       label: t(translations.accountPage.myEnrollments),
       icon: GraduationCap,
       href: "/account/enrollments",
+      feature: "training"
     },
     {
       id: "certificates",
       label: t(translations.accountPage.myCertificates),
       icon: Award,
       href: "/account/certificates",
+      feature: "training"
     },
     {
       id: "requests",
@@ -81,18 +87,21 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       label: "Returns & Appeals",
       icon: RotateCcw,
       href: "/account/returns",
+      feature: "shopping"
     },
     {
       id: "artisan",
       label: "Artisan Portal",
       icon: Paintbrush,
       href: "/account/artisan",
+      feature: "shopping"
     },
     {
       id: "addresses",
       label: t(translations.accountPage.savedAddresses),
       icon: MapPin,
       href: "/account/addresses",
+      feature: "shopping"
     },
     {
       id: "settings",
@@ -100,7 +109,7 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       icon: Settings,
       href: "/account/settings",
     },
-  ];
+  ].filter(item => !item.feature || isFeatureEnabled(item.feature as any));
 
   return (
     <aside

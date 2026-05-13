@@ -50,10 +50,18 @@ const statusIcons: Record<string, any> = {
   [ReturnStatus.CLOSED]: XCircle,
 };
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function AccountReturnsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const limit = 10;
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["my-returns", page, search],

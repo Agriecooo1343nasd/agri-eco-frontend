@@ -74,12 +74,21 @@ const initialForm: SchoolVisitForm = {
 
 import { translations } from "@/i18n/translations";
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function SchoolVisitPage() {
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
   const { isAuthenticated } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
   const router = useRouter();
   const pathname = usePathname();
+
+  if (!isFeatureEnabled("training")) {
+    notFound();
+  }
+
   const [form, setForm] = useState<SchoolVisitForm>(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [settings, setSettings] = useState<AdminSchoolVisitSettings | null>(null);

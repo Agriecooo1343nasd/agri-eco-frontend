@@ -9,6 +9,7 @@ import ArtisanShowcase from "@/components/ArtisanShowcase";
 import Testimonials from "@/components/Testimonials";
 import FeaturesBar from "@/components/FeaturesBar";
 import Footer from "@/components/Footer";
+import { FeatureGuard } from "@/components/FeatureGuard";
 
 export default function Home() {
   return (
@@ -16,11 +17,22 @@ export default function Home() {
       <Header />
       <main>
         <HeroSection />
-        <FeaturedTours />
-        <BestSellers />
-        <BeekeepingShowcase />
+        
+        <FeatureGuard feature="tours">
+          <FeaturedTours />
+        </FeatureGuard>
+        
+        <FeatureGuard feature="shopping">
+          <BestSellers />
+          <BeekeepingShowcase />
+        </FeatureGuard>
+        
         <PromoBanner />
-        <EducationPreview />
+        
+        <FeatureGuard feature="training">
+          <EducationPreview />
+        </FeatureGuard>
+        
         <ArtisanShowcase />
         <Testimonials />
         <FeaturesBar />

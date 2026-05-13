@@ -358,13 +358,12 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           });
         } catch {
           toast.error("Failed to load accommodations", {
-            description:
-              "Backend error. Using fallback mock accommodations data.",
+            description: "Backend error. Using fallback mock accommodations data.",
           });
           return null;
         }
       },
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
     });
 
   const { data: categoriesResult, isLoading: categoriesLoading } = useQuery({

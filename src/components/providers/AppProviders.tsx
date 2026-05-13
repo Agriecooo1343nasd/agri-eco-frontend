@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { PricingProvider } from "@/context/PricingContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { FeatureProvider } from "@/context/FeatureContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { store } from "@/store";
 
@@ -41,15 +42,17 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ReduxProvider store={store}>
       <QueryClientProvider client={queryClient}>
-        <LanguageProvider>
-          <AuthProvider>
-            <PricingProvider>
-              <CartProvider>
-                <TooltipProvider>{children}</TooltipProvider>
-              </CartProvider>
-            </PricingProvider>
-          </AuthProvider>
-        </LanguageProvider>
+        <FeatureProvider>
+          <LanguageProvider>
+            <AuthProvider>
+              <PricingProvider>
+                <CartProvider>
+                  <TooltipProvider>{children}</TooltipProvider>
+                </CartProvider>
+              </PricingProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </FeatureProvider>
       </QueryClientProvider>
     </ReduxProvider>
   );

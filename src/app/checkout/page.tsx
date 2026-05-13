@@ -28,6 +28,9 @@ import { toast } from "sonner";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 type PaymentMethod = "momo" | "card" | "cod" | null;
 
 const CheckoutPage = () => {
@@ -35,7 +38,12 @@ const CheckoutPage = () => {
   const { formatPrice } = usePricing();
   const { user, isAuthenticated } = useAuth();
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
   const router = useRouter();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | "new">("new");

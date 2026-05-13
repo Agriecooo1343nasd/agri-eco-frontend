@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 import {
@@ -44,6 +46,11 @@ const CartPage = () => {
   } = useCart();
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   const shipping = cartTotal > 50 ? 0 : 5.99;
   const grandTotal = cartTotal + shipping;

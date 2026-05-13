@@ -76,6 +76,9 @@ const statusColors: Record<string, string> = {
   upcoming: "bg-accent text-accent-foreground",
 };
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function TourDetailPage({
   params,
 }: {
@@ -87,6 +90,11 @@ export default function TourDetailPage({
   const { formatPrice } = usePricing();
   const { t, locale } = useLanguage();
   const { user, isAuthenticated } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("tours")) {
+    notFound();
+  }
 
   const [experience, setExperience] = useState<Experience | null>(null);
   const [accommodations, setAccommodations] = useState<AdminAccommodation[]>(

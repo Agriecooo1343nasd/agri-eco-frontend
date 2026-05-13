@@ -39,6 +39,9 @@ import { resolveProductDiscountLabel } from "@/lib/discount-display";
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function ProductDetailsPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -48,6 +51,11 @@ export default function ProductDetailsPage() {
   const { formatPrice } = usePricing();
   const { t, locale } = useLanguage();
   const { isAuthenticated, user } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);

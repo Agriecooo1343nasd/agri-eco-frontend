@@ -27,10 +27,18 @@ import { usePricing } from "@/context/PricingContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function BeekeepingPage() {
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
   const beekeepingImg = "/assets/tours/beekeeping.jpg";
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);

@@ -68,8 +68,17 @@ function isLowStock(stock?: number) {
   return typeof stock === "number" && stock > 0 && stock <= 5;
 }
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function AccountArtisanPage() {
   const { user } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
+
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [products, setProducts] = useState<AdminArtisanProduct[]>([]);
 

@@ -91,11 +91,19 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
   refunded: "text-blue-600 bg-blue-50 border-blue-100",
 };
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function MyBookingsPage() {
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("tours")) {
+    notFound();
+  }
 
   // Filters & State
   const [statusFilter, setStatusFilter] = useState("all");

@@ -757,8 +757,17 @@ function ShopContent() {
   );
 }
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function ShopPage() {
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
+
   return (
     <Suspense
       fallback={

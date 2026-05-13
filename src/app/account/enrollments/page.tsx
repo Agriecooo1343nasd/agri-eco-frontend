@@ -72,9 +72,18 @@ const statusConfig: Record<
   },
 };
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function Enrollments() {
   const { t } = useLanguage();
   const { isAuthenticated, isInitialized } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("training")) {
+    notFound();
+  }
+
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<string>("all");

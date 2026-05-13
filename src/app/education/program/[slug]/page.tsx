@@ -145,13 +145,21 @@ const statusColors: Record<string, string> = {
   completed: "bg-muted text-muted-foreground border-border",
 };
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function ProgramDetail() {
   const { slug } = useParams();
   const router = useRouter();
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
   const { isAuthenticated, user: authUser } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
   const pathname = usePathname()
+
+  if (!isFeatureEnabled("training")) {
+    notFound();
+  }
 
   const {
     data: apiProgram,
