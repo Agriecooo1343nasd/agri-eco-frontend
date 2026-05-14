@@ -20,11 +20,11 @@ export default function Home() {
         
         <FeatureGuard feature="tours">
           <FeaturedTours />
+          <BeekeepingShowcase />
         </FeatureGuard>
         
         <FeatureGuard feature="shopping">
           <BestSellers />
-          <BeekeepingShowcase />
         </FeatureGuard>
         
         <PromoBanner />

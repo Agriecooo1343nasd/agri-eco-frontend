@@ -88,14 +88,6 @@ export default function AdminSettings() {
     },
   });
 
-  if (isLoadingSettings || isLoadingFeatures) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; feature: FeatureKey | null; newState: boolean | null }>({ isOpen: false, feature: null, newState: null });
 
   const handleToggleClick = (feature: FeatureKey, enabled: boolean) => {
@@ -108,6 +100,14 @@ export default function AdminSettings() {
     }
     setConfirmDialog({ isOpen: false, feature: null, newState: null });
   };
+
+  if (isLoadingSettings || isLoadingFeatures) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const featureConfigs: Record<FeatureKey, { label: string; icon: any; description: string }> = {
     shopping: {

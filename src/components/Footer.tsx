@@ -16,9 +16,12 @@ import { apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
+import { useFeatures } from "@/context/FeatureContext";
+import type { FeatureKey } from "@/lib/api/settings";
 
 const Footer = () => {
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
   const [email, setEmail] = useState("");
   const [isSubscribing, setIsSubscribing] = useState(false);
 
@@ -112,15 +115,17 @@ const Footer = () => {
             <ul className="space-y-2">
               {[
                 { label: t(translations.header.nav.about), href: "/about" },
-                { label: t(translations.header.nav.shop), href: "/shop" },
-                { label: t(translations.header.nav.tours), href: "/tours" },
-                { label: t(translations.header.nav.beekeeping), href: "/beekeeping" },
-                { label: t(translations.header.nav.education), href: "/education" },
-                { label: t(translations.header.nav.community), href: "/artisans" },
-                { label: t(translations.header.nav.deals), href: "/deals" },
+                { label: t(translations.header.nav.shop), href: "/shop", feature: "shopping" as FeatureKey },
+                { label: t(translations.header.nav.tours), href: "/tours", feature: "tours" as FeatureKey },
+                { label: t(translations.header.nav.beekeeping), href: "/beekeeping", feature: "tours" as FeatureKey },
+                { label: t(translations.header.nav.education), href: "/education", feature: "training" as FeatureKey },
+                { label: t(translations.header.nav.community), href: "/artisans", feature: "shopping" as FeatureKey },
+                { label: t(translations.header.nav.deals), href: "/deals", feature: "shopping" as FeatureKey },
                 { label: t(translations.contactPage.heroBreadcrumb), href: "/contact" },
                 { label: t(translations.header.account.myAccount), href: "/account" },
-              ].map((link) => (
+              ]
+                .filter((link) => !link.feature || isFeatureEnabled(link.feature))
+                .map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
@@ -141,12 +146,14 @@ const Footer = () => {
             <ul className="space-y-2">
               {[
                 { label: t(translations.footer.helpCenter), href: "#" },
-                { label: t(translations.footer.returnsRefunds), href: "/account/returns" },
-                { label: t(translations.footer.shippingInfo), href: "#" },
-                { label: t(translations.footer.trackOrder), href: "#" },
+                { label: t(translations.footer.returnsRefunds), href: "/account/returns", feature: "shopping" as FeatureKey },
+                { label: t(translations.footer.shippingInfo), href: "#", feature: "shopping" as FeatureKey },
+                { label: t(translations.footer.trackOrder), href: "#", feature: "shopping" as FeatureKey },
                 { label: t(translations.footer.privacyPolicy), href: "#" },
                 { label: t(translations.footer.termsOfService), href: "#" },
-              ].map((link) => (
+              ]
+                .filter((link) => !link.feature || isFeatureEnabled(link.feature))
+                .map((link) => (
                 <li key={link.label}>
                   <Link
                     href={link.href}

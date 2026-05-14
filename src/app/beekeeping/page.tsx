@@ -36,7 +36,7 @@ export default function BeekeepingPage() {
   const { isFeatureEnabled } = useFeatures();
   const beekeepingImg = "/assets/tours/beekeeping.jpg";
 
-  if (!isFeatureEnabled("shopping")) {
+  if (!isFeatureEnabled("tours")) {
     notFound();
   }
 
