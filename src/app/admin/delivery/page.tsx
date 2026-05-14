@@ -51,7 +51,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchDeliveryAssignments,
   fetchDeliveryAssignmentStats,
@@ -103,6 +103,7 @@ export default function AdminDeliveryOpsPage() {
         targetType: typeFilter,
         search,
       }),
+    placeholderData: keepPreviousData,
   });
 
   const { data: statsData, isLoading: statsLoading } = useQuery({

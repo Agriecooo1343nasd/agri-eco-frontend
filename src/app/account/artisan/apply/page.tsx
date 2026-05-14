@@ -114,9 +114,7 @@ export default function ArtisanApplyPage() {
                 queryClient.invalidateQueries({ queryKey: ["user-role-status-artisan-apply"] });
                 queryClient.invalidateQueries({ queryKey: ["user-role-status-header"] });
               } catch (error) {
-                toast.error("Failed to submit application", {
-                  description: "Please try again later or contact support."
-                });
+               console.error("something went wrong")
               } finally {
                 setIsSubmitting(false);
               }

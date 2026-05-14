@@ -2,12 +2,17 @@ import { apiClient } from "@/lib/api/client";
 import type { ApiPagination, ApiSuccessResponse } from "@/lib/api/types";
 
 export type AdminPartnerStatus = "pending" | "active" | "inactive";
-export type AdminPartnerType =
-  | "tourism_operator"
-  | "school"
-  | "hospitality"
-  | "business"
-  | "ngo";
+export type AdminPartnerType = "tourism_operator" | "school" | "hospitality" | "business" | "ngo";
+
+export interface PartnerSocialLinks {
+  website?: string;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
+  youtube?: string;
+  tiktok?: string;
+}
 
 export interface AdminPartner {
   id: string;
@@ -19,6 +24,25 @@ export interface AdminPartner {
   status: AdminPartnerStatus;
   revenueShareRate?: number;
   notes?: string;
+  isFeatured?: boolean;
+  tagline?: string;
+  description?: string;
+  logo?: string;
+  coverImage?: string;
+  gallery?: string[];
+  city?: string;
+  country?: string;
+  address?: string;
+  location?: string;
+  services?: string[];
+  certifications?: string[];
+  referenceUrls?: string[];
+  socialLinks?: PartnerSocialLinks;
+  foundedYear?: number;
+  teamSize?: string;
+  registrationNumber?: string;
+  website?: string;
+  isPublic?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,6 +57,26 @@ export interface AdminPartnerApplication {
   email: string;
   phone?: string;
   description?: string;
+  publicDescription?: string;
+  internalMessage?: string;
+  location?: string;
+  tagline?: string;
+  aboutCompany?: string;
+  logo?: string;
+  coverImage?: string;
+  gallery?: string[];
+  foundedYear?: number;
+  city?: string;
+  country?: string;
+  address?: string;
+  services?: string[];
+  certifications?: string[];
+  socialLinks?: PartnerSocialLinks;
+  registrationNumber?: string;
+  website?: string;
+  teamSize?: string;
+  agreedToTerms?: boolean;
+  referenceUrls?: string[];
   status: AdminPartnerApplicationStatus;
   reviewNote?: string;
   reviewedAt?: string;
@@ -64,6 +108,17 @@ export interface UpsertAdminPartnerPayload {
   status?: AdminPartnerStatus;
   revenueShareRate?: number;
   notes?: string;
+  tagline?: string;
+  logo?: string;
+  city?: string;
+  country?: string;
+  address?: string;
+  location?: string;
+  socialLinks?: PartnerSocialLinks;
+  foundedYear?: number;
+  teamSize?: string;
+  registrationNumber?: string;
+  isPublic?: boolean;
 }
 
 export interface FetchAdminPartnersParams {
@@ -101,11 +156,7 @@ export interface ReviewAdminPartnerApplicationPayload {
 }
 
 export type AdminPartnerAgreementStatus = "active" | "expired" | "terminated";
-export type AdminPartnerAgreementPayoutCycle =
-  | "monthly"
-  | "quarterly"
-  | "biannual"
-  | "annual";
+export type AdminPartnerAgreementPayoutCycle = "monthly" | "quarterly" | "biannual" | "annual";
 
 export interface AdminPartnerAgreement {
   id: string;
@@ -159,11 +210,7 @@ export interface FetchAdminPartnerCommissionsResult {
     updatedAt?: string;
   }>;
   pagination: ApiPagination;
-  summary: {
-    total: number;
-    pending: number;
-    paid: number;
-  };
+  summary: { total: number; pending: number; paid: number };
 }
 
 export type AdminAgreementPayoutStatus = "pending" | "paid";
@@ -192,11 +239,7 @@ export interface FetchAdminAgreementPaymentsParams {
 export interface FetchAdminAgreementPaymentsResult {
   data: AdminAgreementPayout[];
   pagination: ApiPagination;
-  summary: {
-    totalPaid: number;
-    records: number;
-    payoutCycle?: AdminPartnerAgreementPayoutCycle;
-  };
+  summary: { totalPaid: number; records: number; payoutCycle?: AdminPartnerAgreementPayoutCycle };
 }
 
 export interface CreateAdminAgreementPayoutPayload {
@@ -208,11 +251,7 @@ export interface CreateAdminAgreementPayoutPayload {
 }
 
 export type AdminAgreementInputType = "financial" | "in_kind";
-export type AdminAgreementInputCategory =
-  | "capital"
-  | "operations"
-  | "marketing"
-  | "logistics";
+export type AdminAgreementInputCategory = "capital" | "operations" | "marketing" | "logistics";
 
 export interface AdminAgreementInput {
   id: string;
@@ -238,11 +277,7 @@ export interface FetchAdminAgreementInputsParams {
 export interface FetchAdminAgreementInputsResult {
   data: AdminAgreementInput[];
   pagination: ApiPagination;
-  summary: {
-    financialSupport: number;
-    totalInputs: number;
-    inputMix: Record<string, number>;
-  };
+  summary: { financialSupport: number; totalInputs: number; inputMix: Record<string, number> };
 }
 
 export interface CreateAdminAgreementInputPayload {
@@ -254,473 +289,181 @@ export interface CreateAdminAgreementInputPayload {
   notes?: string;
 }
 
-function buildPartnersQuery(params: FetchAdminPartnersParams): string {
+function buildQuery(params: any): string {
   const query = new URLSearchParams();
-
-  if (params.page) query.set("page", String(params.page));
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.search?.trim()) query.set("search", params.search.trim());
-  if (params.status) query.set("status", params.status);
-  if (params.type) query.set("type", params.type);
-  if (params.sort) query.set("sort", params.sort);
-  if (params.order) query.set("order", params.order);
-
-  const queryString = query.toString();
-  return queryString ? `?${queryString}` : "";
-}
-
-function buildApplicationsQuery(
-  params: FetchAdminPartnerApplicationsParams,
-): string {
-  const query = new URLSearchParams();
-
-  if (params.page) query.set("page", String(params.page));
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.search?.trim()) query.set("search", params.search.trim());
-  if (params.status) query.set("status", params.status);
-  if (params.sort) query.set("sort", params.sort);
-  if (params.order) query.set("order", params.order);
-
-  const queryString = query.toString();
-  return queryString ? `?${queryString}` : "";
-}
-
-function buildCommissionsQuery(
-  params: FetchAdminPartnerCommissionsParams,
-): string {
-  const query = new URLSearchParams();
-
-  if (params.page) query.set("page", String(params.page));
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.status) query.set("status", params.status);
-  if (params.sort) query.set("sort", params.sort);
-  if (params.order) query.set("order", params.order);
-
-  const queryString = query.toString();
-  return queryString ? `?${queryString}` : "";
-}
-
-function buildAgreementPaymentsQuery(
-  params: FetchAdminAgreementPaymentsParams,
-): string {
-  const query = new URLSearchParams();
-
-  if (params.page) query.set("page", String(params.page));
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.status) query.set("status", params.status);
-  if (params.sort) query.set("sort", params.sort);
-  if (params.order) query.set("order", params.order);
-
-  const queryString = query.toString();
-  return queryString ? `?${queryString}` : "";
-}
-
-function buildAgreementInputsQuery(
-  params: FetchAdminAgreementInputsParams,
-): string {
-  const query = new URLSearchParams();
-
-  if (params.page) query.set("page", String(params.page));
-  if (params.limit) query.set("limit", String(params.limit));
-  if (params.sort) query.set("sort", params.sort);
-  if (params.order) query.set("order", params.order);
-
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.set(key, String(value));
+  });
   const queryString = query.toString();
   return queryString ? `?${queryString}` : "";
 }
 
 function defaultPagination(limit = 10): ApiPagination {
-  return {
-    total: 0,
-    page: 1,
-    limit,
-    pages: 1,
-    hasNext: false,
-    hasPrev: false,
-  };
+  return { total: 0, page: 1, limit, pages: 1, hasNext: false, hasPrev: false };
 }
 
-export async function fetchAdminPartners(
-  params: FetchAdminPartnersParams,
-): Promise<FetchAdminPartnersResult> {
-  const response = await apiClient.get<ApiSuccessResponse<AdminPartner[]>>(
-    `/partners${buildPartnersQuery(params)}`,
-  );
+// Public API
+export interface FetchPublicPartnersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: string;
+  featured?: "true" | "false";
+  sort?: string;
+  order?: "asc" | "desc";
+}
 
-  return {
-    data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? defaultPagination(params.limit ?? 10),
-  };
+export async function fetchPublicPartners(params: FetchPublicPartnersParams = {}): Promise<FetchAdminPartnersResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartner[]>>(`/partners/public${buildQuery(params)}`);
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10) };
+}
+
+export async function fetchPublicPartnerById(id: string): Promise<AdminPartner> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartner>>(`/partners/public/${id}`);
+  if (!response.data.data) throw new Error("Partner not found");
+  return response.data.data;
 }
 
 export async function submitPartnerApplication(payload: any): Promise<any> {
-  const response = await apiClient.post<ApiSuccessResponse<any>>(
-    "/partners/apply",
-    payload,
-  );
+  const response = await apiClient.post<ApiSuccessResponse<any>>("/partners/apply", payload);
   return response.data;
 }
 
+// Admin API
+export async function fetchAdminPartners(params: FetchAdminPartnersParams): Promise<FetchAdminPartnersResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartner[]>>(`/partners${buildQuery(params)}`);
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10) };
+}
+
+export async function fetchAdminPartnerById(partnerId: string): Promise<AdminPartner> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartner>>(`/partners/${partnerId}`);
+  if (!response.data.data) throw new Error("Partner not found");
+  return response.data.data;
+}
+
+export async function createAdminPartner(payload: UpsertAdminPartnerPayload): Promise<AdminPartner> {
+  const response = await apiClient.post<ApiSuccessResponse<AdminPartner>>("/partners", payload);
+  if (!response.data.data) throw new Error("Missing created partner response data");
+  return response.data.data;
+}
+
+export async function updateAdminPartner(partnerId: string, payload: Partial<UpsertAdminPartnerPayload>): Promise<AdminPartner> {
+  const response = await apiClient.put<ApiSuccessResponse<AdminPartner>>(`/partners/${partnerId}`, payload);
+  if (!response.data.data) throw new Error("Missing updated partner response data");
+  return response.data.data;
+}
+
+export async function deleteAdminPartner(id: string): Promise<void> {
+  await apiClient.delete(`/partners/${id}`);
+}
+
+export async function terminateAdminPartner(partnerId: string, notes?: string): Promise<AdminPartner> {
+  const response = await apiClient.patch<ApiSuccessResponse<AdminPartner>>(`/partners/${partnerId}/terminate`, notes?.trim() ? { notes: notes.trim() } : {});
+  if (!response.data.data) throw new Error("Missing terminated partner response data");
+  return response.data.data;
+}
+
 export async function fetchAdminPartnerStats(): Promise<AdminPartnerStats> {
-  const response =
-    await apiClient.get<ApiSuccessResponse<AdminPartnerStats>>(
-      "/partners/stats",
-    );
-
-  return (
-    response.data.data ?? {
-      total: 0,
-      active: 0,
-      pending: 0,
-      inactive: 0,
-      totalRevenue: 0,
-      pendingPayouts: 0,
-      totalBookings: 0,
-      agreements: {
-        active: 0,
-        expired: 0,
-        terminated: 0,
-      },
-    }
-  );
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartnerStats>>("/partners/stats");
+  return response.data.data ?? { total: 0, active: 0, pending: 0, inactive: 0, totalRevenue: 0, pendingPayouts: 0, totalBookings: 0, agreements: { active: 0, expired: 0, terminated: 0 } };
 }
 
-export async function fetchAdminPartnerApplications(
-  params: FetchAdminPartnerApplicationsParams,
-): Promise<FetchAdminPartnerApplicationsResult> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminPartnerApplication[]>
-  >(`/partners/applications${buildApplicationsQuery(params)}`);
-
-  return {
-    data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? defaultPagination(params.limit ?? 10),
-  };
+export async function fetchAdminPartnerApplications(params: FetchAdminPartnerApplicationsParams): Promise<FetchAdminPartnerApplicationsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartnerApplication[]>>(`/partners/applications${buildQuery(params)}`);
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10) };
 }
 
-export async function reviewAdminPartnerApplication(
-  applicationId: string,
-  payload: ReviewAdminPartnerApplicationPayload,
-): Promise<AdminPartnerApplication> {
-  const response = await apiClient.patch<
-    ApiSuccessResponse<AdminPartnerApplication>
-  >(`/partners/applications/${applicationId}/review`, payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing reviewed partner application response data");
-  }
-
+export async function fetchAdminPartnerApplicationById(applicationId: string): Promise<AdminPartnerApplication> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartnerApplication>>(`/partners/applications/${applicationId}`);
+  if (!response.data.data) throw new Error("Application not found");
   return response.data.data;
 }
 
-export async function fetchAdminPartnerApplicationById(
-  applicationId: string,
-): Promise<AdminPartnerApplication> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminPartnerApplication>
-  >(`/partners/applications/${applicationId}`);
-
-  if (!response.data.data) {
-    throw new Error("Application not found");
-  }
-
+export async function reviewAdminPartnerApplication(applicationId: string, payload: ReviewAdminPartnerApplicationPayload): Promise<AdminPartnerApplication> {
+  const response = await apiClient.patch<ApiSuccessResponse<AdminPartnerApplication>>(`/partners/applications/${applicationId}/review`, payload);
+  if (!response.data.data) throw new Error("Missing reviewed partner application response data");
   return response.data.data;
 }
 
-export async function createAdminPartner(
-  payload: UpsertAdminPartnerPayload,
-): Promise<AdminPartner> {
-  const response = await apiClient.post<ApiSuccessResponse<AdminPartner>>(
-    "/partners",
-    payload,
-  );
-
-  if (!response.data.data) {
-    throw new Error("Missing created partner response data");
-  }
-
-  return response.data.data;
+export async function fetchAdminPartnerCommissions(partnerId: string, params: FetchAdminPartnerCommissionsParams): Promise<FetchAdminPartnerCommissionsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/${partnerId}/commissions${buildQuery(params)}`);
+  const summary = (response.data.meta?.summary ?? {}) as any;
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10), summary: { total: summary.total ?? 0, pending: summary.pending ?? 0, paid: summary.paid ?? 0 } };
 }
 
-export async function fetchAdminPartnerById(
-  partnerId: string,
-): Promise<AdminPartner> {
-  const response = await apiClient.get<ApiSuccessResponse<AdminPartner>>(
-    `/partners/${partnerId}`,
-  );
-
-  if (!response.data.data) {
-    throw new Error("Partner not found");
-  }
-
-  return response.data.data;
-}
-
-export async function fetchAdminPartnerCommissions(
-  partnerId: string,
-  params: FetchAdminPartnerCommissionsParams,
-): Promise<FetchAdminPartnerCommissionsResult> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<FetchAdminPartnerCommissionsResult["data"]>
-  >(`/partners/${partnerId}/commissions${buildCommissionsQuery(params)}`);
-
-  const summary = ((response.data.meta?.summary as {
-    total?: number;
-    pending?: number;
-    paid?: number;
-  }) ?? {}) as {
-    total?: number;
-    pending?: number;
-    paid?: number;
-  };
-
-  return {
-    data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? defaultPagination(params.limit ?? 10),
-    summary: {
-      total: summary.total ?? 0,
-      pending: summary.pending ?? 0,
-      paid: summary.paid ?? 0,
-    },
-  };
-}
-
-export async function fetchAdminPartnerAgreements(
-  partnerId: string,
-): Promise<AdminPartnerAgreement[]> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminPartnerAgreement[]>
-  >(`/partners/${partnerId}/agreements`);
-
+export async function fetchAdminPartnerAgreements(partnerId: string): Promise<AdminPartnerAgreement[]> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminPartnerAgreement[]>>(`/partners/${partnerId}/agreements`);
   return response.data.data ?? [];
 }
 
-export async function fetchAdminAgreementPayments(
-  partnerId: string,
-  agreementId: string,
-  params: FetchAdminAgreementPaymentsParams,
-): Promise<FetchAdminAgreementPaymentsResult> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminAgreementPayout[]>
-  >(
-    `/partners/${partnerId}/agreements/${agreementId}/payments${buildAgreementPaymentsQuery(params)}`,
-  );
-
-  const summary = ((response.data.meta?.summary as {
-    totalPaid?: number;
-    records?: number;
-    payoutCycle?: AdminPartnerAgreementPayoutCycle;
-  }) ?? {}) as {
-    totalPaid?: number;
-    records?: number;
-    payoutCycle?: AdminPartnerAgreementPayoutCycle;
-  };
-
-  return {
-    data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? defaultPagination(params.limit ?? 10),
-    summary: {
-      totalPaid: summary.totalPaid ?? 0,
-      records: summary.records ?? 0,
-      payoutCycle: summary.payoutCycle,
-    },
-  };
-}
-
-export async function createAdminAgreementPayout(
-  partnerId: string,
-  agreementId: string,
-  payload: CreateAdminAgreementPayoutPayload,
-): Promise<AdminAgreementPayout> {
-  const response = await apiClient.post<
-    ApiSuccessResponse<AdminAgreementPayout>
-  >(`/partners/${partnerId}/agreements/${agreementId}/payments`, payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing created payout response data");
-  }
-
+export async function createAdminPartnerAgreement(partnerId: string, payload: UpsertAdminPartnerAgreementPayload): Promise<AdminPartnerAgreement> {
+  const response = await apiClient.post<ApiSuccessResponse<AdminPartnerAgreement>>(`/partners/${partnerId}/agreements`, payload);
+  if (!response.data.data) throw new Error("Missing created partner agreement response data");
   return response.data.data;
 }
 
-export async function fetchAdminAgreementInputs(
-  partnerId: string,
-  agreementId: string,
-  params: FetchAdminAgreementInputsParams,
-): Promise<FetchAdminAgreementInputsResult> {
-  const response = await apiClient.get<
-    ApiSuccessResponse<AdminAgreementInput[]>
-  >(
-    `/partners/${partnerId}/agreements/${agreementId}/inputs${buildAgreementInputsQuery(params)}`,
-  );
-
-  const summary = ((response.data.meta?.summary as {
-    financialSupport?: number;
-    totalInputs?: number;
-    inputMix?: Record<string, number>;
-  }) ?? {}) as {
-    financialSupport?: number;
-    totalInputs?: number;
-    inputMix?: Record<string, number>;
-  };
-
-  return {
-    data: response.data.data ?? [],
-    pagination:
-      response.data.pagination ?? defaultPagination(params.limit ?? 10),
-    summary: {
-      financialSupport: summary.financialSupport ?? 0,
-      totalInputs: summary.totalInputs ?? 0,
-      inputMix: summary.inputMix ?? {},
-    },
-  };
-}
-
-export async function createAdminAgreementInput(
-  partnerId: string,
-  agreementId: string,
-  payload: CreateAdminAgreementInputPayload,
-): Promise<AdminAgreementInput> {
-  const response = await apiClient.post<
-    ApiSuccessResponse<AdminAgreementInput>
-  >(`/partners/${partnerId}/agreements/${agreementId}/inputs`, payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing created input response data");
-  }
-
+export async function updateAdminPartnerAgreement(partnerId: string, agreementId: string, payload: Partial<UpsertAdminPartnerAgreementPayload>): Promise<AdminPartnerAgreement> {
+  const response = await apiClient.put<ApiSuccessResponse<AdminPartnerAgreement>>(`/partners/${partnerId}/agreements/${agreementId}`, payload);
+  if (!response.data.data) throw new Error("Missing updated partner agreement response data");
   return response.data.data;
 }
 
-export async function createAdminPartnerAgreement(
-  partnerId: string,
-  payload: UpsertAdminPartnerAgreementPayload,
-): Promise<AdminPartnerAgreement> {
-  const response = await apiClient.post<
-    ApiSuccessResponse<AdminPartnerAgreement>
-  >(`/partners/${partnerId}/agreements`, payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing created partner agreement response data");
-  }
-
-  return response.data.data;
-}
-
-export async function updateAdminPartnerAgreement(
-  partnerId: string,
-  agreementId: string,
-  payload: Partial<UpsertAdminPartnerAgreementPayload>,
-): Promise<AdminPartnerAgreement> {
-  const response = await apiClient.put<
-    ApiSuccessResponse<AdminPartnerAgreement>
-  >(`/partners/${partnerId}/agreements/${agreementId}`, payload);
-
-  if (!response.data.data) {
-    throw new Error("Missing updated partner agreement response data");
-  }
-
-  return response.data.data;
-}
-
-export async function deleteAdminPartnerAgreement(
-  partnerId: string,
-  agreementId: string,
-): Promise<void> {
+export async function deleteAdminPartnerAgreement(partnerId: string, agreementId: string): Promise<void> {
   await apiClient.delete(`/partners/${partnerId}/agreements/${agreementId}`);
 }
 
-export async function updateAdminPartner(
-  partnerId: string,
-  payload: Partial<UpsertAdminPartnerPayload>,
-): Promise<AdminPartner> {
-  const response = await apiClient.put<ApiSuccessResponse<AdminPartner>>(
-    `/partners/${partnerId}`,
-    payload,
-  );
+export async function fetchAdminAgreementPayments(partnerId: string, agreementId: string, params: FetchAdminAgreementPaymentsParams): Promise<FetchAdminAgreementPaymentsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminAgreementPayout[]>>(`/partners/${partnerId}/agreements/${agreementId}/payments${buildQuery(params)}`);
+  const summary = (response.data.meta?.summary ?? {}) as any;
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10), summary: { totalPaid: summary.totalPaid ?? 0, records: summary.records ?? 0, payoutCycle: summary.payoutCycle } };
+}
 
-  if (!response.data.data) {
-    throw new Error("Missing updated partner response data");
-  }
-
+export async function createAdminAgreementPayout(partnerId: string, agreementId: string, payload: CreateAdminAgreementPayoutPayload): Promise<AdminAgreementPayout> {
+  const response = await apiClient.post<ApiSuccessResponse<AdminAgreementPayout>>(`/partners/${partnerId}/agreements/${agreementId}/payments`, payload);
+  if (!response.data.data) throw new Error("Missing created payout response data");
   return response.data.data;
 }
 
-export async function terminateAdminPartner(
-  partnerId: string,
-  notes?: string,
-): Promise<AdminPartner> {
-  const response = await apiClient.patch<ApiSuccessResponse<AdminPartner>>(
-    `/partners/${partnerId}/terminate`,
-    notes?.trim() ? { notes: notes.trim() } : {},
-  );
+export async function fetchAdminAgreementInputs(partnerId: string, agreementId: string, params: FetchAdminAgreementInputsParams): Promise<FetchAdminAgreementInputsResult> {
+  const response = await apiClient.get<ApiSuccessResponse<AdminAgreementInput[]>>(`/partners/${partnerId}/agreements/${agreementId}/inputs${buildQuery(params)}`);
+  const summary = (response.data.meta?.summary ?? {}) as any;
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10), summary: { financialSupport: summary.financialSupport ?? 0, totalInputs: summary.totalInputs ?? 0, inputMix: summary.inputMix ?? {} } };
+}
 
-  if (!response.data.data) {
-    throw new Error("Missing terminated partner response data");
-  }
-
+export async function createAdminAgreementInput(partnerId: string, agreementId: string, payload: CreateAdminAgreementInputPayload): Promise<AdminAgreementInput> {
+  const response = await apiClient.post<ApiSuccessResponse<AdminAgreementInput>>(`/partners/${partnerId}/agreements/${agreementId}/inputs`, payload);
+  if (!response.data.data) throw new Error("Missing created input response data");
   return response.data.data;
 }
 
-// ============================================================================
-// Partner Self-Service (Client-facing)
-// ============================================================================
-
+// Partner Self-Service API
 export async function fetchPartnerMe(): Promise<any | null> {
   try {
-    const response = await apiClient.get<ApiSuccessResponse<any>>("/partners/me", {
-      skipErrorToast: true,
-    } as any);
+    const response = await apiClient.get<ApiSuccessResponse<any>>("/partners/me", { skipErrorToast: true } as any);
     if (!response.data.data) return null;
-    const payload = response.data.data;
-    if (payload.partner && payload.summary) {
-      return {
-        ...payload.partner,
-        revenueSummary: {
-          gross: payload.summary.grossRevenue ?? 0,
-          earnings: payload.summary.totalEarnings ?? 0,
-          pending: payload.summary.pendingEarnings ?? 0,
-          bookings: payload.summary.bookings ?? 0,
-        },
-        payoutCycle: payload.summary.payoutCycle,
-      };
+    const p = response.data.data;
+    if (p.partner && p.summary) {
+      return { ...p.partner, revenueSummary: { gross: p.summary.grossRevenue ?? 0, earnings: p.summary.totalEarnings ?? 0, pending: p.summary.pendingEarnings ?? 0, bookings: p.summary.bookings ?? 0 }, payoutCycle: p.summary.payoutCycle };
     }
-    return payload;
-  } catch (error: any) {
-    // If forbidden, they just aren't a partner yet
-    if (error.response?.status === 403 || error.response?.status === 404) {
-      return null;
-    }
-    throw error;
+    return p;
+  } catch (e: any) {
+    if (e.response?.status === 403 || e.response?.status === 404) return null;
+    throw e;
   }
 }
 
 export async function fetchPartnerMyApplication(): Promise<any | null> {
   try {
-    const response = await apiClient.get<ApiSuccessResponse<any>>(
-      "/partners/me/application",
-      { skipErrorToast: true } as any,
-    );
+    const response = await apiClient.get<ApiSuccessResponse<any>>("/partners/me/application", { skipErrorToast: true } as any);
     return response.data.data ?? null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export async function fetchPartnerAgreements(): Promise<any[]> {
   try {
-    const response = await apiClient.get<ApiSuccessResponse<any[]>>(
-      "/partners/me/agreements",
-      { skipErrorToast: true } as any,
-    );
+    const response = await apiClient.get<ApiSuccessResponse<any[]>>("/partners/me/agreements", { skipErrorToast: true } as any);
     return response.data.data ?? [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 export async function fetchPartnerAgreementById(agreementId: string): Promise<any> {
@@ -729,43 +472,14 @@ export async function fetchPartnerAgreementById(agreementId: string): Promise<an
   return response.data.data;
 }
 
-export interface FetchPartnerAgreementQueryParams {
-  page?: number;
-  limit?: number;
+export async function fetchPartnerAgreementPayments(agreementId: string, params: FetchPartnerAgreementQueryParams): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/me/agreements/${agreementId}/payments${buildQuery(params)}`);
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10), summary: response.data.meta?.summary ?? {} };
 }
 
-export async function fetchPartnerAgreementPayments(
-  agreementId: string,
-  params: FetchPartnerAgreementQueryParams
-): Promise<any> {
-  const query = new URLSearchParams();
-  if (params.page) query.set("page", String(params.page));
-  if (params.limit) query.set("limit", String(params.limit));
-  const queryString = query.toString() ? `?${query.toString()}` : "";
-  
-  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/me/agreements/${agreementId}/payments${queryString}`);
-  
-  return {
-    data: response.data.data ?? [],
-    pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10),
-    summary: response.data.meta?.summary ?? {},
-  };
+export async function fetchPartnerAgreementInputs(agreementId: string, params: FetchPartnerAgreementQueryParams): Promise<any> {
+  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/me/agreements/${agreementId}/inputs${buildQuery(params)}`);
+  return { data: response.data.data ?? [], pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10), summary: response.data.meta?.summary ?? {} };
 }
 
-export async function fetchPartnerAgreementInputs(
-  agreementId: string,
-  params: FetchPartnerAgreementQueryParams
-): Promise<any> {
-  const query = new URLSearchParams();
-  if (params.page) query.set("page", String(params.page));
-  if (params.limit) query.set("limit", String(params.limit));
-  const queryString = query.toString() ? `?${query.toString()}` : "";
-  
-  const response = await apiClient.get<ApiSuccessResponse<any>>(`/partners/me/agreements/${agreementId}/inputs${queryString}`);
-  
-  return {
-    data: response.data.data ?? [],
-    pagination: response.data.pagination ?? defaultPagination(params.limit ?? 10),
-    summary: response.data.meta?.summary ?? {},
-  };
-}
+export interface FetchPartnerAgreementQueryParams { page?: number; limit?: number; }

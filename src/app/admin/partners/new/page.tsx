@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,15 @@ type FormState = {
   revenueShareRate: string;
   aboutBusiness: string;
   notes: string;
+  tagline: string;
+  logo: string;
+  city: string;
+  country: string;
+  address: string;
+  foundedYear: string;
+  teamSize: string;
+  registrationNumber: string;
+  isPublic: boolean;
 };
 
 const initialFormState: FormState = {
@@ -42,6 +52,15 @@ const initialFormState: FormState = {
   revenueShareRate: "0",
   aboutBusiness: "",
   notes: "",
+  tagline: "",
+  logo: "",
+  city: "",
+  country: "",
+  address: "",
+  foundedYear: "",
+  teamSize: "",
+  registrationNumber: "",
+  isPublic: false,
 };
 
 function buildPartnerNotes(
@@ -115,6 +134,15 @@ export default function RegisterPartnerPage() {
       status: formState.status,
       revenueShareRate,
       notes: buildPartnerNotes(formState.aboutBusiness, formState.notes),
+      tagline: formState.tagline.trim(),
+      logo: formState.logo.trim(),
+      city: formState.city.trim(),
+      country: formState.country.trim(),
+      address: formState.address.trim(),
+      foundedYear: formState.foundedYear ? parseInt(formState.foundedYear) : undefined,
+      teamSize: formState.teamSize.trim(),
+      registrationNumber: formState.registrationNumber.trim(),
+      isPublic: formState.isPublic,
     });
   };
 
@@ -137,129 +165,199 @@ export default function RegisterPartnerPage() {
       <Card>
         <CardContent className="p-6 space-y-5">
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Name (Required)</Label>
-              <Input
-                placeholder="Example: Green Valley Tourism Ltd"
-                value={formState.businessName}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    businessName: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Business Name *</Label>
+                <Input
+                  placeholder="Example: Green Valley Tourism Ltd"
+                  value={formState.businessName}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      businessName: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Contact Person (Required)</Label>
-              <Input
-                placeholder="Example: Alice Uwimana"
-                value={formState.contactPerson}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    contactPerson: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Contact Person *</Label>
+                <Input
+                  placeholder="Example: Alice Uwimana"
+                  value={formState.contactPerson}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      contactPerson: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Email (Required)</Label>
-              <Input
-                type="email"
-                placeholder="Example: contact@business.rw"
-                value={formState.email}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    email: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Email *</Label>
+                <Input
+                  type="email"
+                  placeholder="Example: contact@business.rw"
+                  value={formState.email}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      email: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Phone (Optional)</Label>
-              <Input
-                placeholder="Example: +250 7XX XXX XXX"
-                value={formState.phone}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    phone: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Phone</Label>
+                <Input
+                  placeholder="Example: +250 7XX XXX XXX"
+                  value={formState.phone}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      phone: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Type (Required)</Label>
-              <Select
-                value={formState.type}
-                onValueChange={(value: AdminPartnerType) =>
-                  setFormState((prev) => ({ ...prev, type: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tourism_operator">
-                    Tourism Operator
-                  </SelectItem>
-                  <SelectItem value="hospitality">Hospitality</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="school">School / Institution</SelectItem>
-                  <SelectItem value="ngo">NGO / Non-profit</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Business Type *</Label>
+                <Select
+                  value={formState.type}
+                  onValueChange={(value: AdminPartnerType) =>
+                    setFormState((prev) => ({ ...prev, type: value }))
+                  }
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tourism_operator">Tourism Operator</SelectItem>
+                    <SelectItem value="hospitality">Hospitality</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="school">School</SelectItem>
+                    <SelectItem value="ngo">NGO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Partner Status (Optional)</Label>
-              <Select
-                value={formState.status}
-                onValueChange={(value: FormState["status"]) =>
-                  setFormState((prev) => ({ ...prev, status: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Partner Status</Label>
+                <Select
+                  value={formState.status}
+                  onValueChange={(value: any) =>
+                    setFormState((prev) => ({ ...prev, status: value }))
+                  }
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">
-                Revenue Share Rate (%) (Optional)
-              </Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                placeholder="Example: 12.5"
-                value={formState.revenueShareRate}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    revenueShareRate: event.target.value,
-                  }))
-                }
-                className="h-9 text-xs"
-              />
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Tagline / Motto</Label>
+                <Input
+                  placeholder="Business tagline..."
+                  value={formState.tagline}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      tagline: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Founded Year</Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 2014"
+                  value={formState.foundedYear}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      foundedYear: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Registration Number</Label>
+                <Input
+                  placeholder="RDB / NGO Reg No"
+                  value={formState.registrationNumber}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      registrationNumber: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">City</Label>
+                <Input
+                  placeholder="e.g. Musanze"
+                  value={formState.city}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      city: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Country</Label>
+                <Input
+                  placeholder="e.g. Rwanda"
+                  value={formState.country}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      country: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Physical Address</Label>
+                <Input
+                  placeholder="Street, Building..."
+                  value={formState.address}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      address: event.target.value,
+                    }))
+                  }
+                  className="h-9 text-xs"
+                />
+              </div>
             </div>
-          </div>
 
           <div className="space-y-1.5">
             <Label className="text-[11px]">About Business (Optional)</Label>
@@ -281,8 +379,6 @@ export default function RegisterPartnerPage() {
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[11px]">Internal Notes (Optional)</Label>
             <Textarea
               rows={2}
               placeholder="Example: Preferred for school package partnerships in Q2."
@@ -294,6 +390,17 @@ export default function RegisterPartnerPage() {
                 }))
               }
               className="text-xs"
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border">
+            <div className="space-y-0.5">
+              <Label className="text-xs font-bold">Public Visibility</Label>
+              <p className="text-[10px] text-muted-foreground">Display partner on the public directory.</p>
+            </div>
+            <Switch 
+              checked={formState.isPublic}
+              onCheckedChange={(v) => setFormState(prev => ({ ...prev, isPublic: v }))}
             />
           </div>
 

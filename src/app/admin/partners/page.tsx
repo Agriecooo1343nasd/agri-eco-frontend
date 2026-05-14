@@ -68,6 +68,7 @@ import {
   updateAdminPartner,
 } from "@/lib/api/partners";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -129,6 +130,15 @@ type EditPartnerFormState = {
   status: "pending" | "active" | "inactive";
   revenueShareRate: string;
   notes: string;
+  tagline: string;
+  logo: string;
+  city: string;
+  country: string;
+  address: string;
+  foundedYear: string;
+  teamSize: string;
+  registrationNumber: string;
+  isPublic: boolean;
 };
 
 export default function AdminPartnersPage() {
@@ -159,6 +169,15 @@ export default function AdminPartnersPage() {
     status: "pending",
     revenueShareRate: "0",
     notes: "",
+    tagline: "",
+    logo: "",
+    city: "",
+    country: "",
+    address: "",
+    foundedYear: "",
+    teamSize: "",
+    registrationNumber: "",
+    isPublic: false,
   });
 
   useEffect(() => {
@@ -341,6 +360,15 @@ export default function AdminPartnersPage() {
       status: partner.status,
       revenueShareRate: String(partner.revenueShareRate ?? 0),
       notes: partner.notes ?? "",
+      tagline: partner.tagline ?? "",
+      logo: partner.logo ?? "",
+      city: partner.city ?? "",
+      country: partner.country ?? "",
+      address: partner.address ?? "",
+      foundedYear: String(partner.foundedYear ?? ""),
+      teamSize: partner.teamSize ?? "",
+      registrationNumber: partner.registrationNumber ?? "",
+      isPublic: partner.isPublic ?? false,
     });
     setEditOpen(true);
   };
@@ -385,6 +413,15 @@ export default function AdminPartnersPage() {
         status: editFormState.status,
         revenueShareRate,
         notes: editFormState.notes.trim() || undefined,
+        tagline: editFormState.tagline.trim(),
+        logo: editFormState.logo.trim(),
+        city: editFormState.city.trim(),
+        country: editFormState.country.trim(),
+        address: editFormState.address.trim(),
+        foundedYear: editFormState.foundedYear ? parseInt(editFormState.foundedYear) : undefined,
+        teamSize: editFormState.teamSize.trim(),
+        registrationNumber: editFormState.registrationNumber.trim(),
+        isPublic: editFormState.isPublic,
       },
     });
   };
@@ -969,132 +1006,139 @@ export default function AdminPartnersPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid md:grid-cols-2 gap-4 text-xs">
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Business Name *</Label>
+                <Input
+                  value={editFormState.name}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, name: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Tagline / Motto</Label>
+                <Input
+                  value={editFormState.tagline}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, tagline: e.target.value }))}
+                  className="h-9 text-xs"
+                  placeholder="Business tagline..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Business Type *</Label>
+                <Select
+                  value={editFormState.type}
+                  onValueChange={(v: AdminPartnerType) => setEditFormState(prev => ({ ...prev, type: v }))}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tourism_operator">Tourism Operator</SelectItem>
+                    <SelectItem value="hospitality">Hospitality</SelectItem>
+                    <SelectItem value="business">Business</SelectItem>
+                    <SelectItem value="school">School</SelectItem>
+                    <SelectItem value="ngo">NGO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Status</Label>
+                <Select
+                  value={editFormState.status}
+                  onValueChange={(v: any) => setEditFormState(prev => ({ ...prev, status: v }))}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Contact Person *</Label>
+                <Input
+                  value={editFormState.contactName}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, contactName: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Email *</Label>
+                <Input
+                  value={editFormState.email}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, email: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Phone</Label>
+                <Input
+                  value={editFormState.phone}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, phone: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Founded Year</Label>
+                <Input
+                  type="number"
+                  value={editFormState.foundedYear}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, foundedYear: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">City</Label>
+                <Input
+                  value={editFormState.city}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, city: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px]">Country</Label>
+                <Input
+                  value={editFormState.country}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, country: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-[11px]">Address</Label>
+                <Input
+                  value={editFormState.address}
+                  onChange={(e) => setEditFormState(prev => ({ ...prev, address: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Name *</Label>
-              <Input
-                className="h-9 text-xs"
-                value={editFormState.name}
-                onChange={(event) =>
-                  setEditFormState((prev) => ({
-                    ...prev,
-                    name: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Contact Name *</Label>
-              <Input
-                className="h-9 text-xs"
-                value={editFormState.contactName}
-                onChange={(event) =>
-                  setEditFormState((prev) => ({
-                    ...prev,
-                    contactName: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Email *</Label>
-              <Input
-                className="h-9 text-xs"
-                type="email"
-                value={editFormState.email}
-                onChange={(event) =>
-                  setEditFormState((prev) => ({
-                    ...prev,
-                    email: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Phone</Label>
-              <Input
-                className="h-9 text-xs"
-                value={editFormState.phone}
-                onChange={(event) =>
-                  setEditFormState((prev) => ({
-                    ...prev,
-                    phone: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Business Type</Label>
-              <Select
-                value={editFormState.type}
-                onValueChange={(value: EditPartnerFormState["type"]) =>
-                  setEditFormState((prev) => ({ ...prev, type: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tourism_operator">
-                    Tourism Operator
-                  </SelectItem>
-                  <SelectItem value="hospitality">Hospitality</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="school">School</SelectItem>
-                  <SelectItem value="ngo">NGO</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px]">Status</Label>
-              <Select
-                value={editFormState.status}
-                onValueChange={(value: EditPartnerFormState["status"]) =>
-                  setEditFormState((prev) => ({ ...prev, status: value }))
-                }
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label className="text-[11px]">Revenue Share Rate (%)</Label>
-              <Input
-                className="h-9 text-xs"
-                type="number"
-                min="0"
-                max="100"
-                value={editFormState.revenueShareRate}
-                onChange={(event) =>
-                  setEditFormState((prev) => ({
-                    ...prev,
-                    revenueShareRate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label className="text-[11px]">Notes</Label>
+              <Label className="text-[11px]">Internal Notes</Label>
               <Textarea
-                rows={3}
-                className="text-xs"
+                rows={2}
                 value={editFormState.notes}
-                onChange={(event) =>
-                  setEditFormState((prev) => ({
-                    ...prev,
-                    notes: event.target.value,
-                  }))
-                }
+                onChange={(e) => setEditFormState(prev => ({ ...prev, notes: e.target.value }))}
+                className="text-xs"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold">Public Visibility</Label>
+                <p className="text-[10px] text-muted-foreground">Display partner on the public directory.</p>
+              </div>
+              <Switch
+                checked={editFormState.isPublic}
+                onCheckedChange={(v) => setEditFormState(prev => ({ ...prev, isPublic: v }))}
               />
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel

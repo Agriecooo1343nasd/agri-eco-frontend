@@ -406,22 +406,7 @@ export default function ProductDetailsPage() {
                     {product.stock || 0} {t(translations.productPage.unitsAvailable)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">{t(translations.productPage.delivery)}</span>
-                  <span className="text-muted-foreground">
-                    {t(translations.productPage.deliveryTime)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">
-                    {t(translations.productPage.guarantee)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {t(translations.productPage.organicCertified)}
-                  </span>
-                </div>
+                
               </div>
 
               <div className="flex flex-wrap items-center gap-4">

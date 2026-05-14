@@ -15,8 +15,39 @@ export interface AgentDashboardData {
   recentReturns: ReturnRecord[];
 }
 
+export interface WeeklyPerformance {
+  from: string;
+  to: string;
+  totalDeliveries: number;
+  totalPickups: number;
+  series: Array<{
+    date: string;
+    deliveries: number;
+    pickups: number;
+  }>;
+}
+
+export interface StatusBreakdown {
+  total: number;
+  breakdown: Array<{
+    status: string;
+    count: number;
+    percentage: number;
+  }>;
+}
+
 export async function fetchAgentDashboard(): Promise<AgentDashboardData> {
   const res = await apiClient.get<ApiSuccessResponse<AgentDashboardData>>("/agent/me/dashboard");
+  return res.data.data!;
+}
+
+export async function fetchAgentWeeklyPerformance(): Promise<WeeklyPerformance> {
+  const res = await apiClient.get<ApiSuccessResponse<WeeklyPerformance>>("/agent/me/performance/weekly");
+  return res.data.data!;
+}
+
+export async function fetchAgentStatusBreakdown(): Promise<StatusBreakdown> {
+  const res = await apiClient.get<ApiSuccessResponse<StatusBreakdown>>("/agent/me/performance/status-breakdown");
   return res.data.data!;
 }
 
@@ -29,10 +60,7 @@ export async function fetchAgentOrders(query?: string): Promise<{ data: Order[];
 }
 
 export async function fetchAgentOrderById(id: string): Promise<Order> {
-  // NOTE: This endpoint might need to be added by the backend dev.
-  // Using the admin endpoint as a fallback if the agent has permissions, 
-  // otherwise this will need a dedicated agent-specific detail route.
-  const res = await apiClient.get<ApiSuccessResponse<Order>>(`/orders/admin/${id}`);
+  const res = await apiClient.get<ApiSuccessResponse<Order>>(`/agent/me/orders/${id}`);
   return res.data.data!;
 }
 
@@ -69,8 +97,7 @@ export async function fetchAgentReturns(query?: string): Promise<{ data: ReturnR
 }
 
 export async function fetchAgentReturnById(id: string): Promise<ReturnRecord> {
-  // Using admin route for detail as agent specific one isn't clearly defined in agentRoutes
-  const res = await apiClient.get<ApiSuccessResponse<ReturnRecord>>(`/returns/admin/${id}`);
+  const res = await apiClient.get<ApiSuccessResponse<ReturnRecord>>(`/agent/me/returns/${id}`);
   return res.data.data!;
 }
 

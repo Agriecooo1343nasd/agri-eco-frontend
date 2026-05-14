@@ -67,6 +67,13 @@ export default function PartnerApplyPage() {
     website: "",
     twitter: "",
     linkedin: "",
+    tagline: "",
+    foundedYear: "",
+    city: "",
+    country: "",
+    address: "",
+    registrationNumber: "",
+    teamSize: "",
     image: "",
     links: [] as string[],
   });
@@ -90,10 +97,17 @@ export default function PartnerApplyPage() {
         publicDescription: (existing as any).publicDescription || "",
         location: (existing as any).location || "",
         website: (existing as any).website || "",
-        twitter: (existing as any).twitterUrl || "",
-        linkedin: (existing as any).linkedinUrl || "",
-        image: (existing as any).image || "",
-        links: (existing as any).links || [],
+        twitter: (existing as any).socialLinks?.twitter || (existing as any).twitterUrl || "",
+        linkedin: (existing as any).socialLinks?.linkedin || (existing as any).linkedinUrl || "",
+        tagline: (existing as any).tagline || "",
+        foundedYear: (existing as any).foundedYear || "",
+        city: (existing as any).city || "",
+        country: (existing as any).country || "",
+        address: (existing as any).address || "",
+        registrationNumber: (existing as any).registrationNumber || "",
+        teamSize: (existing as any).teamSize || "",
+        image: (existing as any).logo || (existing as any).image || "",
+        links: (existing as any).referenceUrls || (existing as any).links || [],
       });
       if (existing.status !== "none") setAgreed(true);
     }
@@ -130,9 +144,7 @@ export default function PartnerApplyPage() {
       router.push("/account/partner");
     },
     onError: (error: Error) => {
-      toast.error("Failed to submit application", {
-        description: error.message || "Please try again.",
-      });
+      console.log("something went wrong")
     },
   });
 
@@ -166,8 +178,16 @@ export default function PartnerApplyPage() {
       website: form.website.trim(),
       twitterUrl: form.twitter.trim(),
       linkedinUrl: form.linkedin.trim(),
-      image: form.image,
-      links: form.links,
+      tagline: form.tagline.trim(),
+      foundedYear: form.foundedYear ? parseInt(form.foundedYear) : undefined,
+      city: form.city.trim(),
+      country: form.country.trim(),
+      address: form.address.trim(),
+      registrationNumber: form.registrationNumber.trim(),
+      teamSize: form.teamSize.trim(),
+      logo: form.image,
+      referenceUrls: form.links,
+      agreedToTerms: agreed,
     });
   };
 
@@ -251,6 +271,18 @@ export default function PartnerApplyPage() {
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Tagline / Motto
+                </Label>
+                <Input
+                  placeholder="Example: Sourcing the best for you"
+                  value={form.tagline}
+                  onChange={(e) => setForm((prev) => ({ ...prev, tagline: e.target.value }))}
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   {t(translations.partnerPage.businessType)} *
                 </Label>
                 <Select
@@ -304,6 +336,91 @@ export default function PartnerApplyPage() {
                     disabled={isLocked}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Founded Year
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 2014"
+                  value={form.foundedYear}
+                  onChange={(e) => setForm((prev) => ({ ...prev, foundedYear: e.target.value }))}
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Registration Number
+                </Label>
+                <Input
+                  placeholder="RDB / NGO Reg No"
+                  value={form.registrationNumber}
+                  onChange={(e) => setForm((prev) => ({ ...prev, registrationNumber: e.target.value }))}
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Team Size
+                </Label>
+                <Select
+                  value={form.teamSize}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, teamSize: value }))}
+                  disabled={isLocked}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1-5">1-5 Employees</SelectItem>
+                    <SelectItem value="6-20">6-20 Employees</SelectItem>
+                    <SelectItem value="21-50">21-50 Employees</SelectItem>
+                    <SelectItem value="51-100">51-100 Employees</SelectItem>
+                    <SelectItem value="100+">100+ Employees</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  City / Town *
+                </Label>
+                <Input
+                  placeholder="e.g. Musanze"
+                  value={form.city}
+                  onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+                  required
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Country *
+                </Label>
+                <Input
+                  placeholder="e.g. Rwanda"
+                  value={form.country}
+                  onChange={(e) => setForm((prev) => ({ ...prev, country: e.target.value }))}
+                  required
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Full Physical Address
+                </Label>
+                <Input
+                  placeholder="Street No, Building, Floor..."
+                  value={form.address}
+                  onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
+                  disabled={isLocked}
+                />
               </div>
 
               {/* Logo upload — spans full width on mobile, half on md */}

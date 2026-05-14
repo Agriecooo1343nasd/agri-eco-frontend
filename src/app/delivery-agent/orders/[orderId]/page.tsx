@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { 
   fetchAgentOrderById, 
@@ -24,7 +25,8 @@ import {
   Clock, 
   AlertCircle,
   Truck,
-  QrCode
+  QrCode,
+  MessageSquare
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -37,6 +39,8 @@ export default function DeliveryOrderDetails({
   const queryClient = useQueryClient();
   const [note, setNote] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ["agent-order", orderId],
@@ -44,11 +48,13 @@ export default function DeliveryOrderDetails({
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: ({ status, note }: { status: any; note?: string }) => 
+    mutationFn: ({ status, note }: { status: "picked_up" | "in_transit" | "failed"; note?: string }) => 
       updateAgentDeliveryStatus(orderId, status, note),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agent-order", orderId] });
-      toast.success("Delivery status updated successfully");
+      toast.success("Status updated successfully");
+      setReportOpen(false);
+      setReportReason("");
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to update status");
@@ -81,7 +87,7 @@ export default function DeliveryOrderDetails({
   if (error || !order) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-8 text-center">
-        <div className="p-4 bg-destructive/10 rounded-full">
+        <div className="p-4 bg-destructive/10 rounded-sm">
           <AlertCircle className="h-8 w-8 text-destructive" />
         </div>
         <div>
@@ -97,12 +103,33 @@ export default function DeliveryOrderDetails({
     );
   }
 
-  const isDelivered = order.status === "DELIVERED";
-  const isCancelled = order.status === "CANCELLED";
+  const status = order.status.toLowerCase();
+  const isDelivered = status === "delivered";
+  const isCancelled = status === "cancelled";
+  const isOutForDelivery = status === "out_for_delivery";
+  const isProcessing = status === "processing";
+  
+  const canPickUp = !isDelivered && !isCancelled && !isOutForDelivery && status !== "picked_up";
+  const canGoOut = !isDelivered && !isCancelled && !isOutForDelivery;
+  
   const statusLabel = order.status.replace(/_/g, " ");
 
+  const handleSaveNote = () => {
+    if (!note.trim()) return toast.error("Please enter a note");
+    
+    // Determine the correct status to send based on current order state
+    // We must send one of the allowed enums: 'picked_up', 'in_transit', 'failed'
+    let statusToSend: "picked_up" | "in_transit" = "picked_up";
+    if (isOutForDelivery) {
+      statusToSend = "in_transit";
+    }
+    
+    updateStatusMutation.mutate({ status: statusToSend, note });
+    setNote("");
+  };
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 ">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -126,7 +153,6 @@ export default function DeliveryOrderDetails({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Customer & Address Info */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-sm border-border/60 rounded-2xl overflow-hidden">
             <CardHeader className="bg-muted/30 border-b border-border/40 py-4">
@@ -182,7 +208,6 @@ export default function DeliveryOrderDetails({
             </CardContent>
           </Card>
 
-          {/* Workflow Actions */}
           {!isDelivered && !isCancelled && (
             <Card className="shadow-sm border-border/60 rounded-2xl overflow-hidden">
               <CardHeader className="bg-muted/30 border-b border-border/40 py-4">
@@ -196,25 +221,22 @@ export default function DeliveryOrderDetails({
                     variant="outline" 
                     className="rounded-xl h-10 px-6 text-[10px] font-black uppercase tracking-widest border-2"
                     onClick={() => updateStatusMutation.mutate({ status: "picked_up" })}
-                    disabled={updateStatusMutation.isPending || order.status === "OUT_FOR_DELIVERY"}
+                    disabled={updateStatusMutation.isPending || !canPickUp}
                   >
-                    <Package className="mr-2 h-4 w-4" /> Mark Picked Up
+                    <Package className="mr-2 h-4 w-4" /> {status === 'picked_up' || isProcessing ? "Already Picked Up" : "Mark Picked Up"}
                   </Button>
                   <Button 
                     variant="outline" 
                     className="rounded-xl h-10 px-6 text-[10px] font-black uppercase tracking-widest border-2"
                     onClick={() => updateStatusMutation.mutate({ status: "in_transit" })}
-                    disabled={updateStatusMutation.isPending || order.status === "OUT_FOR_DELIVERY"}
+                    disabled={updateStatusMutation.isPending || isOutForDelivery || !canGoOut}
                   >
-                    <Truck className="mr-2 h-4 w-4" /> Out for Delivery
+                    <Truck className="mr-2 h-4 w-4" /> {isOutForDelivery ? "In Transit" : "Out for Delivery"}
                   </Button>
                   <Button 
                     variant="destructive" 
                     className="rounded-xl h-10 px-6 text-[10px] font-black uppercase tracking-widest"
-                    onClick={() => {
-                      const reason = prompt("Reason for delivery failure:");
-                      if (reason) updateStatusMutation.mutate({ status: "failed", note: reason });
-                    }}
+                    onClick={() => setReportOpen(true)}
                     disabled={updateStatusMutation.isPending}
                   >
                     <AlertCircle className="mr-2 h-4 w-4" /> Report Issue
@@ -232,12 +254,10 @@ export default function DeliveryOrderDetails({
                   <Button 
                     size="sm" 
                     className="rounded-lg text-[10px] font-black uppercase tracking-widest px-4 h-9"
-                    onClick={() => {
-                      if (!note) return toast.error("Please enter a note");
-                      updateStatusMutation.mutate({ status: order.status.toLowerCase(), note });
-                      setNote("");
-                    }}
+                    onClick={handleSaveNote}
+                    disabled={updateStatusMutation.isPending}
                   >
+                    {updateStatusMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
                     Save Note
                   </Button>
                 </div>
@@ -246,7 +266,6 @@ export default function DeliveryOrderDetails({
           )}
         </div>
 
-        {/* Timeline Sidebar */}
         <div className="space-y-6">
           <Card className="shadow-sm border-border/60 rounded-2xl overflow-hidden h-fit">
             <CardHeader className="bg-muted/30 border-b border-border/40 py-4">
@@ -258,7 +277,7 @@ export default function DeliveryOrderDetails({
               <div className="relative space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-muted">
                 {order.timeline?.map((event: any, i: number) => (
                   <div key={i} className="relative pl-8">
-                    <div className={`absolute left-0 top-1 h-5 w-5 rounded-full border-4 border-background flex items-center justify-center ${i === 0 ? "bg-primary" : "bg-muted-foreground/30"}`}>
+                    <div className={`absolute left-0 top-1 h-5 w-5 rounded-sm border-4 border-background flex items-center justify-center ${i === 0 ? "bg-primary" : "bg-muted-foreground/30"}`}>
                       {i === 0 && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
                     </div>
                     <div className="space-y-1">
@@ -275,6 +294,41 @@ export default function DeliveryOrderDetails({
           </Card>
         </div>
       </div>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" /> Report Delivery Issue
+            </DialogTitle>
+            <DialogDescription className="text-[10px] font-bold uppercase tracking-wider">
+              Please describe the problem you encountered during delivery.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea 
+              placeholder="e.g. Customer not reachable, incorrect address, package damaged..." 
+              className="rounded-xl text-[11px] font-bold uppercase tracking-wider min-h-[120px]"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl text-[10px] font-black uppercase tracking-widest" onClick={() => setReportOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              className="rounded-xl text-[10px] font-black uppercase tracking-widest"
+              disabled={!reportReason.trim() || updateStatusMutation.isPending}
+              onClick={() => updateStatusMutation.mutate({ status: "failed", note: reportReason })}
+            >
+              {updateStatusMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <MessageSquare className="h-3 w-3 mr-2" />}
+              Submit Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <QrScannerDialog
         open={scanOpen}

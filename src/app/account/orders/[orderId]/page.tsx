@@ -237,17 +237,18 @@ export default function OrderDetailsPage({
   }
 
   const downloadQRCode = () => {
-    if (!order.qrCodeDataUrl) return;
-    const link = document.createElement("a");
-    link.href = order.qrCodeDataUrl;
-    link.download = `order-qr-${order.orderNumber}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("QR Code Downloaded", {
-      description: "You can use this QR code at our collection points."
-    });
-  };
+  if (!order.qrCodeDataUrl) return;
+
+  const link = document.createElement("a");
+  link.href = order.qrCodeDataUrl;
+  link.download = `AgriEco-Order-${order.orderNumber}.png`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  toast.success("QR Code Downloaded");
+};
 
   // Helper to map backend status to UI color
   const getStatusColor = (status: string) => {

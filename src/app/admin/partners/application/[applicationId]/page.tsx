@@ -182,25 +182,112 @@ export default function PartnerApplicationDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4 space-y-2 text-xs">
-            <h2 className="text-sm font-semibold">Business Summary</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              {application.description || "-"}
-            </p>
+        <Card className="md:col-span-2">
+          <CardContent className="p-4 space-y-4 text-xs">
+            <h2 className="text-sm font-semibold border-b pb-2">Business Profile & Details</h2>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                {application.logo && (
+                  <div>
+                    <span className="text-muted-foreground block mb-1">Logo:</span>
+                    <img src={application.logo} alt="Logo" className="h-16 w-16 object-contain border rounded bg-white" />
+                  </div>
+                )}
+                <p>
+                  <span className="text-muted-foreground">Tagline:</span>{" "}
+                  {application.tagline || "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Founded Year:</span>{" "}
+                  {application.foundedYear || "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Team Size:</span>{" "}
+                  {application.teamSize || "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Registration Number:</span>{" "}
+                  {application.registrationNumber || "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Website:</span>{" "}
+                  {application.website || application.socialLinks?.website ? (
+                    <a href={application.website || application.socialLinks?.website} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                      {application.website || application.socialLinks?.website}
+                    </a>
+                  ) : "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Terms Agreed:</span>{" "}
+                  {application.agreedToTerms ? "Yes" : "No"}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <p>
+                  <span className="text-muted-foreground">City:</span>{" "}
+                  {application.city || "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Country:</span>{" "}
+                  {application.country || "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Address:</span>{" "}
+                  {application.address || "-"}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Form Location:</span>{" "}
+                  {application.location || "-"}
+                </p>
+                
+                {application.referenceUrls && application.referenceUrls.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground block mb-1">Reference Links:</span>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {application.referenceUrls.map((url, i) => (
+                        <li key={i}>
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+                            {url}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <span className="text-muted-foreground block mb-1">Public Description (or About):</span>
+              <p className="leading-relaxed bg-muted/20 p-3 rounded border">
+                {application.publicDescription || application.aboutCompany || application.description || "No description provided."}
+              </p>
+            </div>
+
+            {application.internalMessage && (
+              <div className="pt-2">
+                <span className="text-muted-foreground block mb-1 text-amber-600 font-medium">Internal Message / Partnership Goals:</span>
+                <p className="leading-relaxed bg-amber-500/10 text-amber-900 dark:text-amber-200 p-3 rounded border border-amber-500/20 italic">
+                  {application.internalMessage}
+                </p>
+              </div>
+            )}
+
             {application.reviewedAt && (
-              <>
+              <div className="pt-4 border-t mt-4">
                 <p>
                   <span className="text-muted-foreground">Reviewed:</span>{" "}
                   {formatDate(application.reviewedAt)}
                 </p>
                 {application.reviewNote && (
-                  <p>
-                    <span className="text-muted-foreground">Note:</span>{" "}
+                  <p className="mt-1">
+                    <span className="text-muted-foreground">Admin Note:</span>{" "}
                     {application.reviewNote}
                   </p>
                 )}
-              </>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -2,7 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchAgentDashboard } from "@/lib/api/agent";
+import { 
+  fetchAgentDashboard, 
+  fetchAgentWeeklyPerformance, 
+  fetchAgentStatusBreakdown 
+} from "@/lib/api/agent";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis } from "recharts";
 import Link from "next/link";
@@ -11,15 +15,25 @@ import { Loader2, Package, Truck, CheckCircle2, XCircle, RotateCcw } from "lucid
 import { Badge } from "@/components/ui/badge";
 
 export default function DeliveryAgentHome() {
-  const { data, isLoading } = useQuery({
+  const { data: dashboardData, isLoading: isLoadingDashboard } = useQuery({
     queryKey: ["agent-dashboard"],
     queryFn: fetchAgentDashboard,
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 60000,
   });
 
-  const stats = data?.stats;
-  const recentOrders = data?.recentOrders || [];
-  const recentReturns = data?.recentReturns || [];
+  const { data: weeklyPerformance, isLoading: isLoadingWeekly } = useQuery({
+    queryKey: ["agent-weekly-performance"],
+    queryFn: fetchAgentWeeklyPerformance,
+  });
+
+  const { data: statusBreakdown, isLoading: isLoadingBreakdown } = useQuery({
+    queryKey: ["agent-status-breakdown"],
+    queryFn: fetchAgentStatusBreakdown,
+  });
+
+  const stats = dashboardData?.stats;
+  const recentOrders = dashboardData?.recentOrders || [];
+  const recentReturns = dashboardData?.recentReturns || [];
 
   const kpis = [
     { label: "Active Assignments", value: stats?.totalAssigned ?? 0, icon: Package, color: "text-blue-600" },
@@ -28,24 +42,23 @@ export default function DeliveryAgentHome() {
     { label: "Pending Returns", value: stats?.pendingPickups ?? 0, icon: RotateCcw, color: "text-purple-600" },
   ];
 
-  // NOTE: Backend currently lacks real data for status breakdown and weekly performance.
-  // Using static placeholders as per user instruction for missing features.
-  const statusData = [
-    { status: "Assigned", count: stats?.totalAssigned ?? 0, fill: "#3b82f6" },
-    { status: "In Transit", count: stats?.inTransit ?? 0, fill: "#f59e0b" },
-    { status: "Delivered", count: stats?.deliveredToday ?? 0, fill: "#10b981" },
-    { status: "Failed", count: stats?.failedOrders ?? 0, fill: "#ef4444" },
-  ];
+  const statusData = (statusBreakdown?.breakdown || []).map((b) => ({
+    status: b.status.replace(/_/g, ' '),
+    count: b.count,
+    fill: 
+      b.status === "delivered" ? "#10b981" : 
+      b.status === "cancelled" ? "#ef4444" :
+      b.status === "out_for_delivery" ? "#f59e0b" :
+      b.status === "processing" ? "#3b82f6" : "#6b7280"
+  }));
 
-  const weekly = [
-    { day: "Mon", deliveries: 4, pickups: 1 },
-    { day: "Tue", deliveries: 5, pickups: 2 },
-    { day: "Wed", deliveries: 3, pickups: 1 },
-    { day: "Thu", deliveries: 6, pickups: 2 },
-    { day: "Fri", deliveries: 5, pickups: 3 },
-    { day: "Sat", deliveries: 2, pickups: 1 },
-    { day: "Sun", deliveries: 1, pickups: 0 },
-  ];
+  const weekly = (weeklyPerformance?.series || []).map((s) => ({
+    day: new Date(s.date).toLocaleDateString('en-US', { weekday: 'short' }),
+    deliveries: s.deliveries,
+    pickups: s.pickups,
+  }));
+
+  const isLoading = isLoadingDashboard || isLoadingWeekly || isLoadingBreakdown;
 
   if (isLoading) {
     return (
