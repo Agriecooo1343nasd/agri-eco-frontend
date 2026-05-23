@@ -1,10 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import Link from "next/link";
+import {
+  Truck,
+  Search,
+  Loader2,
+  Inbox,
+  Filter,
+  CheckCircle2,
+  Clock,
+  Package,
+  RotateCcw,
+  AlertTriangle,
+  XCircle,
+  MoreHorizontal,
+  ChevronDown,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -21,254 +44,299 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { deliveryAgents, listDeliveryOrders, listReturns } from "@/lib/api/operations";
-import type { DeliveryOrder, ReturnRequest } from "@/data/operations-mock";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  fetchDeliveryAssignments,
+  fetchDeliveryAssignmentStats,
+  cancelDeliveryAssignment,
+  DeliveryAssignmentStatus,
+  DeliveryAssignmentTargetType,
+  type DeliveryAssignmentRecord,
+} from "@/lib/api/returns";
+import { toast } from "sonner";
 
-export default function AdminDeliveryPage() {
-  const [orders, setOrders] = useState<DeliveryOrder[]>([]);
-  const [returns, setReturns] = useState<ReturnRequest[]>([]);
-  const [type, setType] = useState<"all" | "orders" | "returns">("all");
-  const [agent, setAgent] = useState<string>("all");
-  const [status, setStatus] = useState<string>("all");
+const statusStyles: Record<string, string> = {
+  [DeliveryAssignmentStatus.ASSIGNED]: "bg-amber-100 text-amber-700 border-amber-200",
+  [DeliveryAssignmentStatus.PICKED_UP]: "bg-blue-100 text-blue-700 border-blue-200",
+  [DeliveryAssignmentStatus.IN_TRANSIT]: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  [DeliveryAssignmentStatus.DELIVERED]: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  [DeliveryAssignmentStatus.RETURNED_TO_WAREHOUSE]: "bg-teal-100 text-teal-700 border-teal-200",
+  [DeliveryAssignmentStatus.CANCELLED]: "bg-rose-100 text-rose-700 border-rose-200",
+};
+
+const statusIcons: Record<string, any> = {
+  [DeliveryAssignmentStatus.ASSIGNED]: Clock,
+  [DeliveryAssignmentStatus.PICKED_UP]: Package,
+  [DeliveryAssignmentStatus.IN_TRANSIT]: Truck,
+  [DeliveryAssignmentStatus.DELIVERED]: CheckCircle2,
+  [DeliveryAssignmentStatus.RETURNED_TO_WAREHOUSE]: RotateCcw,
+  [DeliveryAssignmentStatus.CANCELLED]: XCircle,
+};
+
+function getAgentName(a: DeliveryAssignmentRecord) {
+  if (!a.agent) return "Not Assigned";
+  return [a.agent.firstName, a.agent.lastName].filter(Boolean).join(" ") || a.agent.username || a.agent.email || "Agent";
+}
+
+export default function AdminDeliveryOpsPage() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  const refresh = async () => {
-    const [o, r] = await Promise.all([listDeliveryOrders(), listReturns()]);
-    setOrders(o);
-    setReturns(r);
-  };
-  useEffect(() => {
-    void refresh();
-  }, []);
+  const { data: assignmentsData, isLoading, isError } = useQuery({
+    queryKey: ["admin-delivery-assignments", statusFilter, typeFilter, search, page],
+    queryFn: () =>
+      fetchDeliveryAssignments({
+        page,
+        limit,
+        status: statusFilter,
+        targetType: typeFilter,
+        search,
+      }),
+    placeholderData: keepPreviousData,
+  });
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const unified: Array<
-      | {
-          kind: "order";
-          id: string;
-          ref: string;
-          customer: string;
-          agent: string;
-          status: string;
-          secondary?: string;
-        }
-      | {
-          kind: "return";
-          id: string;
-          ref: string;
-          customer: string;
-          agent: string | undefined;
-          status: string;
-          secondary?: string;
-        }
-    > = [
-      ...orders.map((o) => ({
-        kind: "order" as const,
-        id: o.id,
-        ref: o.orderId,
-        customer: o.customer,
-        agent: o.assignedAgent,
-        status: o.status,
-        secondary: o.address,
-      })),
-      ...returns
-        .filter((r) => !!r.assignedAgent)
-        .map((r) => ({
-          kind: "return" as const,
-          id: r.id,
-          ref: r.orderId,
-          customer: r.buyer,
-          agent: r.assignedAgent,
-          status: r.agentStatus ?? "Pending pickup",
-          secondary: r.product,
-        })),
-    ];
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ["admin-delivery-stats"],
+    queryFn: fetchDeliveryAssignmentStats,
+  });
 
-    let out = unified;
-    if (type !== "all") out = out.filter((r) => (type === "orders" ? r.kind === "order" : r.kind === "return"));
-    if (agent !== "all") out = out.filter((r) => r.agent === agent);
-    if (status !== "all") out = out.filter((r) => r.status === status);
-    if (q) {
-      out = out.filter((r) => {
-        const hay = `${r.id} ${r.ref} ${r.customer} ${r.agent ?? ""} ${r.secondary ?? ""}`.toLowerCase();
-        return hay.includes(q);
-      });
-    }
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) => cancelDeliveryAssignment(id, "Cancelled by Admin"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-delivery-assignments"] });
+      qc.invalidateQueries({ queryKey: ["admin-delivery-stats"] });
+      toast.success("Assignment Cancelled");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Failed to cancel"),
+  });
 
-    // Stable-ish ordering: orders first, then returns; within each, by ref desc.
-    return [...out].sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === "order" ? -1 : 1;
-      return String(b.ref).localeCompare(String(a.ref));
-    });
-  }, [agent, orders, returns, search, status, type]);
+  const assignments = assignmentsData?.data ?? [];
+  const pagination = assignmentsData?.pagination;
+  const pages = pagination?.pages ?? 1;
 
-  const pages = Math.max(1, Math.ceil(rows.length / limit));
-  const pageRows = useMemo(() => {
-    const start = (page - 1) * limit;
-    return rows.slice(start, start + limit);
-  }, [page, rows]);
-
-  const statusOptions = useMemo(() => {
-    const base =
-      type === "returns"
-        ? ["Pending pickup", "Picked up", "Returned to warehouse"]
-        : type === "orders"
-          ? ["Assigned", "Picked up", "In transit", "Delivered", "Failed"]
-          : ["Assigned", "Picked up", "In transit", "Delivered", "Failed", "Pending pickup", "Returned to warehouse"];
-    return Array.from(new Set(base));
-  }, [type]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [type, agent, status, search]);
+  if (isLoading && !assignmentsData) {
+    return (
+      <div className="py-20 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 text-primary animate-spin" />
+        <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Loading operations…</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 text-xs">
-      <h1 className="text-2xl font-bold font-heading">Delivery Ops</h1>
-      <p className="text-muted-foreground">
-        Track assigned deliveries and approved return pickups. Assignment happens inside the order / return details pages.
-      </p>
+    <div className="space-y-6 text-xs animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black font-heading text-foreground uppercase tracking-tight">
+            Delivery Operations
+          </h1>
+          <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mt-1">
+            {pagination?.total || 0} active assignments · {statsData?.totalActive || 0} in progress
+          </p>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Tracking dashboard</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-12">
-            <div className="md:col-span-5">
-              <Input
-                placeholder="Search by ID, order, customer, agent, product, address…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Select value={type} onValueChange={(v) => setType(v as any)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="orders">Orders</SelectItem>
-                  <SelectItem value="returns">Returns</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-3">
-              <Select value={agent} onValueChange={setAgent}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Agent" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All agents</SelectItem>
-                  {deliveryAgents.map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2">
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {statusOptions.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { label: "Active Orders", count: statsData?.byTargetType?.order?.assigned || 0, icon: Package, color: "text-blue-600" },
+          { label: "Active Returns", count: statsData?.byTargetType?.return?.assigned || 0, icon: RotateCcw, color: "text-amber-600" },
+          { label: "In Transit", count: statsData?.totalActive || 0, icon: Truck, color: "text-indigo-600" },
+          { label: "Delivered (Today)", count: statsData?.byTargetType?.order?.delivered || 0, icon: CheckCircle2, color: "text-emerald-600" },
+        ].map((stat, i) => (
+          <Card key={i} className="border-border shadow-sm">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{stat.label}</p>
+                <p className="text-xl font-black mt-1">{stat.count}</p>
+              </div>
+              <div className={cn("p-2 rounded-lg bg-muted/50", stat.color)}>
+                <stat.icon className="h-5 w-5" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pageRows.map((r) => (
-                  <TableRow key={`${r.kind}-${r.id}`}>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 bg-card border border-border p-3 rounded-md shadow-sm">
+        <div className="flex items-center border border-border rounded-lg bg-background flex-1 max-w-xs focus-within:ring-2 focus-within:ring-primary/20">
+          <Search className="h-4 w-4 ml-3 text-muted-foreground" />
+          <input
+            className="flex-1 px-3 py-2 text-xs bg-transparent outline-none"
+            placeholder="Search reference…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-40 h-9 text-xs bg-white border-border/60 shadow-sm rounded-lg">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {Object.values(DeliveryAssignmentStatus).map((s) => (
+              <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-40 h-9 text-xs bg-white border-border/60 shadow-sm rounded-lg">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="order">Orders</SelectItem>
+            <SelectItem value="return">Returns</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {(statusFilter !== "all" || typeFilter !== "all" || search !== "") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 px-4 text-[10px] font-black uppercase tracking-widest text-destructive"
+            onClick={() => { setStatusFilter("all"); setTypeFilter("all"); setSearch(""); setPage(1); }}
+          >
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="bg-white border border-border/60 rounded-md overflow-hidden shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/30 border-b border-border/40 hover:bg-muted/30">
+              <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground py-4 pl-6">Type</TableHead>
+              <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Reference</TableHead>
+              <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Status</TableHead>
+              <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Agent</TableHead>
+              <TableHead className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Assigned At</TableHead>
+              <TableHead className="w-12 pr-6" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {assignments.length > 0 ? (
+              assignments.map((a) => {
+                const StatusIcon = statusIcons[a.status] || Clock;
+                const isOrder = a.targetType === DeliveryAssignmentTargetType.ORDER;
+                const detailLink = isOrder ? `/admin/orders/${a.targetId}` : `/admin/returns/${a.targetId}`;
+
+                return (
+                  <TableRow key={a.id} className="hover:bg-muted/5 transition-colors border-b border-border/40 last:border-0">
+                    <TableCell className="py-4 pl-6">
+                      <Badge variant="outline" className={cn(
+                        "text-[9px] font-black uppercase tracking-widest py-0.5 px-2 rounded-lg border-none shadow-none",
+                        isOrder ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"
+                      )}>
+                        {a.targetType}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{r.kind === "order" ? "Order" : "Return"}</Badge>
+                      <Link
+                        href={detailLink}
+                        className="font-black text-[11px] text-foreground hover:underline decoration-primary underline-offset-4"
+                      >
+                        {a.targetReference}
+                      </Link>
                     </TableCell>
-                    <TableCell className="font-medium whitespace-nowrap">{r.id}</TableCell>
-                    <TableCell className="font-medium whitespace-nowrap">{r.ref}</TableCell>
-                    <TableCell className="min-w-[180px]">{r.customer}</TableCell>
-                    <TableCell className="min-w-[140px]">{r.agent ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{r.status}</Badge>
+                      <Badge className={cn(
+                        "text-[9px] font-black uppercase tracking-widest py-0.5 px-2.5 rounded-lg border shadow-none",
+                        statusStyles[a.status] || "bg-muted text-muted-foreground"
+                      )}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {a.status.replace(/_/g, " ")}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground min-w-[220px]">{r.secondary ?? "—"}</TableCell>
-                  </TableRow>
-                ))}
-
-                {!pageRows.length && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                      No assignments found.
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-[11px]">{getAgentName(a)}</span>
+                        {a.agent?.email && <span className="text-[9px] text-muted-foreground">{a.agent.email}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-bold text-[11px] text-muted-foreground">
+                      {new Date(a.assignedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl border-border">
+                          <DropdownMenuItem asChild>
+                            <Link href={detailLink} className="cursor-pointer">View Target Details</Link>
+                          </DropdownMenuItem>
+                          {a.status !== DeliveryAssignmentStatus.CANCELLED && (
+                            <DropdownMenuItem
+                              onClick={() => cancelMutation.mutate(a.id)}
+                              className="text-destructive focus:text-destructive cursor-pointer"
+                              disabled={cancelMutation.isPending}
+                            >
+                              Cancel Assignment
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="py-24 text-center">
+                  <div className="flex flex-col items-center justify-center gap-4 text-muted-foreground/30">
+                    <Inbox className="h-10 w-10" />
+                    <p className="text-[11px] font-black uppercase tracking-widest">No operations found</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
 
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-muted-foreground">
-              Showing <span className="font-medium text-foreground">{pageRows.length}</span> of{" "}
-              <span className="font-medium text-foreground">{rows.length}</span>
+        {assignments.length > 0 && pagination && (
+          <div className="border-t border-border/40 px-6 py-4 flex items-center justify-between bg-muted/5">
+            <p className="text-[11px] text-muted-foreground font-black uppercase tracking-widest">
+              Page {pagination.page} of {pagination.pages}
             </p>
-            <Pagination>
-              <PaginationContent>
+            <Pagination className="justify-end mx-0 w-auto">
+              <PaginationContent className="gap-1.5">
                 <PaginationItem>
                   <PaginationPrevious
                     href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setPage((p) => Math.max(1, p - 1));
-                    }}
-                    aria-disabled={page <= 1}
-                    className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+                    onClick={(e) => { e.preventDefault(); if (page > 1) setPage(p => p - 1); }}
+                    className={cn("h-9 px-3 rounded-lg border-border/60 font-bold text-[10px] uppercase tracking-widest", page <= 1 && "pointer-events-none opacity-50")}
                   />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#" onClick={(e) => e.preventDefault()}>
-                    {page} / {pages}
-                  </PaginationLink>
                 </PaginationItem>
                 <PaginationItem>
                   <PaginationNext
                     href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setPage((p) => Math.min(pages, p + 1));
-                    }}
-                    aria-disabled={page >= pages}
-                    className={page >= pages ? "pointer-events-none opacity-50" : ""}
+                    onClick={(e) => { e.preventDefault(); if (page < pages) setPage(p => p + 1); }}
+                    className={cn("h-9 px-3 rounded-lg border-border/60 font-bold text-[10px] uppercase tracking-widest", page >= pages && "pointer-events-none opacity-50")}
                   />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   );
 }

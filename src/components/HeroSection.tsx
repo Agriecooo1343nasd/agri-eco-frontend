@@ -20,6 +20,9 @@ import Image from "next/image";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
+import { useFeatures } from "@/context/FeatureContext";
+import type { FeatureKey } from "@/lib/api/settings";
+
 const getSlides = (t: any) => [
   {
     id: "organic-ecommerce",
@@ -30,6 +33,7 @@ const getSlides = (t: any) => [
     href: "/shop",
     icon: ShoppingBag,
     badge: t(translations.hero.organic.cta),
+    feature: "shopping" as FeatureKey,
   },
   {
     id: "beekeeping",
@@ -40,6 +44,7 @@ const getSlides = (t: any) => [
     href: "/beekeeping",
     icon: Flower2,
     badge: t(translations.sections.beekeeping.badge),
+    feature: "tours" as FeatureKey,
   },
   {
     id: "training",
@@ -50,6 +55,7 @@ const getSlides = (t: any) => [
     href: "/education",
     icon: GraduationCap,
     badge: t(translations.hero.training.cta),
+    feature: "training" as FeatureKey,
   },
   {
     id: "partners-artisans",
@@ -70,27 +76,35 @@ const getSlides = (t: any) => [
     href: "/tours",
     icon: Calendar,
     badge: t(translations.hero.tours.cta),
+    feature: "tours" as FeatureKey,
   },
 ];
 
 const HeroSection = () => {
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
   const [current, setCurrent] = useState(0);
-  const slides = getSlides(t);
+  
+  const slides = getSlides(t).filter(
+    (slide) => !slide.feature || isFeatureEnabled(slide.feature)
+  );
 
   useEffect(() => {
+    if (slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   useEffect(() => {
     slides.forEach((slide) => {
       const img = new window.Image();
       img.src = slide.image;
     });
-  }, []);
+  }, [slides]);
+
+  if (slides.length === 0) return null;
 
   return (
     <section className="relative overflow-hidden">
@@ -194,82 +208,90 @@ const HeroSection = () => {
       {/* Quick access cards */}
       <div className="container py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link
-            href="/tours"
-            className="bg-banner-green rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
-          >
-            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <Tent className="h-7 w-7" />
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                {t(translations.header.nav.tours)}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t(translations.hero.tours.title)}
-              </p>
-              <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
-              </span>
-            </div>
-          </Link>
-          <Link
-            href="/shop"
-            className="bg-banner-cream rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
-          >
-            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <LeafyGreen className="h-7 w-7" />
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                {t(translations.sections.ourProducts.title)}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t(translations.sections.ourProducts.sub).split(',')[0]}
-              </p>
-              <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                {t(translations.sections.ourProducts.exploreShop)} <ArrowRight className="h-3 w-3" />
-              </span>
-            </div>
-          </Link>
-          <Link
-            href="/beekeeping"
-            className="bg-banner-green rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
-          >
-            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <Flower2 className="h-7 w-7" />
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                {t(translations.header.nav.beekeeping)}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t(translations.sections.beekeeping.honeyTasting.title)}
-              </p>
-              <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
-              </span>
-            </div>
-          </Link>
-          <Link
-            href="/education"
-            className="bg-banner-cream rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
-          >
-            <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <BookOpen className="h-7 w-7" />
-            </div>
-            <div>
-              <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
-                {t(translations.header.nav.education)}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t(translations.hero.training.title)}
-              </p>
-              <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
-              </span>
-            </div>
-          </Link>
+          {isFeatureEnabled("tours") && (
+            <Link
+              href="/tours"
+              className="bg-banner-green rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
+            >
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <Tent className="h-7 w-7" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
+                  {t(translations.header.nav.tours)}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t(translations.hero.tours.title)}
+                </p>
+                <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                  {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
+                </span>
+              </div>
+            </Link>
+          )}
+          {isFeatureEnabled("shopping") && (
+            <Link
+              href="/shop"
+              className="bg-banner-cream rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
+            >
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <LeafyGreen className="h-7 w-7" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
+                  {t(translations.sections.ourProducts.title)}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t(translations.sections.ourProducts.sub).split(',')[0]}
+                </p>
+                <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                  {t(translations.sections.ourProducts.exploreShop)} <ArrowRight className="h-3 w-3" />
+                </span>
+              </div>
+            </Link>
+          )}
+          {isFeatureEnabled("tours") && (
+            <Link
+              href="/beekeeping"
+              className="bg-banner-green rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
+            >
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <Flower2 className="h-7 w-7" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
+                  {t(translations.header.nav.beekeeping)}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t(translations.sections.beekeeping.honeyTasting.title)}
+                </p>
+                <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                  {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
+                </span>
+              </div>
+            </Link>
+          )}
+          {isFeatureEnabled("training") && (
+            <Link
+              href="/education"
+              className="bg-banner-cream rounded-2xl p-6 flex items-center gap-5 hover:shadow-xl transition-all hover:-translate-y-1 group border border-primary/5"
+            >
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                <BookOpen className="h-7 w-7" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-lg text-foreground transition-colors">
+                  {t(translations.header.nav.education)}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t(translations.hero.training.title)}
+                </p>
+                <span className="text-xs font-bold text-primary mt-2 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+                  {t(translations.sections.popularExperiences.exploreMore)} <ArrowRight className="h-3 w-3" />
+                </span>
+              </div>
+            </Link>
+          )}
         </div>
       </div>
     </section>

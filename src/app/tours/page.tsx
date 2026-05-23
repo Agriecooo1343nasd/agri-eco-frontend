@@ -281,11 +281,19 @@ const TourCard = ({ tour }: { tour: Tour }) => {
   );
 };
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function ToursPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("tours")) {
+    notFound();
+  }
 
   const searchParam = searchParams.get("search") || "";
   const categoryParam = searchParams.get("category") || "all";

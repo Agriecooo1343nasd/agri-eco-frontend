@@ -2,7 +2,15 @@ import type { AxiosResponse } from "axios";
 import { apiClient } from "@/lib/api/client";
 import type { ApiPagination, ApiSuccessResponse } from "@/lib/api/types";
 
-export type TeamMemberRole = "manager" | "member";
+export type TeamMemberRole =
+  | "admin"
+  | "staff"
+  | "manager"
+  | "member"
+  | "delivery_agent"
+  | "partner"
+  | "farmer"
+  | "artisan";
 export type TeamMemberStatus = "invited" | "active" | "inactive";
 
 export interface TeamMember {

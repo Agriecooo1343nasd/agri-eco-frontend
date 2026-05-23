@@ -9,6 +9,7 @@ import {
   Wallet,
   ArrowRight,
 } from "lucide-react";
+import { fetchCustomerDashboard, fetchMyRoleStatus } from "@/lib/api/user";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,13 +39,18 @@ const applicationBadge: Record<string, string> = {
 };
 
 export default function AccountPartnerPage() {
-  const { user } = useAuth();
   const { t } = useLanguage();
   const { formatPrice } = usePricing();
+
+  const { data: roleStatus, isLoading: isLoadingRole } = useQuery({
+    queryKey: ["user-role-status-partner"],
+    queryFn: fetchMyRoleStatus,
+  });
 
   const { data: partnerData, isLoading: isLoadingPartner } = useQuery({
     queryKey: ["partner-me"],
     queryFn: fetchPartnerMe,
+    enabled: !!roleStatus?.isPartner,
     retry: false
   });
 
@@ -55,11 +61,8 @@ export default function AccountPartnerPage() {
     retry: false
   });
 
-  const { data: myApplication, isLoading: isLoadingApplication } = useQuery({
-    queryKey: ["partner-me-application"],
-    queryFn: fetchPartnerMyApplication,
-    retry: false,
-  });
+  const myApplication = roleStatus?.partner?.latestApplication;
+  const isLoadingApplication = isLoadingRole;
 
   const activeAgreements = partnerAgreements.filter((a: any) => a.status === "active");
   const endedAgreements = partnerAgreements.filter((a: any) => a.status !== "active");

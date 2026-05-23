@@ -39,6 +39,9 @@ import { type DateRange } from "react-day-picker";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 type SortConfig = {
   key: string | null;
   direction: "asc" | "desc" | null;
@@ -46,6 +49,11 @@ type SortConfig = {
 
 const OrdersPage = () => {
   const { formatPrice } = usePricing();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
   const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);

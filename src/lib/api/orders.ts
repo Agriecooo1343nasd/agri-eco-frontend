@@ -44,6 +44,7 @@ export interface Order {
   deliveredAt?: string;
   createdAt: string;
   items: OrderItem[];
+  qrCodeDataUrl?: string;
   user?: {
     id: string;
     username?: string;
@@ -167,5 +168,13 @@ export async function updateOrderPaymentStatusAdmin(id: string, payload: { payme
 
 export async function refundOrderAdmin(id: string, reason: string): Promise<Order> {
   const response = await apiClient.post<ApiSuccessResponse<Order>>(`/orders/admin/${id}/refund`, { reason });
+  return response.data.data!;
+}
+
+export async function assignAgentToOrder(orderId: string, payload: {
+  deliveryAgentId: string;
+  notes?: string;
+}): Promise<Order> {
+  const response = await apiClient.post<ApiSuccessResponse<Order>>(`/orders/admin/${orderId}/assign-agent`, payload);
   return response.data.data!;
 }

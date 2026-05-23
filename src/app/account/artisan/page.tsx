@@ -17,6 +17,8 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { fetchMyRoleStatus } from "@/lib/api/user";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -66,10 +68,16 @@ function isLowStock(stock?: number) {
   return typeof stock === "number" && stock > 0 && stock <= 5;
 }
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function AccountArtisanPage() {
   const { user } = useAuth();
-  const [status, setStatus] = useState<ArtisanStatus>("none");
-  const [application, setApplication] = useState<LocalArtisanApplication | null>(null);
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [products, setProducts] = useState<AdminArtisanProduct[]>([]);
@@ -78,113 +86,25 @@ export default function AccountArtisanPage() {
   const [sortBy, setSortBy] = useState<"stock" | "price" | "name">("stock");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  useEffect(() => {
-    setStatus(getArtisanStatusFromLocal());
-    setApplication(readLocal<LocalArtisanApplication>(ARTISAN_APP_KEY));
-  }, []);
+  const { data: roleStatus, isLoading: isLoadingRole } = useQuery({
+    queryKey: ["user-role-status-artisan"],
+    queryFn: fetchMyRoleStatus,
+  });
 
-  const isArtisan = true; // FORCED FOR UI PREVIEW
+  const isArtisan = !!roleStatus?.isArtisan;
+  const application = roleStatus?.artisan?.latestApplication;
+  const status = roleStatus?.artisan?.hasPendingApplication ? "pending" : (roleStatus?.artisan?.latestApplication?.status === "approved" ? "approved" : "none");
+  const isLoadingApplication = isLoadingRole;
 
   useEffect(() => {
     let ignore = false;
     async function load() {
       if (!isArtisan) return;
+      
+      setLoadingProducts(true);
       try {
-        setLoadingProducts(true);
-        // Rich mock data for preview
-        setProducts([
-          {
-            id: "mock-1",
-            name: { en: "Traditional Imigongo Wall Art", rw: "Imigongo" },
-            slug: "imigongo-wall-art",
-            price: 45000,
-            stock: 8,
-            image: "https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-2",
-            name: { en: "Hand-Woven Agaseke Basket", rw: "Agaseke" },
-            slug: "agaseke-basket",
-            price: 12000,
-            stock: 3,
-            image: "https://images.unsplash.com/photo-1590736962387-97596a258804?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-3",
-            name: { en: "Hand-Carved Wooden Gorillas", rw: "Ingagi mu mbaho" },
-            slug: "wooden-gorillas",
-            price: 35000,
-            stock: 15,
-            image: "https://images.unsplash.com/photo-1544967082-d9d25d867d66?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-4",
-            name: { en: "Pure Beeswax Candles (Set of 4)", rw: "Buji z'ubuki" },
-            slug: "beeswax-candles",
-            price: 8500,
-            stock: 22,
-            image: "https://images.unsplash.com/photo-1603006905003-be475563bc59?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-5",
-            name: { en: "Organic Honey Ginger Tea", rw: "Icyayi cy'ubuki" },
-            slug: "honey-ginger-tea",
-            price: 5500,
-            stock: 1,
-            image: "https://images.unsplash.com/photo-1544787210-2212bb22416b?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-6",
-            name: { en: "Decorative Banana Leaf Mat", rw: "Ikirago" },
-            slug: "banana-leaf-mat",
-            price: 9000,
-            stock: 10,
-            image: "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-7",
-            name: { en: "Organic Chili Oil (100ml)", rw: "Akabanga style" },
-            slug: "organic-chili-oil",
-            price: 4500,
-            stock: 45,
-            image: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          {
-            id: "mock-8",
-            name: { en: "Bamboo Serving Utensils", rw: "Ibikoresho mu mugano" },
-            slug: "bamboo-utensils",
-            price: 7500,
-            stock: 14,
-            image: "https://images.unsplash.com/photo-1584346133934-a3afd2a33c4c?q=80&w=400&auto=format&fit=crop",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        ]);
-        
-        // Mock application data for preview
-        setApplication({
-          fullName: "Abayo Hirwa Jovin",
-          email: "abayohirwajovin@gmail.com",
-          phone: "+250 788 000 000",
-          specialty: "Traditional Arts & Crafts",
-          location: "Musanze, Rwanda",
-          story: "A master artisan with 15 years of experience in Imigongo and traditional weaving.",
-          createdAt: new Date().toISOString(),
-        });
+        // TODO: Implement real product fetching once artisanId is linked to userId in backend
+        setProducts([]);
       } finally {
         if (!ignore) setLoadingProducts(false);
       }
@@ -248,6 +168,8 @@ export default function AccountArtisanPage() {
 
   if (!isArtisan) {
     const pending = status === "pending";
+    if (isLoadingRole) return <div className="p-10 text-center text-muted-foreground animate-pulse">Checking status...</div>;
+    
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -288,9 +210,11 @@ export default function AccountArtisanPage() {
                     <p className="text-muted-foreground">
                       Location: <span className="text-foreground font-medium">{application.location}</span>
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Submitted: {new Date(application.createdAt).toLocaleString()}
-                    </p>
+                    {application.createdAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Submitted: {new Date(application.createdAt).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-2 flex-wrap">

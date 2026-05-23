@@ -216,7 +216,9 @@ export default function AdminDashboardPage() {
     () => [
       {
         title: "Total Revenue",
-        value: overview ? formatRWF(overview.totalRevenue) : "—",
+        value: revenueStreamData?.total !== undefined 
+          ? formatRWF(revenueStreamData.total) 
+          : (overview ? formatRWF(overview.totalRevenue) : "—"),
         change: overview?.comparisons?.revenue?.change
           ? `${overview.comparisons.revenue.change > 0 ? "+" : ""}${overview.comparisons.revenue.change}% vs last month`
           : overview
@@ -259,7 +261,7 @@ export default function AdminDashboardPage() {
         period: overview ? "from orders" : "no data",
       },
     ],
-    [overview],
+    [overview, revenueStreamData],
   );
 
   const moduleStats = useMemo(

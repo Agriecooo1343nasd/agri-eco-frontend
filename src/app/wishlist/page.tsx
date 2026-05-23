@@ -15,6 +15,8 @@ import Footer from "@/components/Footer";
 import FeaturesBar from "@/components/FeaturesBar";
 import { useCart } from "@/context/CartContext";
 import { usePricing } from "@/context/PricingContext";
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 
@@ -22,6 +24,11 @@ const WishlistPage = () => {
   const { wishlistItems, removeFromWishlist, moveToCart, isInCart } = useCart();
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   return (
     <div className="min-h-screen bg-background">

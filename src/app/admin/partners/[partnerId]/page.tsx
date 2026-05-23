@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Globe,
+  Users,
+  Calendar,
+  MapPin,
+  Building,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+} from "lucide-react";
 import {
   createAdminPartnerAgreement,
   deleteAdminPartnerAgreement,
@@ -122,6 +134,8 @@ export default function PartnerProfilePage() {
     useState<AgreementFormState>(emptyAgreementForm);
   const [terminateOpen, setTerminateOpen] = useState(false);
   const [terminateNotes, setTerminateNotes] = useState("");
+  const [visibilityDialogOpen, setVisibilityDialogOpen] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 
   const partnerQuery = useQuery({
     queryKey: ["admin-partner", partnerId],
@@ -423,20 +437,121 @@ export default function PartnerProfilePage() {
         >
           {partner.status}
         </Badge>
+        <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-full border border-border">
+          {partner.isPublic ? (
+            <Eye className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+          )}
+          <span className="text-xs font-bold mr-2">
+            {partner.isPublic ? "Public Profile" : "Private Profile"}
+          </span>
+          <Switch
+            checked={partner.isPublic}
+            onCheckedChange={() => setVisibilityDialogOpen(true)}
+            disabled={isUpdatingVisibility}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
+        {/* Business Profile (New Fields) */}
+        <Card className="md:col-span-2 overflow-hidden">
+          <CardContent className="p-0">
+            <div className="bg-muted/30 p-4 border-b flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Building className="h-4 w-4" /> Business Profile
+              </h2>
+              <Badge variant="outline" className="text-[10px]">
+                Public Details
+              </Badge>
+            </div>
+            <div className="p-5 grid gap-6 md:grid-cols-2">
+              <div className="flex items-start gap-4">
+                <div className="h-20 w-20 rounded-xl border border-border bg-background flex items-center justify-center overflow-hidden shrink-0">
+                  {partner.logo ? (
+                    <img src={partner.logo} alt="Logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-bold text-sm">{partner.name}</h3>
+                  <p className="text-xs text-muted-foreground italic">
+                    "{partner.tagline || "No tagline provided"}"
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {partner.foundedYear && (
+                      <Badge variant="secondary" className="text-[10px] h-5">
+                        Est. {partner.foundedYear}
+                      </Badge>
+                    )}
+                    {partner.teamSize && (
+                      <Badge variant="secondary" className="text-[10px] h-5">
+                        <Users className="h-3 w-3 mr-1" /> {partner.teamSize}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-semibold">Location:</span>
+                  <span className="text-muted-foreground">
+                    {partner.city}, {partner.country}
+                  </span>
+                </div>
+                <div className="flex items-start gap-2 text-xs">
+                  <MapPin className="h-3.5 w-3.5 text-primary mt-0.5" />
+                  <span className="font-semibold">Address:</span>
+                  <span className="text-muted-foreground">
+                    {partner.address || partner.location || "N/A"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Globe className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-semibold">Website:</span>
+                  {partner.socialLinks?.website || partner.email ? (
+                    <a 
+                      href={partner.socialLinks?.website || "#"} 
+                      target="_blank" 
+                      className="text-primary hover:underline flex items-center gap-1"
+                    >
+                      {partner.socialLinks?.website || partner.email} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">None</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 space-y-2 pt-2 border-t">
+                <p className="text-xs font-bold text-muted-foreground">Public Description</p>
+                <div className="text-xs text-foreground leading-relaxed bg-muted/10 p-3 rounded-lg border italic">
+                  {partner.description || "No public description available."}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Existing Finance Card (Now Column 3) */}
         <Card>
           <CardContent className="space-y-2 p-4">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Contact
+              Contact Details
             </h2>
             <p className="text-sm font-semibold">{partner.contactName}</p>
             <p className="text-xs">{partner.email}</p>
             <p className="text-xs">{partner.phone || "-"}</p>
-            <p className="text-xs text-muted-foreground">
-              {partner.notes || "No notes"}
-            </p>
+            <div className="pt-2">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Internal Notes</p>
+              <p className="text-xs text-muted-foreground bg-amber-50 p-2 rounded border border-amber-100">
+                {partner.notes || "No internal notes"}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -926,6 +1041,46 @@ export default function PartnerProfilePage() {
               disabled={terminateMutation.isPending}
             >
               {terminateMutation.isPending ? "Terminating..." : "Terminate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visibility Confirmation Dialog */}
+      <Dialog open={visibilityDialogOpen} onOpenChange={setVisibilityDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Public Visibility?</DialogTitle>
+            <DialogDescription>
+              {partner.isPublic 
+                ? "This will hide the partner from the public directory. Users will no longer be able to see their profile or products in the marketplace." 
+                : "This will make the partner profile public. Their business details, tagline, and offerings will be visible to all users on the platform."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVisibilityDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={async () => {
+                setVisibilityDialogOpen(false);
+                setIsUpdatingVisibility(true);
+                try {
+                  await updateStatusMutation.mutateAsync({
+                    id: partner.id,
+                    status: partner.status as any,
+                    // @ts-ignore
+                    isPublic: !partner.isPublic
+                  });
+                  toast.success(partner.isPublic ? "Partner is now Private" : "Partner is now Public");
+                } catch (error) {
+                  toast.error("Failed to update visibility");
+                } finally {
+                  setIsUpdatingVisibility(false);
+                }
+              }}
+            >
+              Confirm Changes
             </Button>
           </DialogFooter>
         </DialogContent>

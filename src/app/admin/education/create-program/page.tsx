@@ -158,6 +158,10 @@ export default function CreateProgramPage() {
     "in_progress" | "upcoming" | "draft" | "cancelled"
   >("upcoming");
   const [formVideoUrl, setFormVideoUrl] = useState("");
+  // Quiz Timer
+  const [formQuizHours, setFormQuizHours] = useState("0");
+  const [formQuizMinutes, setFormQuizMinutes] = useState("30");
+  const [formQuizSeconds, setFormQuizSeconds] = useState("0");
 
   // Modules
   const [modules, setModules] = useState<ProgramModule[]>([]);
@@ -504,6 +508,10 @@ export default function CreateProgramPage() {
         language: formLanguage.trim() || "en",
         isPublished: isPublished || formStatus === "in_progress",
         isFeatured: false,
+        quizTimeLimitSeconds:
+          (Number.parseInt(formQuizHours) || 0) * 3600 +
+          (Number.parseInt(formQuizMinutes) || 0) * 60 +
+          (Number.parseInt(formQuizSeconds) || 0),
         curriculum,
         topics,
         instructorName: formInstructorName.trim() || undefined,
@@ -906,6 +914,57 @@ export default function CreateProgramPage() {
               type="textarea"
               rows={3}
             />
+
+            <Separator />
+            
+            <div className="space-y-3">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Quiz Time Limit (H:M:S)
+              </Label>
+              <div className="flex items-center gap-2 max-w-xs">
+                <div className="flex-1 space-y-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={formQuizHours}
+                    onChange={(e) => setFormQuizHours(e.target.value)}
+                    className="h-10 text-center text-xs"
+                    placeholder="HH"
+                  />
+                  <span className="text-[10px] text-center block text-muted-foreground">Hrs</span>
+                </div>
+                <span className="mb-5 font-bold">:</span>
+                <div className="flex-1 space-y-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={formQuizMinutes}
+                    onChange={(e) => setFormQuizMinutes(e.target.value)}
+                    className="h-10 text-center text-xs"
+                    placeholder="MM"
+                  />
+                  <span className="text-[10px] text-center block text-muted-foreground">Min</span>
+                </div>
+                <span className="mb-5 font-bold">:</span>
+                <div className="flex-1 space-y-1">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={formQuizSeconds}
+                    onChange={(e) => setFormQuizSeconds(e.target.value)}
+                    className="h-10 text-center text-xs"
+                    placeholder="SS"
+                  />
+                  <span className="text-[10px] text-center block text-muted-foreground">Sec</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Set to 0:0:0 for no time limit.
+              </p>
+            </div>
           </div>
         )}
 

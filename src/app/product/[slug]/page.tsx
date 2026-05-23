@@ -39,6 +39,9 @@ import { resolveProductDiscountLabel } from "@/lib/discount-display";
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function ProductDetailsPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -46,8 +49,13 @@ export default function ProductDetailsPage() {
   const { addToCart, removeFromCart, addToWishlist, isInWishlist, isInCart } =
     useCart();
   const { formatPrice } = usePricing();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { isAuthenticated, user } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,40 +79,56 @@ export default function ProductDetailsPage() {
           discount: data.discount,
           applicableDiscounts: data.applicableDiscounts,
         });
+
+        // Locale-aware feature picker: use featuresI18n[locale] → en → plain features
+        const pickFeatures = (): string[] => {
+          if (data.featuresI18n) {
+            const arr = data.featuresI18n[locale] || data.featuresI18n.en || [];
+            return arr.filter(Boolean);
+          }
+          return (data.features || []).filter(Boolean);
+        };
+
+        // Locale-aware benefit picker: use healthBenefitsI18n[locale] → en → plain benefits
+        const pickBenefits = (): string[] => {
+          if (data.healthBenefitsI18n) {
+            const arr = (data.healthBenefitsI18n[locale] || data.healthBenefitsI18n.en || []) as Array<{ title: string }>;
+            return arr.map(b => b.title).filter(Boolean);
+          }
+          return (data.benefits || []).filter(Boolean);
+        };
+
         const mappedProduct: Product = {
           id: data.id,
           slug: data.slug,
-          name: t(data.name as any),
+          name: t(data.nameI18n || data.name),
           price: data.sellingPrice,
           oldPrice: data.originalPrice,
-          image: data.images?.[0]?.url || "/assets/products/placeholder.jpg",
+          image: data.images?.find(img => img.isPrimary)?.url || data.images?.[0]?.url || "/assets/products/placeholder.jpg",
           images: data.images?.map((img) => img.url) || [],
-          rating:
-            typeof data.averageRating === "number" ? data.averageRating : 0,
+          rating: typeof data.averageRating === "number" ? data.averageRating : 0,
           badge: backendDiscountLabel ? "sale" : data.isFeatured ? "new" : undefined,
           backendDiscountLabel,
           category: t(data.category?.name as any) || "",
           unit: data.unit || "piece",
-          shortDescription: t(data.shortDescription as any),
-          longDescription: t(data.description as any),
-          features: Array.isArray(data.features)
-            ? data.features.map((f) => t(f as any))
-            : [],
-          benefits: Array.isArray(data.benefits)
-            ? data.benefits.map((b) => t(b as any))
-            : [],
+          shortDescription: t(data.shortDescriptionI18n || data.shortDescription),
+          longDescription: t(data.descriptionI18n || data.description),
+          features: pickFeatures(),
+          benefits: pickBenefits(),
           stock: data.stock,
           reviews: [],
           applicableDiscounts: data.applicableDiscounts,
-          ownerName: (data as any).artisan?.name || (data.id.endsWith("1") ? "Artisan Collective" : undefined),
-          ownerHref: (data as any).artisan?.id 
-            ? `/community/artisan/${(data as any).artisan.id}` 
-            : (data.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined),
+          source: data.source,
+          artisan: data.artisan,
+          ownerName: data.source === "artisan" ? data.artisan?.name : undefined,
+          ownerHref: data.source === "artisan" && data.artisan?.id
+            ? `/community/artisan/${data.artisan.id}`
+            : undefined,
         };
         setProduct(mappedProduct);
         setSelectedImage(mappedProduct.image);
         
-        // Mock related products (same category)
+        // Related products (same category)
         try {
           const relatedData = await fetchProducts({ 
             category: data.category?.id, 
@@ -115,14 +139,16 @@ export default function ProductDetailsPage() {
             .map(p => ({
               id: p.id,
               slug: p.slug,
-              name: t(p.name as any),
+              name: t(p.nameI18n || p.name),
               price: p.sellingPrice,
-              image: p.images?.[0]?.url || "/assets/products/placeholder.jpg",
+              image: p.images?.find(img => img.isPrimary)?.url || p.images?.[0]?.url || "/assets/products/placeholder.jpg",
               rating: p.averageRating || 5,
               category: t(p.category?.name as any) || "",
               unit: p.unit || "kg",
-              ownerName: p.id.endsWith("1") ? "Artisan Collective" : undefined,
-              ownerHref: p.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : undefined,
+              source: p.source,
+              artisan: p.artisan,
+              ownerName: p.source === "artisan" ? p.artisan?.name : undefined,
+              ownerHref: p.source === "artisan" && p.artisan?.id ? `/community/artisan/${p.artisan.id}` : undefined,
             } as Product));
           setRelatedProducts(filtered);
         } catch (e) {
@@ -140,7 +166,7 @@ export default function ProductDetailsPage() {
 
     loadProduct();
     window.scrollTo(0, 0);
-  }, [slug, t]);
+  }, [slug, t, locale]);
 
   useEffect(() => {
     async function loadReviews() {
@@ -380,22 +406,7 @@ export default function ProductDetailsPage() {
                     {product.stock || 0} {t(translations.productPage.unitsAvailable)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">{t(translations.productPage.delivery)}</span>
-                  <span className="text-muted-foreground">
-                    {t(translations.productPage.deliveryTime)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">
-                    {t(translations.productPage.guarantee)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {t(translations.productPage.organicCertified)}
-                  </span>
-                </div>
+                
               </div>
 
               <div className="flex flex-wrap items-center gap-4">
@@ -495,6 +506,14 @@ export default function ProductDetailsPage() {
                 >
                   {t(translations.productPage.reviews)} ({reviews.length})
                 </TabsTrigger>
+                {product.source === "artisan" && product.artisan && (
+                  <TabsTrigger
+                    value="artisan"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold h-10 px-6 rounded-lg transition-all"
+                  >
+                    {t(translations.common.artisan || "Artisan")}
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -687,6 +706,46 @@ export default function ProductDetailsPage() {
                   </div>
                 </div>
               </TabsContent>
+              {product.source === "artisan" && product.artisan && (
+                <TabsContent value="artisan" className="mt-0 focus-visible:ring-0">
+                  <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="relative w-32 h-32 rounded-2xl overflow-hidden border border-border shrink-0 bg-muted">
+                      {product.artisan.image ? (
+                        <Image
+                          src={product.artisan.image}
+                          alt={product.artisan.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-black text-4xl">
+                          {product.artisan.name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-foreground">
+                          {product.artisan.name}
+                        </h3>
+                        {product.artisan.specialty && (
+                          <p className="text-primary font-semibold text-sm">
+                            {product.artisan.specialty}
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Discover the craftsmanship and passion behind this product. Our artisans bring generations of expertise and sustainable practices to every piece they create.
+                      </p>
+                      <Button asChild variant="outline" className="rounded-xl font-bold">
+                        <Link href={`/community/artisan/${product.artisan.id}`}>
+                          View Profile & Collections
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+              )}
             </div>
           </Tabs>
         </div>

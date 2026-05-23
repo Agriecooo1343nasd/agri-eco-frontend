@@ -280,8 +280,8 @@ export default function CreateProductPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const categoriesQuery = useQuery({
-    queryKey: ["admin-product-categories"],
-    queryFn: () => fetchCategoriesForAdmin(),
+    queryKey: ["admin-categories", "product"],
+    queryFn: () => fetchCategoriesForAdmin({ type: "product" }),
   });
 
   const artisansQuery = useQuery({
@@ -295,7 +295,7 @@ export default function CreateProductPage() {
   const createCategoryMutation = useMutation({
     mutationFn: createCategoryForAdmin,
     onSuccess: (category) => {
-      queryClient.invalidateQueries({ queryKey: ["admin-product-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-categories", "product"] });
       setActiveCategoryId(category.id);
       setSearchCategory("");
       setIsCategoryOpen(false);
@@ -578,7 +578,8 @@ export default function CreateProductPage() {
       weight: weight ? Number(weight) : undefined,
       dimensions: parseDimensions(dimensions),
       shelfLife: shelfLife.trim() || undefined,
-      storageCondition: storage,
+      storageCondition: storage.en,
+      storageConditionI18n: storage,
       requiresRefrigeration,
     };
 
@@ -588,11 +589,17 @@ export default function CreateProductPage() {
       0,
     );
 
+    const activeFeatures = features.filter(f => f.en.trim() || f.rw?.trim() || f.fr?.trim() || f.sw?.trim());
+    const activeBenefits = benefits.filter(b => b.en.trim() || b.rw?.trim() || b.fr?.trim() || b.sw?.trim());
+
     return {
-      name,
+      name: name.en,
+      nameI18n: name,
       sku: sku.trim(),
-      description: longDesc,
-      shortDescription: shortDesc,
+      description: longDesc.en,
+      descriptionI18n: longDesc,
+      shortDescription: shortDesc.en,
+      shortDescriptionI18n: shortDesc,
       category: activeCategoryId,
       productType,
       tags: tags.map((tag) => tag.trim()).filter(Boolean),
@@ -605,13 +612,25 @@ export default function CreateProductPage() {
       lowStockThreshold: Number(lowStockThreshold || 10),
       maxReturnDays: Number(maxReturnDays || 14),
       trackInventory: true,
-      features,
-      benefits,
-      marketingHooks: features.map((f) => ({
+      features: activeFeatures.map((f) => f.en),
+      featuresI18n: {
+        en: activeFeatures.map((f) => f.en),
+        rw: activeFeatures.map((f) => f.rw || ""),
+        fr: activeFeatures.map((f) => f.fr || ""),
+        sw: activeFeatures.map((f) => f.sw || ""),
+      },
+      benefits: activeBenefits.map((b) => b.en),
+      healthBenefitsI18n: {
+        en: activeBenefits.map((b) => ({ title: b.en || "" })).filter(b => b.title),
+        rw: activeBenefits.map((b) => ({ title: b.rw || "" })).filter(b => b.title),
+        fr: activeBenefits.map((b) => ({ title: b.fr || "" })).filter(b => b.title),
+        sw: activeBenefits.map((b) => ({ title: b.sw || "" })).filter(b => b.title),
+      },
+      marketingHooks: activeFeatures.map((f) => ({
         label: f.en || "",
         isActive: true,
       })),
-      healthBenefits: benefits.map((b) => ({ title: b.en || "" })),
+      healthBenefits: activeBenefits.map((b) => ({ title: b.en || "" })),
       nutrition: [],
       shipping,
       certifications: [],
@@ -620,7 +639,8 @@ export default function CreateProductPage() {
       isOnSale:
         (originalPrice > 0 ? originalPrice : sellingPrice) > sellingPrice,
       batches: batchesPayload,
-      artisanId: artisanId || undefined,
+      source: artisanId ? "artisan" : "shop",
+      artisanId: artisanId || null,
     } as any;
   };
 

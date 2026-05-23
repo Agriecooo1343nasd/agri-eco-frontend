@@ -36,8 +36,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { submitPartnerApplication, fetchPartnerMyApplication } from "@/lib/api/partners";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { submitPartnerApplication } from "@/lib/api/partners";
+import { fetchMyRoleStatus } from "@/lib/api/user";
 import { uploadSingleImage } from "@/lib/api/uploads";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
@@ -52,7 +53,6 @@ export default function PartnerApplyPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [existing, setExisting] = useState<any | null>(null);
   const [agreed, setAgreed] = useState(false);
 
   const [form, setForm] = useState({
@@ -67,35 +67,52 @@ export default function PartnerApplyPage() {
     website: "",
     twitter: "",
     linkedin: "",
+    tagline: "",
+    foundedYear: "",
+    city: "",
+    country: "",
+    address: "",
+    registrationNumber: "",
+    teamSize: "",
     image: "",
     links: [] as string[],
   });
 
+  const { data: roleStatus, isLoading: isLoadingRoleStatus } = useQuery({
+    queryKey: ["user-role-status-partner-apply"],
+    queryFn: fetchMyRoleStatus,
+  });
+
+  const existing = roleStatus?.partner?.latestApplication;
+
   useEffect(() => {
-    fetchPartnerMyApplication()
-      .then((data) => {
-        if (data) {
-          setExisting(data);
-          setForm({
-            businessName: data.businessName || "",
-            contactPerson: data.contactName || user?.name || "",
-            email: data.email || user?.email || "",
-            phone: data.phone || "",
-            type: data.businessType || "tourism_operator",
-            aboutBusiness: data.description || "",
-            publicDescription: data.publicDescription || "",
-            location: data.location || "",
-            website: data.website || "",
-            twitter: data.twitterUrl || "",
-            linkedin: data.linkedinUrl || "",
-            image: data.image || "",
-            links: data.links || [],
-          });
-          if (data.status !== "none") setAgreed(true);
-        }
-      })
-      .finally(() => setIsLoading(false));
-  }, [user]);
+    if (existing) {
+      setForm({
+        businessName: (existing as any).businessName || "",
+        contactPerson: (existing as any).contactName || user?.name || "",
+        email: (existing as any).email || user?.email || "",
+        phone: (existing as any).phone || "",
+        type: (existing as any).businessType || "tourism_operator",
+        aboutBusiness: (existing as any).description || "",
+        publicDescription: (existing as any).publicDescription || "",
+        location: (existing as any).location || "",
+        website: (existing as any).website || "",
+        twitter: (existing as any).socialLinks?.twitter || (existing as any).twitterUrl || "",
+        linkedin: (existing as any).socialLinks?.linkedin || (existing as any).linkedinUrl || "",
+        tagline: (existing as any).tagline || "",
+        foundedYear: (existing as any).foundedYear || "",
+        city: (existing as any).city || "",
+        country: (existing as any).country || "",
+        address: (existing as any).address || "",
+        registrationNumber: (existing as any).registrationNumber || "",
+        teamSize: (existing as any).teamSize || "",
+        image: (existing as any).logo || (existing as any).image || "",
+        links: (existing as any).referenceUrls || (existing as any).links || [],
+      });
+      if (existing.status !== "none") setAgreed(true);
+    }
+    setIsLoading(isLoadingRoleStatus);
+  }, [existing, isLoadingRoleStatus, user]);
 
   const uploadMutation = useMutation({
     mutationFn: (file: File) => uploadSingleImage(file),
@@ -118,16 +135,16 @@ export default function PartnerApplyPage() {
   const submitApplicationMutation = useMutation({
     mutationFn: submitPartnerApplication,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["partner-me-application"] });
+      queryClient.invalidateQueries({ queryKey: ["user-role-status-partner"] });
+      queryClient.invalidateQueries({ queryKey: ["user-role-status-partner-apply"] });
+      queryClient.invalidateQueries({ queryKey: ["user-role-status-header"] });
       toast.success(t(translations.common.success), {
         description: t(translations.partnerPage.underReview),
       });
       router.push("/account/partner");
     },
     onError: (error: Error) => {
-      toast.error("Failed to submit application", {
-        description: error.message || "Please try again.",
-      });
+      console.log("something went wrong")
     },
   });
 
@@ -161,8 +178,16 @@ export default function PartnerApplyPage() {
       website: form.website.trim(),
       twitterUrl: form.twitter.trim(),
       linkedinUrl: form.linkedin.trim(),
-      image: form.image,
-      links: form.links,
+      tagline: form.tagline.trim(),
+      foundedYear: form.foundedYear ? parseInt(form.foundedYear) : undefined,
+      city: form.city.trim(),
+      country: form.country.trim(),
+      address: form.address.trim(),
+      registrationNumber: form.registrationNumber.trim(),
+      teamSize: form.teamSize.trim(),
+      logo: form.image,
+      referenceUrls: form.links,
+      agreedToTerms: agreed,
     });
   };
 
@@ -246,6 +271,18 @@ export default function PartnerApplyPage() {
 
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Tagline / Motto
+                </Label>
+                <Input
+                  placeholder="Example: Sourcing the best for you"
+                  value={form.tagline}
+                  onChange={(e) => setForm((prev) => ({ ...prev, tagline: e.target.value }))}
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   {t(translations.partnerPage.businessType)} *
                 </Label>
                 <Select
@@ -299,6 +336,91 @@ export default function PartnerApplyPage() {
                     disabled={isLocked}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Founded Year
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 2014"
+                  value={form.foundedYear}
+                  onChange={(e) => setForm((prev) => ({ ...prev, foundedYear: e.target.value }))}
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Registration Number
+                </Label>
+                <Input
+                  placeholder="RDB / NGO Reg No"
+                  value={form.registrationNumber}
+                  onChange={(e) => setForm((prev) => ({ ...prev, registrationNumber: e.target.value }))}
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Team Size
+                </Label>
+                <Select
+                  value={form.teamSize}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, teamSize: value }))}
+                  disabled={isLocked}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1-5">1-5 Employees</SelectItem>
+                    <SelectItem value="6-20">6-20 Employees</SelectItem>
+                    <SelectItem value="21-50">21-50 Employees</SelectItem>
+                    <SelectItem value="51-100">51-100 Employees</SelectItem>
+                    <SelectItem value="100+">100+ Employees</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  City / Town *
+                </Label>
+                <Input
+                  placeholder="e.g. Musanze"
+                  value={form.city}
+                  onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+                  required
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Country *
+                </Label>
+                <Input
+                  placeholder="e.g. Rwanda"
+                  value={form.country}
+                  onChange={(e) => setForm((prev) => ({ ...prev, country: e.target.value }))}
+                  required
+                  disabled={isLocked}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Full Physical Address
+                </Label>
+                <Input
+                  placeholder="Street No, Building, Floor..."
+                  value={form.address}
+                  onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
+                  disabled={isLocked}
+                />
               </div>
 
               {/* Logo upload — spans full width on mobile, half on md */}

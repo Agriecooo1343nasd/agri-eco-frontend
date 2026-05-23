@@ -1,10 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { Home, Leaf, GraduationCap, MessageCircle, Search } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { useFeatures } from "@/context/FeatureContext";
 
 export default function NotFound() {
+  const { isFeatureEnabled } = useFeatures();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
@@ -42,47 +47,53 @@ export default function NotFound() {
                 Back to home
               </Link>
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="w-full sm:w-auto min-w-[180px] gap-2 bg-background/80 backdrop-blur-sm"
-            >
-              <Link href="/shop">
-                <Search className="h-4 w-4" />
-                Browse shop
-              </Link>
-            </Button>
+            {isFeatureEnabled("shopping") && (
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="w-full sm:w-auto min-w-[180px] gap-2 bg-background/80 backdrop-blur-sm"
+              >
+                <Link href="/shop">
+                  <Search className="h-4 w-4" />
+                  Browse shop
+                </Link>
+              </Button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left max-w-2xl mx-auto">
-            <Link
-              href="/education"
-              className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all"
-            >
-              <GraduationCap className="h-8 w-8 text-primary mb-2" />
-              <p className="font-heading font-bold text-foreground group-hover:text-primary transition-colors">
-                Education
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Courses &amp; training programs
-              </p>
-            </Link>
-            <Link
-              href="/community"
-              className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all"
-            >
-              <Leaf className="h-8 w-8 text-primary mb-2" />
-              <p className="font-heading font-bold text-foreground group-hover:text-primary transition-colors">
-                Community
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Artisans &amp; local producers
-              </p>
-            </Link>
+          <div className="flex flex-wrap justify-center gap-3 text-left max-w-3xl mx-auto">
+            {isFeatureEnabled("training") && (
+              <Link
+                href="/education"
+                className="group w-full sm:w-[200px] rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all"
+              >
+                <GraduationCap className="h-8 w-8 text-primary mb-2" />
+                <p className="font-heading font-bold text-foreground group-hover:text-primary transition-colors">
+                  Education
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Courses &amp; training programs
+                </p>
+              </Link>
+            )}
+            {isFeatureEnabled("shopping") && (
+              <Link
+                href="/community"
+                className="group w-full sm:w-[200px] rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all"
+              >
+                <Leaf className="h-8 w-8 text-primary mb-2" />
+                <p className="font-heading font-bold text-foreground group-hover:text-primary transition-colors">
+                  Community
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Artisans &amp; local producers
+                </p>
+              </Link>
+            )}
             <Link
               href="/contact"
-              className="group rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all sm:col-span-1"
+              className="group w-full sm:w-[200px] rounded-2xl border border-border bg-card/80 backdrop-blur-sm p-4 hover:border-primary/40 hover:shadow-md transition-all"
             >
               <MessageCircle className="h-8 w-8 text-primary mb-2" />
               <p className="font-heading font-bold text-foreground group-hover:text-primary transition-colors">

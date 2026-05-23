@@ -84,3 +84,30 @@ export async function fetchMyRequests(params: { type?: string; page?: number; li
   const response = await apiClient.get<PaginatedResponse<UserRequest>>("/users/my-requests", { params });
   return response.data;
 }
+
+export interface UserRoleStatus {
+  activeRole: string;
+  grantedRoles: string[];
+  isCustomer: boolean;
+  isAdmin: boolean;
+  isPartner: boolean;
+  isArtisan: boolean;
+  isDeliveryAgent: boolean;
+  partner: {
+    isPartner: boolean;
+    partnerStatus: string | null;
+    partnerId: string | null;
+    hasPendingApplication: boolean;
+    latestApplication: any | null;
+  };
+  artisan: {
+    isArtisan: boolean;
+    hasPendingApplication: boolean;
+    latestApplication: any | null;
+  };
+}
+
+export async function fetchMyRoleStatus(): Promise<UserRoleStatus> {
+  const response = await apiClient.get<ApiSuccessResponse<UserRoleStatus>>("/users/me/role-status");
+  return response.data.data!;
+}

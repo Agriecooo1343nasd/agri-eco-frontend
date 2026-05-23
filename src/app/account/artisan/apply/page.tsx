@@ -13,17 +13,20 @@ import { Label } from "@/components/ui/label";
 import { fetchArtisanMyApplication, submitArtisanApplication, type AdminArtisanApplication } from "@/lib/api/artisans";
 import { Loader2 } from "lucide-react";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchMyRoleStatus } from "@/lib/api/user";
+
 export default function ArtisanApplyPage() {
   const { user } = useAuth();
-  const [existing, setExisting] = useState<AdminArtisanApplication | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchArtisanMyApplication()
-      .then(setExisting)
-      .finally(() => setIsLoading(false));
-  }, []);
+  const { data: roleStatus, isLoading } = useQuery({
+    queryKey: ["user-role-status-artisan-apply"],
+    queryFn: fetchMyRoleStatus,
+  });
+
+  const existing = roleStatus?.artisan?.latestApplication;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (isLoading) {
     return (
@@ -107,12 +110,11 @@ export default function ArtisanApplyPage() {
                 toast.success("Application submitted successfully", { 
                   description: "Agri-Eco team will review your application soon." 
                 });
-                const updated = await fetchArtisanMyApplication();
-                setExisting(updated);
+                queryClient.invalidateQueries({ queryKey: ["user-role-status-artisan"] });
+                queryClient.invalidateQueries({ queryKey: ["user-role-status-artisan-apply"] });
+                queryClient.invalidateQueries({ queryKey: ["user-role-status-header"] });
               } catch (error) {
-                toast.error("Failed to submit application", {
-                  description: "Please try again later or contact support."
-                });
+               console.error("something went wrong")
               } finally {
                 setIsSubmitting(false);
               }

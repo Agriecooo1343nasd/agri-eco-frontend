@@ -11,14 +11,22 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   fetchLegalDocument,
+  fetchLegalDocumentAdmin,
   updateLegalDocument,
   type PolicyBlock,
 } from "@/lib/api/legal";
 import { PolicyBlockEditor } from "@/components/admin/PolicyBlockEditor";
+import {
+  MultiLangInput,
+  emptyLangValue,
+  type MultiLangValue,
+} from "@/components/admin/MultiLangInput";
+import { cn } from "@/lib/utils";
 
 interface LegalPageContentProps {
   type: "privacy_policy" | "terms_of_service";
@@ -35,20 +43,24 @@ export function LegalPageContent({ type }: LegalPageContentProps) {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["legal-document", type],
-    queryFn: () => fetchLegalDocument(type),
+    queryKey: ["legal-document-admin", type],
+    queryFn: () => fetchLegalDocumentAdmin(type),
   });
 
   const [blocks, setBlocks] = useState<PolicyBlock[]>([]);
+  const [docTitle, setDocTitle] = useState<MultiLangValue>(emptyLangValue());
+  const [isPublished, setIsPublished] = useState(true);
 
   useEffect(() => {
     if (document) {
       setBlocks(document.blocks || []);
+      setDocTitle(document.title || emptyLangValue());
+      setIsPublished(document.isPublished ?? true);
     }
   }, [document]);
 
   const updateMutation = useMutation({
-    mutationFn: () => updateLegalDocument(type, blocks),
+    mutationFn: () => updateLegalDocument(type, blocks, docTitle, isPublished),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["legal-document", type] });
       toast.success(`${title} Updated`, {
@@ -65,6 +77,8 @@ export function LegalPageContent({ type }: LegalPageContentProps) {
   const handleReset = () => {
     if (document) {
       setBlocks(document.blocks || []);
+      setDocTitle(document.title || emptyLangValue());
+      setIsPublished(document.isPublished ?? true);
       toast.info("Changes Reset", {
         description: "The editor has been restored to the last saved version.",
       });
@@ -122,8 +136,13 @@ export function LegalPageContent({ type }: LegalPageContentProps) {
               <h1 className="text-2xl font-bold font-heading tracking-tight">
                 {title}
               </h1>
-              <p className="text-xs text-muted-foreground font-medium">
+              <p className="text-xs text-muted-foreground font-medium flex items-center gap-2">
                 Manage and update site {title.toLowerCase()} documents
+                {isPublished ? (
+                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] h-4">Published</Badge>
+                ) : (
+                  <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px] h-4">Draft</Badge>
+                )}
               </p>
             </div>
           </div>
@@ -158,6 +177,48 @@ export function LegalPageContent({ type }: LegalPageContentProps) {
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl shadow-foreground/5">
           <div className="p-1 bg-gradient-to-r from-primary/20 via-transparent to-primary/20" />
           <div className="p-6 sm:p-8">
+            <div className="mb-8 border-b border-border pb-6 flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div className="flex-1 space-y-4">
+                <div>
+                  <h2 className="text-xl font-bold mb-2">Document Settings</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Set the public title and publishing status for this document.
+                  </p>
+                </div>
+                <MultiLangInput
+                  label="Public Document Title"
+                  value={docTitle}
+                  onChange={setDocTitle}
+                  placeholder="e.g. Privacy Policy"
+                  className="max-w-md bg-muted/20 p-4 rounded-xl border border-border/50"
+                />
+              </div>
+              <div className="flex flex-col items-start md:items-end gap-2">
+                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Publishing Status</p>
+                 <div className="flex items-center gap-3 bg-muted/20 p-2 rounded-xl border border-border/50">
+                    <Button 
+                      variant={!isPublished ? "destructive" : "ghost"} 
+                      size="sm" 
+                      className="text-[10px] h-8 font-black uppercase tracking-widest rounded-lg"
+                      onClick={() => setIsPublished(false)}
+                    >
+                      Draft
+                    </Button>
+                    <Button 
+                      variant={isPublished ? "default" : "ghost"} 
+                      size="sm" 
+                      className={cn(
+                        "text-[10px] h-8 font-black uppercase tracking-widest rounded-lg",
+                        isPublished && "bg-emerald-600 hover:bg-emerald-700"
+                      )}
+                      onClick={() => setIsPublished(true)}
+                    >
+                      Published
+                    </Button>
+                 </div>
+              </div>
+            </div>
+
             <div className="mb-8 border-b border-border pb-6">
               <h2 className="text-xl font-bold mb-2">Content Structure</h2>
               <p className="text-sm text-muted-foreground">

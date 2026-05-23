@@ -59,9 +59,17 @@ function programTitle(cert: MyCertificate, t: (v: MultiLangText) => string): str
   return program.slug ?? "Program";
 }
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function CertificatesPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("training")) {
+    notFound();
+  }
   const exportDialogRef = useRef<HTMLDivElement>(null);
   const exportCaptureRef = useRef<HTMLDivElement>(null);
   const [viewing, setViewing] = useState<MyCertificate | null>(null);

@@ -57,8 +57,10 @@ import {
 } from "@/lib/api/team";
 
 const roleColors: Record<string, string> = {
+  admin: "bg-rose-100 text-rose-700 border-rose-200",
+  staff: "bg-violet-100 text-violet-700 border-violet-200",
   manager: "bg-primary/10 text-primary border-primary/20",
-  member: "bg-muted text-muted-foreground border-border",
+  delivery_agent: "bg-indigo-100 text-indigo-700 border-indigo-200",
 };
 
 const statusColors: Record<string, string> = {
@@ -349,10 +351,10 @@ export default function AdminMembers() {
                               "bg-muted text-muted-foreground border-border",
                           )}
                         >
-                          {member.role === "manager" && (
+                          {(member.role === "manager" || member.role === "staff" || member.role === "admin") && (
                             <ShieldCheck className="h-3 w-3 mr-1 inline" />
                           )}
-                          {member.role}
+                          {member.role.replace(/_/g, " ")}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-6 py-5 text-center">
@@ -544,6 +546,11 @@ export default function AdminMembers() {
                   >
                     <option value="member">Member</option>
                     <option value="manager">Manager</option>
+                    <option value="staff">Staff</option>
+                    <option value="delivery_agent">Delivery Agent</option>
+                    <option value="partner">Partner</option>
+                    <option value="farmer">Farmer</option>
+                    <option value="artisan">Artisan</option>
                   </select>
                 </div>
                 <div className="space-y-2">

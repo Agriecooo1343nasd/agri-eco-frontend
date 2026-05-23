@@ -96,12 +96,39 @@ const normalizeUnit = (value?: string) => {
   const normalized = (value ?? "").trim().toLowerCase();
   if (!normalized) return "";
 
-  // Legacy aliases from older data entries.
-  if (normalized === "l" || normalized === "liter" || normalized === "litre") {
-    return "piece";
+  // Handle common plurals and legacy aliases
+  const aliasMap: Record<string, typeof VALID_UNITS[number]> = {
+    l: "piece",
+    liter: "piece",
+    litre: "piece",
+    liters: "piece",
+    litres: "piece",
+    pcs: "piece",
+    pieces: "piece",
+    kilogram: "kg",
+    kilograms: "kg",
+    kgs: "kg",
+    gram: "g",
+    grams: "g",
+    pound: "lb",
+    pounds: "lb",
+    lbs: "lb",
+    ounce: "oz",
+    ounces: "oz",
+    packet: "pack",
+    packets: "pack",
+    packs: "pack",
+    box: "pack",
+    boxes: "pack",
+    bunches: "bunch",
+    dozens: "dozen"
+  };
+
+  if (aliasMap[normalized]) {
+    return aliasMap[normalized];
   }
 
-  return (VALID_UNITS as readonly string[]).includes(normalized)
+  return (VALID_UNITS as readonly string[]).includes(normalized as any)
     ? normalized
     : "";
 };
@@ -167,8 +194,8 @@ export default function UpdateProduct() {
 
   // Fetch categories
   const { data: categoryResult } = useQuery({
-    queryKey: ["admin-product-categories"],
-    queryFn: () => fetchCategoriesForAdmin(),
+    queryKey: ["admin-categories", "product"],
+    queryFn: () => fetchCategoriesForAdmin({ type: "product" }),
   });
   const categories: ProductCategory[] = categoryResult?.data ?? [];
 
@@ -227,16 +254,53 @@ export default function UpdateProduct() {
 
   useEffect(() => {
     if (!product) return;
-    setName(normalizeML(product.name));
-    setShortDesc(normalizeML(product.shortDescription));
-    setLongDesc(normalizeML(product.description));
-    setUnit(normalizeUnit(product.unit || product.measurementUnit) || "kg");
+    setName(normalizeML(product.nameI18n || product.name));
+    setShortDesc(normalizeML(product.shortDescriptionI18n || product.shortDescription));
+    setLongDesc(normalizeML(product.descriptionI18n || product.description));
+    setUnit(normalizeUnit(product.measurementUnit || product.unit) || "kg");
     setActiveCategory(product.category?.id ?? "");
     setPrice(product.sellingPrice?.toString() ?? "");
     setOldPrice(product.originalPrice ? product.originalPrice.toString() : "");
     setTags(product.tags ?? []);
-    setFeatures((product.features ?? []).map(normalizeML));
-    setBenefits((product.benefits ?? []).map(normalizeML));
+    if (product.featuresI18n) {
+      const fI18n = product.featuresI18n;
+      const maxLen = Math.max(
+        fI18n.en?.length || 0,
+        fI18n.rw?.length || 0,
+        fI18n.fr?.length || 0,
+        fI18n.sw?.length || 0,
+      );
+      setFeatures(
+        Array.from({ length: maxLen }).map((_, i) => ({
+          en: fI18n.en?.[i] || "",
+          rw: fI18n.rw?.[i] || "",
+          fr: fI18n.fr?.[i] || "",
+          sw: fI18n.sw?.[i] || "",
+        })),
+      );
+    } else {
+      setFeatures((product.features ?? []).map(normalizeML));
+    }
+
+    if (product.healthBenefitsI18n) {
+      const hI18n = product.healthBenefitsI18n;
+      const maxLen = Math.max(
+        hI18n.en?.length || 0,
+        hI18n.rw?.length || 0,
+        hI18n.fr?.length || 0,
+        hI18n.sw?.length || 0,
+      );
+      setBenefits(
+        Array.from({ length: maxLen }).map((_, i) => ({
+          en: hI18n.en?.[i]?.title || "",
+          rw: hI18n.rw?.[i]?.title || "",
+          fr: hI18n.fr?.[i]?.title || "",
+          sw: hI18n.sw?.[i]?.title || "",
+        })),
+      );
+    } else {
+      setBenefits((product.benefits ?? []).map(normalizeML));
+    }
     setMaxReturnDays(String((product as any).maxReturnDays || 14));
     setBatches(
       (product.batches ?? []).map((batch, index) => ({
@@ -256,14 +320,14 @@ export default function UpdateProduct() {
         : "",
     );
     setShelfLife(product.shipping?.shelfLife ?? "");
-    setStorage(normalizeML(product.shipping?.storageCondition));
+    setStorage(normalizeML(product.shipping?.storageConditionI18n || product.shipping?.storageCondition));
     setProductType(product.productType ?? "consumable");
     setDimensions(
       product.shipping?.dimensions
         ? `${product.shipping.dimensions.length} x ${product.shipping.dimensions.width} x ${product.shipping.dimensions.height}`
         : "",
     );
-    setArtisanId(product.artisan?.id ?? "");
+    setArtisanId(product.artisan?.id ?? (product as any).artisanId ?? "");
     setExistingImageUrls((product.images ?? []).map((img) => img.url));
     setIsActivated(product.isActive ?? false);
     setInitialStatus(product.isActive ? "Active" : "Draft");
@@ -398,7 +462,7 @@ export default function UpdateProduct() {
     setFeatures(next);
 
     try {
-      await persistPartialUpdate({ features: next });
+      await persistPartialUpdate({ features: next.map(f => f.en).filter(Boolean) });
     } catch (error) {
       setFeatures(previous);
       toast.error("Unable to remove feature", {
@@ -420,7 +484,7 @@ export default function UpdateProduct() {
     setBenefits(next);
 
     try {
-      await persistPartialUpdate({ benefits: next });
+      await persistPartialUpdate({ benefits: next.map(b => b.en).filter(Boolean) });
     } catch (error) {
       setBenefits(previous);
       toast.error("Unable to remove benefit", {
@@ -564,23 +628,41 @@ export default function UpdateProduct() {
       ? parseDimensions(dimensions)
       : undefined;
 
+    const activeFeatures = features.filter(f => f.en.trim() || f.rw?.trim() || f.fr?.trim() || f.sw?.trim());
+    const activeBenefits = benefits.filter(b => b.en.trim() || b.rw?.trim() || b.fr?.trim() || b.sw?.trim());
+
     const payload = {
-      name,
-      shortDescription: shortDesc,
-      description: longDesc,
+      name: name.en,
+      nameI18n: name,
+      shortDescription: shortDesc.en,
+      shortDescriptionI18n: shortDesc,
+      description: longDesc.en,
+      descriptionI18n: longDesc,
       productType,
-      unit: unit.trim().toLowerCase() as CreateAdminProductPayload["unit"],
-      category: activeCategory,
+      categoryId: activeCategory,
+      measurementUnit: unit,
       sellingPrice: Number(price),
       originalPrice: (Number(oldPrice) > 0 ? Number(oldPrice) : null) as unknown as number,
       tags,
-      features,
-      benefits,
-      marketingHooks: features.map((f) => ({
+      features: activeFeatures.map((f) => f.en),
+      featuresI18n: {
+        en: activeFeatures.map((f) => f.en),
+        rw: activeFeatures.map((f) => f.rw || ""),
+        fr: activeFeatures.map((f) => f.fr || ""),
+        sw: activeFeatures.map((f) => f.sw || ""),
+      },
+      benefits: activeBenefits.map((b) => b.en),
+      marketingHooks: activeFeatures.map((f) => ({
         label: f.en || "",
         isActive: true,
       })),
-      healthBenefits: benefits.map((b) => ({ title: b.en || "" })),
+      healthBenefits: activeBenefits.map((b) => ({ title: b.en || "" })),
+      healthBenefitsI18n: {
+        en: activeBenefits.map((b) => ({ title: b.en || "" })).filter(b => b.title),
+        rw: activeBenefits.map((b) => ({ title: b.rw || "" })).filter(b => b.title),
+        fr: activeBenefits.map((b) => ({ title: b.fr || "" })).filter(b => b.title),
+        sw: activeBenefits.map((b) => ({ title: b.sw || "" })).filter(b => b.title),
+      },
       batches: batches.map((batch) => ({
         batchId: batch.batchNumber || batch.id,
         quantity: batch.quantity,
@@ -596,14 +678,16 @@ export default function UpdateProduct() {
               weight: weight ? Number(weight) : undefined,
               dimensions: parsedDimensions,
               shelfLife: shelfLife || undefined,
-              storageCondition: storage,
+              storageCondition: storage.en,
+              storageConditionI18n: storage,
             }
           : undefined,
       isActive: isActivated,
       maxReturnDays: Number(maxReturnDays || 14),
       trackInventory: true,
       stock: batches.reduce((acc, b) => acc + (b.quantity || 0), 0),
-      artisanId: artisanId || undefined,
+      source: artisanId ? "artisan" : "shop",
+      artisanId: artisanId || null,
     } as any;
     updateMutation.mutate({ payload });
   };

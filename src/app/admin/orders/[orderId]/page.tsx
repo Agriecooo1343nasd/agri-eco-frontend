@@ -43,16 +43,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
     fetchAdminOrderById, 
     updateOrderStatusAdmin, 
-    updateOrderPaymentStatusAdmin, 
+    updateOrderPaymentStatusAdmin,
+    assignAgentToOrder,
 } from "@/lib/api/orders";
 import { OrderStatus, PaymentStatus } from "@/constants/order-status";
 import { Loader2, AlertCircle } from "lucide-react";
-import {
-  assignOrderToDeliveryAgent,
-  deliveryAgents,
-  listDeliveryOrders,
-} from "@/lib/api/operations";
-import { DeliveryAgentPickerDialog } from "@/components/admin/DeliveryAgentPickerDialog";
+import { fetchDeliveryAgents } from "@/lib/api/returns";
+import { DeliveryAgentPickerDialog, type DeliveryAgentOption } from "@/components/admin/DeliveryAgentPickerDialog";
 
 const allOrdersRaw = [
   {
@@ -158,30 +155,19 @@ export default function AdminOrderDetails({
       queryFn: () => fetchAdminOrderById(orderId),
   });
 
-  const { data: deliveryAssignment } = useQuery({
-    queryKey: ["admin-delivery-assignment", orderId],
-    queryFn: async () => {
-      const deliveries = await listDeliveryOrders();
-      return deliveries.find((d) => d.orderId === orderId) ?? null;
-    },
+  const { data: agents = [], isLoading: agentsLoading } = useQuery({
+    queryKey: ["delivery-agents"],
+    queryFn: fetchDeliveryAgents,
+    enabled: assignOpen,
   });
 
-  const [agentsForDialog, setAgentsForDialog] = useState<Array<{ agent: string; assignments: number }>>(
-    deliveryAgents.map((a) => ({ agent: a, assignments: 0 })),
-  );
-
-  const loadAgentStats = useMutation({
-    mutationFn: async () => {
-      const deliveries = await listDeliveryOrders();
-      const counts = new Map<string, number>();
-      for (const a of deliveryAgents) counts.set(a, 0);
-      for (const d of deliveries) {
-        counts.set(d.assignedAgent, (counts.get(d.assignedAgent) ?? 0) + 1);
-      }
-      return deliveryAgents.map((a) => ({ agent: a, assignments: counts.get(a) ?? 0 }));
-    },
-    onSuccess: (data) => setAgentsForDialog(data),
-  });
+  const agentOptions: DeliveryAgentOption[] = agents.map((a) => ({
+    id: a.id,
+    name: [a.firstName, a.lastName].filter(Boolean).join(" ") || a.username || a.email || "Agent",
+    email: a.email,
+    phone: a.phone,
+    assignments: 0,
+  }));
 
   const updateStatusMutation = useMutation({
       mutationFn: ({ status, adminNote }: { status: OrderStatus, adminNote?: string }) => 
@@ -208,39 +194,17 @@ export default function AdminOrderDetails({
   });
 
   const assignDeliveryMutation = useMutation({
-    mutationFn: async (agent: string) => {
-      if (!order) throw new Error("Order not loaded yet.");
-      await assignOrderToDeliveryAgent({
-        orderId,
-        customer:
-          order.user?.username ||
-          (order.user?.firstName || order.user?.lastName
-            ? `${order.user.firstName || ""} ${order.user.lastName || ""}`.trim()
-            : "") ||
-          order.shippingAddress?.fullName ||
-          "Customer",
-        address: [
-          order.shippingAddress?.street,
-          order.shippingAddress?.city,
-          order.shippingAddress?.state,
-          order.shippingAddress?.country,
-        ]
-          .filter(Boolean)
-          .join(", "),
-        phone: order.shippingAddress?.phone || order.user?.phone || "N/A",
-        amount: Number(order.totalAmount || 0),
-        items: `${order.items?.length ?? 0} items`,
-        agent,
-      });
+    mutationFn: async ({ agentId, notes }: { agentId: string; notes?: string }) => {
+      await assignAgentToOrder(orderId, { deliveryAgentId: agentId, notes });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-delivery-assignment", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-order", orderId] });
       toast.success("Assigned", { description: "Order assigned to delivery agent." });
       setAssignOpen(false);
     },
     onError: (error: any) => {
       toast.error("Failed to assign", {
-        description: error?.message || "Unable to assign this order.",
+        description: error?.response?.data?.message || error?.message || "Unable to assign this order.",
       });
     },
   });
@@ -317,13 +281,10 @@ export default function AdminOrderDetails({
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => {
-              setAssignOpen(true);
-              loadAgentStats.mutate();
-            }}
+            onClick={() => setAssignOpen(true)}
           >
             <Truck className="h-4 w-4 mr-2" />
-            {deliveryAssignment?.assignedAgent ? "Reassign delivery" : "Assign delivery"}
+            Assign delivery
           </Button>
 
           <DropdownMenu>
@@ -355,11 +316,12 @@ export default function AdminOrderDetails({
       <DeliveryAgentPickerDialog
         open={assignOpen}
         onOpenChange={setAssignOpen}
-        title={`Assign delivery agent · ${orderId}`}
-        agents={agentsForDialog}
-        pickedAgent={deliveryAssignment?.assignedAgent ?? null}
+        title={`Assign delivery agent · ${order.orderNumber}`}
+        agents={agentOptions}
+        loading={agentsLoading}
+        pickedAgentId={null}
         picking={assignDeliveryMutation.isPending}
-        onPick={(agent) => assignDeliveryMutation.mutate(agent)}
+        onPick={(agentId, notes) => assignDeliveryMutation.mutate({ agentId, notes })}
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">

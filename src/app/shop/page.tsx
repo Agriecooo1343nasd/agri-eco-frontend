@@ -101,27 +101,23 @@ function ShopContent() {
         return {
           id: p.id,
           slug: p.slug,
-          name: p.name,
+          name: t(p.nameI18n || p.name),
           price: p.sellingPrice,
           oldPrice: p.originalPrice,
           backendDiscountLabel,
-          image:
-            p.images && p.images.length > 0
-              ? p.images[0].url
-              : "/assets/products/placeholder.jpg",
+          image: p.images?.find(img => img.isPrimary)?.url || p.images?.[0]?.url || "/assets/products/placeholder.jpg",
           images: p.images ? p.images.map((img) => img.url) : [],
           rating: typeof p.averageRating === "number" ? p.averageRating : 0,
           badge,
           category: p.category?.name || "",
           unit: p.unit || "",
-          shortDescription: p.shortDescription || "",
-          longDescription: p.description || "",
+          shortDescription: t(p.shortDescriptionI18n || p.shortDescription) || "",
+          longDescription: t(p.descriptionI18n || p.description) || "",
           stock: p.stock,
-          ownerName: p.id.endsWith("1") || p.id.endsWith("3") || p.id.endsWith("5") ? (p.id.endsWith("1") ? "Kagabo Emmanuel" : p.id.endsWith("3") ? "Mutesi Alice" : "Artisan Collective") : undefined,
-          ownerHref:
-            p.id.endsWith("1") || p.id.endsWith("3") || p.id.endsWith("5")
-              ? (p.id.endsWith("1") ? "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee" : p.id.endsWith("3") ? "/community/artisan/c618b051-1972-4b11-b2c5-8d7dbf986f0e" : "/community/artisan/a7bfa9eb-4980-4ea4-814c-b74c05e0ccee")
-              : undefined,
+          source: p.source,
+          artisan: p.artisan,
+          ownerName: p.source === "artisan" ? t(p.artisan?.name) : undefined,
+          ownerHref: p.source === "artisan" && p.artisan?.id ? `/community/artisan/${p.artisan.id}` : undefined,
         };
       }),
     [products],
@@ -761,8 +757,17 @@ function ShopContent() {
   );
 }
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function ShopPage() {
   const { t } = useLanguage();
+  const { isFeatureEnabled } = useFeatures();
+
+  if (!isFeatureEnabled("shopping")) {
+    notFound();
+  }
+
   return (
     <Suspense
       fallback={

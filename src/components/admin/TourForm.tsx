@@ -59,6 +59,7 @@ import {
   fetchAdminAccommodations,
   type AdminAccommodation,
 } from "@/lib/api/accommodations";
+import { fetchCategoriesForAdmin } from "@/lib/api/products";
 
 const EXPERIENCE_TYPE_MAP: Record<string, ExperienceType> = {
   "farm-tour": "farm_tour",
@@ -271,10 +272,13 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           }
         : emptyLangValue(),
   );
-  const [category, setCategory] = useState(
+  const [tourType, setTourType] = useState(
     isAdminExperience(initialData)
       ? (BACKEND_TO_FORM_TYPE_MAP[initialData.type] ?? "")
       : (initialData as Tour | undefined)?.category || "",
+  );
+  const [categoryId, setCategoryId] = useState(
+    isAdminExperience(initialData) ? ((initialData as any).categoryId ?? "") : "",
   );
   const [duration, setDuration] = useState(
     isAdminExperience(initialData)
@@ -354,14 +358,20 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           });
         } catch {
           toast.error("Failed to load accommodations", {
-            description:
-              "Backend error. Using fallback mock accommodations data.",
+            description: "Backend error. Using fallback mock accommodations data.",
           });
           return null;
         }
       },
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
     });
+
+  const { data: categoriesResult, isLoading: categoriesLoading } = useQuery({
+    queryKey: ["adminCategories", "tour"],
+    queryFn: () => fetchCategoriesForAdmin({ type: "tour", limit: 100 }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const categories = categoriesResult?.data || [];
   const addListItem = (
     setter: React.Dispatch<
       React.SetStateAction<{ id: string; text: MultiLangValue }[]>
@@ -451,10 +461,10 @@ export function TourForm({ initialData, mode }: TourFormProps) {
       return;
     }
 
-    const backendType = EXPERIENCE_TYPE_MAP[category];
+    const backendType = EXPERIENCE_TYPE_MAP[tourType];
     if (!backendType) {
       toast.error("Missing experience type", {
-        description: "Please select the tour category/type before publishing.",
+        description: "Please select the tour type before publishing.",
       });
       return;
     }
@@ -544,12 +554,7 @@ export function TourForm({ initialData, mode }: TourFormProps) {
           });
         }
 
-        if (timeSlots.length > 0) {
-          toast.warning("Time slots not persisted", {
-            description:
-              "Backend create experience DTO currently does not accept time slots. Please ask backend to support this.",
-          });
-        }
+        // No misleading warning here anymore.
       } else {
         const adminData = initialData as AdminExperience;
         const validAccommodationIds = selectedAccommodations.filter((id) =>
@@ -1161,7 +1166,7 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                     <SelectItem value="upcoming">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                        Upcoming/
+                        Upcoming
                       </div>
                     </SelectItem>
                     <SelectItem value="sold-out">
@@ -1178,18 +1183,50 @@ export function TourForm({ initialData, mode }: TourFormProps) {
                 <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Experience Type
                 </Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="font-medium">
-                    <SelectValue placeholder="Select experience type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(categoryLabels).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>
-                        {v}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              </div>
+              
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                    Tour Type
+                  </Label>
+                  <Select
+                    value={tourType}
+                    onValueChange={(v) => setTourType(v)}
+                  >
+                    <SelectTrigger className="w-full bg-muted/20 border-border">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(categoryLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
+                    Category
+                  </Label>
+                  <Select
+                    value={categoryId}
+                    onValueChange={(v) => setCategoryId(v)}
+                  >
+                    <SelectTrigger className="w-full bg-muted/20 border-border">
+                      <SelectValue placeholder={categoriesLoading ? "Loading..." : "Select category"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">

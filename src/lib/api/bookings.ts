@@ -91,7 +91,7 @@ export async function fetchMyBookings(params: Record<string, any> = {}): Promise
 }
 
 export async function cancelMyBooking(id: string, reason?: string): Promise<Booking> {
-  const response = await apiClient.post<ApiSuccessResponse<Booking>>(
+  const response = await apiClient.patch<ApiSuccessResponse<Booking>>(
     `/bookings/my/${id}/cancel`,
     { reason },
   );

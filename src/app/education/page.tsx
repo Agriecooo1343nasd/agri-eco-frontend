@@ -73,15 +73,23 @@ const statusColors: Record<string, string> = {
   completed: "bg-muted text-muted-foreground border-border",
 };
 
+import { notFound } from "next/navigation";
+import { useFeatures } from "@/context/FeatureContext";
+
 export default function EducationPage() {
   const { formatPrice } = usePricing();
   const { t } = useLanguage();
   const { isAuthenticated } = useAuth();
+  const { isFeatureEnabled } = useFeatures();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchParam = searchParams.get("search") || "";
   const statusParam = searchParams.get("status") || "all";
+
+  if (!isFeatureEnabled("training")) {
+    notFound();
+  }
 
   const [trainingSearch, setTrainingSearch] = useState(searchParam);
   const [trainingPrograms, setTrainingPrograms] = useState<any[]>([]);

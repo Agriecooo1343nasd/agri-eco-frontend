@@ -1,0 +1,116 @@
+import { apiClient } from "@/lib/api/client";
+import type { ApiSuccessResponse } from "@/lib/api/types";
+import type { Order } from "@/lib/api/orders";
+import type { ReturnRecord } from "@/lib/api/returns";
+
+export interface AgentDashboardData {
+  stats: {
+    totalAssigned: number;
+    inTransit: number;
+    deliveredToday: number;
+    failedOrders: number;
+    pendingPickups: number;
+  };
+  recentOrders: Order[];
+  recentReturns: ReturnRecord[];
+}
+
+export interface WeeklyPerformance {
+  from: string;
+  to: string;
+  totalDeliveries: number;
+  totalPickups: number;
+  series: Array<{
+    date: string;
+    deliveries: number;
+    pickups: number;
+  }>;
+}
+
+export interface StatusBreakdown {
+  total: number;
+  breakdown: Array<{
+    status: string;
+    count: number;
+    percentage: number;
+  }>;
+}
+
+export async function fetchAgentDashboard(): Promise<AgentDashboardData> {
+  const res = await apiClient.get<ApiSuccessResponse<AgentDashboardData>>("/agent/me/dashboard");
+  return res.data.data!;
+}
+
+export async function fetchAgentWeeklyPerformance(): Promise<WeeklyPerformance> {
+  const res = await apiClient.get<ApiSuccessResponse<WeeklyPerformance>>("/agent/me/performance/weekly");
+  return res.data.data!;
+}
+
+export async function fetchAgentStatusBreakdown(): Promise<StatusBreakdown> {
+  const res = await apiClient.get<ApiSuccessResponse<StatusBreakdown>>("/agent/me/performance/status-breakdown");
+  return res.data.data!;
+}
+
+export async function fetchAgentOrders(query?: string): Promise<{ data: Order[]; pagination: any }> {
+  const res = await apiClient.get<ApiSuccessResponse<Order[]>>(`/agent/me/orders${query ? `?${query}` : ""}`);
+  return {
+    data: res.data.data!,
+    pagination: (res.data as any).pagination,
+  };
+}
+
+export async function fetchAgentOrderById(id: string): Promise<Order> {
+  const res = await apiClient.get<ApiSuccessResponse<Order>>(`/agent/me/orders/${id}`);
+  return res.data.data!;
+}
+
+export async function updateAgentDeliveryStatus(
+  id: string, 
+  status: "picked_up" | "in_transit" | "failed",
+  note?: string
+): Promise<Order> {
+  const res = await apiClient.patch<ApiSuccessResponse<Order>>(`/orders/${id}/agent/status`, {
+    status,
+    note
+  });
+  return res.data.data!;
+}
+
+export async function confirmAgentDelivery(
+  id: string,
+  qrPayload: string,
+  proof?: { location?: { lat: number; lng: number }; note?: string }
+): Promise<Order> {
+  const res = await apiClient.post<ApiSuccessResponse<Order>>(`/orders/${id}/qr/confirm-delivery`, {
+    qrPayload,
+    proof
+  });
+  return res.data.data!;
+}
+
+export async function fetchAgentReturns(query?: string): Promise<{ data: ReturnRecord[]; pagination: any }> {
+  const res = await apiClient.get<ApiSuccessResponse<ReturnRecord[]>>(`/agent/me/returns${query ? `?${query}` : ""}`);
+  return {
+    data: res.data.data!,
+    pagination: (res.data as any).pagination,
+  };
+}
+
+export async function fetchAgentReturnById(id: string): Promise<ReturnRecord> {
+  const res = await apiClient.get<ApiSuccessResponse<ReturnRecord>>(`/agent/me/returns/${id}`);
+  return res.data.data!;
+}
+
+export async function markReturnPickedUp(id: string, note?: string): Promise<ReturnRecord> {
+  const res = await apiClient.patch<ApiSuccessResponse<ReturnRecord>>(`/returns/agent/${id}/picked-up`, {
+    note
+  });
+  return res.data.data!;
+}
+
+export async function markReturnAtWarehouse(id: string, note?: string): Promise<ReturnRecord> {
+  const res = await apiClient.patch<ApiSuccessResponse<ReturnRecord>>(`/returns/agent/${id}/returned-to-warehouse`, {
+    note
+  });
+  return res.data.data!;
+}

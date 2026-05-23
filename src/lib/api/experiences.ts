@@ -220,6 +220,20 @@ export async function deleteAdminExperience(id: string): Promise<void> {
   await apiClient.delete(`/experiences/${id}`);
 }
 
+export async function cancelAdminExperience(
+  id: string,
+  reason?: string,
+): Promise<AdminExperience> {
+  const response = await apiClient.patch<ApiSuccessResponse<AdminExperience>>(
+    `/experiences/admin/${id}/cancel`,
+    { reason },
+  );
+  if (!response.data.data) {
+    throw new Error("Failed to cancel experience");
+  }
+  return response.data.data;
+}
+
 /* ---------- Admin: Slot Management ---------- */
 
 export async function createExperienceSlot(

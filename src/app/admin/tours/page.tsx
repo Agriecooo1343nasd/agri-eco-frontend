@@ -182,12 +182,13 @@ export default function AdminToursPage() {
       setDeletingTour(null);
     },
     onError: (error: Error) => {
-      console.error("Failed to delete experience", {
+      toast.error("Failed to delete experience", {
         description: error.message || "Please try again.",
       });
       setDeletingTour(null);
     },
   });
+
 
   const setColumnSort = (key: SortKey, direction: SortDir) => {
     setSortKey(key);
@@ -579,6 +580,7 @@ export default function AdminToursPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }

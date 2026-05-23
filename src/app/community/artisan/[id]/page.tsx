@@ -37,11 +37,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   fetchArtisanById,
-  fetchPublicArtisanProducts,
   type AdminArtisan,
-  type AdminArtisanProduct,
   toAbsoluteArtisanImage,
 } from "@/lib/api/artisans";
+import { fetchProducts, type AdminProduct } from "@/lib/api/products";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
@@ -62,12 +61,12 @@ export default function ArtisanProfilePage({
 }) {
   const { id } = use(params);
   const [artisan, setArtisan] = useState<AdminArtisan | null>(null);
-  const [products, setProducts] = useState<AdminArtisanProduct[]>([]);
+  const [products, setProducts] = useState<AdminProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   
   const { formatPrice } = usePricing();
-  const { locale: activeLang, t } = useLanguage();
+  const { locale, t } = useLanguage();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -147,10 +146,10 @@ export default function ArtisanProfilePage({
         setIsLoading(true);
         const [artisanData, productsData] = await Promise.all([
           fetchArtisanById(id),
-          fetchPublicArtisanProducts(id, { limit: 100 }),
+          fetchProducts({ artisanId: id, limit: 100 }),
         ]);
         setArtisan(artisanData);
-        setProducts(Array.isArray(productsData.data) ? productsData.data : []);
+        setProducts(productsData.data || []);
       } catch (err) {
         console.error("Failed to load artisan profile:", err);
         setError(true);
@@ -161,123 +160,76 @@ export default function ArtisanProfilePage({
     loadData();
   }, [id]);
 
-  const getLangText = (text?: any, lang?: string) => {
-    if (!text) return "";
-    if (typeof text === "string") return text;
-    if (lang && text[lang]) return text[lang];
-    return text.en || text.rw || text.fr || text.sw || "";
-  };
+  // getLangText is replaced by t() from useLanguage
 
-  const toCartProduct = (product: AdminArtisanProduct): Product => ({
+  const toCartProduct = (product: AdminProduct): Product => ({
     id: product.id,
-    artisanProductId: product.id,
-    slug: `artisan-product-${product.id}`,
-    name: getLangText(product.name),
-    price: product.price || 0,
-    image: toAbsoluteArtisanImage(product.image),
-    rating: 5,
-    category: artisan?.specialty || "Artisan",
-    unit: "piece",
+    slug: product.slug,
+    name: t(product.nameI18n || product.name),
+    price: product.sellingPrice || 0,
+    oldPrice: product.originalPrice,
+    image: product.images?.find(img => img.isPrimary)?.url || product.images?.[0]?.url || "/assets/products/placeholder.jpg",
+    rating: product.averageRating || 0,
+    category: product.category?.name || t(artisan?.specialty) || "Artisan",
+    unit: product.unit || "piece",
     stock: product.stock,
-    ownerName: artisan?.name,
-    ownerHref: artisan?.id ? `/artisan/${artisan.id}` : undefined,
+    ownerName: t(artisan?.name),
+    ownerHref: artisan?.id ? `/community/artisan/${artisan.id}` : undefined,
+    source: product.source,
+    artisan: product.artisan,
+    shortDescription: t(product.shortDescriptionI18n || product.shortDescription),
   });
-
-  const mockedProducts: AdminArtisanProduct[] = useMemo(
-    () =>
-      products.length
-        ? products
-        : [
-            {
-              id: `mock-${id}-1`,
-              artisanId: id,
-              name: { en: "Handwoven Basket Set", rw: "", fr: "", sw: "" },
-              description: {
-                en: "Traditional woven basket crafted by hand.",
-                rw: "",
-                fr: "",
-                sw: "",
-              },
-              image: "/assets/products/placeholder.jpg",
-              price: 18000,
-              stock: 12,
-              tags: ["Handmade", "Traditional", "Eco-friendly"],
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            } as AdminArtisanProduct,
-            {
-              id: `mock-${id}-2`,
-              artisanId: id,
-              name: { en: "Clay Pot Collection", rw: "", fr: "", sw: "" },
-              description: {
-                en: "Decorative clay pots for modern and traditional homes.",
-                rw: "",
-                fr: "",
-                sw: "",
-              },
-              image: "/assets/products/placeholder.jpg",
-              price: 25000,
-              stock: 9,
-              tags: ["Ceramic", "Home Decor", "Artisan"],
-              isActive: true,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            } as AdminArtisanProduct,
-          ],
-    [products, id],
-  );
 
   const artisanCategories = useMemo(() => {
     const cats = new Map<string, number>();
-    cats.set("All", mockedProducts.length);
-    mockedProducts.forEach((p) => {
+    cats.set("All", products.length);
+    products.forEach((p) => {
       const cat = p.category?.name || artisan?.specialty || "General";
       cats.set(cat, (cats.get(cat) || 0) + 1);
     });
     return Array.from(cats.entries());
-  }, [mockedProducts, artisan]);
+  }, [products, artisan]);
 
   const artisanTags = useMemo(() => {
     const tags = new Set<string>();
-    mockedProducts.forEach((p) => {
+    products.forEach((p) => {
       if (Array.isArray(p.tags)) {
         p.tags.forEach((t) => tags.add(t));
       }
     });
     return Array.from(tags);
-  }, [mockedProducts]);
+  }, [products]);
 
   const shopStyleProducts = useMemo(() => {
     if (!artisan) return [];
     const q = search.trim().toLowerCase();
-    let rows = mockedProducts.filter((p) => {
-      const name = getLangText(p.name).toLowerCase();
-      const desc = getLangText(p.description).toLowerCase();
+    let rows = products.filter((p) => {
+      const name = t(p.nameI18n || p.name).toLowerCase();
+      const desc = t(p.descriptionI18n || p.description).toLowerCase();
       const cat = p.category?.name || artisan?.specialty || "General";
       
-      const matchesRating = !selectedRating || 5 >= selectedRating; // Mocked rating 5 for all artisan products
+      const matchesRating = !selectedRating || (p.averageRating || 5) >= selectedRating;
       const matchesTags = selectedTags.length === 0 || selectedTags.some(tag => p.tags?.includes(tag));
       
       return (
         (!q || name.includes(q) || desc.includes(q)) &&
-        (p.price || 0) >= priceRange[0] &&
-        (p.price || 0) <= priceRange[1] &&
+        (p.sellingPrice || 0) >= priceRange[0] &&
+        (p.sellingPrice || 0) <= priceRange[1] &&
         (selectedCategory === "All" || cat === selectedCategory) &&
         matchesRating &&
         matchesTags
       );
     });
     if (sortBy === "price-low")
-      rows = [...rows].sort((a, b) => (a.price || 0) - (b.price || 0));
+      rows = [...rows].sort((a, b) => (a.sellingPrice || 0) - (b.sellingPrice || 0));
     if (sortBy === "price-high")
-      rows = [...rows].sort((a, b) => (b.price || 0) - (a.price || 0));
+      rows = [...rows].sort((a, b) => (b.sellingPrice || 0) - (a.sellingPrice || 0));
     if (sortBy === "name")
       rows = [...rows].sort((a, b) =>
-        getLangText(a.name).localeCompare(getLangText(b.name)),
+        t(a.name).localeCompare(t(b.name)),
       );
     return rows.map((p) => toCartProduct(p));
-  }, [artisan, mockedProducts, search, sortBy, priceRange, selectedCategory, onlyDiscounted]);
+  }, [artisan, products, search, sortBy, priceRange, selectedCategory, onlyDiscounted, selectedRating, selectedTags]);
 
   const paginatedProducts = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -331,7 +283,7 @@ export default function ArtisanProfilePage({
   const handleShare = () => {
     if (typeof window !== "undefined") {
       if (navigator.share) {
-        navigator.share({ title: artisan.name, text: getLangText(artisan.shortDescription) || artisan.specialty, url: window.location.href });
+        navigator.share({ title: t(artisan.name), text: t(artisan.shortDescription) || t(artisan.specialty), url: window.location.href });
       } else {
         navigator.clipboard.writeText(window.location.href);
         toast.success(t(translations.artisanPage.linkCopied));
@@ -370,11 +322,11 @@ export default function ArtisanProfilePage({
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h1 className="text-2xl md:text-3xl font-bold font-heading text-foreground">
-                      {artisan.name}
+                      {t(artisan.name)}
                     </h1>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       <Badge className="bg-primary/10 text-primary border-primary/20 border gap-1 text-xs px-2 py-0.5">
-                        <Award className="h-3 w-3" /> {artisan.specialty}
+                        <Award className="h-3 w-3" /> {t(artisan.specialty)}
                       </Badge>
                       <span className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="h-3.5 w-3.5" /> {artisan.location || "Rwanda"}
@@ -504,7 +456,7 @@ export default function ArtisanProfilePage({
                       </div>
 
                       {/* Price Filter */}
-                      <div className="space-y-3">
+                      <div className="space-y-3 pt-2">
                         <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
                           <span className="w-1 h-5 bg-primary rounded-full" />
                           {t(translations.shop.priceHeading)}
@@ -530,44 +482,8 @@ export default function ArtisanProfilePage({
                         </div>
                       </div>
 
-                      {/* Rating Filter */}
-                      <div className="space-y-3">
-                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
-                          <span className="w-1 h-5 bg-primary rounded-full" />
-                          {t(translations.shop.ratingHeading)}
-                        </h3>
-                        <div className="space-y-1">
-                          {[5, 4, 3, 2, 1, 0].map((rating) => (
-                            <button
-                              key={rating}
-                              onClick={() => {
-                                setSelectedRating(selectedRating === rating ? null : rating);
-                                setCurrentPage(1);
-                              }}
-                              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs transition-colors ${
-                                selectedRating === rating
-                                  ? "bg-primary text-primary-foreground font-semibold"
-                                  : "text-foreground hover:bg-accent hover:text-accent-foreground"
-                              }`}
-                            >
-                              <div className="flex items-center gap-0.5">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-3.5 w-3.5 ${
-                                      i < rating ? "fill-secondary text-secondary" : "text-muted-foreground/30"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span>{rating} {rating !== 1 ? t(translations.shop.stars) : t(translations.shop.star)}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
                       {/* Discount Filter */}
-                      <div className="space-y-3">
+                      <div className="space-y-3 pt-2">
                         <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
                           <span className="w-1 h-5 bg-primary rounded-full" />
                           {t(translations.shop.specialOffersHeading)}
@@ -586,38 +502,6 @@ export default function ArtisanProfilePage({
                             {t(translations.shop.discountedProducts)}
                           </span>
                         </label>
-                      </div>
-
-                      {/* Popular Tags */}
-                      <div className="space-y-3">
-                        <h3 className="font-heading font-bold text-foreground text-sm flex items-center gap-2">
-                          <span className="w-1 h-5 bg-primary rounded-full" />
-                          {t(translations.shop.popularTagsHeading)}
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                          {artisanTags.length > 0 ? (
-                            artisanTags.map(tag => (
-                              <button
-                                key={tag}
-                                onClick={() => {
-                                  setSelectedTags(prev => 
-                                    prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-                                  );
-                                  setCurrentPage(1);
-                                }}
-                                className={`px-3 py-1.5 rounded-full text-[10px] font-semibold transition-colors border ${
-                                  selectedTags.includes(tag)
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"
-                                }`}
-                              >
-                                {tag}
-                              </button>
-                            ))
-                          ) : (
-                            <p className="text-[10px] text-muted-foreground italic">{t(translations.shop.noTags)}</p>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </aside>
@@ -729,10 +613,10 @@ export default function ArtisanProfilePage({
                         </div>
                         <div>
                           <h2 className="text-xl font-bold font-heading text-foreground">
-                            {t(translations.artisanPage.storyOf)} {artisan.name}
+                            {t(translations.artisanPage.storyOf)} {t(artisan.name)}
                           </h2>
                           <p className="text-sm text-muted-foreground">
-                            {artisan.specialty}
+                            {t(artisan.specialty)}
                           </p>
                         </div>
                       </div>
@@ -741,7 +625,7 @@ export default function ArtisanProfilePage({
                     </div>
                     <div className="prose prose-sm max-w-none">
                       <p className="text-foreground leading-relaxed text-sm mb-6 whitespace-pre-wrap">
-                        {getLangText(artisan.fullStory, activeLang) || getLangText(artisan.shortDescription) || t(translations.artisanPage.noStory)}
+                        {t(artisan.fullStory) || t(artisan.shortDescription) || t(translations.artisanPage.noStory)}
                       </p>
                     </div>
 
@@ -752,15 +636,17 @@ export default function ArtisanProfilePage({
                         </h4>
                         <p className="text-sm text-muted-foreground">{artisan.location || "Rwanda"}</p>
                       </div>
-                      <div className="space-y-4">
-                        <h4 className="font-bold text-foreground flex items-center gap-2">
-                          <MessageCircle className="h-4 w-4 text-primary" /> {t(translations.artisanPage.contactDetails)}
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                          {artisan.phone && <p className="text-muted-foreground">{t(translations.artisanPage.phone)}: <span className="text-foreground font-medium">{artisan.phone}</span></p>}
-                          {artisan.email && <p className="text-muted-foreground">{t(translations.artisanPage.email)}: <span className="text-foreground font-medium">{artisan.email}</span></p>}
+                      {(artisan.phone || artisan.email) && (
+                        <div className="space-y-4">
+                          <h4 className="font-bold text-foreground flex items-center gap-2">
+                            <MessageCircle className="h-4 w-4 text-primary" /> {t(translations.artisanPage.contactDetails)}
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            {artisan.phone && <p className="text-muted-foreground">{t(translations.artisanPage.phone)}: <span className="text-foreground font-medium">{artisan.phone}</span></p>}
+                            {artisan.email && <p className="text-muted-foreground">{t(translations.artisanPage.email)}: <span className="text-foreground font-medium">{artisan.email}</span></p>}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -777,7 +663,7 @@ export default function ArtisanProfilePage({
                       <div className="flex justify-between py-2 border-b border-border">
                         <span className="text-muted-foreground">{t(translations.artisanPage.specLabel)}</span>
                         <span className="font-medium text-foreground">
-                          {artisan.specialty}
+                          {t(artisan.specialty)}
                         </span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-border">
@@ -824,12 +710,11 @@ export default function ArtisanProfilePage({
                       <Shield className="h-8 w-8 text-primary" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-lg">Verified Artisan</h4>
+                      <h4 className="font-bold text-lg">{t(translations.artisanPage.verified)}</h4>
                       <p className="text-sm text-muted-foreground max-w-[280px]">
-                        This artisan has been personally verified by Agri-Eco for quality, authenticity, and sustainable practices.
+                        {t(translations.artisanPage.authenticDesc)}
                       </p>
                     </div>
-                    <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5">Official Artisan</Badge>
                   </div>
                 </div>
               </TabsContent>
