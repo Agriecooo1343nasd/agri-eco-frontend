@@ -61,6 +61,7 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       label: t(translations.accountPage.partnerNetwork),
       icon: Handshake,
       href: "/account/partner",
+      feature: "partnership"
     },
     {
       id: "enrollments",
@@ -94,7 +95,7 @@ const AccountSidebar = ({ isOpen, onClose }: AccountSidebarProps) => {
       label: "Artisan Portal",
       icon: Paintbrush,
       href: "/account/artisan",
-      feature: "shopping"
+      feature: "artisans"
     },
     {
       id: "addresses",

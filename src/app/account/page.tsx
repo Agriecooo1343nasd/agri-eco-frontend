@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
+import { useFeatures } from "@/context/FeatureContext";
 
 const AccountDashboard = () => {
   const { user } = useAuth();
@@ -41,6 +42,10 @@ const AccountDashboard = () => {
   const statsData = dashboardQuery.data;
   const roleStatus = roleStatusQuery.data;
 
+  const { isFeatureEnabled } = useFeatures();
+  const isPartnershipEnabled = isFeatureEnabled("partnership");
+  const isArtisansEnabled = isFeatureEnabled("artisans");
+
   const stats = [
     {
       label: t(translations.accountPage.totalOrders),
@@ -49,6 +54,7 @@ const AccountDashboard = () => {
       icon: ShoppingBag,
       color: "bg-green-50 text-green-600",
       href: "/account/orders",
+      feature: "shopping" as const,
     },
     {
       label: t(translations.accountPage.itemsInCart),
@@ -57,6 +63,7 @@ const AccountDashboard = () => {
       icon: ShoppingCart,
       color: "bg-green-50 text-green-600",
       href: "/cart",
+      feature: "shopping" as const,
     },
     {
       label: t(translations.accountPage.savedAddresses),
@@ -65,6 +72,7 @@ const AccountDashboard = () => {
       icon: MapPin,
       color: "bg-amber-50 text-amber-600",
       href: "/account/addresses",
+      feature: "shopping" as const,
     },
     {
       label: t(translations.accountPage.myEnrollments),
@@ -73,6 +81,7 @@ const AccountDashboard = () => {
       icon: GraduationCap,
       color: "bg-purple-50 text-purple-600",
       href: "/account/enrollments",
+      feature: "training" as const,
     },
     {
       label: t(translations.accountPage.myCertificates),
@@ -81,6 +90,7 @@ const AccountDashboard = () => {
       icon: Award,
       color: "bg-indigo-50 text-indigo-600",
       href: "/account/certificates",
+      feature: "training" as const,
     },
     {
       label: t(translations.accountPage.myTours),
@@ -89,8 +99,9 @@ const AccountDashboard = () => {
       icon: Map,
       color: "bg-teal-50 text-teal-600",
       href: "/account/bookings",
+      feature: "tours" as const,
     },
-  ];
+  ].filter(stat => isFeatureEnabled(stat.feature));
 
   const recentOrders = statsData?.recentOrders || [];
 
@@ -117,16 +128,16 @@ const AccountDashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Application Status Alerts */}
-      {roleStatus && (roleStatus.partner.hasPendingApplication || roleStatus.artisan.hasPendingApplication) && (
+      {roleStatus && ((isPartnershipEnabled && roleStatus.partner.hasPendingApplication) || (isArtisansEnabled && roleStatus.artisan.hasPendingApplication)) && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4">
           <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
              <Clock className="h-5 w-5 text-amber-600" />
           </div>
           <div className="flex-1">
              <h3 className="text-sm font-bold text-amber-900">
-                {roleStatus.partner.hasPendingApplication && roleStatus.artisan.hasPendingApplication 
+                {isPartnershipEnabled && roleStatus.partner.hasPendingApplication && isArtisansEnabled && roleStatus.artisan.hasPendingApplication 
                   ? t({ en: "Multiple Applications Pending", rw: "Ibisabwa byinshi birategereje", fr: "Plusieurs demandes en attente", sw: "Maombi Mengi Yanasubiri" })
-                  : roleStatus.partner.hasPendingApplication 
+                  : isPartnershipEnabled && roleStatus.partner.hasPendingApplication 
                     ? t({ en: "Partner Application Pending", rw: "Gusaba kuba umufatanyabikorwa", fr: "Demande de partenariat en attente", sw: "Ombi la Ushirika Linasubiri" })
                     : t({ en: "Artisan Application Pending", rw: "Gusaba kuba umunyabugeni", fr: "Demande d'artisan en attente", sw: "Ombi la Sanaa Linasubiri" })}
              </h3>
@@ -280,11 +291,11 @@ const AccountDashboard = () => {
           </div>
           <div className="p-6 space-y-3">
             {[
-                { title: t({ en: "Track Request Status", rw: "Kurikirana Ibisabwa", fr: "Suivi des demandes", sw: "Fuatilia Hali ya Ombi" }), desc: t({ en: "Check school visits or partnership status", rw: "Reba uko gusura ibigo by'amashuri bihagaze", fr: "Vérifier le statut des visites scolaires", sw: "Angalia ziara za shule au hali ya ushirika" }), href: "/account/requests", icon: AlertCircle },
-                { title: t({ en: "Continue Learning", rw: "Komeza Kwiga", fr: "Continuer l'apprentissage", sw: "Endelea Kujifunza" }), desc: t({ en: "Pick up where you left off in your courses", rw: "Komeza aho wari ugeze mu masomo yawe", fr: "Reprenez là où vous vous êtes arrêté", sw: "Anzia pale ulipoishia kwenye kozi zako" }), href: "/account/enrollments", icon: GraduationCap },
-                { title: t(translations.accountPage.savedAddresses), desc: t({ en: "Manage your saved shipping locations", rw: "Genzura aho wagererwa n'ibyo waguze", fr: "Gérez vos adresses de livraison", sw: "Dhibiti maeneo yako ya usafirishaji yalihifadhiwa" }), href: "/account/addresses", icon: MapPin },
-                { title: t({ en: "Help & Support", rw: "Ubufasha", fr: "Aide et support", sw: "Msaada na Usaidizi" }), desc: t({ en: "Need assistance? Contact our team", rw: "Ukeneye ubufasha? Twandikire", fr: "Besoin d'aide ? Contactez-nous", sw: "Unahitaji msaada? Wasiliana na timu yetu" }), href: "/contact", icon: AlertCircle },
-            ].map((link, i) => (
+                { title: t({ en: "Track Request Status", rw: "Kurikirana Ibisabwa", fr: "Suivi des demandes", sw: "Fuatilia Hali ya Ombi" }), desc: t({ en: "Check school visits or partnership status", rw: "Reba uko gusura ibigo by'amashuri bihagaze", fr: "Vérifier le statut des visites scolaires", sw: "Angalia ziara za shule au hali ya ushirika" }), href: "/account/requests", icon: AlertCircle, show: isPartnershipEnabled || isArtisansEnabled },
+                { title: t({ en: "Continue Learning", rw: "Komeza Kwiga", fr: "Continuer l'apprentissage", sw: "Endelea Kujifunza" }), desc: t({ en: "Pick up where you left off in your courses", rw: "Komeza aho wari ugeze mu masomo yawe", fr: "Reprenez là où vous vous êtes arrêté", sw: "Anzia pale ulipoishia kwenye kozi zako" }), href: "/account/enrollments", icon: GraduationCap, show: isFeatureEnabled("training") },
+                { title: t(translations.accountPage.savedAddresses), desc: t({ en: "Manage your saved shipping locations", rw: "Genzura aho wagererwa n'ibyo waguze", fr: "Gérez vos adresses de livraison", sw: "Dhibiti maeneo yako ya usafirishaji yalihifadhiwa" }), href: "/account/addresses", icon: MapPin, show: isFeatureEnabled("shopping") },
+                { title: t({ en: "Help & Support", rw: "Ubufasha", fr: "Aide et support", sw: "Msaada na Usaidizi" }), desc: t({ en: "Need assistance? Contact our team", rw: "Ukeneye ubufasha? Twandikire", fr: "Besoin d'aide ? Contactez-nous", sw: "Unahitaji msaada? Wasiliana na timu yetu" }), href: "/contact", icon: AlertCircle, show: true },
+            ].filter(link => link.show).map((link, i) => (
                 <Link
                 key={i}
                 href={link.href}

@@ -5,6 +5,8 @@ export interface FeatureFlags {
   shopping: boolean;
   training: boolean;
   tours: boolean;
+  artisans: boolean;
+  partnership: boolean;
 }
 
 export type FeatureKey = keyof FeatureFlags;

@@ -14,6 +14,8 @@ import {
   GraduationCap,
   MapPin,
   Loader2,
+  Paintbrush,
+  Handshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,6 +126,16 @@ export default function AdminSettings() {
       label: "Tours & Experiences",
       icon: MapPin,
       description: "Manage tour bookings, slots, and tourist experiences.",
+    },
+    artisans: {
+      label: "Artisans & Community",
+      icon: Paintbrush,
+      description: "Manage artisan profiles, products, and applications.",
+    },
+    partnership: {
+      label: "Partnership Program",
+      icon: Handshake,
+      description: "Manage corporate agreements, applications, and inputs.",
     },
   };
 

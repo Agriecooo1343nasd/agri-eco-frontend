@@ -103,6 +103,8 @@ const Header = () => {
   const isShoppingEnabled = isFeatureEnabled("shopping");
   const isToursEnabled = isFeatureEnabled("tours");
   const isTrainingEnabled = isFeatureEnabled("training");
+  const isArtisansEnabled = isFeatureEnabled("artisans");
+  const isPartnershipEnabled = isFeatureEnabled("partnership");
 
   // Dynamically filter search scopes based on features
   const activeSearchScopes = searchScopes.filter((scope) => {
@@ -121,6 +123,8 @@ const Header = () => {
     if ((link.href === "/shop" || link.href === "/beekeeping") && !isShoppingEnabled) return false;
     if (link.href === "/tours" && !isToursEnabled) return false;
     if (link.href === "/education" && !isTrainingEnabled) return false;
+    if (link.href === "/artisans" && !isArtisansEnabled) return false;
+    if (link.href === "/partners" && !isPartnershipEnabled) return false;
     return true;
   });
 
@@ -352,7 +356,7 @@ const Header = () => {
                       </Link>
                     )}
                     
-                    {roleStatus?.isPartner && (
+                    {isPartnershipEnabled && roleStatus?.isPartner && (
                       <Link
                         href="/account/partner"
                         onClick={() => setUserMenuOpen(false)}
@@ -363,7 +367,7 @@ const Header = () => {
                       </Link>
                     )}
 
-                    {roleStatus?.isArtisan && (
+                    {isArtisansEnabled && roleStatus?.isArtisan && (
                       <Link
                         href="/account/artisan"
                         onClick={() => setUserMenuOpen(false)}
@@ -395,14 +399,14 @@ const Header = () => {
                     </Link>
 
                     {/* Pending Application Statuses */}
-                    {(roleStatus?.partner.hasPendingApplication || roleStatus?.artisan.hasPendingApplication) && (
+                    {((isPartnershipEnabled && roleStatus?.partner.hasPendingApplication) || (isArtisansEnabled && roleStatus?.artisan.hasPendingApplication)) && (
                        <div className="mx-2 my-1 p-2 bg-amber-50 rounded-lg border border-amber-100">
                           <p className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-1">
                              <Clock className="h-3 w-3" /> Pending Review
                           </p>
                           <Link href="/account/requests" onClick={() => setUserMenuOpen(false)} className="text-[9px] text-amber-700 hover:underline mt-0.5 block">
-                             {roleStatus.partner.hasPendingApplication ? "• Partner application" : ""}
-                             {roleStatus.artisan.hasPendingApplication ? " • Artisan application" : ""}
+                             {isPartnershipEnabled && roleStatus.partner.hasPendingApplication ? "• Partner application" : ""}
+                             {isArtisansEnabled && roleStatus.artisan.hasPendingApplication ? " • Artisan application" : ""}
                           </Link>
                        </div>
                     )}

@@ -14,6 +14,8 @@ const defaultFeatures: FeatureFlags = {
   shopping: true,
   training: true,
   tours: true,
+  artisans: true,
+  partnership: true,
 };
 
 const FeatureContext = createContext<FeatureContextType>({
@@ -37,6 +39,8 @@ export const FeatureProvider = ({ children }: { children: React.ReactNode }) => 
             shopping: data.shopping ?? true,
             training: data.training ?? true,
             tours: data.tours ?? true,
+            artisans: data.artisans ?? true,
+            partnership: data.partnership ?? true,
           });
         }
       } catch (error) {
