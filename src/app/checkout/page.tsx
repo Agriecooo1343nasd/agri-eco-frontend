@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
-  CreditCard,
   Smartphone,
   Truck,
   ShieldCheck,
@@ -23,7 +22,16 @@ import { Button } from "@/components/ui/button";
 import { fetchMyAddresses, UserAddress, addAddress } from "@/lib/api/user";
 import { validateDiscountCode } from "@/lib/api/discounts";
 import { placeOrder } from "@/lib/api/orders";
+import {
+  initiatePayment,
+  isPaymentSuccessful,
+  normalizeRwandaPhone,
+  type InitiatePaymentResult,
+  type PaymentProvider,
+} from "@/lib/api/payments";
 import { fetchPublicDeliveryZones } from "@/lib/api/delivery-zones";
+import { MoMoPaymentFields } from "@/components/payment/MoMoPaymentFields";
+import { PaymentProcessingDialog } from "@/components/payment/PaymentProcessingDialog";
 import { toast } from "sonner";
 import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
@@ -31,7 +39,7 @@ import { translations } from "@/i18n/translations";
 import { notFound } from "next/navigation";
 import { useFeatures } from "@/context/FeatureContext";
 
-type PaymentMethod = "momo" | "card" | "cod" | null;
+type PaymentMethod = "momo" | "cod" | null;
 
 const CheckoutPage = () => {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -58,10 +66,15 @@ const CheckoutPage = () => {
   } | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
+  const [momoProvider, setMomoProvider] = useState<PaymentProvider>("mtn");
   const [momoNumber, setMomoNumber] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-  const [momoProcessing, setMomoProcessing] = useState(false);
-  const [cardProcessing, setCardProcessing] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentPhase, setPaymentPhase] = useState<"processing" | "success" | "failed">("processing");
+  const [paymentResult, setPaymentResult] = useState<InitiatePaymentResult | null>(null);
+  const [paymentError, setPaymentError] = useState<string | undefined>();
+  const [pendingOrderNumber, setPendingOrderNumber] = useState<string | null>(null);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     firstName: "",
@@ -242,7 +255,7 @@ const CheckoutPage = () => {
           postalCode: form.zip,
           country: form.country,
         },
-        paymentMethod: paymentMethod === "momo" ? "wallet" : paymentMethod === "card" ? "card" : "cod",
+        paymentMethod: paymentMethod === "momo" ? "mobile_money" : "cod",
         notes: form.notes,
         discountCode: appliedDiscount?.code,
         shippingCost: shipping,
@@ -272,14 +285,37 @@ const CheckoutPage = () => {
         toast.success("Order placed successfully!");
         clearCart();
         router.push(`/account/orders/${order.orderNumber}`);
-      } else {
-        // Handle online payment initiation
-        // For simulation, we'll just redirect to success
-        toast.success("Order placed. Processing payment...");
-        setTimeout(() => {
+        return;
+      }
+
+      setPendingOrderNumber(order.orderNumber);
+      setPendingOrderId(order.id);
+      setPaymentDialogOpen(true);
+      setPaymentPhase("processing");
+      setPaymentError(undefined);
+
+      try {
+        const pay = await initiatePayment({
+          provider: momoProvider,
+          method: "mobile_money",
+          phone: normalizeRwandaPhone(momoNumber || form.phone),
+          orderId: order.id,
+        });
+        setPaymentResult(pay);
+        if (isPaymentSuccessful(pay)) {
+          setPaymentPhase("success");
           clearCart();
-          router.push(`/account/orders/${order.orderNumber}`);
-        }, 2000);
+        } else {
+          setPaymentPhase("failed");
+          setPaymentError("Payment was not confirmed. You can retry from your order page.");
+        }
+      } catch (payErr: any) {
+        setPaymentPhase("failed");
+        setPaymentError(
+          payErr?.response?.data?.message ||
+            payErr?.message ||
+            "Payment initiation failed.",
+        );
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to place order. Please try again.");
@@ -606,27 +642,7 @@ const CheckoutPage = () => {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {t(translations.checkoutPage.momoDesc)}
-                  </p>
-                </button>
-
-                {/* Card */}
-                <button
-                  onClick={() => setPaymentMethod("card")}
-                  className={`border-2 rounded-xl p-5 text-left transition-all ${
-                    paymentMethod === "card"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40 shadow-sm"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <CreditCard className="h-6 w-6 text-primary" />
-                    <span className="font-bold text-foreground">
-                      {t(translations.checkoutPage.card)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Visa, Mastercard — securely processed
+                    MTN MoMo or Airtel Money via ITEC Pay
                   </p>
                 </button>
 
@@ -677,23 +693,17 @@ const CheckoutPage = () => {
               {/* MOMO form */}
               {paymentMethod === "momo" && (
                 <div className="mt-6 bg-accent border border-border rounded-xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2">
-                  <h3 className="font-semibold text-foreground text-sm font-heading">
-                    {t(translations.checkoutPage.momoNumber)}
-                  </h3>
-                  <input
-                    type="tel"
-                    value={momoNumber}
-                    onChange={(e) => setMomoNumber(e.target.value)}
-                    placeholder="078X XXX XXX"
-                    className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground font-medium"
+                  <MoMoPaymentFields
+                    provider={momoProvider}
+                    onProviderChange={setMomoProvider}
+                    phone={momoNumber}
+                    onPhoneChange={setMomoNumber}
+                    phoneLabel={t(translations.checkoutPage.momoNumber)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {t(translations.checkoutPage.momoInstruction)}
-                  </p>
                   <Button
                     onClick={handlePlaceOrder}
                     disabled={
-                      !isFormValid || isPlacingOrder || momoNumber.length < 10
+                      !isFormValid || isPlacingOrder || momoNumber.replace(/\D/g, "").length < 9
                     }
                     className="w-full h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
                   >
@@ -704,55 +714,6 @@ const CheckoutPage = () => {
                       </>
                     ) : (
                       <>{t(translations.checkoutPage.placeOrder)} {formatPrice(grandTotal)}</>
-                    )}
-                  </Button>
-                </div>
-              )}
-
-              {/* Card form */}
-              {paymentMethod === "card" && (
-                <div className="mt-6 bg-accent border border-border rounded-xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2">
-                  <h3 className="font-semibold text-foreground text-sm font-heading">
-                    Card Details
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
-                      <input
-                        placeholder="Card Number"
-                        className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground font-medium"
-                      />
-                    </div>
-                    <input
-                      placeholder="MM / YY"
-                      className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground font-medium"
-                    />
-                    <input
-                      placeholder="CVC"
-                      className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground font-medium"
-                    />
-                    <div className="sm:col-span-2">
-                      <input
-                        placeholder="Name on Card"
-                        className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground font-medium"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-4 w-4 text-primary" />
-                    <span>Your payment is secure and encrypted</span>
-                  </div>
-                  <Button
-                    onClick={handlePlaceOrder}
-                    disabled={!isFormValid || isPlacingOrder}
-                    className="w-full h-12 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
-                  >
-                    {isPlacingOrder ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        {t(translations.checkoutPage.placingOrder || "Placing Order...")}
-                      </>
-                    ) : (
-                      <> {t(translations.checkoutPage.placeOrder)} {formatPrice(grandTotal)}</>
                     )}
                   </Button>
                 </div>
@@ -900,6 +861,43 @@ const CheckoutPage = () => {
           </div>
         </div>
       </div>
+
+      <PaymentProcessingDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        phase={paymentPhase}
+        result={paymentResult}
+        errorMessage={paymentError}
+        onRetry={async () => {
+          if (!pendingOrderId) return;
+          setPaymentPhase("processing");
+          setPaymentError(undefined);
+          try {
+            const pay = await initiatePayment({
+              provider: momoProvider,
+              method: "mobile_money",
+              phone: normalizeRwandaPhone(momoNumber || form.phone),
+              orderId: pendingOrderId,
+            });
+            setPaymentResult(pay);
+            if (isPaymentSuccessful(pay)) {
+              setPaymentPhase("success");
+              clearCart();
+            } else {
+              setPaymentPhase("failed");
+            }
+          } catch (e: any) {
+            setPaymentPhase("failed");
+            setPaymentError(e?.response?.data?.message || e?.message);
+          }
+        }}
+        onDone={() => {
+          setPaymentDialogOpen(false);
+          if (paymentPhase === "success" && pendingOrderNumber) {
+            router.push(`/account/orders/${pendingOrderNumber}`);
+          }
+        }}
+      />
 
       <Footer />
     </div>

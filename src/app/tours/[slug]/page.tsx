@@ -62,6 +62,14 @@ import {
   type BookingType,
 } from "@/lib/api/bookings";
 import {
+  initiatePayment,
+  isPaymentSuccessful,
+  normalizeRwandaPhone,
+  type PaymentProvider,
+} from "@/lib/api/payments";
+import { MoMoPaymentFields } from "@/components/payment/MoMoPaymentFields";
+import { PaymentProcessingDialog } from "@/components/payment/PaymentProcessingDialog";
+import {
   createExperienceReview,
   fetchExperienceReviews,
   type Review,
@@ -113,10 +121,16 @@ export default function TourDetailPage({
   const [specialReqs, setSpecialReqs] = useState("");
   const [selectedAccom, setSelectedAccom] = useState<string>("");
   const [accomNights, setAccomNights] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [momoProvider, setMomoProvider] = useState<PaymentProvider>("mtn");
+  const [momoPhone, setMomoPhone] = useState("");
   const [activeGallery, setActiveGallery] = useState(0);
   const [bookingStep, setBookingStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentPhase, setPaymentPhase] = useState<"processing" | "success" | "failed">("processing");
+  const [paymentError, setPaymentError] = useState<string | undefined>();
+  const [pendingBookingRef, setPendingBookingRef] = useState<string | null>(null);
+  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
   const [viewAccomDetail, setViewAccomDetail] = useState<AdminAccommodation | null>(null);
   const [accomGalleryIdx, setAccomGalleryIdx] = useState(0);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -236,8 +250,8 @@ export default function TourDetailPage({
       toast.error("Select a slot. Please choose one available schedule.");
       return;
     }
-    if (!paymentMethod) {
-      toast.error("Payment method. Please select a payment method.");
+    if (!momoPhone.replace(/\D/g, "").length && !contactPhone.replace(/\D/g, "").length) {
+      toast.error("Please enter a Mobile Money number.");
       return;
     }
 
@@ -256,7 +270,7 @@ export default function TourDetailPage({
           selectedSlot.dateValue,
         timeSlot: selectedSlot.timeSlot,
         specialRequirements: specialReqs,
-        paymentMethod,
+        paymentMethod: "mobile_money",
         accommodationId: accomOption?.id,
         accommodationNights: accomOption ? accomNights : undefined,
         amountRwf: grandTotal,
@@ -266,13 +280,41 @@ export default function TourDetailPage({
         toast.success(`Ref: ${booking.referenceNumber}`, {
           description: "You've been added to the waiting list! We'll notify you.",
         });
-      } else {
-        toast.success("Booking Confirmed!", {
-          description: `Ref: ${booking.referenceNumber} — Confirmation sent to ${contactEmail}`,
-        });
+        router.push("/account/bookings");
+        return;
       }
 
-      router.push("/account/bookings");
+      if (grandTotal <= 0) {
+        toast.success("Booking confirmed!", {
+          description: `Ref: ${booking.referenceNumber}`,
+        });
+        router.push("/account/bookings");
+        return;
+      }
+
+      setPendingBookingRef(booking.referenceNumber);
+      setPendingBookingId(booking.id);
+      setPaymentDialogOpen(true);
+      setPaymentPhase("processing");
+      setPaymentError(undefined);
+
+      try {
+        const pay = await initiatePayment({
+          provider: momoProvider,
+          method: "mobile_money",
+          phone: normalizeRwandaPhone(momoPhone || contactPhone),
+          bookingId: booking.id,
+        });
+        if (isPaymentSuccessful(pay)) {
+          setPaymentPhase("success");
+        } else {
+          setPaymentPhase("failed");
+          setPaymentError("Payment was not confirmed. You can complete payment from your bookings.");
+        }
+      } catch (payErr: any) {
+        setPaymentPhase("failed");
+        setPaymentError(payErr?.response?.data?.message || payErr?.message);
+      }
     } catch (err: any) {
       toast.error("Booking failed", {
         description: err.response?.data?.message || err.message || "Please try again later.",
@@ -414,9 +456,9 @@ export default function TourDetailPage({
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <Badge
-                  className={`${experience.isActive ? statusColors.available : statusColors["sold-out"]} text-[10px] py-0 px-2`}
+                  className={`${statusColors[experience.availabilityStatus === "sold_out" ? "sold-out" : (experience.availabilityStatus || (experience.isActive ? "available" : "sold-out"))]} text-[10px] py-0 px-2`}
                 >
-                  {experience.isActive ? t(translations.tourDetailPage.available) : t(translations.tourDetailPage.unavailable)}
+                  {t((translations.tours as any)[experience.availabilityStatus === "upcoming" ? "statusUpcoming" : experience.availabilityStatus === "limited" ? "statusLimited" : experience.availabilityStatus === "sold_out" || !experience.isActive ? "statusSoldOut" : "statusAvailable"] || experience.availabilityStatus || (experience.isActive ? "Available" : "Sold Out"))}
                 </Badge>
                 {experience.seasonStart && (
                   <Badge variant="outline" className="text-[10px] py-0 px-2">
@@ -1020,28 +1062,14 @@ export default function TourDetailPage({
                     </div>
                   </div>
 
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground mb-1.5 block">
-                      {t(translations.checkoutPage.paymentMethod)}
-                    </Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {["mobile_money", "credit_card"].map((m) => (
-                        <button
-                          key={m}
-                          onClick={() => setPaymentMethod(m)}
-                          className={`px-3 py-2 rounded-lg border text-[10px] uppercase font-bold transition-all ${
-                            paymentMethod === m
-                              ? "border-primary bg-primary/5 text-primary"
-                              : "border-border hover:bg-accent"
-                          }`}
-                        >
-                          {m === "mobile_money" 
-                            ? (locale === "rw" ? "Mobile Money" : t(translations.checkoutPage.momo)) 
-                            : (locale === "rw" ? "Ikarita ya Banki" : t(translations.checkoutPage.card))}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <MoMoPaymentFields
+                    provider={momoProvider}
+                    onProviderChange={setMomoProvider}
+                    phone={momoPhone}
+                    onPhoneChange={setMomoPhone}
+                    compact
+                    phoneLabel={t(translations.checkoutPage.momoNumber)}
+                  />
 
                   <div className="flex gap-2">
                     <Button
@@ -1072,6 +1100,34 @@ export default function TourDetailPage({
           </div>
         </div>
       </div>
+
+      <PaymentProcessingDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        phase={paymentPhase}
+        errorMessage={paymentError}
+        onRetry={async () => {
+          if (!pendingBookingId) return;
+          setPaymentPhase("processing");
+          try {
+            const pay = await initiatePayment({
+              provider: momoProvider,
+              method: "mobile_money",
+              phone: normalizeRwandaPhone(momoPhone || contactPhone),
+              bookingId: pendingBookingId,
+            });
+            if (isPaymentSuccessful(pay)) setPaymentPhase("success");
+            else setPaymentPhase("failed");
+          } catch (e: any) {
+            setPaymentPhase("failed");
+            setPaymentError(e?.response?.data?.message || e?.message);
+          }
+        }}
+        onDone={() => {
+          setPaymentDialogOpen(false);
+          router.push("/account/bookings");
+        }}
+      />
 
       <Footer />
 

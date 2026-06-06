@@ -86,6 +86,14 @@ import {
   submitQuizAttempt,
   type QuizScoreItem,
 } from "@/lib/api/education";
+import {
+  initiatePayment,
+  isPaymentSuccessful,
+  normalizeRwandaPhone,
+  type PaymentProvider,
+} from "@/lib/api/payments";
+import { MoMoPaymentFields } from "@/components/payment/MoMoPaymentFields";
+import { PaymentProcessingDialog } from "@/components/payment/PaymentProcessingDialog";
 import { getMediaUrl } from "@/lib/config/api";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
@@ -113,8 +121,6 @@ import {
   ListChecks,
   User,
   Bell,
-  CreditCard,
-  Smartphone,
   Lock,
   Brain,
   Star,
@@ -265,8 +271,13 @@ export default function ProgramDetail() {
   const [activeQuizModuleId, setActiveQuizModuleId] = useState<string | null>(
     null,
   );
-  const [paymentMethod, setPaymentMethod] = useState<"momo" | "card">("momo");
+  const [momoProvider, setMomoProvider] = useState<PaymentProvider>("mtn");
+  const [momoPhone, setMomoPhone] = useState("");
   const [enrolling, setEnrolling] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentPhase, setPaymentPhase] = useState<"processing" | "success" | "failed">("processing");
+  const [paymentError, setPaymentError] = useState<string | undefined>();
+  const [pendingEnrollmentId, setPendingEnrollmentId] = useState<string | null>(null);
   const certRef = useRef<HTMLDivElement>(null);
 
   // Quiz state
@@ -652,21 +663,60 @@ export default function ProgramDetail() {
         notes: (formData.get("notes") as string) || "",
       };
 
-      await enrollInProgram(apiProgram.id, payload);
+      const enrollment = await enrollInProgram(apiProgram.id, payload);
 
-      setIsPending(!isFree);
-      setIsEnrolled(isFree);
-
-      setEnrollDialogOpen(false);
-      toast.success(t(translations.common.success), {
-        description: isFree
-          ? `${t(translations.common.success)} "${t(program.title)}".`
-          : t(translations.partnerPage.underReview),
-      });
-
-      // Refresh enrollments if authenticated
       if (isAuthenticated) {
         queryClient.invalidateQueries({ queryKey: ["myEnrollments"] });
+      }
+
+      if (isFree) {
+        setIsEnrolled(true);
+        setIsPending(false);
+        setEnrollDialogOpen(false);
+        toast.success(t(translations.common.success), {
+          description: `${t(translations.common.success)} "${t(program.title)}".`,
+        });
+        return;
+      }
+
+      setEnrollDialogOpen(false);
+      setIsPending(true);
+      setPendingEnrollmentId(enrollment?.id ?? null);
+
+      if (!enrollment?.id) {
+        toast.success("Enrollment submitted", {
+          description: "Complete payment from your enrollments when available.",
+        });
+        return;
+      }
+
+      setPaymentDialogOpen(true);
+      setPaymentPhase("processing");
+      setPaymentError(undefined);
+
+      try {
+        const payPhone = normalizeRwandaPhone(
+          momoPhone || (payload.phone as string) || "",
+        );
+        const pay = await initiatePayment({
+          provider: momoProvider,
+          method: "mobile_money",
+          phone: payPhone,
+          trainingEnrollmentId: enrollment.id,
+        });
+        if (isPaymentSuccessful(pay)) {
+          setPaymentPhase("success");
+          setIsPending(false);
+          toast.success("Payment successful", {
+            description: "Your enrollment is being processed.",
+          });
+        } else {
+          setPaymentPhase("failed");
+          setPaymentError("Payment not confirmed. You can retry from enrollments.");
+        }
+      } catch (payErr: any) {
+        setPaymentPhase("failed");
+        setPaymentError(payErr?.response?.data?.message || payErr?.message);
       }
     } catch (err: any) {
       toast.error(t(translations.common.errorLoading), {
@@ -1791,86 +1841,14 @@ export default function ProgramDetail() {
             </div>
             {!isFree && (
               <div className="space-y-3">
-                <Label className="text-[11px]">
-                  {t({ en: "Payment Method", rw: "Uburyo bwo kwishyura", fr: "Méthode de Paiement", sw: "Njia ya Malipo" })}
-                </Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("momo")}
-                    className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-medium transition-colors h-10 justify-center ${
-                      paymentMethod === "momo"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <Smartphone className="h-4 w-4" />{" "}
-                    {t({ en: "Mobile Money", rw: "Momo", fr: "Mobile Money", sw: "Pesa za Simu" })}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("card")}
-                    className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-medium transition-colors h-10 justify-center ${
-                      paymentMethod === "card"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border text-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <CreditCard className="h-4 w-4" />{" "}
-                    {t({ en: "Card", rw: "Ikarita", fr: "Carte", sw: "Kadi" })}
-                  </button>
-                </div>
-                {paymentMethod === "momo" && (
-                  <div>
-                    <Label className="text-[11px] mb-1 block">
-                      {t({ en: "MOMO Number *", rw: "Nimero ya MOMO *", fr: "Numéro MOMO *", sw: "Namba ya MOMO *" })}
-                    </Label>
-                    <Input
-                      name="momoNumber"
-                      required
-                      placeholder="07X XXX XXXX"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                )}
-                {paymentMethod === "card" && (
-                  <>
-                    <div>
-                      <Label className="text-[11px] mb-1 block">
-                        {t({ en: "Card Number *", rw: "Nimero y'ikarita *", fr: "Numéro de carte *", sw: "Namba ya Kadi *" })}
-                      </Label>
-                      <Input
-                        name="cardNumber"
-                        required
-                        placeholder="4242 4242 4242 4242"
-                        className="h-9 text-xs"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-[11px] mb-1 block">
-                          {t({ en: "Expiry *", rw: "Igihe izarangirira *", fr: "Expiration *", sw: "Kufa *" })}
-                        </Label>
-                        <Input
-                          name="expiry"
-                          required
-                          placeholder="MM/YY"
-                          className="h-9 text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-[11px] mb-1 block">CVV *</Label>
-                        <Input
-                          name="cvv"
-                          required
-                          placeholder="123"
-                          type="password"
-                          className="h-9 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
+                <MoMoPaymentFields
+                  provider={momoProvider}
+                  onProviderChange={setMomoProvider}
+                  phone={momoPhone}
+                  onPhoneChange={setMomoPhone}
+                  compact
+                  phoneLabel={t({ en: "MOMO Number *", rw: "Nimero ya MOMO *", fr: "Numéro MOMO *", sw: "Namba ya MOMO *" })}
+                />
                 <div className="bg-accent/50 border border-border rounded-lg p-3">
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">
@@ -2185,6 +2163,40 @@ export default function ProgramDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PaymentProcessingDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        phase={paymentPhase}
+        errorMessage={paymentError}
+        onRetry={async () => {
+          if (!pendingEnrollmentId) return;
+          setPaymentPhase("processing");
+          try {
+            const pay = await initiatePayment({
+              provider: momoProvider,
+              method: "mobile_money",
+              phone: normalizeRwandaPhone(momoPhone),
+              trainingEnrollmentId: pendingEnrollmentId,
+            });
+            if (isPaymentSuccessful(pay)) {
+              setPaymentPhase("success");
+              setIsPending(false);
+            } else {
+              setPaymentPhase("failed");
+            }
+          } catch (e: any) {
+            setPaymentPhase("failed");
+            setPaymentError(e?.response?.data?.message || e?.message);
+          }
+        }}
+        onDone={() => {
+          setPaymentDialogOpen(false);
+          if (paymentPhase === "success") {
+            queryClient.invalidateQueries({ queryKey: ["myEnrollments"] });
+          }
+        }}
+      />
     </div>
   );
 }
