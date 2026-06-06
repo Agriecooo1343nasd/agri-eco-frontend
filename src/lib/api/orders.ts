@@ -117,14 +117,8 @@ export async function fetchOrderByNumber(orderNumber: string): Promise<Order | n
   return orders.find(o => o.orderNumber === orderNumber) || null;
 }
 
-export async function initiatePayment(orderId: string, provider: string, method: string): Promise<any> {
-    const response = await apiClient.post<ApiSuccessResponse<any>>("/payment/initiate", {
-        orderId,
-        provider,
-        method
-    });
-    return response.data.data!;
-}
+/** @deprecated Use initiatePayment from @/lib/api/payments */
+export { initiatePayment } from "./payments";
 
 /* ---------- Admin ---------- */
 

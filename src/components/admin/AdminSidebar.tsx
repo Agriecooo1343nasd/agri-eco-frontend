@@ -27,6 +27,7 @@ import {
   Bike,
   ShieldCheck,
   ScrollText,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -95,6 +96,7 @@ const sidebarGroups = [
     label: "Commerce & Logistics",
     items: [
       { title: "Orders", url: "/admin/orders", icon: ShoppingCart, badgeKey: "orders", badgeHover: "pending orders" },
+      { title: "Payments", url: "/admin/payments", icon: Wallet },
       { title: "Logs", url: "/admin/logs", icon: Logs },
       { title: "Returns", url: "/admin/returns", icon: RotateCcw, badgeKey: "returns", badgeHover: "pending returns" },
       { title: "Delivery Ops", url: "/admin/delivery", icon: Bike },

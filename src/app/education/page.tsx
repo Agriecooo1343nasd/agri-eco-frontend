@@ -231,7 +231,6 @@ export default function EducationPage() {
 
   const handleEnrollClick = (program: any) => {
     if (!isAuthenticated) {
-      toast.error("Authentication required");
       router.push(`/login?redirect=${pathname}`);
       return;
     }

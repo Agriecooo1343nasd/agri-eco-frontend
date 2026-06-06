@@ -95,7 +95,7 @@ apiClient.interceptors.response.use(
     const isRefreshCall = requestConfig?.url?.includes("/auth/refresh-token");
 
     if (
-      status === 401 &&
+      (status === 401 || status === 403) &&
       requestConfig &&
       !requestConfig._retry &&
       !isRefreshCall

@@ -107,8 +107,8 @@ function mapExperienceToTour(
       }));
   }
 
-  // Derive status (simple logic: available if isActive, sold-out if not)
-  let status: TourStatus = "available";
+  // Derive status from backend availabilityStatus
+  let status: TourStatus = (exp.availabilityStatus === "sold_out" ? "sold-out" : exp.availabilityStatus) as TourStatus || "available";
   if (!exp.isActive) status = "sold-out";
 
   // Derive seasonal
