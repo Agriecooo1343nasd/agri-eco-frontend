@@ -12,6 +12,8 @@ import { normalizeApiError, showApiErrorToast } from "@/lib/api/error";
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
   skipErrorToast?: boolean;
+  /** Show toast for 401/403 (default: silent — use for explicit user actions). */
+  showAuthErrorToast?: boolean;
   /** Do not attach Bearer token (public endpoints e.g. team invite acceptance). */
   skipAuth?: boolean;
 };
@@ -114,7 +116,12 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (!requestConfig?.skipErrorToast) {
+    const isAuthError = status === 401 || status === 403;
+    const shouldShowToast =
+      !requestConfig?.skipErrorToast &&
+      (!isAuthError || requestConfig?.showAuthErrorToast);
+
+    if (shouldShowToast) {
       showApiErrorToast(error);
     }
 

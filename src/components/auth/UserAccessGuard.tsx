@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { GLOBAL_API_TOAST_ID } from "@/lib/api/error";
 import { useAuth } from "@/context/AuthContext";
 
 export function UserAccessGuard({ children }: { children: ReactNode }) {
@@ -20,6 +21,7 @@ export function UserAccessGuard({ children }: { children: ReactNode }) {
     if (!isAuthenticated) {
       hasRedirectedRef.current = true;
       toast.error("Login required", {
+        id: GLOBAL_API_TOAST_ID,
         description: "Please sign in to access your account dashboard.",
       });
       router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);

@@ -6,6 +6,8 @@ declare module "axios" {
     skipAuth?: boolean;
     /** Suppress global error toast for this request. */
     skipErrorToast?: boolean;
+    /** Show toast when this request fails with 401/403 (default: silent). */
+    showAuthErrorToast?: boolean;
     /** Internal: retry after refresh (interceptor). */
     _retry?: boolean;
   }

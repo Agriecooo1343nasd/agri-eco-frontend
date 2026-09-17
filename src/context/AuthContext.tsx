@@ -22,6 +22,7 @@ import {
   writeStoredAuthSession,
 } from "@/lib/auth-storage";
 import { logoutRequest } from "@/lib/api/auth";
+import { apiConfig } from "@/lib/config/api";
 import { clearSession, setSession } from "@/store/auth-slice";
 import { useAppDispatch } from "@/store/hooks";
 
@@ -111,7 +112,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         refreshToken: session.refreshToken,
       }
     : null;
-  const isAuthenticated = !!user;
+  const isAuthenticated =
+    !!user &&
+    (!!session?.accessToken || apiConfig.useCookieAuth);
   const role = user?.role ?? null;
   const roles = user?.roles ?? (role ? [role] : []);
   const isAdmin = roles.some(r => ADMIN_ROLES.includes(r));

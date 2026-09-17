@@ -87,6 +87,7 @@ export async function initiatePayment(
   const response = await apiClient.post<ApiSuccessResponse<InitiatePaymentResult>>(
     "/payments/initiate",
     payload,
+    { showAuthErrorToast: true },
   );
   if (!response.data.data) {
     throw new Error(response.data.message || "Failed to initiate payment");

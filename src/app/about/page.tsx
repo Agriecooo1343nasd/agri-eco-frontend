@@ -22,7 +22,7 @@ import Image from "next/image";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { getAboutTeamMembers } from "@/lib/about-store";
+import { fetchPublicAboutTeamMembers } from "@/lib/api/about-team";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +39,12 @@ import { toSiteRelativeMediaSrc } from "@/lib/media-url";
 type GalleryTile = { id: string; url: string; caption?: string };
 
 const AboutPage = () => {
-  const teamMembers = getAboutTeamMembers();
   const { t } = useLanguage();
+  const teamQuery = useQuery({
+    queryKey: ["public-about-team"],
+    queryFn: () => fetchPublicAboutTeamMembers({ limit: 100 }),
+  });
+  const teamMembers = teamQuery.data?.data ?? [];
   const galleryQuery = useQuery({
     queryKey: ["public-gallery", "about"],
     queryFn: () => fetchPublicGallery({ limit: 48 }),
@@ -230,34 +234,44 @@ const AboutPage = () => {
           </div>
 
           {/* Scrollable on mobile, grid on desktop */}
-          <div className="flex gap-5 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 sm:overflow-visible sm:mx-0 sm:px-0 lg:grid-cols-4 lg:gap-8">
-            {teamMembers.map((member, i) => (
-              <div
-                key={i}
-                className="group flex flex-col items-center text-center min-w-[240px] snap-start sm:min-w-0"
-              >
-                <div className="relative w-full aspect-square mb-4 md:mb-6 rounded-3xl overflow-hidden shadow-lg">
-                  <Image
-                    src={toSiteRelativeMediaSrc(member.image)}
-                    alt={member.name}
-                    fill
-                    unoptimized
-                    sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 60vw"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 bg-linear-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-4 group-hover:translate-y-0 text-white text-xs leading-relaxed italic">
-                    &quot;{member.bio}&quot;
+          {teamQuery.isLoading ? (
+            <p className="text-center text-muted-foreground py-8">
+              Loading team…
+            </p>
+          ) : teamMembers.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Our leadership team profiles will appear here soon.
+            </p>
+          ) : (
+            <div className="flex gap-5 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory sm:grid sm:grid-cols-2 sm:overflow-visible sm:mx-0 sm:px-0 lg:grid-cols-4 lg:gap-8">
+              {teamMembers.map((member) => (
+                <div
+                  key={member.id}
+                  className="group flex flex-col items-center text-center min-w-[240px] snap-start sm:min-w-0"
+                >
+                  <div className="relative w-full aspect-square mb-4 md:mb-6 rounded-3xl overflow-hidden shadow-lg">
+                    <Image
+                      src={toSiteRelativeMediaSrc(member.image)}
+                      alt={member.name}
+                      fill
+                      unoptimized
+                      sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 60vw"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
                   </div>
+                  <h3 className="text-lg md:text-xl font-black text-foreground mb-1 font-heading">
+                    {member.name}
+                  </h3>
+                  <p className="text-xs md:text-sm font-bold text-primary uppercase tracking-widest mb-3">
+                    {member.role}
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
+                    {member.bio}
+                  </p>
                 </div>
-                <h3 className="text-lg md:text-xl font-black text-foreground mb-1 font-heading">
-                  {member.name}
-                </h3>
-                <p className="text-xs md:text-sm font-bold text-primary uppercase tracking-widest">
-                  {member.role}
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

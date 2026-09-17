@@ -65,6 +65,9 @@ export function normalizeApiError(error: unknown): AppApiError {
   return fallbackError;
 }
 
+/** One global toast slot so parallel API failures do not stack multiple toasts. */
+export const GLOBAL_API_TOAST_ID = "agri-eco-api-error";
+
 function getErrorTitle(status: number): string {
   switch (status) {
     case 400:
@@ -91,6 +94,7 @@ export function showApiErrorToast(error: unknown): AppApiError {
   const details = flattenErrors(apiError.errors).slice(0, 3).join(" • ");
 
   toast.error(getErrorTitle(apiError.status), {
+    id: GLOBAL_API_TOAST_ID,
     description: details || apiError.message,
     duration: 7000,
   });

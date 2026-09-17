@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { ShieldAlert, Truck } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { GLOBAL_API_TOAST_ID } from "@/lib/api/error";
 import { useAuth } from "@/context/AuthContext";
 import { AUTH_ROLES } from "@/lib/auth-types";
 
@@ -21,6 +22,7 @@ export function DeliveryAgentAccessGuard({ children }: { children: ReactNode }) 
     if (!isAuthenticated) {
       hasRedirectedRef.current = true;
       toast.error("Login required", {
+        id: GLOBAL_API_TOAST_ID,
         description: "Please sign in to access the delivery agent portal.",
       });
       router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
@@ -33,6 +35,7 @@ export function DeliveryAgentAccessGuard({ children }: { children: ReactNode }) 
     if (!canAccess) {
       hasRedirectedRef.current = true;
       toast.error("Restricted area", {
+        id: GLOBAL_API_TOAST_ID,
         description: "This portal is reserved for delivery agents only.",
       });
       router.replace("/");

@@ -33,11 +33,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  createTeamMember,
-  getAboutTeamMembers,
-  saveAboutTeamMembers,
-} from "@/lib/about-store";
-import type { AboutTeamMember } from "@/data/site";
+  createAboutTeamMember,
+  deleteAboutTeamMember,
+  fetchAdminAboutTeamMembers,
+  updateAboutTeamMember,
+  type AdminAboutTeamMember,
+} from "@/lib/api/about-team";
 import {
   fetchAdminGalleryAll,
   createGalleryImage,
@@ -56,19 +57,22 @@ export default function AdminAboutPage() {
     queryFn: () => fetchAdminGalleryAll({ limit: 200 }),
   });
 
+  const teamQuery = useQuery({
+    queryKey: ["admin-about-team"],
+    queryFn: () => fetchAdminAboutTeamMembers({ limit: 200 }),
+  });
+
   const galleryRows = useMemo(() => {
     const imgs = galleryQuery.data?.images ?? [];
     return [...imgs].sort((a, b) => a.sortOrder - b.sortOrder);
   }, [galleryQuery.data?.images]);
 
-  const [team, setTeam] = useState<AboutTeamMember[]>(() =>
-    getAboutTeamMembers(),
-  );
+  const team = teamQuery.data?.data ?? [];
 
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<AboutTeamMember | null>(
-    null,
-  );
+  const [editingMember, setEditingMember] =
+    useState<AdminAboutTeamMember | null>(null);
+  const [isSavingMember, setIsSavingMember] = useState(false);
   const [memberForm, setMemberForm] = useState({
     name: "",
     role: "",
@@ -126,7 +130,7 @@ export default function AdminAboutPage() {
     setTeamPage(1);
   };
 
-  const openEditMember = (member: AboutTeamMember) => {
+  const openEditMember = (member: AdminAboutTeamMember) => {
     setEditingMember(member);
     setMemberForm({
       name: member.name,
@@ -139,7 +143,7 @@ export default function AdminAboutPage() {
     setTeamDialogOpen(true);
   };
 
-  const handleSaveMember = () => {
+  const handleSaveMember = async () => {
     if (!memberForm.name.trim() || !memberForm.role.trim()) {
       toast.error("Name and role are required for team members.");
       return;
@@ -155,46 +159,54 @@ export default function AdminAboutPage() {
       return;
     }
 
-    let nextTeam: AboutTeamMember[];
-    if (editingMember) {
-      nextTeam = team.map((member) =>
-        member.id === editingMember.id
-          ? {
-              ...member,
-              name: memberForm.name.trim(),
-              role: memberForm.role.trim(),
-              image: memberForm.image.trim(),
-              bio: memberForm.bio.trim(),
-              email: memberForm.email.trim() || undefined,
-              phone: memberForm.phone.trim() || undefined,
-            }
-          : member,
-      );
-      toast.success("Team member updated.");
-    } else {
-      const created = createTeamMember({
-        name: memberForm.name.trim(),
-        role: memberForm.role.trim(),
-        image: memberForm.image.trim(),
-        bio: memberForm.bio.trim(),
-        email: memberForm.email.trim() || undefined,
-        phone: memberForm.phone.trim() || undefined,
-      });
-      nextTeam = [created, ...team];
-      toast.success("Team member added to About page.");
-    }
+    const payload = {
+      name: memberForm.name.trim(),
+      role: memberForm.role.trim(),
+      image: memberForm.image.trim(),
+      bio: memberForm.bio.trim(),
+      email: memberForm.email.trim() || null,
+      phone: memberForm.phone.trim() || null,
+      isActive: true,
+    };
 
-    setTeam(nextTeam);
-    saveAboutTeamMembers(nextTeam);
-    setTeamDialogOpen(false);
-    setEditingMember(null);
+    setIsSavingMember(true);
+    try {
+      if (editingMember) {
+        await updateAboutTeamMember(editingMember.id, payload);
+        toast.success("Team member updated.");
+      } else {
+        const maxOrder = team.reduce(
+          (m, row) => Math.max(m, row.sortOrder ?? 0),
+          -1,
+        );
+        await createAboutTeamMember({
+          ...payload,
+          sortOrder: maxOrder + 1,
+        });
+        toast.success("Team member added to About page.");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["admin-about-team"] });
+      setTeamDialogOpen(false);
+      setEditingMember(null);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not save team member.",
+      );
+    } finally {
+      setIsSavingMember(false);
+    }
   };
 
-  const handleDeleteMember = (id: string) => {
-    const remaining = team.filter((member) => member.id !== id);
-    setTeam(remaining);
-    saveAboutTeamMembers(remaining);
-    toast.success("Team member removed from About page.");
+  const handleDeleteMember = async (id: string) => {
+    try {
+      await deleteAboutTeamMember(id);
+      await queryClient.invalidateQueries({ queryKey: ["admin-about-team"] });
+      toast.success("Team member removed from About page.");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Could not delete team member.",
+      );
+    }
   };
 
   const openNewImage = () => {
@@ -267,17 +279,25 @@ export default function AdminAboutPage() {
     }
   };
 
-  const handleMemberImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleMemberImageUpload = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        setMemberForm((prev) => ({ ...prev, image: result }));
+    try {
+      const uploaded = await uploadSingleImage(file);
+      const path = uploaded.path?.trim();
+      if (!path) {
+        toast.error("Upload did not return a file path.");
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+      setMemberForm((prev) => ({ ...prev, image: path }));
+      toast.success("Profile image uploaded.");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Upload failed. Try a URL instead.",
+      );
+    }
   };
 
   const handleGalleryImageUpload = async (
@@ -334,7 +354,15 @@ export default function AdminAboutPage() {
             </Button>
           </CardHeader>
           <CardContent className="p-6 pt-4 space-y-4">
-            {paginatedTeam.length === 0 ? (
+            {teamQuery.isLoading ? (
+              <div className="flex justify-center py-10 text-sm text-muted-foreground">
+                Loading team members…
+              </div>
+            ) : teamQuery.isError ? (
+              <div className="text-center py-10 text-sm text-destructive">
+                Could not load team members from the server.
+              </div>
+            ) : paginatedTeam.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-border rounded-xl">
                 <Users className="h-10 w-10 text-muted-foreground mb-3" />
                 <p className="font-bold text-sm">
@@ -354,7 +382,7 @@ export default function AdminAboutPage() {
                   >
                     <div className="relative h-40 w-full overflow-hidden">
                       <img
-                        src={member.image}
+                        src={toSiteRelativeMediaSrc(member.image)}
                         alt={member.name}
                         className="w-full h-full object-cover"
                       />
@@ -481,11 +509,11 @@ export default function AdminAboutPage() {
             <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/30 border border-border">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
-                  Members with Contact Details
+                  Internal contact records
                 </p>
                 <p className="text-lg font-black">{totalContacts}</p>
               </div>
-              <Badge>PUBLIC FACING</Badge>
+              <Badge variant="secondary">Admin only</Badge>
             </div>
           </CardContent>
         </Card>
@@ -611,8 +639,8 @@ export default function AdminAboutPage() {
               {editingMember ? "Edit Team Member" : "Add Team Member"}
             </DialogTitle>
             <DialogDescription>
-              These details power the &quot;People Behind The Produce&quot;
-              section on the About page.
+              Name, role, photo, and bio appear on the public About page. Email
+              and phone are stored for internal use only — not shown to visitors.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
@@ -708,8 +736,12 @@ export default function AdminAboutPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSaveMember}>
-              {editingMember ? "Save Changes" : "Add Member"}
+            <Button onClick={handleSaveMember} disabled={isSavingMember}>
+              {isSavingMember
+                ? "Saving…"
+                : editingMember
+                  ? "Save Changes"
+                  : "Add Member"}
             </Button>
           </DialogFooter>
         </DialogContent>
