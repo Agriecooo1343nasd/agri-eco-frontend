@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { ShieldAlert } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { GLOBAL_API_TOAST_ID } from "@/lib/api/error";
 import { useAuth } from "@/context/AuthContext";
 
 export function AdminAccessGuard({ children }: { children: ReactNode }) {
@@ -20,6 +21,7 @@ export function AdminAccessGuard({ children }: { children: ReactNode }) {
     if (!isAuthenticated) {
       hasRedirectedRef.current = true;
       toast.error("Login required", {
+        id: GLOBAL_API_TOAST_ID,
         description:
           "Please sign in with an administrator account to continue.",
       });
@@ -30,6 +32,7 @@ export function AdminAccessGuard({ children }: { children: ReactNode }) {
     if (!isAdmin) {
       hasRedirectedRef.current = true;
       toast.error("Restricted area", {
+        id: GLOBAL_API_TOAST_ID,
         description:
           "This section is reserved for authorized administrative users.",
       });

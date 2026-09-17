@@ -110,7 +110,9 @@ export function mapBackendCartItemToProduct(item: BackendCartItem): Product {
 }
 
 export async function fetchCart(): Promise<BackendCart> {
-  const response = await apiClient.get<ApiSuccessResponse<BackendCart>>("/cart");
+  const response = await apiClient.get<ApiSuccessResponse<BackendCart>>("/cart", {
+    skipErrorToast: true,
+  });
   return response.data.data!;
 }
 

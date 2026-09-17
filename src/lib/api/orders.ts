@@ -66,7 +66,9 @@ export interface PlaceOrderPayload {
 }
 
 export async function placeOrder(payload: PlaceOrderPayload): Promise<Order> {
-  const response = await apiClient.post<ApiSuccessResponse<Order>>("/orders", payload);
+  const response = await apiClient.post<ApiSuccessResponse<Order>>("/orders", payload, {
+    showAuthErrorToast: true,
+  });
   return response.data.data!;
 }
 

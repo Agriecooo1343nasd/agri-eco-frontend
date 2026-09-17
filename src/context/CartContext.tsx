@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { Product } from "@/components/ProductCard";
 import { toast } from "sonner";
+import { GLOBAL_API_TOAST_ID } from "@/lib/api/error";
 import { useAuth } from "./AuthContext";
 import {
   fetchCart,
@@ -90,6 +91,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const requireAuth = () => {
     toast.error("Authentication required", {
+      id: GLOBAL_API_TOAST_ID,
       description: "Please log in to continue.",
     });
     setTimeout(() => {

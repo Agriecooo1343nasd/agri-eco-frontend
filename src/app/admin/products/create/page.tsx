@@ -69,6 +69,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -111,6 +116,42 @@ interface LocalDraftShape {
   productType: "consumable" | "articraft";
   batches: BatchRow[];
   artisanId?: string;
+}
+
+function PricingFieldLabel({
+  label,
+  hint,
+  required,
+}: {
+  label: string;
+  hint: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 ml-1">
+      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+        {label}
+        {required ? <span className="text-destructive"> *</span> : null}
+      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex rounded-full text-muted-foreground hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label={`About ${label}`}
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="max-w-[260px] text-sm font-normal normal-case tracking-normal leading-snug"
+        >
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
 }
 
 type UnitValue =
@@ -1057,10 +1098,11 @@ export default function CreateProductPage() {
                 <CardContent className="p-8">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Selling Price{" "}
-                        <span className="text-destructive">*</span>
-                      </label>
+                      <PricingFieldLabel
+                        label="Selling Price"
+                        required
+                        hint="The price customers pay in the shop today. This is the main price shown on product pages and at checkout."
+                      />
                       <Input
                         type="number"
                         placeholder="0.00"
@@ -1070,9 +1112,10 @@ export default function CreateProductPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Original Price
-                      </label>
+                      <PricingFieldLabel
+                        label="Original Price"
+                        hint='Optional "was" price used to show a discount (e.g. deals or strike-through). Leave empty if there is no sale; otherwise set it higher than the selling price.'
+                      />
                       <Input
                         type="number"
                         placeholder="0.00"
@@ -1081,9 +1124,10 @@ export default function CreateProductPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">
-                        Cost Price
-                      </label>
+                      <PricingFieldLabel
+                        label="Cost Price"
+                        hint="Your internal cost to stock one unit (what you pay suppliers). Used for margin reporting only — customers never see this."
+                      />
                       <Input
                         type="number"
                         placeholder="0.00"

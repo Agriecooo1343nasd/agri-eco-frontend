@@ -108,6 +108,9 @@ export interface UserRoleStatus {
 }
 
 export async function fetchMyRoleStatus(): Promise<UserRoleStatus> {
-  const response = await apiClient.get<ApiSuccessResponse<UserRoleStatus>>("/users/me/role-status");
+  const response = await apiClient.get<ApiSuccessResponse<UserRoleStatus>>(
+    "/users/me/role-status",
+    { skipErrorToast: true },
+  );
   return response.data.data!;
 }

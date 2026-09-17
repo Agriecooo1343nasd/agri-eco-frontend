@@ -118,7 +118,10 @@ export async function fetchWishlist(query?: Record<string, unknown>): Promise<Ba
       params.append(key, String(value));
     });
   }
-  const response = await apiClient.get<ApiSuccessResponse<BackendWishlist>>(`/wishlist${params.toString() ? `?${params.toString()}` : ""}`);
+  const response = await apiClient.get<ApiSuccessResponse<BackendWishlist>>(
+    `/wishlist${params.toString() ? `?${params.toString()}` : ""}`,
+    { skipErrorToast: true },
+  );
   return response.data.data!;
 }
 

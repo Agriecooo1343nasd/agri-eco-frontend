@@ -216,7 +216,7 @@ const Header = () => {
               className="flex items-center gap-1 hover:underline text-xs"
             >
               <Phone className="h-3 w-3" />
-              <span className="hidden md:inline">0785760108</span>
+              <span className="hidden md:inline">+250 789 693 481</span>
             </a>
           </div>
         </div>
