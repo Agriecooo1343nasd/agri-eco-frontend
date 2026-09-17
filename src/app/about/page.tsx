@@ -6,13 +6,11 @@ import { useLanguage } from "@/context/LanguageContext";
 import { translations } from "@/i18n/translations";
 import {
   Users,
-  Leaf,
   MapPin,
   Target,
   ShieldCheck,
   Heart,
   Calendar,
-  ChevronRight,
   Facebook,
   Instagram,
   Linkedin,
@@ -75,47 +73,14 @@ const AboutPage = () => {
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <Header />
 
-      {/* Hero Section */}
-      <section className="relative h-[320px] sm:h-[400px] md:h-[480px] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="/assets/hero.png"
-            alt="About Agri-Eco"
-            fill
-            priority
-            sizes="100vw"
-            className="w-full h-full object-cover brightness-50"
-          />
-        </div>
-        <div className="relative z-10 w-full max-w-screen-2xl mx-auto px-4 text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 md:mb-6 font-heading drop-shadow-xl leading-tight">
-            {t(translations.aboutPage.heroTitle1)} <br />
-            <span className="text-primary-foreground">
-              {t(translations.aboutPage.heroTitle2)}
-            </span>
-          </h1>
-          <div className="flex items-center justify-center text-white/90 gap-2 text-sm md:text-base font-medium">
-            <Link href="/" className="hover:text-white transition-colors">
-              {t(translations.aboutPage.breadHome)}
-            </Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-white">{t(translations.aboutPage.breadAbout)}</span>
-          </div>
-        </div>
-      </section>
-
       {/* Origin Story */}
-      <section className="py-12 md:py-20 bg-card">
+      <section className="pt-10 pb-12 md:pt-14 md:pb-20 bg-card">
         <div className="w-full max-w-screen-2xl mx-auto px-4">
-          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
-            <div className="flex-1 w-full space-y-6 md:space-y-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-bold uppercase tracking-wider">
-                <Leaf className="h-4 w-4" />
-                {t(translations.aboutPage.ourStory)}
-              </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-foreground leading-[1.1] font-heading">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-10 lg:gap-16">
+            <div className="flex-1 w-full space-y-5 md:space-y-6">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-foreground leading-[1.1] font-heading">
                 {t(translations.aboutPage.storyTitle)}
-              </h2>
+              </h1>
               <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
                 {t(translations.aboutPage.storyDesc)}
               </p>
@@ -139,6 +104,15 @@ const AboutPage = () => {
                   </div>
                 </div>
               </div>
+              <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
+                {t(translations.aboutPage.storyDesc2)}
+              </p>
+              <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
+                {t(translations.aboutPage.storyDesc3)}
+              </p>
+              <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
+                {t(translations.aboutPage.storyDesc4)}
+              </p>
             </div>
 
             {/* Image — constrained height on mobile so it doesn't dominate */}
@@ -155,7 +129,7 @@ const AboutPage = () => {
                 />
               </div>
               <div className="absolute -bottom-6 left-4 sm:-bottom-10 sm:-left-10 z-20 bg-primary text-white p-5 sm:p-8 rounded-xl hidden sm:block">
-                <div className="text-3xl sm:text-4xl font-black mb-1">12+</div>
+                <div className="text-3xl sm:text-4xl font-black mb-1">2025</div>
                 <div className="text-xs sm:text-sm font-bold opacity-80 uppercase tracking-widest">
                   {t(translations.aboutPage.yearsOfTrust)}
                 </div>
